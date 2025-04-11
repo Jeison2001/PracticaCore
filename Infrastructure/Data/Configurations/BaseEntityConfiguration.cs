@@ -27,6 +27,7 @@ namespace Infrastructure.Data.Configurations
             base.Configure(builder);
             builder.ToTable("example");
             builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("name");
+            builder.Property(e => e.Code).HasColumnName("code").HasMaxLength(20).IsRequired(false);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
         }
     }

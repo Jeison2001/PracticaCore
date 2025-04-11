@@ -30,12 +30,21 @@ namespace Api.Middlewares
             var response = new ApiResponse<object>
             {
                 Success = false,
-                Errors = new List<string> { exception.Message }
+                Errors = new List<string>()
             };
-
+        
+            if (exception is FluentValidation.ValidationException validationException)
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                response.Errors.AddRange(validationException.Errors.Select(e => e.ErrorMessage));
+            }
+            else
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                response.Errors.Add(exception.Message);
+            }
+        
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-
             return context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
     }
