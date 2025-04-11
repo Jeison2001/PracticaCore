@@ -34,5 +34,8 @@ namespace Infrastructure.Repositories
             _context.Set<T>().Remove(entity);
             return Task.CompletedTask;
         }
+
+        public async Task<T?> GetFirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken)
+            => await _context.Set<T>().FirstOrDefaultAsync(predicate, cancellationToken);
     }
 }

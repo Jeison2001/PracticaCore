@@ -16,7 +16,7 @@ namespace Application.Common.Behaviors
         {
             var context = new ValidationContext<TRequest>(request);
             var failures = _validators
-                .Select(v => v.Validate(context))
+                .Select(v => v.ValidateAsync(context).Result)
                 .SelectMany(result => result.Errors)
                 .Where(f => f != null)
                 .ToList();
