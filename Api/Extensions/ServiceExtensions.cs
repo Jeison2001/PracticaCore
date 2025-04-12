@@ -161,7 +161,7 @@ namespace Api.Extensions
             var genericQuery = queryType.MakeGenericType(entityType, idType, dtoType);
             var genericHandler = handlerType.MakeGenericType(entityType, idType, dtoType);
             var responseType = queryType == typeof(GetAllEntitiesQuery<,,>)
-                ? typeof(IEnumerable<>).MakeGenericType(dtoType)
+                ? typeof(Domain.Common.PaginatedResult<>).MakeGenericType(dtoType)
                 : dtoType;
 
             var handlerInterface = typeof(IRequestHandler<,>).MakeGenericType(genericQuery, responseType);
