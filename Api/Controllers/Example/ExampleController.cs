@@ -6,9 +6,9 @@ namespace Api.Controllers.Example
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class CountryController : GenericController<Domain.Entities.Example, int, ExampleDto>
+    public class ExampleController : GenericController<Domain.Entities.Example, int, ExampleDto>
     {
-        public CountryController(IMediator mediator) : base(mediator) { }
+        public ExampleController(IMediator mediator) : base(mediator) { }
     }
 
 }
