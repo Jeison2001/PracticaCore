@@ -1,4 +1,6 @@
-﻿using Domain.Entities;
+﻿using System.Linq.Expressions;
+using Domain.Common;
+using Domain.Entities;
 
 namespace Domain.Interfaces
 {
@@ -9,6 +11,16 @@ namespace Domain.Interfaces
         Task AddAsync(T entity);
         Task UpdateAsync(T entity);
         Task DeleteAsync(T entity);
-        Task<T?> GetFirstOrDefaultAsync(System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken);
+        Task<T?> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken);
+        Task<IEnumerable<T>> GetAllAsync(
+            Expression<Func<T, bool>>? filter = null,
+            Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+            int? pageNumber = null,
+            int? pageSize = null);
+        Task<PaginatedResult<T>> GetAllWithPaginationAsync(
+            Expression<Func<T, bool>>? filter = null,
+            Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+            int pageNumber = 1,
+            int pageSize = 10);
     }
 }

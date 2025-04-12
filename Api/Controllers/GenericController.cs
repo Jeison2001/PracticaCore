@@ -5,6 +5,7 @@ using MediatR;
 using Application.Shared.Commands;
 using Api.Responses;
 using Application.Shared.DTOs;
+using Domain.Common;
 
 namespace Api.Controllers
 {
@@ -27,10 +28,19 @@ namespace Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
         {
-            var result = await _mediator.Send(new GetAllEntitiesQuery<T, TId, TDto>());
-            return Ok(new ApiResponse<IEnumerable<TDto>> { Success = true, Data = result });
+            var query = new GetAllEntitiesQuery<T, TId, TDto>
+            {
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                SortBy = request.SortBy,
+                IsDescending = request.IsDescending,
+                Filters = request.Filters
+            };
+
+            var result = await _mediator.Send(query);
+            return Ok(new ApiResponse<PaginatedResult<TDto>> { Success = true, Data = result });
         }
 
         [HttpPost]
