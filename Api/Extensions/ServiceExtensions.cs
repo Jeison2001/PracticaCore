@@ -7,13 +7,16 @@ using Application.Validations.BaseValidators;
 using Application.Validations.SpecificValidators.Example;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Interfaces.Registration;
 using FluentValidation;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Scrutor;
 using System.Data;
+using System.Reflection;
 
 namespace Api.Extensions
 {
@@ -25,8 +28,12 @@ namespace Api.Extensions
                 options.UseNpgsql(config.GetConnectionString("Default")));
             //options.UseSqlServer(config.GetConnectionString("Default")));
 
+            // Mantener el registro directo del repositorio genérico
             services.AddScoped(typeof(IRepository<,>), typeof(BaseRepository<,>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+            // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
+            RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
         }
 
         public static void AddApplicationLayer(this IServiceCollection services)
@@ -37,14 +44,50 @@ namespace Api.Extensions
                 cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
             });
 
+            // Auto-registro de Handlers MediatR que no se registran automáticamente por MediatR
             RegisterGenericHandlers(services);
+            
             services.AddAutoMapper(typeof(GenericProfile));
 
-            // Registrar primero los validadores específicos del ensamblado
+            // Auto-registro de validadores
             services.AddValidatorsFromAssembly(typeof(CreateExampleCommandValidator).Assembly);
+
+            // Auto-registro basado en interfaces marcadoras para servicios de aplicación
+            RegisterByLifetime(services, typeof(CreateExampleCommandValidator).Assembly);
 
             // Luego registrar los validadores genéricos solo donde no existan específicos
             RegisterGenericValidators(services);
+        }
+
+        /// <summary>
+        /// Registra servicios automáticamente basado en las interfaces marcadoras 
+        /// ITransientService, IScopedService y ISingletonService
+        /// </summary>
+        private static void RegisterByLifetime(IServiceCollection services, Assembly assembly)
+        {
+            // Registrar servicios Transient
+            services.Scan(scan => scan
+                .FromAssemblies(assembly)
+                .AddClasses(classes => classes.AssignableTo<ITransientService>())
+                .UsingRegistrationStrategy(RegistrationStrategy.Skip)
+                .AsImplementedInterfaces()
+                .WithTransientLifetime());
+
+            // Registrar servicios Scoped
+            services.Scan(scan => scan
+                .FromAssemblies(assembly)
+                .AddClasses(classes => classes.AssignableTo<IScopedService>())
+                .UsingRegistrationStrategy(RegistrationStrategy.Skip)
+                .AsImplementedInterfaces()
+                .WithScopedLifetime());
+       
+            // Registrar servicios Singleton
+            services.Scan(scan => scan
+                .FromAssemblies(assembly)
+                .AddClasses(classes => classes.AssignableTo<ISingletonService>())
+                .UsingRegistrationStrategy(RegistrationStrategy.Skip)
+                .AsImplementedInterfaces()
+                .WithSingletonLifetime());
         }
 
         private static void RegisterGenericValidators(IServiceCollection services)
@@ -91,8 +134,8 @@ namespace Api.Extensions
         {
             // Construir el tipo del validador genérico
             Type[] validatorTypeArgs = dtoType != null
-                ? [entityType, dtoType, idType]
-                : [entityType, idType];
+                ? new[] {entityType, dtoType, idType}
+                : new[] {entityType, idType};
 
             Type validatorType = validatorGenericType.MakeGenericType(validatorTypeArgs);
 
@@ -173,11 +216,11 @@ namespace Api.Extensions
             Type[] genericArgs;
             if (commandType == typeof(DeleteEntityCommand<,>))
             {
-                genericArgs = [entityType, idType];
+                genericArgs = new[] {entityType, idType};
             }
             else
             {
-                genericArgs = [entityType, idType, dtoType];
+                genericArgs = new[] {entityType, idType, dtoType};
             }
 
             var genericCommand = commandType.MakeGenericType(genericArgs);
