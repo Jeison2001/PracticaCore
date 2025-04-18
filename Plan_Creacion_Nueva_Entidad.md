@@ -38,9 +38,14 @@ namespace Application.Shared.DTOs.NuevaEntidad
 ```
 
 ## 3. Configuración del Mapeo para la Base de Datos
-1. Agregar la configuración de mapeo en la clase `BaseEntityConfiguration` ubicada en `Infrastructure/Data/Configurations`.
-   - Incluir las reglas de mapeo específicas para la nueva entidad.
-
+1. Agregar la configuración de mapeo dentro de la clase `BaseEntityConfiguration` ubicada en `Infrastructure/Data/Configurations/BaseEntityConfiguration.cs`.
+    - Crear una clase específica para la entidad dentro de `BaseEntityConfiguration` siguiendo el patrón de las demás configuraciones.
+    - Incluir las reglas de mapeo específicas para la nueva entidad.
+    - Si tiene FK debe colocarse explícitamente la relación Ejemplo:
+    builder.Property(p => p.IdFaculty).HasColumnName("idfaculty");
+   builder.HasOne(p => p.Faculty)
+                    .WithMany(f => f.AcademicPrograms)
+                    .HasForeignKey(p => p.IdFaculty);
 **Ejemplo:**
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -61,13 +66,13 @@ namespace Infrastructure.Data.Configurations
 
 ## 4. Capa de Validaciones
 1. Crear una nueva carpeta en `Application/Validations/specificsValidators`.
-2. Dentro de esta carpeta, crear una clase de validación para el Dto.
+2. Dentro de esta carpeta, crear una subcarpeta con el nombre de la entidad base y clase de validación para el Dto.
 
 **Ejemplo:**
 ```csharp
 using FluentValidation;
 
-namespace Application.Validations.NuevaEntidad
+namespace Application.Validations.specificsValidators.NuevaEntidad
 {
     public class NuevaEntidadValidator : AbstractValidator<NuevaEntidadDto>
     {
