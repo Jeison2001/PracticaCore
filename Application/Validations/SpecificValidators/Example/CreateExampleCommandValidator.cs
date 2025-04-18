@@ -3,7 +3,8 @@ using Application.Validations.BaseValidators;
 using FluentValidation;
 
 
-namespace Application.Validations.SpecificValidators.Example {
+namespace Application.Validations.SpecificValidators.Example
+{
     public class CreateExampleCommandValidator : BaseCreateCommandValidator<Domain.Entities.Example, ExampleDto, int>
     {
         public CreateExampleCommandValidator(Domain.Interfaces.IRepository<Domain.Entities.Example, int> repository)
