@@ -21,5 +21,7 @@ namespace Application.Shared.DTOs.RegisterModalityWithStudents
     public class RegisterModalityStudentCreateDto
     {
         public int IdUser { get; set; }
+        public string Identification { get; set; }
+        public int IdIdentificationType { get; set; }
     }
 }
