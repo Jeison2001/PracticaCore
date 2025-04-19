@@ -3,5 +3,5 @@ using MediatR;
 
 namespace Application.Shared.Commands.RegisterModalityWithStudents
 {
-    public record UpdateRegisterModalityWithStudentsCommand(int Id, RegisterModalityWithStudentsDto Dto) : IRequest<RegisterModalityWithStudentsDto>;
+    public record UpdateRegisterModalityWithStudentsCommand(int Id, RegisterModalityWithStudentsUpdateDto Dto) : IRequest<RegisterModalityWithStudentsDto>;
 }

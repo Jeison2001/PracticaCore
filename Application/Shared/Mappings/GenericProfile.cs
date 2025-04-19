@@ -1,4 +1,5 @@
 ﻿using Application.Shared.DTOs;
+using Application.Shared.DTOs.RegisterModalityStudent;
 using Domain.Entities;
 using AutoMapper;
 using System.Reflection;
@@ -37,6 +38,7 @@ namespace Application.Shared.Mappings
                     CreateMap(entityType, dtoType).ReverseMap();
                 }
             }
+            CreateMap<RegisterModalityStudent, RegisterModalityStudentDto>().ReverseMap();
         }
     }
 }

@@ -26,28 +26,28 @@ namespace Api.Controllers
             try
             {
                 var result = await _mediator.Send(new GetRegisterModalityWithStudentsQuery(id));
-                return Ok(new ApiResponse<RegisterModalityWithStudentsDto> { Success = true, Data = result });
+                return Ok(new ApiResponse<RegisterModalityWithStudentsResponseDto> { Success = true, Data = result });
             }
             catch (KeyNotFoundException)
             {
-                return NotFound(new ApiResponse<object> 
-                { 
-                    Success = false, 
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
                     Errors = new List<string> { $"No se encontró el registro de modalidad con ID {id}" }
                 });
             }
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] RegisterModalityWithStudentsDto dto)
+        public async Task<IActionResult> Create([FromBody] RegisterModalityWithStudentsCreateDto dto)
         {
             var result = await _mediator.Send(new CreateRegisterModalityWithStudentsCommand(dto));
-            return CreatedAtAction(nameof(GetById), new { id = result.RegisterModality.Id }, 
+            return CreatedAtAction(nameof(GetById), new { id = result.RegisterModality.Id },
                 new ApiResponse<RegisterModalityWithStudentsDto> { Success = true, Data = result });
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] RegisterModalityWithStudentsDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] RegisterModalityWithStudentsUpdateDto dto)
         {
             try
             {
@@ -56,9 +56,9 @@ namespace Api.Controllers
             }
             catch (KeyNotFoundException)
             {
-                return NotFound(new ApiResponse<object> 
-                { 
-                    Success = false, 
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
                     Errors = new List<string> { $"No se encontró el registro de modalidad con ID {id}" }
                 });
             }
