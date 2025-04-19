@@ -31,6 +31,7 @@ namespace Api.Extensions
             // Mantener el registro directo del repositorio genérico
             services.AddScoped(typeof(IRepository<,>), typeof(BaseRepository<,>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IUserService, UserService>();
 
             // Registrar los repositorios de AcademicPeriod y Modality
             // Registrar automáticamente IReadRepository<T> para todas las entidades

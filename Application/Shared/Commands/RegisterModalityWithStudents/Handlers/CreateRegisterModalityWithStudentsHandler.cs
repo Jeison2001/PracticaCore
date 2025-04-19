@@ -1,4 +1,6 @@
 using Application.Shared.DTOs.RegisterModality;
+using Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Application.Shared.DTOs.RegisterModalityStudent;
 using Application.Shared.DTOs.RegisterModalityWithStudents;
 using Domain.Entities;
@@ -14,13 +16,16 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
     {
         private readonly IMediator _mediator;
         private readonly ILogger<CreateRegisterModalityWithStudentsHandler> _logger;
+        private readonly IUserService _userService;
 
         public CreateRegisterModalityWithStudentsHandler(
             IMediator mediator,
-            ILogger<CreateRegisterModalityWithStudentsHandler> logger)
+            ILogger<CreateRegisterModalityWithStudentsHandler> logger,
+            IUserService userService)
         {
             _mediator = mediator;
             _logger = logger;
+            _userService = userService;
         }
 
         public async Task<RegisterModalityWithStudentsDto> Handle(
@@ -44,28 +49,52 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                 // 2. Get the generated ID for the modality record
                 var registerModalityId = registerModalityDto.Id;
 
-                // 3. Create the student records linked to the modality
+                // 3. Fetch all user identifications in a single step
+                var userIdentifications = await Task.WhenAll(
+                    request.Dto.Students.Select(async s => new
+                    {
+                        s.Identification,
+                        s.IdIdentificationType,
+                        UserIdentification = await _userService.GetUserIdByIdentification(s.IdIdentificationType, s.Identification)
+                    })
+                );
+
+                var userDictionary = userIdentifications.ToDictionary(
+                    x => x.Identification,
+                    x => x.UserIdentification
+                );
+
+                // 4. Create the student records linked to the modality
                 foreach (var studentDto in request.Dto.Students)
                 {
+                    var userIdentification = userDictionary[studentDto.Identification];
                     await _mediator.Send(
                         new CreateEntityCommand<RegisterModalityStudent, int, RegisterModalityStudentDto>(
                             new RegisterModalityStudentDto
                             {
                                 IdRegisterModality = registerModalityId,
-                                IdUser = studentDto.IdUser
+                                IdUser = userIdentification.Id,
+                                UserName = userIdentification.UserName
                             }),
                         cancellationToken);
                 }
 
-                // 4. Prepare and return the response
+                // 5. Prepare and return the response
+                var students = request.Dto.Students.Select(s =>
+                {
+                    var userIdentification = userDictionary[s.Identification];
+                    return new RegisterModalityStudentDto
+                    {
+                        IdRegisterModality = registerModalityId,
+                        IdUser = userIdentification.Id,
+                        UserName = userIdentification.UserName
+                    };
+                }).ToList();
+
                 return new RegisterModalityWithStudentsDto
                 {
                     RegisterModality = registerModalityDto,
-                    Students = request.Dto.Students.Select(s => new RegisterModalityStudentDto
-                    {
-                        IdRegisterModality = registerModalityId,
-                        IdUser = s.IdUser
-                    }).ToList()
+                    Students = students
                 };
             }
             catch (Exception ex)
