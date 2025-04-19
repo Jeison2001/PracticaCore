@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.Permission
 {
-    public class PermissionDto : BaseDto<long>
+    public class PermissionDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string? ParentCode { get; set; }

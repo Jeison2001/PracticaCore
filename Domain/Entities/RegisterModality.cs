@@ -2,11 +2,11 @@ using System;
 
 namespace Domain.Entities
 {
-    public class RegisterModality : BaseEntity<long>
+    public class RegisterModality : BaseEntity<int>
     {
-        public long IdModality { get; set; }
-        public long IdRegisterModalityState { get; set; }
-        public long IdAcademicPeriod { get; set; }
+        public int IdModality { get; set; }
+        public int IdRegisterModalityState { get; set; }
+        public int IdAcademicPeriod { get; set; }
         public DateTime? ApprovalDate { get; set; }
         public string? Observations { get; set; }
         public new int? IdUserCreatedAt { get; set; }

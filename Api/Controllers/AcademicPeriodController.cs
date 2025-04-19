@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
-    public class AcademicPeriodController : GenericController<AcademicPeriod, long, AcademicPeriodDto>
+    public class AcademicPeriodController : GenericController<AcademicPeriod, int, AcademicPeriodDto>
     {
         public AcademicPeriodController(IMediator mediator) : base(mediator)
         {

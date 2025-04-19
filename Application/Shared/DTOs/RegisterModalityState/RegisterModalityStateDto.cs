@@ -2,7 +2,7 @@ using System;
 
 namespace Application.Shared.DTOs.RegisterModalityState
 {
-    public class RegisterModalityStateDto : BaseDto<long>
+    public class RegisterModalityStateDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

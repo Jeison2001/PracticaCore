@@ -2,9 +2,9 @@ using System;
 
 namespace Domain.Entities
 {
-    public class RegisterModalityStudent : BaseEntity<long>
+    public class RegisterModalityStudent : BaseEntity<int>
     {
-        public long IdRegisterModality { get; set; }
+        public int IdRegisterModality { get; set; }
         public int IdUser { get; set; } 
         public new int? IdUserCreatedAt { get; set; }
 

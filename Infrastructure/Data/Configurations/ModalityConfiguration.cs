@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Data.Configurations
 {
-    public class ModalityConfiguration : BaseEntityConfiguration<Modality, long>
+    public class ModalityConfiguration : BaseEntityConfiguration<Modality, int>
     {
         public override void Configure(EntityTypeBuilder<Modality> builder)
         {

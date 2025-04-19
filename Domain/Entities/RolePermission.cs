@@ -1,9 +1,9 @@
 namespace Domain.Entities
 {
-    public class RolePermission : BaseEntity<long>
+    public class RolePermission : BaseEntity<int>
     {
         public int IdRole { get; set; }
-        public long IdPermission { get; set; }
+        public int IdPermission { get; set; }
         public new int? IdUserCreatedAt { get; set; }
 
         // Relaciones

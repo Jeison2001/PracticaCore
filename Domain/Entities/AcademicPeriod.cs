@@ -2,7 +2,7 @@ using System;
 
 namespace Domain.Entities
 {
-    public class AcademicPeriod : BaseEntity<long>
+    public class AcademicPeriod : BaseEntity<int>
     {
         public string Code { get; set; } = string.Empty;
         public DateTime StartDate { get; set; }
