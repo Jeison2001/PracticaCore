@@ -32,6 +32,25 @@ namespace Api.Extensions
             services.AddScoped(typeof(IRepository<,>), typeof(BaseRepository<,>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+            // Registrar los repositorios de AcademicPeriod y Modality
+            // Registrar automáticamente IReadRepository<T> para todas las entidades
+            var entityTypes = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .Where(t => t.IsClass && !t.IsAbstract &&
+                            t.BaseType?.IsGenericType == true &&
+                            t.BaseType.GetGenericTypeDefinition() == typeof(BaseEntity<>))
+                .ToList();
+
+            foreach (var entityType in entityTypes)
+            {
+                var idType = entityType.BaseType!.GetGenericArguments()[0];
+                var readRepositoryType = typeof(IReadRepository<>).MakeGenericType(entityType);
+                var repositoryType = typeof(IRepository<,>).MakeGenericType(entityType, idType);
+                
+                services.AddScoped(readRepositoryType, sp => 
+                    sp.GetRequiredService(repositoryType));
+            }
+
             // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
         }

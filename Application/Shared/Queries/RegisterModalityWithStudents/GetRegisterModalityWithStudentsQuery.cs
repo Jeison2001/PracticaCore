@@ -3,5 +3,5 @@ using MediatR;
 
 namespace Application.Shared.Queries.RegisterModalityWithStudents
 {
-    public record GetRegisterModalityWithStudentsQuery(int Id) : IRequest<RegisterModalityWithStudentsDto>;
+    public record GetRegisterModalityWithStudentsQuery(int Id) : IRequest<RegisterModalityWithStudentsResponseDto>;
 }

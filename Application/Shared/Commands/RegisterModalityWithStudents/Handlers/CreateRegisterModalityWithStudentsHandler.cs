@@ -4,6 +4,9 @@ using Application.Shared.DTOs.RegisterModalityWithStudents;
 using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
 {
@@ -26,36 +29,48 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
         {
             try
             {
-                // 1. Crear el registro de modalidad
+                // 1. Create the modality record
                 var registerModalityDto = await _mediator.Send(
-                    new CreateEntityCommand<RegisterModality, int, RegisterModalityDto>(request.Dto.RegisterModality),
+                    new CreateEntityCommand<RegisterModality, int, RegisterModalityDto>(
+                        new RegisterModalityDto
+                        {
+                            IdModality = request.Dto.RegisterModality.IdModality,
+                            IdRegisterModalityState = request.Dto.RegisterModality.IdRegisterModalityState,
+                            IdAcademicPeriod = request.Dto.RegisterModality.IdAcademicPeriod,
+                            Observations = request.Dto.RegisterModality.Observations
+                        }),
                     cancellationToken);
 
-                // 2. Obtener el ID generado para el registro de modalidad
+                // 2. Get the generated ID for the modality record
                 var registerModalityId = registerModalityDto.Id;
 
-                // 3. Crear los registros de estudiantes vinculados a la modalidad
+                // 3. Create the student records linked to the modality
                 foreach (var studentDto in request.Dto.Students)
                 {
-                    // Asegurarse de que el IdRegisterModality esté correctamente establecido
-                    studentDto.IdRegisterModality = registerModalityId;
-
-                    // Crear el registro de estudiante
                     await _mediator.Send(
-                        new CreateEntityCommand<RegisterModalityStudent, int, RegisterModalityStudentDto>(studentDto),
+                        new CreateEntityCommand<RegisterModalityStudent, int, RegisterModalityStudentDto>(
+                            new RegisterModalityStudentDto
+                            {
+                                IdRegisterModality = registerModalityId,
+                                IdUser = studentDto.IdUser
+                            }),
                         cancellationToken);
                 }
 
-                // 4. Preparar y devolver la respuesta
+                // 4. Prepare and return the response
                 return new RegisterModalityWithStudentsDto
                 {
                     RegisterModality = registerModalityDto,
-                    Students = request.Dto.Students
+                    Students = request.Dto.Students.Select(s => new RegisterModalityStudentDto
+                    {
+                        IdRegisterModality = registerModalityId,
+                        IdUser = s.IdUser
+                    }).ToList()
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al crear registro de modalidad con estudiantes");
+                _logger.LogError(ex, "Error creating modality registration with students");
                 throw;
             }
         }

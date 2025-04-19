@@ -6,6 +6,7 @@ namespace Application.Shared.DTOs.RegisterModalityStudent
     {
         public int IdRegisterModality { get; set; }
         public int IdUser { get; set; }
+        public string UserName { get; set; } = string.Empty;
         public new int? IdUserCreatedAt { get; set; }
     }
 }
