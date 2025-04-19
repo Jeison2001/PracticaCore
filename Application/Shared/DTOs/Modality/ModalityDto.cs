@@ -2,7 +2,7 @@ using System;
 
 namespace Application.Shared.DTOs.Modality
 {
-    public class ModalityDto : BaseDto<long>
+    public class ModalityDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string? Description { get; set; }

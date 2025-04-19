@@ -5,7 +5,7 @@ using MediatR;
 
 namespace Api.Controllers
 {
-    public class RolePermissionController : GenericController<RolePermission, long, RolePermissionDto>
+    public class RolePermissionController : GenericController<RolePermission, int, RolePermissionDto>
     {
         public RolePermissionController(IMediator mediator) : base(mediator)
         {

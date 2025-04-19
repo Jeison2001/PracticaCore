@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Domain.Entities
 {
-    public class Permission : BaseEntity<long>
+    public class Permission : BaseEntity<int>
     {
         public string Code { get; set; } = string.Empty;
         public string? ParentCode { get; set; }

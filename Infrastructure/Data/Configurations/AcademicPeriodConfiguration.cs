@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Data.Configurations
 {
-    public class AcademicPeriodConfiguration : BaseEntityConfiguration<AcademicPeriod, long>
+    public class AcademicPeriodConfiguration : BaseEntityConfiguration<AcademicPeriod, int>
     {
         public override void Configure(EntityTypeBuilder<AcademicPeriod> builder)
         {

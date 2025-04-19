@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
-    public class RegisterModalityStudentController : GenericController<RegisterModalityStudent, long, RegisterModalityStudentDto>
+    public class RegisterModalityStudentController : GenericController<RegisterModalityStudent, int, RegisterModalityStudentDto>
     {
         public RegisterModalityStudentController(IMediator mediator) : base(mediator)
         {
