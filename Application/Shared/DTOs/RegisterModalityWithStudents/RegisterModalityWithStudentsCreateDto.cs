@@ -15,7 +15,7 @@ namespace Application.Shared.DTOs.RegisterModalityWithStudents
         public int IdModality { get; set; }
         public int IdRegisterModalityState { get; set; }
         public int IdAcademicPeriod { get; set; }
-        public string Observations { get; set; }
+        public string? Observations { get; set; }
     }
 
     public class RegisterModalityStudentCreateDto
