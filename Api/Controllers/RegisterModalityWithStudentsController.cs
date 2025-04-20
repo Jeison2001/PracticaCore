@@ -2,8 +2,10 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Api.Responses;
 using Application.Shared.Commands.RegisterModalityWithStudents;
+using Application.Shared.DTOs;
 using Application.Shared.DTOs.RegisterModalityWithStudents;
 using Application.Shared.Queries.RegisterModalityWithStudents;
+using Domain.Common;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,6 +20,33 @@ namespace Api.Controllers
         public RegisterModalityWithStudentsController(IMediator mediator)
         {
             _mediator = mediator;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+        {
+            try
+            {
+                var query = new GetAllRegisterModalityWithStudentsQuery
+                {
+                    PageNumber = request.PageNumber,
+                    PageSize = request.PageSize,
+                    SortBy = request.SortBy,
+                    IsDescending = request.IsDescending,
+                    Filters = request.Filters
+                };
+
+                var result = await _mediator.Send(query);
+                return Ok(new ApiResponse<PaginatedResult<RegisterModalityWithStudentsResponseDto>> { Success = true, Data = result });
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Errors = new List<string> { $"Error al obtener los registros de modalidad: {ex.Message}" }
+                });
+            }
         }
 
         [HttpGet("{id}")]
