@@ -7,7 +7,7 @@ using Domain.Common;
 
 namespace Infrastructure.Repositories
 {
-    public class BaseRepository<T, TId> : IRepository<T, TId>, IReadRepository<T> where T : BaseEntity<TId> where TId : struct
+    public class BaseRepository<T, TId> : IRepository<T, TId> where T : BaseEntity<TId> where TId : struct
     {
         protected readonly AppDbContext _context;
 
@@ -95,17 +95,5 @@ namespace Infrastructure.Repositories
 
         public async Task<T?> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken)
             => await _context.Set<T>().FirstOrDefaultAsync(predicate, cancellationToken);
-
-        // Implementación explícita de IReadRepository<T>
-        async Task<T> IReadRepository<T>.GetByIdAsync(int id)
-        {
-            if (id is TId typedId)
-            {
-                var result = await GetByIdAsync(typedId);
-                return result;
-            }
-
-            return null;
-        }
     }
 }

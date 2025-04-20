@@ -10,7 +10,7 @@ using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Domain.Common;
-using Domain.Interfaces; // Asegúrate de agregar esta línea
+using Domain.Interfaces;
 
 namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
 {
@@ -18,18 +18,18 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
     {
         private readonly IMediator _mediator;
         private readonly ILogger<GetRegisterModalityWithStudentsHandler> _logger;
-        private readonly IReadRepository<AcademicPeriod> _academicPeriodRepository; // Inyecta el repositorio de AcademicPeriod
-        private readonly IReadRepository<Modality> _modalityRepository; // Inyecta el repositorio de Modality
-        private readonly IReadRepository<RegisterModalityState> _registerModalityStateRepository; // Inyecta el repositorio de RegisterModalityState
-        private readonly IReadRepository<User> _userRepository; // Inyecta el repositorio de User
+        private readonly IRepository<AcademicPeriod, int> _academicPeriodRepository;
+        private readonly IRepository<Modality, int> _modalityRepository;
+        private readonly IRepository<RegisterModalityState, int> _registerModalityStateRepository;
+        private readonly IRepository<User, int> _userRepository;
 
         public GetRegisterModalityWithStudentsHandler(
             IMediator mediator,
             ILogger<GetRegisterModalityWithStudentsHandler> logger,
-            IReadRepository<AcademicPeriod> academicPeriodRepository, // Agrega el repositorio de AcademicPeriod al constructor
-            IReadRepository<Modality> modalityRepository, // Agrega el repositorio de Modality al constructor
-            IReadRepository<RegisterModalityState> registerModalityStateRepository, // Agrega el repositorio de RegisterModalityState al constructor
-            IReadRepository<User> userRepository) // Agrega el repositorio de User al constructor
+            IRepository<AcademicPeriod, int> academicPeriodRepository,
+            IRepository<Modality, int> modalityRepository,
+            IRepository<RegisterModalityState, int> registerModalityStateRepository,
+            IRepository<User, int> userRepository)
         {
             _mediator = mediator;
             _logger = logger;
@@ -66,21 +66,23 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
 
                 // 3. Obtener todos los estudiantes asociados a esta modalidad
                 var studentsQuery = new GetAllEntitiesQuery<RegisterModalityStudent, int, RegisterModalityStudentDto>
-{
-    Filters = new Dictionary<string, string>(),
-    PageNumber = 1,
-    PageSize = int.MaxValue // Obtiene todos los registros sin paginar
-};
+                {
+                    Filters = new Dictionary<string, string>
+                    {
+                        { "IdRegisterModality", request.Id.ToString() }
+                    },
+                    PageNumber = 1,
+                    PageSize = int.MaxValue // Obtiene todos los registros sin paginar
+                };
 
-var studentsResult = await _mediator.Send(studentsQuery, cancellationToken);
-
+                var studentsResult = await _mediator.Send(studentsQuery, cancellationToken);
 
                 // 4. Obtener los nombres de los estudiantes
                 var students = studentsResult.Items.ToList();
                 foreach (var student in students)
                 {
                     var user = await _userRepository.GetByIdAsync(student.IdUser);
-if (user == null) _logger.LogWarning("No se encontró el usuario con Id: {IdUser}", student.IdUser);
+                    if (user == null) _logger.LogWarning("No se encontró el usuario con Id: {IdUser}", student.IdUser);
                     if (user != null)
                     {
                         student.UserName = $"{user.FirstName} {user.LastName}";
