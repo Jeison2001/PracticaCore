@@ -13,11 +13,11 @@ namespace Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class RegisterModalityWithStudentsController : ControllerBase
+    public class InscriptionModalityController : ControllerBase
     {
         private readonly IMediator _mediator;
 
-        public RegisterModalityWithStudentsController(IMediator mediator)
+        public InscriptionModalityController(IMediator mediator)
         {
             _mediator = mediator;
         }
@@ -63,6 +63,25 @@ namespace Api.Controllers
                 {
                     Success = false,
                     Errors = new List<string> { $"No se encontró el registro de modalidad con ID {id}" }
+                });
+            }
+        }
+
+        [HttpGet("ByUser/{id}")]
+        public async Task<IActionResult> GetByUserId(int id)
+        {
+            try
+            {
+                var query = new GetRegisterModalityWithStudentsByUserQuery(id);
+                var result = await _mediator.Send(query);
+                return Ok(new ApiResponse<List<RegisterModalityWithStudentsResponseDto>> { Success = true, Data = result });
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Errors = new List<string> { $"Error al obtener los registros de modalidad del usuario: {ex.Message}" }
                 });
             }
         }
