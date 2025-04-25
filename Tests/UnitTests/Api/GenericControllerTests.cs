@@ -1,7 +1,9 @@
 ﻿using Api.Controllers;
+using Api.Responses;
 using Application.Shared.Commands;
 using Application.Shared.DTOs;
 using Application.Shared.Queries;
+using Domain.Common;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -35,23 +37,35 @@ namespace Tests.UnitTests.Api
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal(dto, okResult.Value);
+            var apiResponse = Assert.IsType<ApiResponse<BaseDto<int>>>(okResult.Value);
+            Assert.True(apiResponse.Success);
+            Assert.Equal(dto, apiResponse.Data);
         }
 
         [Fact]
-        public async Task GetAll_ReturnsOkResult_WithEntities()
+        public async Task GetAll_ReturnsOkResult_WithPaginatedEntities()
         {
             // Arrange
             var dtos = new List<BaseDto<int>> { new() { Id = 1 }, new() { Id = 2 } };
+            var paginatedResult = new PaginatedResult<BaseDto<int>>
+            {
+                Items = dtos,
+                TotalRecords = dtos.Count,
+                PageNumber = 1,
+                PageSize = 10
+            };
+            
             _mediatorMock.Setup(m => m.Send(It.IsAny<GetAllEntitiesQuery<BaseEntity<int>, int, BaseDto<int>>>(), default))
-                         .ReturnsAsync(dtos);
+                         .ReturnsAsync(paginatedResult);
 
             // Act
-            var result = await _controller.GetAll();
+            var result = await _controller.GetAll(new PaginatedRequest());
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal(dtos, okResult.Value);
+            var apiResponse = Assert.IsType<ApiResponse<PaginatedResult<BaseDto<int>>>>(okResult.Value);
+            Assert.True(apiResponse.Success);
+            Assert.Equal(paginatedResult, apiResponse.Data);
         }
 
         [Fact]
@@ -67,7 +81,9 @@ namespace Tests.UnitTests.Api
 
             // Assert
             var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result);
-            Assert.Equal(dto, createdAtActionResult.Value);
+            var apiResponse = Assert.IsType<ApiResponse<BaseDto<int>>>(createdAtActionResult.Value);
+            Assert.True(apiResponse.Success);
+            Assert.Equal(dto, apiResponse.Data);
             Assert.Equal(nameof(_controller.GetById), createdAtActionResult.ActionName);
             Assert.Equal(dto.Id, createdAtActionResult.RouteValues!["id"]);
         }
@@ -86,11 +102,13 @@ namespace Tests.UnitTests.Api
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal(dto, okResult.Value);
+            var apiResponse = Assert.IsType<ApiResponse<BaseDto<int>>>(okResult.Value);
+            Assert.True(apiResponse.Success);
+            Assert.Equal(dto, apiResponse.Data);
         }
 
         [Fact]
-        public async Task Delete_ReturnsNoContentResult_WhenEntityIsDeleted()
+        public async Task Delete_ReturnsOkResult_WhenEntityIsDeleted()
         {
             // Arrange
             var id = 1;
@@ -101,7 +119,10 @@ namespace Tests.UnitTests.Api
             var result = await _controller.Delete(id);
 
             // Assert
-            Assert.IsType<NoContentResult>(result);
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            var apiResponse = Assert.IsType<ApiResponse<object>>(okResult.Value);
+            Assert.True(apiResponse.Success);
+            Assert.Contains("Entity deleted successfully", apiResponse.Messages!);
         }
 
         [Fact]
@@ -116,7 +137,10 @@ namespace Tests.UnitTests.Api
             var result = await _controller.Delete(id);
 
             // Assert
-            Assert.IsType<NotFoundResult>(result);
+            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+            var apiResponse = Assert.IsType<ApiResponse<object>>(notFoundResult.Value);
+            Assert.False(apiResponse.Success);
+            Assert.Contains("Entity not found", apiResponse.Errors!);
         }
     }
 }

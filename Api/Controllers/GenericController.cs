@@ -3,7 +3,9 @@ using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using Application.Shared.Commands;
+using Api.Responses;
 using Application.Shared.DTOs;
+using Domain.Common;
 
 namespace Api.Controllers
 {
@@ -22,35 +24,46 @@ namespace Api.Controllers
         public async Task<IActionResult> GetById(TId id)
         {
             var result = await _mediator.Send(new GetEntityByIdQuery<T, TId, TDto>(id));
-            return Ok(result);
+            return Ok(new ApiResponse<TDto> { Success = true, Data = result });
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
         {
-            var result = await _mediator.Send(new GetAllEntitiesQuery<T, TId, TDto>());
-            return Ok(result);
+            var query = new GetAllEntitiesQuery<T, TId, TDto>
+            {
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                SortBy = request.SortBy,
+                IsDescending = request.IsDescending,
+                Filters = request.Filters
+            };
+
+            var result = await _mediator.Send(query);
+            return Ok(new ApiResponse<PaginatedResult<TDto>> { Success = true, Data = result });
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] TDto dto)
         {
             var result = await _mediator.Send(new CreateEntityCommand<T, TId, TDto>(dto));
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, new ApiResponse<TDto> { Success = true, Data = result });
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(TId id, [FromBody] TDto dto)
         {
             var result = await _mediator.Send(new UpdateEntityCommand<T, TId, TDto>(id, dto));
-            return Ok(result);
+            return Ok(new ApiResponse<TDto> { Success = true, Data = result });
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(TId id)
         {
             var result = await _mediator.Send(new DeleteEntityCommand<T, TId>(id));
-            return result ? NoContent() : NotFound();
+            return result
+                ? Ok(new ApiResponse<object> { Success = true, Messages = new List<string> { "Entity deleted successfully" } })
+                : NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { "Entity not found" } });
         }
     }
 }
