@@ -38,14 +38,14 @@ namespace Application.Shared.DTOs.NuevaEntidad
 ```
 
 ## 3. Configuración del Mapeo para la Base de Datos
-1. Agregar la configuración de mapeo dentro de la clase `BaseEntityConfiguration` ubicada en `Infrastructure/Data/Configurations/BaseEntityConfiguration.cs`.
-    - Crear una clase específica para la entidad dentro de `BaseEntityConfiguration` siguiendo el patrón de las demás configuraciones.
+1. Agregar la configuración de mapeo dentro de la clase `BaseEntityConfiguration` ubicada en `Infrastructure/Data/Configurations/BaseEntityConfiguration.cs` O en su propia clase de configuracion.
+    - Crear una clase específica siguiendo el patrón de las demás configuraciones.
     - Incluir las reglas de mapeo específicas para la nueva entidad.
     - Si tiene FK debe colocarse explícitamente la relación Ejemplo:
     builder.Property(p => p.IdFaculty).HasColumnName("idfaculty");
-   builder.HasOne(p => p.Faculty)
-                    .WithMany(f => f.AcademicPrograms)
-                    .HasForeignKey(p => p.IdFaculty);
+    builder.HasOne(p => p.Faculty)
+                        .WithMany(f => f.AcademicPrograms)
+                        .HasForeignKey(p => p.IdFaculty);
 **Ejemplo:**
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -106,10 +106,10 @@ namespace Api.Controllers
 }
 ```
 
-## 6. Pruebas
-1. Crear una nueva carpeta en `Tests/UnitTests` para cada capa con el nombre de la entidad.
-2. Dentro de esta carpeta, agregar pruebas unitarias para validar la lógica de negocio y las operaciones CRUD.
+## 6. Pruebas (OMITIR POR EL MOMENTO)
+<!-- 1. Crear una nueva carpeta en `Tests/UnitTests` para cada capa con el nombre de la entidad.
+2. Dentro de esta carpeta, agregar pruebas unitarias para validar la lógica de negocio y las operaciones CRUD. -->
 
 ## Consideraciones Finales
 - Verificar que las nuevas implementaciones no afecten funcionalidades existentes.
-- Realizar Compilación, ejecución del proyecto y pruebas exhaustivas antes de desplegar los cambios.
+- Realizar Compilación, ejecución del proyecto.
