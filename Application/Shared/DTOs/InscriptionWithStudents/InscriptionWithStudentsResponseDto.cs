@@ -1,9 +1,9 @@
 using Application.Shared.DTOs.InscriptionModality;
 using Application.Shared.DTOs.UserInscriptionModality;
 
-namespace Application.Shared.DTOs.RegisterModalityWithStudents
+namespace Application.Shared.DTOs.InscriptionWithStudents
 {
-    public class RegisterModalityWithStudentsResponseDto
+    public class InscriptionWithStudentsResponseDto
     {
         public InscriptionModalityDto InscriptionModality { get; set; }
         public string AcademicPeriodCode { get; set; }

@@ -1,6 +1,6 @@
-namespace Application.Shared.DTOs.RegisterModalityWithStudents
+namespace Application.Shared.DTOs.InscriptionWithStudents
 {
-    public class RegisterModalityWithStudentsCreateDto
+    public class InscriptionWithStudentsCreateDto
     {
         public InscriptionModalityCreateDto InscriptionModality { get; set; }
         public List<UserInscriptionModalityCreateDto> Students { get; set; }

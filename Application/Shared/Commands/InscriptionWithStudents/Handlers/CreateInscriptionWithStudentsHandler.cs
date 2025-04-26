@@ -1,26 +1,22 @@
 using Application.Shared.DTOs.InscriptionModality;
-using Domain.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Application.Shared.DTOs.UserInscriptionModality;
-using Application.Shared.DTOs.RegisterModalityWithStudents;
+using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Entities;
+using Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
+namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
-    public class CreateRegisterModalityWithStudentsHandler : IRequestHandler<CreateRegisterModalityWithStudentsCommand, RegisterModalityWithStudentsDto>
+    public class CreateInscriptionWithStudentsHandler : IRequestHandler<CreateInscriptionWithStudentsCommand, InscriptionWithStudentsDto>
     {
         private readonly IMediator _mediator;
-        private readonly ILogger<CreateRegisterModalityWithStudentsHandler> _logger;
+        private readonly ILogger<CreateInscriptionWithStudentsHandler> _logger;
         private readonly IUserService _userService;
 
-        public CreateRegisterModalityWithStudentsHandler(
+        public CreateInscriptionWithStudentsHandler(
             IMediator mediator,
-            ILogger<CreateRegisterModalityWithStudentsHandler> logger,
+            ILogger<CreateInscriptionWithStudentsHandler> logger,
             IUserService userService)
         {
             _mediator = mediator;
@@ -28,8 +24,8 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
             _userService = userService;
         }
 
-        public async Task<RegisterModalityWithStudentsDto> Handle(
-            CreateRegisterModalityWithStudentsCommand request,
+        public async Task<InscriptionWithStudentsDto> Handle(
+            CreateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
         {
             try
@@ -91,7 +87,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                     };
                 }).ToList();
 
-                return new RegisterModalityWithStudentsDto
+                return new InscriptionWithStudentsDto
                 {
                     InscriptionModality = inscriptionModalityDto,
                     Students = students

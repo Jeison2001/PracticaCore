@@ -1,10 +1,8 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Api.Responses;
-using Application.Shared.Commands.RegisterModalityWithStudents;
+using Application.Shared.Commands.InscriptionWithStudents;
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.RegisterModalityWithStudents;
-using Application.Shared.Queries.RegisterModalityWithStudents;
+using Application.Shared.DTOs.InscriptionWithStudents;
+using Application.Shared.Queries.InscriptionWithStudents;
 using Domain.Common;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -27,7 +25,7 @@ namespace Api.Controllers
         {
             try
             {
-                var query = new GetAllRegisterModalityWithStudentsQuery
+                var query = new GetAllInscriptionWithStudentsQuery
                 {
                     PageNumber = request.PageNumber,
                     PageSize = request.PageSize,
@@ -37,9 +35,9 @@ namespace Api.Controllers
                 };
 
                 var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<PaginatedResult<RegisterModalityWithStudentsResponseDto>> { Success = true, Data = result });
+                return Ok(new ApiResponse<PaginatedResult<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return StatusCode(500, new ApiResponse<object>
                 {
@@ -54,8 +52,8 @@ namespace Api.Controllers
         {
             try
             {
-                var result = await _mediator.Send(new GetRegisterModalityWithStudentsQuery(id));
-                return Ok(new ApiResponse<RegisterModalityWithStudentsResponseDto> { Success = true, Data = result });
+                var result = await _mediator.Send(new GetInscriptionWithStudentsQuery(id));
+                return Ok(new ApiResponse<InscriptionWithStudentsResponseDto> { Success = true, Data = result });
             }
             catch (KeyNotFoundException)
             {
@@ -72,11 +70,11 @@ namespace Api.Controllers
         {
             try
             {
-                var query = new GetRegisterModalityWithStudentsByUserQuery(id);
+                var query = new GetInscriptionWithStudentsByUserQuery(id);
                 var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<List<RegisterModalityWithStudentsResponseDto>> { Success = true, Data = result });
+                return Ok(new ApiResponse<List<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return StatusCode(500, new ApiResponse<object>
                 {
@@ -87,20 +85,20 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] RegisterModalityWithStudentsCreateDto dto)
+        public async Task<IActionResult> Create([FromBody] InscriptionWithStudentsCreateDto dto)
         {
-            var result = await _mediator.Send(new CreateRegisterModalityWithStudentsCommand(dto));
+            var result = await _mediator.Send(new CreateInscriptionWithStudentsCommand(dto));
             return CreatedAtAction(nameof(GetById), new { id = result.InscriptionModality.Id },
-                new ApiResponse<RegisterModalityWithStudentsDto> { Success = true, Data = result });
+                new ApiResponse<InscriptionWithStudentsDto> { Success = true, Data = result });
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] RegisterModalityWithStudentsUpdateDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] InscriptionWithStudentsUpdateDto dto)
         {
             try
             {
-                var result = await _mediator.Send(new UpdateRegisterModalityWithStudentsCommand(id, dto));
-                return Ok(new ApiResponse<RegisterModalityWithStudentsDto> { Success = true, Data = result });
+                var result = await _mediator.Send(new UpdateInscriptionWithStudentsCommand(id, dto));
+                return Ok(new ApiResponse<InscriptionWithStudentsDto> { Success = true, Data = result });
             }
             catch (KeyNotFoundException)
             {

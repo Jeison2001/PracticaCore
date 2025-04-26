@@ -1,32 +1,28 @@
 using Application.Shared.DTOs.InscriptionModality;
 using Application.Shared.DTOs.UserInscriptionModality;
-using Application.Shared.DTOs.RegisterModalityWithStudents;
+using Application.Shared.DTOs.InscriptionWithStudents;
 using Application.Shared.Queries;
 using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
+namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
-    public class UpdateRegisterModalityWithStudentsHandler : IRequestHandler<UpdateRegisterModalityWithStudentsCommand, RegisterModalityWithStudentsDto>
+    public class UpdateInscriptionWithStudentsHandler : IRequestHandler<UpdateInscriptionWithStudentsCommand, InscriptionWithStudentsDto>
     {
         private readonly IMediator _mediator;
-        private readonly ILogger<UpdateRegisterModalityWithStudentsHandler> _logger;
+        private readonly ILogger<UpdateInscriptionWithStudentsHandler> _logger;
 
-        public UpdateRegisterModalityWithStudentsHandler(
+        public UpdateInscriptionWithStudentsHandler(
             IMediator mediator,
-            ILogger<UpdateRegisterModalityWithStudentsHandler> logger)
+            ILogger<UpdateInscriptionWithStudentsHandler> logger)
         {
             _mediator = mediator;
             _logger = logger;
         }
 
-        public async Task<RegisterModalityWithStudentsDto> Handle(
-            UpdateRegisterModalityWithStudentsCommand request,
+        public async Task<InscriptionWithStudentsDto> Handle(
+            UpdateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
         {
             // **Validation:** Ensure all students belong to the InscriptionModality being updated
@@ -62,7 +58,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                             IdStateInscription = request.Dto.InscriptionModality.IdStateInscription,
                             IdAcademicPeriod = request.Dto.InscriptionModality.IdAcademicPeriod,
                             Observations = request.Dto.InscriptionModality.Observations,
-                            StatusRegister = request.Dto.InscriptionModality.StatusRegister // Added StatusRegister
+                            StatusRegister = request.Dto.InscriptionModality.StatusRegister
                         }),
                     cancellationToken);
 
@@ -108,7 +104,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                                 {
                                     IdInscriptionModality = request.Id,
                                     IdUser = studentDto.IdUser,
-                                    StatusRegister = studentDto.StatusRegister // Added StatusRegister
+                                    StatusRegister = studentDto.StatusRegister
                                 }),
                             cancellationToken);
                     }
@@ -121,7 +117,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                                 {
                                     IdInscriptionModality = request.Id,
                                     IdUser = studentDto.IdUser,
-                                    StatusRegister = studentDto.StatusRegister // Added StatusRegister
+                                    StatusRegister = studentDto.StatusRegister
                                 }),
                             cancellationToken);
 
@@ -131,7 +127,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                 }
 
                 // 4. Prepare and return the response
-                return new RegisterModalityWithStudentsDto
+                return new InscriptionWithStudentsDto
                 {
                     InscriptionModality = inscriptionModalityDto,
                     Students = request.Dto.Students.Select(s => new UserInscriptionModalityDto
@@ -139,7 +135,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                         Id = s.Id,
                         IdInscriptionModality = request.Id,
                         IdUser = s.IdUser,
-                        StatusRegister = s.StatusRegister // Added StatusRegister
+                        StatusRegister = s.StatusRegister
                     }).ToList()
                 };
             }

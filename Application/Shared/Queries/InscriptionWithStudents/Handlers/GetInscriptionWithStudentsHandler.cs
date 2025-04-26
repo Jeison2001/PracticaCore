@@ -1,31 +1,25 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Application.Shared.DTOs.InscriptionModality;
 using Application.Shared.DTOs.UserInscriptionModality;
-using Application.Shared.DTOs.RegisterModalityWithStudents;
+using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Domain.Common;
 using Domain.Interfaces;
 
-namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
+namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
 {
-    public class GetRegisterModalityWithStudentsHandler : IRequestHandler<GetRegisterModalityWithStudentsQuery, RegisterModalityWithStudentsResponseDto>
+    public class GetInscriptionWithStudentsHandler : IRequestHandler<GetInscriptionWithStudentsQuery, InscriptionWithStudentsResponseDto>
     {
         private readonly IMediator _mediator;
-        private readonly ILogger<GetRegisterModalityWithStudentsHandler> _logger;
+        private readonly ILogger<GetInscriptionWithStudentsHandler> _logger;
         private readonly IRepository<AcademicPeriod, int> _academicPeriodRepository;
         private readonly IRepository<Modality, int> _modalityRepository;
         private readonly IRepository<StateInscription, int> _stateInscriptionRepository;
         private readonly IRepository<User, int> _userRepository;
 
-        public GetRegisterModalityWithStudentsHandler(
+        public GetInscriptionWithStudentsHandler(
             IMediator mediator,
-            ILogger<GetRegisterModalityWithStudentsHandler> logger,
+            ILogger<GetInscriptionWithStudentsHandler> logger,
             IRepository<AcademicPeriod, int> academicPeriodRepository,
             IRepository<Modality, int> modalityRepository,
             IRepository<StateInscription, int> stateInscriptionRepository,
@@ -39,8 +33,8 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
             _userRepository = userRepository;
         }
 
-        public async Task<RegisterModalityWithStudentsResponseDto> Handle(
-            GetRegisterModalityWithStudentsQuery request,
+        public async Task<InscriptionWithStudentsResponseDto> Handle(
+            GetInscriptionWithStudentsQuery request,
             CancellationToken cancellationToken)
         {
             try
@@ -90,7 +84,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 }
 
                 // 5. Construir y devolver la respuesta
-                return new RegisterModalityWithStudentsResponseDto
+                return new InscriptionWithStudentsResponseDto
                 {
                     InscriptionModality = inscriptionModalityDto,
                     AcademicPeriodCode = academicPeriod.Code, // Obtener el código del periodo académico

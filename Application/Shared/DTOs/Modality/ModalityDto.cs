@@ -1,5 +1,3 @@
-using System;
-
 namespace Application.Shared.DTOs.Modality
 {
     public class ModalityDto : BaseDto<int>
@@ -13,7 +11,7 @@ namespace Application.Shared.DTOs.Modality
         public int MaxStudents { get; set; } = 1;
         public string? SpecificRequirements { get; set; }
         public bool RequiresResearchHotbed { get; set; } = false;
-        public bool RequiresRegisterModalityApproval { get; set; } = true;
+        public bool RequiresApproval { get; set; } = true;
         public new int? IdUserCreatedAt { get; set; }
     }
 }

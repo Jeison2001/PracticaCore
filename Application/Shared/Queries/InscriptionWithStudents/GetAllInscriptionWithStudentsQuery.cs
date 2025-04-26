@@ -1,11 +1,10 @@
-using Application.Shared.DTOs.RegisterModalityWithStudents;
+using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Common;
 using MediatR;
-using System.Collections.Generic;
 
-namespace Application.Shared.Queries.RegisterModalityWithStudents
+namespace Application.Shared.Queries.InscriptionWithStudents
 {
-    public record GetAllRegisterModalityWithStudentsQuery : IRequest<PaginatedResult<RegisterModalityWithStudentsResponseDto>>
+    public record GetAllInscriptionWithStudentsQuery : IRequest<PaginatedResult<InscriptionWithStudentsResponseDto>>
     {
         public int PageNumber { get; init; } = 1;
         public int PageSize { get; init; } = 10;
