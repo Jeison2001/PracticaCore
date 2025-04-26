@@ -169,7 +169,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                         InscriptionModality = inscriptionModalityDto,
                         AcademicPeriodCode = academicPeriod.Code,
                         ModalityName = modality.Name,
-                        RegisterModalityStateName = stateInscription.Name,
+                        StateInscriptionName = stateInscription.Name,
                         Students = studentDtos
                     });
                 }

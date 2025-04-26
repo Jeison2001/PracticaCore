@@ -8,7 +8,7 @@ namespace Application.Shared.DTOs.RegisterModalityWithStudents
         public InscriptionModalityDto InscriptionModality { get; set; }
         public string AcademicPeriodCode { get; set; }
         public string ModalityName { get; set; }
-        public string RegisterModalityStateName { get; set; }
+        public string StateInscriptionName { get; set; }
         public List<UserInscriptionModalityDto> Students { get; set; }
     }
 }

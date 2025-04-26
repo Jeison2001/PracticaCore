@@ -95,7 +95,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                     InscriptionModality = inscriptionModalityDto,
                     AcademicPeriodCode = academicPeriod.Code, // Obtener el código del periodo académico
                     ModalityName = modality.Name, // Obtener el nombre de la modalidad
-                    RegisterModalityStateName = stateInscription.Name, // Obtener el nombre del estado de inscripción
+                    StateInscriptionName = stateInscription.Name, // Obtener el nombre del estado de inscripción
                     Students = students
                 };
             }
