@@ -10,8 +10,8 @@ namespace Application.Validations.specificsValidators.RegisterModality
             RuleFor(x => x.IdModality)
                 .NotEmpty().WithMessage("La modalidad es requerida.");
 
-            RuleFor(x => x.IdRegisterModalityState)
-                .NotEmpty().WithMessage("El estado de registro de modalidad es requerido.");
+            RuleFor(x => x.IdStateInscription)
+                .NotEmpty().WithMessage("El estado de inscripción es requerido.");
 
             RuleFor(x => x.IdAcademicPeriod)
                 .NotEmpty().WithMessage("El período académico es requerido.");

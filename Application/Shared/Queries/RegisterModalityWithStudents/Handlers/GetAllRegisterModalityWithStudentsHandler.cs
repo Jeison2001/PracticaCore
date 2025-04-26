@@ -20,7 +20,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
         private readonly ILogger<GetAllRegisterModalityWithStudentsHandler> _logger;
         private readonly IRepository<AcademicPeriod, int> _academicPeriodRepository;
         private readonly IRepository<Modality, int> _modalityRepository;
-        private readonly IRepository<RegisterModalityState, int> _registerModalityStateRepository;
+        private readonly IRepository<StateInscription, int> _stateInscriptionRepository;
         private readonly IRepository<User, int> _userRepository;
         private readonly IRepository<RegisterModality, int> _registerModalityRepository;
 
@@ -29,7 +29,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
             ILogger<GetAllRegisterModalityWithStudentsHandler> logger,
             IRepository<AcademicPeriod, int> academicPeriodRepository,
             IRepository<Modality, int> modalityRepository,
-            IRepository<RegisterModalityState, int> registerModalityStateRepository,
+            IRepository<StateInscription, int> stateInscriptionRepository,
             IRepository<User, int> userRepository,
             IRepository<RegisterModality, int> registerModalityRepository)
         {
@@ -37,7 +37,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
             _logger = logger;
             _academicPeriodRepository = academicPeriodRepository;
             _modalityRepository = modalityRepository;
-            _registerModalityStateRepository = registerModalityStateRepository;
+            _stateInscriptionRepository = stateInscriptionRepository;
             _userRepository = userRepository;
             _registerModalityRepository = registerModalityRepository;
         }
@@ -95,7 +95,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 // 5. Obtener información relacionada (períodos académicos, modalidades, estados)
                 var academicPeriodsIds = registerModalities.Select(rm => rm.IdAcademicPeriod).Distinct().ToList();
                 var modalitiesIds = registerModalities.Select(rm => rm.IdModality).Distinct().ToList();
-                var statesIds = registerModalities.Select(rm => rm.IdRegisterModalityState).Distinct().ToList();
+                var statesIds = registerModalities.Select(rm => rm.IdStateInscription).Distinct().ToList();
 
                 // Usar GetAllAsync con filtros para obtener las entidades relacionadas
                 var academicPeriods = await _academicPeriodRepository.GetAllAsync(
@@ -104,7 +104,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 var modalities = await _modalityRepository.GetAllAsync(
                     filter: m => modalitiesIds.Contains(m.Id));
                 
-                var states = await _registerModalityStateRepository.GetAllAsync(
+                var states = await _stateInscriptionRepository.GetAllAsync(
                     filter: s => statesIds.Contains(s.Id));
 
                 var academicPeriodsDict = academicPeriods.ToDictionary(ap => ap.Id);
@@ -131,9 +131,9 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 {
                     academicPeriodsDict.TryGetValue(registerModalityDto.IdAcademicPeriod, out var academicPeriod);
                     modalitiesDict.TryGetValue(registerModalityDto.IdModality, out var modality);
-                    statesDict.TryGetValue(registerModalityDto.IdRegisterModalityState, out var registerModalityState);
+                    statesDict.TryGetValue(registerModalityDto.IdStateInscription, out var stateInscription);
 
-                    if (academicPeriod == null || modality == null || registerModalityState == null)
+                    if (academicPeriod == null || modality == null || stateInscription == null)
                     {
                         _logger.LogWarning($"Datos faltantes para el registro de modalidad con ID {registerModalityDto.Id}");
                         continue;
@@ -163,7 +163,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                         RegisterModality = registerModalityDto,
                         AcademicPeriodCode = academicPeriod.Code,
                         ModalityName = modality.Name,
-                        RegisterModalityStateName = registerModalityState.Name,
+                        RegisterModalityStateName = stateInscription.Name,
                         Students = studentDtos
                     });
                 }

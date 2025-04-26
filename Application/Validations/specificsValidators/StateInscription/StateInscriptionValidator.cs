@@ -1,11 +1,12 @@
-using Application.Shared.DTOs.RegisterModalityState;
+// filepath: c:\Users\LENOVO\source\repos\PracticaCore\Application\Validations\specificsValidators\StateInscription\StateInscriptionValidator.cs
+using Application.Shared.DTOs.StateInscription;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.RegisterModalityState
+namespace Application.Validations.specificsValidators.StateInscription
 {
-    public class RegisterModalityStateValidator : AbstractValidator<RegisterModalityStateDto>
+    public class StateInscriptionValidator : AbstractValidator<StateInscriptionDto>
     {
-        public RegisterModalityStateValidator()
+        public StateInscriptionValidator()
         {
             RuleFor(x => x.Code)
                 .NotEmpty().WithMessage("El código es requerido.")

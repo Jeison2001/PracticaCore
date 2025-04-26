@@ -13,7 +13,7 @@ namespace Application.Shared.DTOs.RegisterModalityWithStudents
     public class RegisterModalityUpdateDto
     {
         public int IdModality { get; set; }
-        public int IdRegisterModalityState { get; set; }
+        public int IdStateInscription { get; set; }
         public int IdAcademicPeriod { get; set; }
         public string Observations { get; set; }
         public bool StatusRegister { get; set; } // Added StatusRegister

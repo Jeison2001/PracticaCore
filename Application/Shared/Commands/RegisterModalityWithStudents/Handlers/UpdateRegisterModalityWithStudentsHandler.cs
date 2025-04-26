@@ -59,7 +59,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                         new RegisterModalityDto
                         {
                             IdModality = request.Dto.RegisterModality.IdModality,
-                            IdRegisterModalityState = request.Dto.RegisterModality.IdRegisterModalityState,
+                            IdStateInscription = request.Dto.RegisterModality.IdStateInscription,
                             IdAcademicPeriod = request.Dto.RegisterModality.IdAcademicPeriod,
                             Observations = request.Dto.RegisterModality.Observations,
                             StatusRegister = request.Dto.RegisterModality.StatusRegister // Added StatusRegister

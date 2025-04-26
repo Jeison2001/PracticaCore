@@ -20,7 +20,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
         private readonly ILogger<GetRegisterModalityWithStudentsHandler> _logger;
         private readonly IRepository<AcademicPeriod, int> _academicPeriodRepository;
         private readonly IRepository<Modality, int> _modalityRepository;
-        private readonly IRepository<RegisterModalityState, int> _registerModalityStateRepository;
+        private readonly IRepository<StateInscription, int> _stateInscriptionRepository;
         private readonly IRepository<User, int> _userRepository;
 
         public GetRegisterModalityWithStudentsHandler(
@@ -28,14 +28,14 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
             ILogger<GetRegisterModalityWithStudentsHandler> logger,
             IRepository<AcademicPeriod, int> academicPeriodRepository,
             IRepository<Modality, int> modalityRepository,
-            IRepository<RegisterModalityState, int> registerModalityStateRepository,
+            IRepository<StateInscription, int> stateInscriptionRepository,
             IRepository<User, int> userRepository)
         {
             _mediator = mediator;
             _logger = logger;
             _academicPeriodRepository = academicPeriodRepository;
             _modalityRepository = modalityRepository;
-            _registerModalityStateRepository = registerModalityStateRepository;
+            _stateInscriptionRepository = stateInscriptionRepository;
             _userRepository = userRepository;
         }
 
@@ -57,11 +57,11 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 // 2. Obtener las entidades relacionadas
                 var academicPeriod = await _academicPeriodRepository.GetByIdAsync(registerModalityDto.IdAcademicPeriod);
                 var modality = await _modalityRepository.GetByIdAsync(registerModalityDto.IdModality);
-                var registerModalityState = await _registerModalityStateRepository.GetByIdAsync(registerModalityDto.IdRegisterModalityState);
+                var stateInscription = await _stateInscriptionRepository.GetByIdAsync(registerModalityDto.IdStateInscription);
 
-                if (academicPeriod == null || modality == null || registerModalityState == null)
+                if (academicPeriod == null || modality == null || stateInscription == null)
                 {
-                    throw new KeyNotFoundException($"No se encontró el periodo académico, la modalidad o el estado de registro asociada al registro con ID {request.Id}");
+                    throw new KeyNotFoundException($"No se encontró el periodo académico, la modalidad o el estado de inscripción asociada al registro con ID {request.Id}");
                 }
 
                 // 3. Obtener todos los estudiantes asociados a esta modalidad
@@ -95,7 +95,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                     RegisterModality = registerModalityDto,
                     AcademicPeriodCode = academicPeriod.Code, // Obtener el código del periodo académico
                     ModalityName = modality.Name, // Obtener el nombre de la modalidad
-                    RegisterModalityStateName = registerModalityState.Name, // Obtener el nombre del estado de registro
+                    RegisterModalityStateName = stateInscription.Name, // Obtener el nombre del estado de inscripción
                     Students = students
                 };
             }

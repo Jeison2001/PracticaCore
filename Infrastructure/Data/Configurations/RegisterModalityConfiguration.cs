@@ -12,7 +12,7 @@ namespace Infrastructure.Data.Configurations
             builder.ToTable("RegisterModality");
             
             builder.Property(e => e.IdModality).IsRequired().HasColumnName("idmodality");
-            builder.Property(e => e.IdRegisterModalityState).IsRequired().HasColumnName("idregistermodalitystate");
+            builder.Property(e => e.IdStateInscription).IsRequired().HasColumnName("idstateinscription");
             builder.Property(e => e.IdAcademicPeriod).IsRequired().HasColumnName("idacademicperiod");
             builder.Property(e => e.ApprovalDate).HasColumnName("approvaldate").IsRequired(false);
             builder.Property(e => e.Observations).HasColumnName("observations").IsRequired(false);
@@ -23,9 +23,9 @@ namespace Infrastructure.Data.Configurations
                 .WithMany()
                 .HasForeignKey(rm => rm.IdModality);
 
-            builder.HasOne(rm => rm.RegisterModalityState)
+            builder.HasOne(rm => rm.StateInscription)
                 .WithMany()
-                .HasForeignKey(rm => rm.IdRegisterModalityState);
+                .HasForeignKey(rm => rm.IdStateInscription);
 
             builder.HasOne(rm => rm.AcademicPeriod)
                 .WithMany()

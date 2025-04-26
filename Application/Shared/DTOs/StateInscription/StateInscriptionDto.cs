@@ -1,8 +1,9 @@
+// filepath: c:\Users\LENOVO\source\repos\PracticaCore\Application\Shared\DTOs\StateInscription\StateInscriptionDto.cs
 using System;
 
-namespace Application.Shared.DTOs.RegisterModalityState
+namespace Application.Shared.DTOs.StateInscription
 {
-    public class RegisterModalityStateDto : BaseDto<int>
+    public class StateInscriptionDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
