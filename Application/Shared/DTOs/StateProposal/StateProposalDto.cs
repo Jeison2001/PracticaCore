@@ -1,0 +1,12 @@
+using Application.Shared.DTOs;
+
+namespace Application.Shared.DTOs.StateProposal
+{
+    public class StateProposalDto : BaseDto<int>
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public new int? IdUserCreatedAt { get; set; }
+    }
+}
