@@ -1,8 +1,8 @@
 using System;
 
-namespace Application.Shared.DTOs.RegisterModality
+namespace Application.Shared.DTOs.InscriptionModality
 {
-    public class RegisterModalityDto : BaseDto<int>
+    public class InscriptionModalityDto : BaseDto<int>
     {
         public int IdModality { get; set; }
         public int IdStateInscription { get; set; }

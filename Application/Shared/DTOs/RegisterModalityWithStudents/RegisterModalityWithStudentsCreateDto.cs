@@ -1,16 +1,12 @@
-using Application.Shared.DTOs.RegisterModality;
-using Application.Shared.DTOs.RegisterModalityStudent;
-using System.Collections.Generic;
-
 namespace Application.Shared.DTOs.RegisterModalityWithStudents
 {
     public class RegisterModalityWithStudentsCreateDto
     {
-        public RegisterModalityCreateDto RegisterModality { get; set; }
-        public List<RegisterModalityStudentCreateDto> Students { get; set; }
+        public InscriptionModalityCreateDto InscriptionModality { get; set; }
+        public List<UserInscriptionModalityCreateDto> Students { get; set; }
     }
 
-    public class RegisterModalityCreateDto
+    public class InscriptionModalityCreateDto
     {
         public int IdModality { get; set; }
         public int IdStateInscription { get; set; }
@@ -18,7 +14,7 @@ namespace Application.Shared.DTOs.RegisterModalityWithStudents
         public string? Observations { get; set; }
     }
 
-    public class RegisterModalityStudentCreateDto
+    public class UserInscriptionModalityCreateDto
     {
         public int IdUser { get; set; }
         public string Identification { get; set; }

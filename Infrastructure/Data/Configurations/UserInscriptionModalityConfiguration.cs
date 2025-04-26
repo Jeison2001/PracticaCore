@@ -4,28 +4,28 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Data.Configurations
 {
-    public class RegisterModalityStudentConfiguration : BaseEntityConfiguration<RegisterModalityStudent, int>
+    public class UserInscriptionModalityConfiguration : BaseEntityConfiguration<UserInscriptionModality, int>
     {
-        public override void Configure(EntityTypeBuilder<RegisterModalityStudent> builder)
+        public override void Configure(EntityTypeBuilder<UserInscriptionModality> builder)
         {
             base.Configure(builder);
-            builder.ToTable("RegisterModalityStudent");
+            builder.ToTable("UserInscriptionModality");
             
-            builder.Property(e => e.IdRegisterModality).IsRequired().HasColumnName("idregistermodality");
+            builder.Property(e => e.IdInscriptionModality).IsRequired().HasColumnName("idinscriptionmodality");
             builder.Property(e => e.IdUser).IsRequired().HasColumnName("iduser");
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
 
             // Configuración de relaciones
-            builder.HasOne(rms => rms.RegisterModality)
+            builder.HasOne(rms => rms.InscriptionModality)
                 .WithMany()
-                .HasForeignKey(rms => rms.IdRegisterModality);
+                .HasForeignKey(rms => rms.IdInscriptionModality);
 
             builder.HasOne(rms => rms.User)
                 .WithMany()
                 .HasForeignKey(rms => rms.IdUser);
                 
             // Definir unicidad para la relación
-            builder.HasIndex(rms => new { rms.IdRegisterModality, rms.IdUser }).IsUnique();
+            builder.HasIndex(rms => new { rms.IdInscriptionModality, rms.IdUser }).IsUnique();
         }
     }
 }

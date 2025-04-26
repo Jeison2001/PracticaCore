@@ -14,7 +14,7 @@ namespace Domain.Entities
         public int MaxStudents { get; set; } = 1;
         public string? SpecificRequirements { get; set; }
         public bool RequiresResearchHotbed { get; set; } = false;
-        public bool RequiresRegisterModalityApproval { get; set; } = true;
+        public bool RequiresApproval { get; set; } = true;
         public new int? IdUserCreatedAt { get; set; }
     }
 }

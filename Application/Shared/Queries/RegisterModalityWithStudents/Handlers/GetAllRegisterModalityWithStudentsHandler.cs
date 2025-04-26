@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Application.Shared.DTOs.RegisterModality;
-using Application.Shared.DTOs.RegisterModalityStudent;
+using Application.Shared.DTOs.InscriptionModality;
+using Application.Shared.DTOs.UserInscriptionModality;
 using Application.Shared.DTOs.RegisterModalityWithStudents;
 using Domain.Entities;
 using MediatR;
@@ -22,7 +22,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
         private readonly IRepository<Modality, int> _modalityRepository;
         private readonly IRepository<StateInscription, int> _stateInscriptionRepository;
         private readonly IRepository<User, int> _userRepository;
-        private readonly IRepository<RegisterModality, int> _registerModalityRepository;
+        private readonly IRepository<InscriptionModality, int> _inscriptionModalityRepository;
 
         public GetAllRegisterModalityWithStudentsHandler(
             IMediator mediator,
@@ -31,7 +31,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
             IRepository<Modality, int> modalityRepository,
             IRepository<StateInscription, int> stateInscriptionRepository,
             IRepository<User, int> userRepository,
-            IRepository<RegisterModality, int> registerModalityRepository)
+            IRepository<InscriptionModality, int> inscriptionModalityRepository)
         {
             _mediator = mediator;
             _logger = logger;
@@ -39,7 +39,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
             _modalityRepository = modalityRepository;
             _stateInscriptionRepository = stateInscriptionRepository;
             _userRepository = userRepository;
-            _registerModalityRepository = registerModalityRepository;
+            _inscriptionModalityRepository = inscriptionModalityRepository;
         }
 
         public async Task<PaginatedResult<RegisterModalityWithStudentsResponseDto>> Handle(
@@ -49,7 +49,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
             try
             {
                 // 1. Obtener todos los registros de modalidad con paginación y filtros
-                var getAllModalitiesQuery = new GetAllEntitiesQuery<RegisterModality, int, RegisterModalityDto>
+                var getAllModalitiesQuery = new GetAllEntitiesQuery<InscriptionModality, int, InscriptionModalityDto>
                 {
                     PageNumber = request.PageNumber,
                     PageSize = request.PageSize,
@@ -76,7 +76,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 var registerModalitiesIds = registerModalities.Select(rm => rm.Id).ToList();
 
                 // 3. Obtener todos los estudiantes asociados a las modalidades recuperadas
-                var studentsQuery = new GetAllEntitiesQuery<RegisterModalityStudent, int, RegisterModalityStudentDto>
+                var studentsQuery = new GetAllEntitiesQuery<UserInscriptionModality, int, UserInscriptionModalityDto>
                 {
                     Filters = new Dictionary<string, string>(),
                     PageNumber = 1,
@@ -85,11 +85,11 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
 
                 var studentsResult = await _mediator.Send(studentsQuery, cancellationToken);
                 var allStudents = studentsResult.Items
-                    .Where(s => registerModalitiesIds.Contains(s.IdRegisterModality))
+                    .Where(s => registerModalitiesIds.Contains(s.IdInscriptionModality))
                     .ToList();
 
-                // 4. Agrupar estudiantes por IdRegisterModality
-                var studentsByModality = allStudents.GroupBy(s => s.IdRegisterModality)
+                // 4. Agrupar estudiantes por IdInscriptionModality
+                var studentsByModality = allStudents.GroupBy(s => s.IdInscriptionModality)
                     .ToDictionary(g => g.Key, g => g.ToList());
 
                 // 5. Obtener información relacionada (períodos académicos, modalidades, estados)
@@ -127,21 +127,21 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 // 7. Construir la respuesta para cada modalidad
                 var resultItems = new List<RegisterModalityWithStudentsResponseDto>();
                 
-                foreach (var registerModalityDto in registerModalities)
+                foreach (var inscriptionModalityDto in registerModalities)
                 {
-                    academicPeriodsDict.TryGetValue(registerModalityDto.IdAcademicPeriod, out var academicPeriod);
-                    modalitiesDict.TryGetValue(registerModalityDto.IdModality, out var modality);
-                    statesDict.TryGetValue(registerModalityDto.IdStateInscription, out var stateInscription);
+                    academicPeriodsDict.TryGetValue(inscriptionModalityDto.IdAcademicPeriod, out var academicPeriod);
+                    modalitiesDict.TryGetValue(inscriptionModalityDto.IdModality, out var modality);
+                    statesDict.TryGetValue(inscriptionModalityDto.IdStateInscription, out var stateInscription);
 
                     if (academicPeriod == null || modality == null || stateInscription == null)
                     {
-                        _logger.LogWarning($"Datos faltantes para el registro de modalidad con ID {registerModalityDto.Id}");
+                        _logger.LogWarning($"Datos faltantes para el registro de modalidad con ID {inscriptionModalityDto.Id}");
                         continue;
                     }
 
                     // Obtener estudiantes de esta modalidad
-                    studentsByModality.TryGetValue(registerModalityDto.Id, out var studentsForModality);
-                    var studentDtos = studentsForModality ?? new List<RegisterModalityStudentDto>();
+                    studentsByModality.TryGetValue(inscriptionModalityDto.Id, out var studentsForModality);
+                    var studentDtos = studentsForModality ?? new List<UserInscriptionModalityDto>();
 
                     // Añadir nombres de estudiantes
                     foreach (var student in studentDtos)
@@ -160,7 +160,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                     // Añadir la modalidad completa a la respuesta
                     resultItems.Add(new RegisterModalityWithStudentsResponseDto
                     {
-                        RegisterModality = registerModalityDto,
+                        InscriptionModality = inscriptionModalityDto,
                         AcademicPeriodCode = academicPeriod.Code,
                         ModalityName = modality.Name,
                         RegisterModalityStateName = stateInscription.Name,

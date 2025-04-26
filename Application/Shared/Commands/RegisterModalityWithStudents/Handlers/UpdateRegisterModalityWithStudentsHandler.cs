@@ -1,5 +1,5 @@
-using Application.Shared.DTOs.RegisterModality;
-using Application.Shared.DTOs.RegisterModalityStudent;
+using Application.Shared.DTOs.InscriptionModality;
+using Application.Shared.DTOs.UserInscriptionModality;
 using Application.Shared.DTOs.RegisterModalityWithStudents;
 using Application.Shared.Queries;
 using Domain.Entities;
@@ -29,13 +29,13 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
             UpdateRegisterModalityWithStudentsCommand request,
             CancellationToken cancellationToken)
         {
-            // **Validation:** Ensure all students belong to the RegisterModality being updated
+            // **Validation:** Ensure all students belong to the InscriptionModality being updated
             foreach (var studentDto in request.Dto.Students)
             {
                 if (studentDto.Id != 0)
                 {
                     // Fetch the existing student from the database
-                    var existingStudentQuery = new GetEntityByIdQuery<RegisterModalityStudent, int, RegisterModalityStudentDto>(studentDto.Id);
+                    var existingStudentQuery = new GetEntityByIdQuery<UserInscriptionModality, int, UserInscriptionModalityDto>(studentDto.Id);
                     var existingStudent = await _mediator.Send(existingStudentQuery, cancellationToken);
 
                     if (existingStudent == null)
@@ -43,7 +43,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                         throw new KeyNotFoundException($"Student with ID {studentDto.Id} not found");
                     }
 
-                    if (existingStudent.IdRegisterModality != request.Id)
+                    if (existingStudent.IdInscriptionModality != request.Id)
                     {
                         throw new InvalidOperationException($"Student with ID {studentDto.Id} belongs to another modality registration.");
                     }
@@ -53,25 +53,25 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
             try
             {
                 // 1. Update the modality registration
-                var registerModalityDto = await _mediator.Send(
-                    new UpdateEntityCommand<RegisterModality, int, RegisterModalityDto>(
+                var inscriptionModalityDto = await _mediator.Send(
+                    new UpdateEntityCommand<InscriptionModality, int, InscriptionModalityDto>(
                         request.Id,
-                        new RegisterModalityDto
+                        new InscriptionModalityDto
                         {
-                            IdModality = request.Dto.RegisterModality.IdModality,
-                            IdStateInscription = request.Dto.RegisterModality.IdStateInscription,
-                            IdAcademicPeriod = request.Dto.RegisterModality.IdAcademicPeriod,
-                            Observations = request.Dto.RegisterModality.Observations,
-                            StatusRegister = request.Dto.RegisterModality.StatusRegister // Added StatusRegister
+                            IdModality = request.Dto.InscriptionModality.IdModality,
+                            IdStateInscription = request.Dto.InscriptionModality.IdStateInscription,
+                            IdAcademicPeriod = request.Dto.InscriptionModality.IdAcademicPeriod,
+                            Observations = request.Dto.InscriptionModality.Observations,
+                            StatusRegister = request.Dto.InscriptionModality.StatusRegister // Added StatusRegister
                         }),
                     cancellationToken);
 
                 // 2. Fetch all current students associated with this modality
-                var currentStudentsQuery = new GetAllEntitiesQuery<RegisterModalityStudent, int, RegisterModalityStudentDto>
+                var currentStudentsQuery = new GetAllEntitiesQuery<UserInscriptionModality, int, UserInscriptionModalityDto>
                 {
                     Filters = new Dictionary<string, string>
                     {
-                        { "IdRegisterModality", request.Id.ToString() }
+                        { "IdInscriptionModality", request.Id.ToString() }
                     }
                 };
 
@@ -90,7 +90,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                     if (!studentIdsToKeep.Contains(student.Id))
                     {
                         await _mediator.Send(
-                            new DeleteEntityCommand<RegisterModalityStudent, int>(student.Id),
+                            new DeleteEntityCommand<UserInscriptionModality, int>(student.Id),
                             cancellationToken);
                     }
                 }
@@ -102,11 +102,11 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                     {
                         // Update existing student
                         await _mediator.Send(
-                            new UpdateEntityCommand<RegisterModalityStudent, int, RegisterModalityStudentDto>(
+                            new UpdateEntityCommand<UserInscriptionModality, int, UserInscriptionModalityDto>(
                                 studentDto.Id,
-                                new RegisterModalityStudentDto
+                                new UserInscriptionModalityDto
                                 {
-                                    IdRegisterModality = request.Id,
+                                    IdInscriptionModality = request.Id,
                                     IdUser = studentDto.IdUser,
                                     StatusRegister = studentDto.StatusRegister // Added StatusRegister
                                 }),
@@ -116,10 +116,10 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                     {
                         // Create new student
                         var newStudent = await _mediator.Send(
-                            new CreateEntityCommand<RegisterModalityStudent, int, RegisterModalityStudentDto>(
-                                new RegisterModalityStudentDto
+                            new CreateEntityCommand<UserInscriptionModality, int, UserInscriptionModalityDto>(
+                                new UserInscriptionModalityDto
                                 {
-                                    IdRegisterModality = request.Id,
+                                    IdInscriptionModality = request.Id,
                                     IdUser = studentDto.IdUser,
                                     StatusRegister = studentDto.StatusRegister // Added StatusRegister
                                 }),
@@ -133,11 +133,11 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                 // 4. Prepare and return the response
                 return new RegisterModalityWithStudentsDto
                 {
-                    RegisterModality = registerModalityDto,
-                    Students = request.Dto.Students.Select(s => new RegisterModalityStudentDto
+                    InscriptionModality = inscriptionModalityDto,
+                    Students = request.Dto.Students.Select(s => new UserInscriptionModalityDto
                     {
                         Id = s.Id,
-                        IdRegisterModality = request.Id,
+                        IdInscriptionModality = request.Id,
                         IdUser = s.IdUser,
                         StatusRegister = s.StatusRegister // Added StatusRegister
                     }).ToList()

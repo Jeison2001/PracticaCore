@@ -19,7 +19,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.MaxStudents).IsRequired().HasColumnName("maxstudents").HasDefaultValue(1);
             builder.Property(e => e.SpecificRequirements).HasColumnName("specificrequirements").IsRequired(false);
             builder.Property(e => e.RequiresResearchHotbed).IsRequired().HasColumnName("requiresresearchhotbed").HasDefaultValue(false);
-            builder.Property(e => e.RequiresRegisterModalityApproval).IsRequired().HasColumnName("requiresregistermodalityapproval").HasDefaultValue(true);
+            builder.Property(e => e.RequiresApproval).IsRequired().HasColumnName("requiresapproval").HasDefaultValue(true);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
         }
     }

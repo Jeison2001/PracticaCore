@@ -1,11 +1,11 @@
-using Application.Shared.DTOs.RegisterModality;
+using Application.Shared.DTOs.InscriptionModality;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.RegisterModality
+namespace Application.Validations.specificsValidators.InscriptionModality
 {
-    public class RegisterModalityValidator : AbstractValidator<RegisterModalityDto>
+    public class InscriptionModalityValidator : AbstractValidator<InscriptionModalityDto>
     {
-        public RegisterModalityValidator()
+        public InscriptionModalityValidator()
         {
             RuleFor(x => x.IdModality)
                 .NotEmpty().WithMessage("La modalidad es requerida.");

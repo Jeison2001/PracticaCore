@@ -1,7 +1,7 @@
-using Application.Shared.DTOs.RegisterModality;
+using Application.Shared.DTOs.InscriptionModality;
 using Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using Application.Shared.DTOs.RegisterModalityStudent;
+using Application.Shared.DTOs.UserInscriptionModality;
 using Application.Shared.DTOs.RegisterModalityWithStudents;
 using Domain.Entities;
 using MediatR;
@@ -35,19 +35,19 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
             try
             {
                 // 1. Create the modality record
-                var registerModalityDto = await _mediator.Send(
-                    new CreateEntityCommand<RegisterModality, int, RegisterModalityDto>(
-                        new RegisterModalityDto
+                var inscriptionModalityDto = await _mediator.Send(
+                    new CreateEntityCommand<InscriptionModality, int, InscriptionModalityDto>(
+                        new InscriptionModalityDto
                         {
-                            IdModality = request.Dto.RegisterModality.IdModality,
-                            IdStateInscription = request.Dto.RegisterModality.IdStateInscription,
-                            IdAcademicPeriod = request.Dto.RegisterModality.IdAcademicPeriod,
-                            Observations = request.Dto.RegisterModality.Observations
+                            IdModality = request.Dto.InscriptionModality.IdModality,
+                            IdStateInscription = request.Dto.InscriptionModality.IdStateInscription,
+                            IdAcademicPeriod = request.Dto.InscriptionModality.IdAcademicPeriod,
+                            Observations = request.Dto.InscriptionModality.Observations
                         }),
                     cancellationToken);
 
                 // 2. Get the generated ID for the modality record
-                var registerModalityId = registerModalityDto.Id;
+                var inscriptionModalityId = inscriptionModalityDto.Id;
 
                 // 3. Fetch all user identifications in a single step
                 var userIdentifications = await Task.WhenAll(
@@ -69,10 +69,10 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                 {
                     var userIdentification = userDictionary[studentDto.Identification];
                     await _mediator.Send(
-                        new CreateEntityCommand<RegisterModalityStudent, int, RegisterModalityStudentDto>(
-                            new RegisterModalityStudentDto
+                        new CreateEntityCommand<UserInscriptionModality, int, UserInscriptionModalityDto>(
+                            new UserInscriptionModalityDto
                             {
-                                IdRegisterModality = registerModalityId,
+                                IdInscriptionModality = inscriptionModalityId,
                                 IdUser = userIdentification.Id,
                                 UserName = userIdentification.UserName
                             }),
@@ -83,9 +83,9 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
                 var students = request.Dto.Students.Select(s =>
                 {
                     var userIdentification = userDictionary[s.Identification];
-                    return new RegisterModalityStudentDto
+                    return new UserInscriptionModalityDto
                     {
-                        IdRegisterModality = registerModalityId,
+                        IdInscriptionModality = inscriptionModalityId,
                         IdUser = userIdentification.Id,
                         UserName = userIdentification.UserName
                     };
@@ -93,7 +93,7 @@ namespace Application.Shared.Commands.RegisterModalityWithStudents.Handlers
 
                 return new RegisterModalityWithStudentsDto
                 {
-                    RegisterModality = registerModalityDto,
+                    InscriptionModality = inscriptionModalityDto,
                     Students = students
                 };
             }

@@ -1,12 +1,12 @@
-using Application.Shared.DTOs.RegisterModality;
-using Application.Shared.DTOs.RegisterModalityStudent;
+using Application.Shared.DTOs.InscriptionModality;
+using Application.Shared.DTOs.UserInscriptionModality;
 using System.Collections.Generic;
 
 namespace Application.Shared.DTOs.RegisterModalityWithStudents
 {
     public class RegisterModalityWithStudentsUpdateDto
     {
-        public RegisterModalityUpdateDto RegisterModality { get; set; }
+        public RegisterModalityUpdateDto InscriptionModality { get; set; }
         public List<RegisterModalityStudentUpdateDto> Students { get; set; }
     }
 

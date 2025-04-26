@@ -2,7 +2,7 @@ using System;
 
 namespace Domain.Entities
 {
-    public class RegisterModality : BaseEntity<int>
+    public class InscriptionModality : BaseEntity<int>
     {
         public int IdModality { get; set; }
         public int IdStateInscription { get; set; }

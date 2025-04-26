@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Application.Shared.DTOs.RegisterModality;
-using Application.Shared.DTOs.RegisterModalityStudent;
+using Application.Shared.DTOs.InscriptionModality;
+using Application.Shared.DTOs.UserInscriptionModality;
 using Application.Shared.DTOs.RegisterModalityWithStudents;
 using Domain.Entities;
 using MediatR;
@@ -46,18 +46,18 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
             try
             {
                 // 1. Obtener el registro de modalidad utilizando Id como int
-                var registerModalityQuery = new GetEntityByIdQuery<RegisterModality, int, RegisterModalityDto>(request.Id);
-                var registerModalityDto = await _mediator.Send(registerModalityQuery, cancellationToken);
+                var inscriptionModalityQuery = new GetEntityByIdQuery<InscriptionModality, int, InscriptionModalityDto>(request.Id);
+                var inscriptionModalityDto = await _mediator.Send(inscriptionModalityQuery, cancellationToken);
 
-                if (registerModalityDto == null)
+                if (inscriptionModalityDto == null)
                 {
                     throw new KeyNotFoundException($"No se encontró el registro de modalidad con ID {request.Id}");
                 }
 
                 // 2. Obtener las entidades relacionadas
-                var academicPeriod = await _academicPeriodRepository.GetByIdAsync(registerModalityDto.IdAcademicPeriod);
-                var modality = await _modalityRepository.GetByIdAsync(registerModalityDto.IdModality);
-                var stateInscription = await _stateInscriptionRepository.GetByIdAsync(registerModalityDto.IdStateInscription);
+                var academicPeriod = await _academicPeriodRepository.GetByIdAsync(inscriptionModalityDto.IdAcademicPeriod);
+                var modality = await _modalityRepository.GetByIdAsync(inscriptionModalityDto.IdModality);
+                var stateInscription = await _stateInscriptionRepository.GetByIdAsync(inscriptionModalityDto.IdStateInscription);
 
                 if (academicPeriod == null || modality == null || stateInscription == null)
                 {
@@ -65,11 +65,11 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 }
 
                 // 3. Obtener todos los estudiantes asociados a esta modalidad
-                var studentsQuery = new GetAllEntitiesQuery<RegisterModalityStudent, int, RegisterModalityStudentDto>
+                var studentsQuery = new GetAllEntitiesQuery<UserInscriptionModality, int, UserInscriptionModalityDto>
                 {
                     Filters = new Dictionary<string, string>
                     {
-                        { "IdRegisterModality", request.Id.ToString() }
+                        { "IdInscriptionModality", request.Id.ToString() }
                     },
                     PageNumber = 1,
                     PageSize = int.MaxValue // Obtiene todos los registros sin paginar
@@ -92,7 +92,7 @@ namespace Application.Shared.Queries.RegisterModalityWithStudents.Handlers
                 // 5. Construir y devolver la respuesta
                 return new RegisterModalityWithStudentsResponseDto
                 {
-                    RegisterModality = registerModalityDto,
+                    InscriptionModality = inscriptionModalityDto,
                     AcademicPeriodCode = academicPeriod.Code, // Obtener el código del periodo académico
                     ModalityName = modality.Name, // Obtener el nombre de la modalidad
                     RegisterModalityStateName = stateInscription.Name, // Obtener el nombre del estado de inscripción

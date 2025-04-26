@@ -4,12 +4,12 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Data.Configurations
 {
-    public class RegisterModalityConfiguration : BaseEntityConfiguration<RegisterModality, int>
+    public class InscriptionModalityConfiguration : BaseEntityConfiguration<InscriptionModality, int>
     {
-        public override void Configure(EntityTypeBuilder<RegisterModality> builder)
+        public override void Configure(EntityTypeBuilder<InscriptionModality> builder)
         {
             base.Configure(builder);
-            builder.ToTable("RegisterModality");
+            builder.ToTable("InscriptionModality");
             
             builder.Property(e => e.IdModality).IsRequired().HasColumnName("idmodality");
             builder.Property(e => e.IdStateInscription).IsRequired().HasColumnName("idstateinscription");
