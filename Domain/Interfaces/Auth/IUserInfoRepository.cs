@@ -9,6 +9,7 @@ namespace Domain.Interfaces.Auth
     {
         Task<List<string>> GetUserRolesAsync(int userId);
         Task<List<string>> GetUserPermissionsAsync(int userId);
+        Task<List<Permission>> GetUserPermissionsFullInfoAsync(int userId);
         Task<User?> FindUserByEmailAsync(string email);
         Task<User> CreateUserIfNotExistsAsync(string email, string firstName, string lastName);
     }

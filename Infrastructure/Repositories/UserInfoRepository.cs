@@ -67,6 +67,41 @@ namespace Infrastructure.Repositories
             return directPermissions.Union(rolePermissions).ToList();
         }
 
+        public async Task<List<Permission>> GetUserPermissionsFullInfoAsync(int userId)
+        {
+            var userPermissionRepo = _unitOfWork.GetRepository<UserPermission, int>();
+            var permissionRepo = _unitOfWork.GetRepository<Permission, int>();
+            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
+            var rolePermissionRepo = _unitOfWork.GetRepository<RolePermission, int>();
+
+            // Obtener IDs de los permisos directos del usuario
+            var directPermissionIds = (await userPermissionRepo.GetAllAsync(up => up.IdUser == userId))
+                .Select(up => up.IdPermission)
+                .ToList();
+
+            // Obtener IDs de roles del usuario
+            var userRoleIds = (await userRoleRepo.GetAllAsync(ur => ur.IdUser == userId))
+                .Select(ur => ur.IdRole)
+                .ToList();
+
+            // Obtener IDs de permisos a través de roles
+            var rolePermissionIds = new List<int>();
+            if (userRoleIds.Any())
+            {
+                rolePermissionIds = (await rolePermissionRepo.GetAllAsync(rp => userRoleIds.Contains(rp.IdRole)))
+                    .Select(rp => rp.IdPermission)
+                    .ToList();
+            }
+
+            // Combinar ambos conjuntos de IDs de permisos y eliminar duplicados
+            var allPermissionIds = directPermissionIds.Union(rolePermissionIds).Distinct().ToList();
+
+            // Obtener las entidades completas de permisos
+            var permissions = (await permissionRepo.GetAllAsync(p => allPermissionIds.Contains(p.Id))).ToList();
+
+            return permissions;
+        }
+
         public async Task<User?> FindUserByEmailAsync(string email)
         {
             var userRepo = _unitOfWork.GetRepository<User, int>();

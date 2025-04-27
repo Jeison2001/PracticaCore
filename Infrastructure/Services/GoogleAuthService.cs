@@ -1,4 +1,5 @@
 using Application.Shared.DTOs.Auth;
+using Domain.Entities;
 using Domain.Interfaces.Auth;
 using Google.Apis.Auth;
 
@@ -48,18 +49,22 @@ namespace Infrastructure.Services
 
                 // Obtener roles y permisos del usuario secuencialmente para evitar problemas de concurrencia con DbContext
                 var roles = await _userInfoRepository.GetUserRolesAsync(user.Id);
-                var permissions = await _userInfoRepository.GetUserPermissionsAsync(user.Id);
                 
-                // Construir la jerarquía de permisos directamente de los permisos del usuario
-                // Sin necesidad de consultar todos los permisos del sistema
-                var hierarchicalPermissions = GroupPermissionsByParentCode(permissions);
+                // Obtener información completa de permisos, incluyendo ParentCode
+                var permissionsFullInfo = await _userInfoRepository.GetUserPermissionsFullInfoAsync(user.Id);
+                
+                // Extraer solo los códigos de permisos para el token
+                var permissionCodes = permissionsFullInfo.Select(p => p.Code).ToList();
+                
+                // Construir la jerarquía de permisos utilizando la información completa (ParentCode)
+                var hierarchicalPermissions = BuildPermissionHierarchy(permissionsFullInfo);
 
                 // Generar token JWT con todos los datos del usuario
                 string token = _jwtService.GenerateTokenWithClaims(
                     user.Id.ToString(), 
                     user.Email, 
                     roles, 
-                    permissions,
+                    permissionCodes,
                     user.FirstName,
                     user.LastName,
                     user.Identification
@@ -88,87 +93,51 @@ namespace Infrastructure.Services
         }
 
         /// <summary>
-        /// Agrupa los permisos jerárquicamente basándose solo en los códigos de los permisos
-        /// sin necesidad de consultar la base de datos nuevamente.
+        /// Construye la jerarquía de permisos utilizando el campo ParentCode de los permisos.
         /// </summary>
-        private Dictionary<string, object> GroupPermissionsByParentCode(List<string> permissions)
+        private Dictionary<string, object> BuildPermissionHierarchy(List<Permission> permissions)
         {
             var result = new Dictionary<string, object>();
             
-            // Asumiendo la convención de nombres: N1XX (nivel 1), N2XXX (nivel 2), N3XXXX (nivel 3), etc.
-            // Donde los dos primeros caracteres (N1, N2, N3) indican el nivel
+            // Crear un diccionario para acceso rápido a permisos por código
+            var permissionsByCode = permissions.ToDictionary(p => p.Code, p => p);
             
-            // Agrupar permisos por su nivel (basado en su código)
-            var permissionsByLevel = new Dictionary<string, List<string>>();
+            // Identificar permisos raíz (los que no tienen ParentCode o su ParentCode no está en la lista)
+            var rootPermissions = permissions
+                .Where(p => string.IsNullOrEmpty(p.ParentCode) || !permissionsByCode.ContainsKey(p.ParentCode))
+                .ToList();
             
-            foreach (var permission in permissions)
+            // Para cada permiso raíz, construir su subestructura recursivamente
+            foreach (var rootPermission in rootPermissions)
             {
-                if (permission.Length >= 2)
-                {
-                    var level = permission.Substring(0, 2); // N1, N2, N3, etc.
-                    if (!permissionsByLevel.ContainsKey(level))
-                    {
-                        permissionsByLevel[level] = new List<string>();
-                    }
-                    permissionsByLevel[level].Add(permission);
-                }
-            }
-            
-            // Identificar permisos de nivel 1 (N1XX)
-            if (permissionsByLevel.ContainsKey("N1"))
-            {
-                foreach (var rootPermission in permissionsByLevel["N1"])
-                {
-                    // Extraer el código base sin el prefijo N1
-                    var baseCode = rootPermission.Substring(2);
-                    
-                    // Buscar hijos en niveles inferiores
-                    var children = GetChildrenRecursively(rootPermission, baseCode, permissionsByLevel);
-                    
-                    // Añadir a la jerarquía de resultados
-                    result[rootPermission] = children.Count > 0 ? children : new List<string>();
-                }
+                result[rootPermission.Code] = BuildChildrenHierarchy(rootPermission.Code, permissions, permissionsByCode);
             }
             
             return result;
         }
         
         /// <summary>
-        /// Busca recursivamente los permisos hijos basándose en la convención de nomenclatura.
+        /// Construye recursivamente la jerarquía de los permisos hijos para un código de permiso dado.
         /// </summary>
-        private Dictionary<string, object> GetChildrenRecursively(string parentCode, string baseCode, Dictionary<string, List<string>> permissionsByLevel)
+        private object BuildChildrenHierarchy(string parentCode, List<Permission> allPermissions, Dictionary<string, Permission> permissionsByCode)
         {
-            var result = new Dictionary<string, object>();
+            // Encontrar todos los hijos directos para este código de permiso
+            var children = allPermissions.Where(p => p.ParentCode == parentCode).ToList();
             
-            // Nivel actual (basado en los dos primeros caracteres del parentCode)
-            var currentLevel = parentCode.Substring(0, 2);
-            
-            // Calcular el siguiente nivel (N1 -> N2, N2 -> N3, etc.)
-            var nextLevelNum = int.Parse(currentLevel.Substring(1)) + 1;
-            var nextLevel = "N" + nextLevelNum;
-            
-            // Verificar si tenemos permisos en el siguiente nivel
-            if (permissionsByLevel.ContainsKey(nextLevel))
+            if (!children.Any())
             {
-                // Buscar hijos que empiecen con el baseCode
-                foreach (var childPermission in permissionsByLevel[nextLevel])
-                {
-                    // Extraer el código base del hijo sin el prefijo del nivel
-                    var childBaseCode = childPermission.Substring(2);
-                    
-                    // Verificar si este permiso es hijo del parentCode
-                    if (childBaseCode.StartsWith(baseCode))
-                    {
-                        // Buscar recursivamente los hijos de este permiso
-                        var grandChildren = GetChildrenRecursively(childPermission, childBaseCode, permissionsByLevel);
-                        
-                        // Añadir el hijo al resultado
-                        result[childPermission] = grandChildren.Count > 0 ? grandChildren : new List<string>();
-                    }
-                }
+                return new List<string>(); // No tiene hijos
             }
             
-            return result;
+            var childrenDict = new Dictionary<string, object>();
+            
+            // Para cada hijo, construir recursivamente su propia jerarquía
+            foreach (var child in children)
+            {
+                childrenDict[child.Code] = BuildChildrenHierarchy(child.Code, allPermissions, permissionsByCode);
+            }
+            
+            return childrenDict;
         }
     }
 }
