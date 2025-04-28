@@ -108,39 +108,42 @@ namespace Tests.UnitTests.Api
         }
 
         [Fact]
-        public async Task Delete_ReturnsOkResult_WhenEntityIsDeleted()
+        public async Task UpdateStatus_ReturnsOkResult_WhenEntityStatusIsUpdated()
         {
             // Arrange
             var id = 1;
-            _mediatorMock.Setup(m => m.Send(It.IsAny<DeleteEntityCommand<BaseEntity<int>, int>>(), default))
+            var dto = new UpdateStatusRequestDto { StatusRegister = false, IdUserUpdateAt = 1, OperationRegister = "Test Operation" };
+            _mediatorMock.Setup(m => m.Send(It.IsAny<UpdateStatusEntityCommand<BaseEntity<int>, int>>(), default))
                          .ReturnsAsync(true);
 
             // Act
-            var result = await _controller.Delete(id);
+           
+            var result = await _controller.UpdateStatus(id, dto);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
             var apiResponse = Assert.IsType<ApiResponse<object>>(okResult.Value);
             Assert.True(apiResponse.Success);
-            Assert.Contains("Entity deleted successfully", apiResponse.Messages!);
+            Assert.Contains("Entity status updated successfully", apiResponse.Messages!);
         }
 
         [Fact]
-        public async Task Delete_ReturnsNotFoundResult_WhenEntityIsNotDeleted()
+        public async Task UpdateStatus_ReturnsNotFoundResult_WhenEntityStatusUpdateFails()
         {
             // Arrange
             var id = 1;
-            _mediatorMock.Setup(m => m.Send(It.IsAny<DeleteEntityCommand<BaseEntity<int>, int>>(), default))
+            var dto = new UpdateStatusRequestDto { StatusRegister = false, IdUserUpdateAt = 1, OperationRegister = "Test Operation" };
+            _mediatorMock.Setup(m => m.Send(It.IsAny<UpdateStatusEntityCommand<BaseEntity<int>, int>>(), default))
                          .ReturnsAsync(false);
 
             // Act
-            var result = await _controller.Delete(id);
+            var result = await _controller.UpdateStatus(id,dto);
 
             // Assert
             var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
             var apiResponse = Assert.IsType<ApiResponse<object>>(notFoundResult.Value);
             Assert.False(apiResponse.Success);
-            Assert.Contains("Entity not found", apiResponse.Errors!);
+            Assert.Contains("Entity not found or update failed", apiResponse.Errors!);
         }
     }
 }

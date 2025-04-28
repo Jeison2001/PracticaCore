@@ -171,6 +171,24 @@ namespace Infrastructure.Repositories.Cache
             }
         }
 
+        public async Task UpdatePartialAsync(T entity, Expression<Func<T, object>>[] updatedProperties)
+        {
+            await _decoratedRepository.UpdatePartialAsync(entity, updatedProperties);
+            try
+            {
+                // Invalidamos la caché cuando se actualiza una entidad
+                await _cacheService.RemoveAsync($"{_entityName}_{entity.Id}");
+                await _cacheService.RemoveByPatternAsync($"{_entityName}_list*");
+                 await _cacheService.RemoveByPatternAsync($"{_entityName}_first*");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al invalidar caché después de actualizar entidad {entityType} con ID {entityId}",
+                    _entityName, entity.Id);
+                await TryResetCacheAsync();
+            }
+        }
+
         /// <summary>
         /// Ejecuta una operación con caché con degradación elegante a la operación directa en caso de error
         /// </summary>

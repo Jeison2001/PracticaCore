@@ -124,8 +124,8 @@ namespace Api.Extensions
                 var updateCommandType = typeof(UpdateEntityCommand<,,>).MakeGenericType(entityType, idType, dtoType);
                 RegisterGenericValidatorIfNeeded(services, updateCommandType, typeof(BaseUpdateCommandValidator<,,>), entityType, idType, dtoType);
 
-                var deleteCommandType = typeof(DeleteEntityCommand<,>).MakeGenericType(entityType, idType);
-                RegisterGenericValidatorIfNeeded(services, deleteCommandType, typeof(BaseDeleteCommandValidator<,>), entityType, idType);
+                var deleteCommandType = typeof(UpdateStatusEntityCommand<,>).MakeGenericType(entityType, idType);
+                RegisterGenericValidatorIfNeeded(services, deleteCommandType, typeof(BaseUpdateStatusCommandValidator<,>), entityType, idType);
                 RegisterQueryByIdValidatorIfNeeded(services, entityType, idType, dtoType);
             }
         }
@@ -196,7 +196,7 @@ namespace Api.Extensions
                 // Registrar Command Handlers
                 RegisterCommandHandler(services, typeof(CreateEntityCommand<,,>), typeof(CreateEntityCommandHandler<,,>), entityType, idType, dtoType);
                 RegisterCommandHandler(services, typeof(UpdateEntityCommand<,,>), typeof(UpdateEntityCommandHandler<,,>), entityType, idType, dtoType);
-                RegisterCommandHandler(services, typeof(DeleteEntityCommand<,>), typeof(DeleteEntityCommandHandler<,>), entityType, idType, dtoType);
+                RegisterCommandHandler(services, typeof(UpdateStatusEntityCommand<,>), typeof(UpdateStatusEntityCommandHandler<,>), entityType, idType, dtoType);
             }
         }
 
@@ -215,7 +215,7 @@ namespace Api.Extensions
         private static void RegisterCommandHandler(IServiceCollection services, Type commandType, Type handlerType, Type entityType, Type idType, Type dtoType)
         {
             Type[] genericArgs;
-            if (commandType == typeof(DeleteEntityCommand<,>))
+            if (commandType == typeof(UpdateStatusEntityCommand<,>))
             {
                 genericArgs = new[] {entityType, idType};
             }
@@ -227,7 +227,7 @@ namespace Api.Extensions
             var genericCommand = commandType.MakeGenericType(genericArgs);
             var genericHandler = handlerType.MakeGenericType(genericArgs);
 
-            Type responseType = commandType == typeof(DeleteEntityCommand<,>)
+            Type responseType = commandType == typeof(UpdateStatusEntityCommand<,>)
                 ? typeof(bool)
                 : dtoType;
 

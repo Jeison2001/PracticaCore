@@ -57,13 +57,20 @@ namespace Api.Controllers
             return Ok(new ApiResponse<TDto> { Success = true, Data = result });
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(TId id)
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(TId id, [FromBody] UpdateStatusRequestDto dto)
         {
-            var result = await _mediator.Send(new DeleteEntityCommand<T, TId>(id));
+            var command = new UpdateStatusEntityCommand<T, TId>(
+                id,
+                dto.StatusRegister,
+                dto.IdUserUpdateAt,
+                dto.OperationRegister
+            );
+
+            var result = await _mediator.Send(command);
             return result
-                ? Ok(new ApiResponse<object> { Success = true, Messages = new List<string> { "Entity deleted successfully" } })
-                : NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { "Entity not found" } });
+                ? Ok(new ApiResponse<object> { Success = true, Messages = new List<string> { "Entity status updated successfully" } })
+                : NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { "Entity not found or update failed" } });
         }
     }
 }

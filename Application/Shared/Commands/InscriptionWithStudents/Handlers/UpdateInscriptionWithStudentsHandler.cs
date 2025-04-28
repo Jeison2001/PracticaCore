@@ -48,6 +48,9 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
             try
             {
+                // Log the DTO values for debugging
+                _logger.LogInformation("Updating InscriptionModality with the following values: {@Dto}", request.Dto.InscriptionModality);
+
                 // 1. Update the modality registration
                 var inscriptionModalityDto = await _mediator.Send(
                     new UpdateEntityCommand<InscriptionModality, int, InscriptionModalityDto>(
@@ -86,7 +89,12 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     if (!studentIdsToKeep.Contains(student.Id))
                     {
                         await _mediator.Send(
-                            new DeleteEntityCommand<UserInscriptionModality, int>(student.Id),
+                            new UpdateStatusEntityCommand<UserInscriptionModality, int>(
+                                student.Id,
+                                false, // StatusRegister (desactivado)
+                                0, // IdUserUpdateAt (ajustar según contexto)
+                                "Desactivado" // OperationRegister
+                            ),
                             cancellationToken);
                     }
                 }

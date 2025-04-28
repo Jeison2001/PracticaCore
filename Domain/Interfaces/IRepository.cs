@@ -7,6 +7,7 @@ namespace Domain.Interfaces
     public interface IRepository<T, TId> where T : BaseEntity<TId> where TId : struct
     {
         Task<T?> GetByIdAsync(TId id);
+        Task UpdatePartialAsync(T entity, Expression<Func<T, object>>[] updatedProperties);
         Task<IEnumerable<T>> GetAllAsync();
         Task AddAsync(T entity);
         Task UpdateAsync(T entity);

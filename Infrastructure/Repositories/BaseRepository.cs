@@ -87,6 +87,18 @@ namespace Infrastructure.Repositories
             return Task.CompletedTask;
         }
 
+        public Task UpdatePartialAsync(T entity, Expression<Func<T, object>>[] updatedProperties)
+        {
+            _context.Attach(entity);
+            foreach (var property in updatedProperties)
+            {
+                _context.Entry(entity).Property(property).IsModified = true;
+            }
+            // No guardar cambios aquí, UnitOfWork se encargará.
+            return Task.CompletedTask;
+            
+        }
+
         public Task DeleteAsync(T entity)
         {
             _context.Set<T>().Remove(entity);
