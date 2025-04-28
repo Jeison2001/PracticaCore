@@ -2,6 +2,7 @@ using System.Text;
 using Api.Extensions;
 using Api.Middlewares;
 using Domain.Interfaces.Auth;
+using Infrastructure.Extensions;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,6 +14,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplicationLayer();
+
+// Registramos los servicios de caché
+builder.Services.AddCacheServices();
 
 // Add CORS configuration
 builder.Services.AddCors(options =>

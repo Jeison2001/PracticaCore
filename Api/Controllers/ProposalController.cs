@@ -1,4 +1,5 @@
 using Api.Responses;
+using Application.Shared.DTOs;
 using Application.Shared.DTOs.Proposal;
 using Application.Shared.Queries.Proposal;
 using Domain.Common;
@@ -15,6 +16,33 @@ namespace Api.Controllers
         public ProposalController(IMediator mediator) : base(mediator)
         {
             _mediator = mediator;
+        }
+
+        [HttpGet("GetAll")]
+        public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
+        {
+            try
+            {
+                var query = new GetAllProposalsQuery
+                {
+                    PageNumber = request.PageNumber,
+                    PageSize = request.PageSize,
+                    SortBy = request.SortBy,
+                    IsDescending = request.IsDescending,
+                    Filters = request.Filters
+                };
+
+                var result = await _mediator.Send(query);
+                return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Errors = new List<string> { $"Error al obtener las propuestas con detalles: {ex.Message}" }
+                });
+            }
         }
 
         [HttpGet("WithDetails/{id}")]

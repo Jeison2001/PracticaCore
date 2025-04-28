@@ -1,13 +1,11 @@
-using Application.Shared.DTOs.InscriptionModality;
 using Application.Shared.DTOs.Proposal;
 using Application.Shared.DTOs.UserInscriptionModality;
-using Application.Shared.Queries.Proposal;
 using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
 
-namespace Application.Common.Handlers.Proposal
+namespace Application.Shared.Queries.Proposal.Handlers
 {
     public class GetProposalWithDetailsQueryHandler : IRequestHandler<GetProposalWithDetailsQuery, ProposalWithDetailsResponseDto>
     {
@@ -70,15 +68,10 @@ namespace Application.Common.Handlers.Proposal
                 }
             }
             
-            //// 6. Creamos la respuesta final
-            //var modalityDto = proposal.InscriptionModality != null 
-            //    ? _mapper.Map<InscriptionModalityDto>(proposal.InscriptionModality) 
-            //    : new InscriptionModalityDto();
-                
+            // 6. Creamos la respuesta final
             var response = new ProposalWithDetailsResponseDto
             {
                 Proposal = _mapper.Map<ProposalDto>(proposal),
-                //InscriptionModality = modalityDto,
                 StateProposalName = stateProposal?.Name ?? string.Empty,
                 ResearchLineName = researchLine?.Name ?? string.Empty,
                 ResearchSubLineName = researchSubLine?.Name ?? string.Empty,
