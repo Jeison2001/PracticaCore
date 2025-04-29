@@ -80,6 +80,12 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                     if (user != null)
                     {
                         student.UserName = $"{user.FirstName} {user.LastName}";
+                        student.Identification = user.Identification;
+                        student.Email = user.Email;
+                        student.CurrentAcademicPeriod = user.CurrentAcademicPeriod;
+                        student.CumulativeAverage = user.CumulativeAverage;
+                        student.ApprovedCredits = user.ApprovedCredits;
+                        student.TotalAcademicCredits = user.TotalAcademicCredits;
                     }
                 }
 

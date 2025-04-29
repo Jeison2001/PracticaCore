@@ -144,6 +144,12 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                         if (users.TryGetValue(student.IdUser, out var user))
                         {
                             student.UserName = $"{user.FirstName} {user.LastName}";
+                            student.Identification = user.Identification;
+                            student.Email = user.Email;
+                            student.CurrentAcademicPeriod = user.CurrentAcademicPeriod;
+                            student.CumulativeAverage = user.CumulativeAverage;
+                            student.ApprovedCredits = user.ApprovedCredits;
+                            student.TotalAcademicCredits = user.TotalAcademicCredits;
                         }
                         else
                         {

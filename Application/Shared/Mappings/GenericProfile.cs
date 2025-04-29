@@ -1,5 +1,4 @@
 ﻿using Application.Shared.DTOs;
-using Application.Shared.DTOs.UserInscriptionModality;
 using Domain.Entities;
 using AutoMapper;
 using System.Reflection;
@@ -38,7 +37,6 @@ namespace Application.Shared.Mappings
                     CreateMap(entityType, dtoType).ReverseMap();
                 }
             }
-            CreateMap<UserInscriptionModality, UserInscriptionModalityDto>().ReverseMap();
         }
     }
 }
