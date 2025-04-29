@@ -59,7 +59,8 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
 
                 // 3. Obtener todos los registros de modalidad correspondientes
                 var inscriptionModalities = await _inscriptionModalityRepository.GetAllAsync(
-                    filter: rm => inscriptionModalityIds.Contains(rm.Id));
+                    filter: rm => inscriptionModalityIds.Contains(rm.Id) &&
+                                  (request.Status == null || rm.StatusRegister == request.Status));
 
                 // 4. Obtener todos los estudiantes asociados a estos registros de modalidad
                 var allStudentRegistrations = await _userInscriptionModalityRepository.GetAllAsync(

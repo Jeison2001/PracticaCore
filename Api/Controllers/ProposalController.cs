@@ -73,11 +73,11 @@ namespace Api.Controllers
         }
 
         [HttpGet("ByUser/{id}")]
-        public async Task<IActionResult> GetByUserId(int id)
+        public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
             try
             {
-                var query = new GetProposalsByUserQuery(id);
+                var query = new GetProposalsByUserQuery(id, status);
                 var result = await _mediator.Send(query);
                 return Ok(new ApiResponse<List<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
             }

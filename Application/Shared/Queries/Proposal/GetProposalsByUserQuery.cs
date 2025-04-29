@@ -3,5 +3,5 @@ using MediatR;
 
 namespace Application.Shared.Queries.Proposal
 {
-    public record GetProposalsByUserQuery(int UserId) : IRequest<List<ProposalWithDetailsResponseDto>>;
+    public record GetProposalsByUserQuery(int UserId, bool? Status) : IRequest<List<ProposalWithDetailsResponseDto>>;
 }

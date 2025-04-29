@@ -45,7 +45,8 @@ namespace Application.Shared.Queries.Proposal.Handlers
             
             // 4. Obtenemos las propuestas relacionadas a esas inscripciones
             var proposals = await proposalRepo.GetAllAsync(
-                filter: p => inscriptionModalityIds.Contains(p.Id));
+                filter: p => inscriptionModalityIds.Contains(p.Id) &&
+                             (request.Status == null || p.StatusRegister == request.Status));
 
             if (!proposals.Any())
             {

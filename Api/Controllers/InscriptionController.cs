@@ -66,11 +66,11 @@ namespace Api.Controllers
         }
 
         [HttpGet("ByUser/{id}")]
-        public async Task<IActionResult> GetByUserId(int id)
+        public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
             try
             {
-                var query = new GetInscriptionWithStudentsByUserQuery(id);
+                var query = new GetInscriptionWithStudentsByUserQuery(id, status);
                 var result = await _mediator.Send(query);
                 return Ok(new ApiResponse<List<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
             }
