@@ -28,6 +28,12 @@ namespace Api.Controllers
         [HttpGet("ByRole")]
         public async Task<IActionResult> GetUsersByRole([FromQuery] string? roleCode, [FromQuery] PaginatedRequest request)
         {
+            // Corregir PageNumber si es menor a 1
+            if (request.PageNumber < 1)
+            {
+                request.PageNumber = 1;
+            }
+
             var query = new GetUserRolesByRoleCodeQuery
             {
                 RoleCode = roleCode,
