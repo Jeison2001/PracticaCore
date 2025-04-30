@@ -1,6 +1,7 @@
 using System.Text;
 using Api.Extensions;
 using Api.Middlewares;
+using Api.SwaggerFilters;
 using Domain.Interfaces.Auth;
 using Infrastructure.Extensions;
 using Infrastructure.Repositories;
@@ -84,6 +85,9 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+    
+    // Aplicar el filtro personalizado para ocultar propiedades de solo lectura en solicitudes POST
+    c.OperationFilter<HideReadOnlyPropertiesFilter>();
 });
 
 var app = builder.Build();
