@@ -7,6 +7,7 @@ namespace Application.Shared.DTOs.Evaluation
         public string EntityType { get; set; } = string.Empty;
         public int EntityId { get; set; }
         public int IdEvaluationType { get; set; }
+        public int IdEvaluator { get; set; }
         public string? Result { get; set; }
         public string? Observations { get; set; }
     }

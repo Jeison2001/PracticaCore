@@ -14,6 +14,8 @@ namespace Application.Validations.specificsValidators.Evaluation
             
             RuleFor(x => x.IdEvaluationType).NotEmpty().WithMessage("El tipo de evaluación es requerido.");
             
+            RuleFor(x => x.IdEvaluator).NotEmpty().WithMessage("El evaluador es requerido.");
+            
             RuleFor(x => x.Result).MaximumLength(100).WithMessage("El resultado no puede tener más de 100 caracteres.");
         }
     }
