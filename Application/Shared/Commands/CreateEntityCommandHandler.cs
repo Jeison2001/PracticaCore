@@ -26,37 +26,42 @@ namespace Application.Shared.Commands
 
         public async Task<TDto> Handle(CreateEntityCommand<T, TId, TDto> request, CancellationToken ct)
         {
-            var entity = _mapper.Map<T>(request.Dto);
-            
+            T entity;
+            try
+            {
+                entity = _mapper.Map<T>(request.Dto);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Error al mapear el DTO a la entidad.", ex);
+            }
             // Verificar si la entidad tiene una propiedad Code
             PropertyInfo? codeProperty = typeof(T).GetProperty("Code");
             if (codeProperty != null)
             {
-                // Obtener el valor de Code
                 string? codeValue = codeProperty.GetValue(entity) as string;
-                
                 if (!string.IsNullOrEmpty(codeValue))
                 {
                     try
                     {
-                        // Verificar si ya existe una entidad con el mismo código
                         var existingEntity = await _repository.GetFirstOrDefaultAsync(
-                            e => EF.Property<string>(e, "Code") == codeValue, 
+                            e => EF.Property<string>(e, "Code") == codeValue,
                             ct);
-                            
                         if (existingEntity != null)
                         {
                             throw new InvalidOperationException($"Ya existe un registro con el código '{codeValue}'.");
                         }
                     }
-                    catch (Exception ex) when (!(ex is InvalidOperationException))
+                    catch (InvalidOperationException)
                     {
-                        // Si es un error diferente al que acabamos de lanzar, rethrow
                         throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException("Error al verificar la unicidad del código.", ex);
                     }
                 }
             }
-            
             try
             {
                 await _repository.AddAsync(entity);
@@ -65,15 +70,17 @@ namespace Application.Shared.Commands
             }
             catch (DbUpdateException ex)
             {
-                // Capturar y transformar excepciones específicas de la base de datos
                 if (ex.InnerException?.Message.Contains("duplicate") == true ||
                     ex.InnerException?.Message.Contains("unique") == true ||
                     ex.InnerException?.Message.Contains("violation of primary key") == true)
                 {
                     throw new InvalidOperationException("El registro ya existe en la base de datos.", ex);
                 }
-                
-                throw;
+                throw new InvalidOperationException("Error al guardar en la base de datos.", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Error inesperado al crear la entidad.", ex);
             }
         }
     }

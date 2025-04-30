@@ -8,7 +8,8 @@ namespace Domain.Entities
         public int IdTeacher { get; set; }  // FK to user
         public int IdTypeTeachingAssignment { get; set; }
         public DateTime? RevocationDate { get; set; }
-        
+        public new int? IdUserCreatedAt { get; set; }
+
         // Navigation properties
         public virtual InscriptionModality InscriptionModality { get; set; } = null!;
         public virtual User Teacher { get; set; } = null!;

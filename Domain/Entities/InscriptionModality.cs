@@ -16,5 +16,7 @@ namespace Domain.Entities
         public virtual StateInscription? StateInscription { get; set; }
         public virtual AcademicPeriod? AcademicPeriod { get; set; }
         public virtual Proposal? Proposal { get; set; }
+        public virtual ICollection<TeachingAssignment> TeachingAssignments { get; set; } = new List<TeachingAssignment>();
+
     }
 }

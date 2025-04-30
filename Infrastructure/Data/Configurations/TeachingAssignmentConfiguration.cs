@@ -14,14 +14,15 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IdTeacher).IsRequired().HasColumnName("idteacher");
             builder.Property(e => e.IdTypeTeachingAssignment).IsRequired().HasColumnName("idtypeteachingassignment");
             builder.Property(e => e.RevocationDate).HasColumnName("revocationdate").IsRequired(false);
-            
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+
             // Configure foreign key relationships
             builder.HasOne(e => e.InscriptionModality)
-                .WithMany()
+                .WithMany(t => t.TeachingAssignments)
                 .HasForeignKey(e => e.IdInscriptionModality);
                 
             builder.HasOne(e => e.Teacher)
-                .WithMany()
+                .WithMany(t => t.TeachingAssignments)
                 .HasForeignKey(e => e.IdTeacher);
                 
             builder.HasOne(e => e.TypeTeachingAssignment)
