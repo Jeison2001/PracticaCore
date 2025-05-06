@@ -27,26 +27,75 @@ namespace Infrastructure.Services
             var projectId = opts.ProjectId ?? throw new InvalidOperationException("ProjectId no configurado");
             var credentialsPath = opts.CredentialsPath;
 
-            // Si existe la variable de entorno GOOGLE_APPLICATION_CREDENTIALS, úsala
-            var envCreds = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
-            if (!string.IsNullOrEmpty(envCreds) && File.Exists(envCreds))
+            try
             {
-                _client = StorageClient.Create();
-                Console.WriteLine("Usando credenciales de variable de entorno GOOGLE_APPLICATION_CREDENTIALS");
-            }
-            else if (!string.IsNullOrEmpty(credentialsPath) && File.Exists(credentialsPath))
-            {
-                // Si tenemos una ruta de credenciales específica, establecerla como variable de entorno
-                Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
-                _client = StorageClient.Create();
-                Console.WriteLine($"Usando credenciales de archivo: {credentialsPath}");
-            }
-            else
-            {
+                // Si existe la variable de entorno GOOGLE_APPLICATION_CREDENTIALS, úsala
+                var envCreds = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+                Console.WriteLine($"Variable GOOGLE_APPLICATION_CREDENTIALS: {envCreds ?? "No configurada"}");
+                
+                if (!string.IsNullOrEmpty(envCreds))
+                {
+                    Console.WriteLine($"Verificando archivo en: {envCreds}");
+                    bool fileExists = File.Exists(envCreds);
+                    Console.WriteLine($"¿Archivo existe según File.Exists?: {fileExists}");
+                    
+                    try
+                    {
+                        _client = StorageClient.Create();
+                        Console.WriteLine("Usando credenciales de variable de entorno GOOGLE_APPLICATION_CREDENTIALS");
+                        Console.WriteLine($"Google Cloud Storage inicializado correctamente: Bucket={_bucketName}, Project={projectId}");
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error al crear StorageClient con credenciales de variable de entorno: {ex.Message}");
+                    }
+                }
+                
+                if (!string.IsNullOrEmpty(credentialsPath))
+                {
+                    Console.WriteLine($"Intentando usar credenciales de appsettings: {credentialsPath}");
+                    bool configFileExists = File.Exists(credentialsPath);
+                    Console.WriteLine($"¿Archivo de credenciales en appsettings existe?: {configFileExists}");
+                    
+                    if (configFileExists)
+                    {
+                        // Si tenemos una ruta de credenciales específica, establecerla como variable de entorno
+                        Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
+                        try
+                        {
+                            _client = StorageClient.Create();
+                            Console.WriteLine($"Usando credenciales de archivo: {credentialsPath}");
+                            Console.WriteLine($"Google Cloud Storage inicializado correctamente: Bucket={_bucketName}, Project={projectId}");
+                            return;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error al crear StorageClient con credenciales de archivo: {ex.Message}");
+                        }
+                    }
+                }
+
+                // Intento final - Tal vez las credenciales están disponibles de otra manera (por ejemplo, en GCP)
+                try
+                {
+                    Console.WriteLine("Intentando inicializar StorageClient sin especificar credenciales explícitas...");
+                    _client = StorageClient.Create();
+                    Console.WriteLine($"Google Cloud Storage inicializado correctamente: Bucket={_bucketName}, Project={projectId}");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error en el intento final: {ex.Message}");
+                }
+                
                 throw new InvalidOperationException("No se encontró la ruta de credenciales de Google Cloud Storage.");
             }
-            
-            Console.WriteLine($"Google Cloud Storage inicializado correctamente: Bucket={_bucketName}, Project={projectId}");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al inicializar Google Cloud Storage: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<string> SaveFileAsync(Stream fileStream, string fileName, CancellationToken cancellationToken)
