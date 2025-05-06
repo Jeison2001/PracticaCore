@@ -31,9 +31,18 @@ namespace Application.Shared.Queries
             Expression<Func<Document, bool>> baseFilter = d => d.IdInscriptionModality == request.IdInscriptionModality;
 
             // Aplicar filtros adicionales si existen
-            var combinedFilters = request.Filters != null 
-                ? new Dictionary<string, string>(request.Filters) 
-                : new Dictionary<string, string>();
+            Expression<Func<Document, bool>>? additionalFilter = null;
+            if (request.Filters != null && request.Filters.Any())
+            {
+                additionalFilter = FilterBuilder.BuildFilter<Document, int>(request.Filters);
+            }
+            
+            // Combinar el filtro base con el filtro adicional
+            Expression<Func<Document, bool>>? combinedFilter = baseFilter;
+            if (additionalFilter != null)
+            {
+                combinedFilter = d => baseFilter.Compile()(d) && additionalFilter.Compile()(d);
+            }
 
             // Configurar el orden si se especifica
             Func<IQueryable<Document>, IOrderedQueryable<Document>>? orderBy = null;
@@ -46,7 +55,7 @@ namespace Application.Shared.Queries
 
             // Obtener los resultados paginados usando el repositorio
             var paginatedDocs = await _repository.GetAllWithPaginationAsync(
-                filter: baseFilter,
+                filter: combinedFilter,
                 orderBy: orderBy,
                 pageNumber: request.PageNumber,
                 pageSize: request.PageSize

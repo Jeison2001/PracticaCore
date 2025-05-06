@@ -33,8 +33,13 @@ namespace Api.Extensions
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IUserService, UserService>();
 
+            // Configurar el servicio de almacenamiento de archivos según la configuración
+            ConfigureFileStorageService(services, config);
+
             // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
+
+            services.Configure<GoogleCloudOptions>(config.GetSection("FileStorage:GoogleCloud"));
         }
 
         public static void AddApplicationLayer(this IServiceCollection services)
@@ -233,6 +238,32 @@ namespace Api.Extensions
 
             var handlerInterface = typeof(IRequestHandler<,>).MakeGenericType(genericCommand, responseType);
             services.AddTransient(handlerInterface, genericHandler);
+        }
+
+        /// <summary>
+        /// Configura el servicio de almacenamiento de archivos según la configuración
+        /// </summary>
+        private static void ConfigureFileStorageService(IServiceCollection services, IConfiguration config)
+        {
+            var provider = config["FileStorage:Provider"]?.ToLower() ?? "local";
+            var localPath = config["FileStorage:LocalPath"] ?? "Uploads";
+
+            switch (provider)
+            {
+                case "google":
+                    services.AddSingleton<IFileStorageService, GoogleCloudFileStorageService>();
+                    break;
+                case "azure":
+                    services.AddSingleton<IFileStorageService, AzureBlobFileStorageService>();
+                    break;
+                case "aws":
+                    services.AddSingleton<IFileStorageService, AwsS3FileStorageService>();
+                    break;
+                case "local":
+                default:
+                    services.AddSingleton<IFileStorageService>(sp => new LocalFileStorageService(localPath));
+                    break;
+            }
         }
     }
 }

@@ -3,6 +3,8 @@ using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Application.Shared.Queries
 {
@@ -11,7 +13,9 @@ namespace Application.Shared.Queries
         private readonly IRepository<Document, int> _repository;
         private readonly IMapper _mapper;
 
-        public GetDocumentByIdQueryHandler(IRepository<Document, int> repository, IMapper mapper)
+        public GetDocumentByIdQueryHandler(
+            IRepository<Document, int> repository,
+            IMapper mapper)
         {
             _repository = repository;
             _mapper = mapper;

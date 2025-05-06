@@ -1,12 +1,9 @@
 using Domain.Common;
 using Domain.Entities;
 using Domain.Interfaces.Auth;
+using System.Linq.Expressions;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Infrastructure.Repositories
 {
@@ -45,22 +42,11 @@ namespace Infrastructure.Repositories
             // Aplicar filtros adicionales
             if (filters != null && filters.Any())
             {
-                // Filtro por ID
-                if (filters.TryGetValue("id", out string? idValue) && int.TryParse(idValue, out int id))
+                // Construir expresión LINQ a partir de los filtros adicionales
+                var additionalFilter = FilterBuilder.BuildFilter<UserRole, int>(filters);
+                if (additionalFilter != null)
                 {
-                    query = query.Where(ur => ur.Id == id);
-                }
-
-                // Filtro por ID de usuario
-                if (filters.TryGetValue("iduser", out string? idUserValue) && int.TryParse(idUserValue, out int idUser))
-                {
-                    query = query.Where(ur => ur.IdUser == idUser);
-                }
-
-                // Filtro por ID de rol
-                if (filters.TryGetValue("idrole", out string? idRoleValue) && int.TryParse(idRoleValue, out int idRole))
-                {
-                    query = query.Where(ur => ur.IdRole == idRole);
+                    query = query.Where(additionalFilter);
                 }
             }
 

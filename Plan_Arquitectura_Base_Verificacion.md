@@ -27,7 +27,7 @@ Cada handler:
 * Middleware Global de Excepciones: Para retornar respuestas estructuradas.
 * Filtros de Acción: Para validaciones globales, logging o manejo de caché.
 🚀 Funcionalidades Avanzadas
-<!-- * Paginación, Filtrado y Ordenamiento Dinámico. -->
+* Paginación, Filtrado y Ordenamiento Dinámico.
 * Caché Genérico por Consulta o Endpoint.
 * Estandarización de Respuestas API.
 * Validación Asíncrona con acceso a DB o servicios externos.

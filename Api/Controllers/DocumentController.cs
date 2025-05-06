@@ -1,7 +1,9 @@
 using Api.Controllers;
 using Application.Shared.DTOs;
+using Application.Shared.Queries;
 using Domain.Common;
 using Domain.Entities;
+using Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -15,10 +17,12 @@ namespace Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly IConfiguration _configuration;
-        public DocumentController(IMediator mediator, IConfiguration configuration)
+        private readonly IFileStorageService _fileStorageService;
+        public DocumentController(IMediator mediator, IConfiguration configuration, IFileStorageService fileStorageService)
         {
             _mediator = mediator;
             _configuration = configuration;
+            _fileStorageService = fileStorageService;
         }
 
         /// <summary>
@@ -29,8 +33,7 @@ namespace Api.Controllers
         [HttpGet("File/{id}")]
         public async Task<IActionResult> DownloadFile(int id)
         {
-            // Obtener el documento (puedes usar MediatR o el repositorio directamente)
-            var result = await _mediator.Send(new Application.Shared.Queries.GetDocumentByIdQuery(id));
+            var result = await _mediator.Send(new GetDocumentByIdQuery(id));
             if (result == null)
             {
                 return NotFound(new Responses.ApiResponse<object>
@@ -41,23 +44,9 @@ namespace Api.Controllers
                     Messages = new List<string>()
                 });
             }
-
-            var uploadsFolder = _configuration["FileStorage:LocalPath"] ?? "Uploads";
-            var filePath = Path.Combine(uploadsFolder, result.StoredFileName);
-            if (!System.IO.File.Exists(filePath))
-            {
-                return NotFound(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { "Archivo no encontrado en el servidor" },
-                    Messages = new List<string>()
-                });
-            }
-
+            var fileStream = await _fileStorageService.GetFileAsync(result.StoredFileName, HttpContext.RequestAborted);
             var mimeType = string.IsNullOrEmpty(result.MimeType) ? "application/octet-stream" : result.MimeType;
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-            return File(fileBytes, mimeType, result.OriginalFileName);
+            return File(fileStream, mimeType, result.OriginalFileName);
         }
 
         /// <summary>
@@ -122,19 +111,11 @@ namespace Api.Controllers
             }
             try
             {
-                var uploadsFolder = _configuration["FileStorage:LocalPath"] ?? "Uploads";
-                if (!Directory.Exists(uploadsFolder))
-                    Directory.CreateDirectory(uploadsFolder);
-                var uniqueFileName = $"{Guid.NewGuid()}{fileExt}";
-                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await dto.File.CopyToAsync(stream);
-                }
+                var uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, HttpContext.RequestAborted);
                 var command = new Application.Shared.Commands.CreateDocumentWithFileCommand(
                     dto,
                     uniqueFileName,
-                    uploadsFolder,
+                    string.Empty, // StoragePath ya no se usa
                     dto.File.ContentType,
                     dto.File.Length
                 );
@@ -166,6 +147,7 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int id, [FromForm] DocumentUpdateDto dto)
         {
+            await Task.CompletedTask;
             // TODO: Implementar handler UpdateDocumentWithFileCommand y su lógica
             return StatusCode(StatusCodes.Status501NotImplemented, new Responses.ApiResponse<object>
             {
@@ -182,6 +164,7 @@ namespace Api.Controllers
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
         {
+            await Task.CompletedTask;
             // TODO: Implementar handler UpdateDocumentStatusCommand y su lógica
             return StatusCode(StatusCodes.Status501NotImplemented, new Responses.ApiResponse<object>
             {

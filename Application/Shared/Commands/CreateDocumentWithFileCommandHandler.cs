@@ -3,6 +3,8 @@ using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Application.Shared.Commands
 {
@@ -12,7 +14,10 @@ namespace Application.Shared.Commands
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
 
-        public CreateDocumentWithFileCommandHandler(IRepository<Document, int> repository, IUnitOfWork unitOfWork, IMapper mapper)
+        public CreateDocumentWithFileCommandHandler(
+            IRepository<Document, int> repository,
+            IUnitOfWork unitOfWork,
+            IMapper mapper)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
@@ -27,12 +32,12 @@ namespace Application.Shared.Commands
                 IdInscriptionModality = dto.IdInscriptionModality,
                 IdUploader = dto.IdUploader,
                 IdDocumentType = dto.IdDocumentType,
-                Name = dto.Name ?? dto.File.FileName, // Use provided name or default to file name
+                Name = dto.Name ?? dto.File.FileName,
                 OriginalFileName = dto.File.FileName,
                 StoredFileName = request.StoredFileName,
-                StoragePath = request.StoragePath,
-                MimeType = request.MimeType,
-                FileSize = request.FileSize,
+                StoragePath = string.Empty, // Ya no se usa
+                MimeType = dto.File.ContentType,
+                FileSize = dto.File.Length,
                 Version = dto.Version,
                 DocumentState = "CARGADO",
                 IdUserCreatedAt = dto.IdUserCreatedAt,
