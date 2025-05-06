@@ -5,6 +5,7 @@ namespace Domain.Entities
         public int? IdInscriptionModality { get; set; }
         public int IdUploader { get; set; }
         public int IdDocumentType { get; set; }
+        public string Name { get; set; } = string.Empty;
         public string OriginalFileName { get; set; } = string.Empty;
         public string StoredFileName { get; set; } = string.Empty;
         public string StoragePath { get; set; } = string.Empty;

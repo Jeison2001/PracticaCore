@@ -14,6 +14,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IdInscriptionModality).HasColumnName("idinscriptionmodality").IsRequired(false);
             builder.Property(e => e.IdUploader).HasColumnName("iduploader").IsRequired();
             builder.Property(e => e.IdDocumentType).HasColumnName("iddocumenttype").IsRequired();
+            builder.Property(e => e.Name).HasMaxLength(255).HasColumnName("name").IsRequired(false);
             builder.Property(e => e.OriginalFileName).IsRequired().HasMaxLength(255).HasColumnName("originalfilename");
             builder.Property(e => e.StoredFileName).IsRequired().HasMaxLength(255).HasColumnName("storedfilename");
             builder.HasIndex(e => e.StoredFileName).IsUnique();

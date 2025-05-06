@@ -29,6 +29,7 @@ namespace Application.Shared.Commands
             entity.IdInscriptionModality = request.Dto.IdInscriptionModality;
             entity.IdUploader = request.Dto.IdUploader;
             entity.IdDocumentType = request.Dto.IdDocumentType;
+            entity.Name = request.Dto.Name ?? entity.Name;
             entity.Version = request.Dto.Version;
             entity.DocumentState = request.Dto.DocumentState ?? entity.DocumentState;
             entity.IdUserUpdatedAt = request.Dto.IdUserUpdatedAt;

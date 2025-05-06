@@ -27,6 +27,7 @@ namespace Application.Shared.Commands
                 IdInscriptionModality = dto.IdInscriptionModality,
                 IdUploader = dto.IdUploader,
                 IdDocumentType = dto.IdDocumentType,
+                Name = dto.Name ?? dto.File.FileName, // Use provided name or default to file name
                 OriginalFileName = dto.File.FileName,
                 StoredFileName = request.StoredFileName,
                 StoragePath = request.StoragePath,
