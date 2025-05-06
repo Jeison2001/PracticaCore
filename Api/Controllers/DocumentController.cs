@@ -1,5 +1,6 @@
 using Api.Controllers;
 using Application.Shared.DTOs;
+using Domain.Common;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -63,18 +64,41 @@ namespace Api.Controllers
         /// Obtiene todos los documentos asociados a una inscripción (IdInscriptionModality).
         /// </summary>
         /// <param name="id">Id de la modalidad de inscripción.</param>
+        /// <param name="request">Parámetros de paginación, filtrado y ordenamiento.</param>
         /// <returns>Lista de documentos.</returns>
         [HttpGet("ByInscriptionModality/{id}")]
-        public async Task<IActionResult> GetByInscriptionModality(int id)
+        public async Task<IActionResult> GetByInscriptionModality(int id, [FromQuery] PaginatedRequest request)
         {
-            var result = await _mediator.Send(new Application.Shared.Queries.GetDocumentsByInscriptionModalityQuery(id));
-            return Ok(new Responses.ApiResponse<List<DocumentDto>>
+            try
             {
-                Success = true,
-                Data = result,
-                Errors = new List<string>(),
-                Messages = new List<string>()
-            });
+                var query = new Application.Shared.Queries.GetDocumentsByInscriptionModalityQuery(
+                    id,
+                    request.PageNumber,
+                    request.PageSize,
+                    request.SortBy,
+                    request.IsDescending,
+                    request.Filters
+                );
+                
+                var result = await _mediator.Send(query);
+                return Ok(new Responses.ApiResponse<PaginatedResult<DocumentDto>>
+                {
+                    Success = true,
+                    Data = result,
+                    Errors = new List<string>(),
+                    Messages = new List<string>()
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { $"Error al obtener los documentos: {ex.Message}" },
+                    Messages = new List<string>()
+                });
+            }
         }
 
         /// <summary>
