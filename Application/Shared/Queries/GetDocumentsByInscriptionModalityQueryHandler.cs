@@ -31,17 +31,16 @@ namespace Application.Shared.Queries
             Expression<Func<Document, bool>> baseFilter = d => d.IdInscriptionModality == request.IdInscriptionModality;
 
             // Aplicar filtros adicionales si existen
-            Expression<Func<Document, bool>>? additionalFilter = null;
+            Expression<Func<Document, bool>>? combinedFilter = baseFilter;
             if (request.Filters != null && request.Filters.Any())
             {
-                additionalFilter = FilterBuilder.BuildFilter<Document, int>(request.Filters);
-            }
-            
-            // Combinar el filtro base con el filtro adicional
-            Expression<Func<Document, bool>>? combinedFilter = baseFilter;
-            if (additionalFilter != null)
-            {
-                combinedFilter = d => baseFilter.Compile()(d) && additionalFilter.Compile()(d);
+                // Uso directo de los filtros en el repositorio en lugar de combinarlos manualmente
+                var filterDictionary = new Dictionary<string, string>(request.Filters);
+                // Agregar el filtro de inscripción modalidad para asegurar que siempre se aplique
+                filterDictionary["IdInscriptionModality"] = request.IdInscriptionModality.ToString();
+                
+                // Usar directamente el FilterBuilder para construir la expresión completa
+                combinedFilter = FilterBuilder.BuildFilter<Document, int>(filterDictionary);
             }
 
             // Configurar el orden si se especifica
