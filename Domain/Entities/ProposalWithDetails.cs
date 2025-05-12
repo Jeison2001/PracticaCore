@@ -7,7 +7,7 @@ namespace Domain.Entities
     /// </summary>
     public class ProposalWithDetails
     {
-        public Proposal Proposal { get; set; }
+        public required Proposal Proposal { get; set; }
         public List<UserInscriptionModality> UserInscriptionModalities { get; set; } = new List<UserInscriptionModality>();
     }
 }

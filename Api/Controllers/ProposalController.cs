@@ -92,16 +92,28 @@ namespace Api.Controllers
         }
 
         [HttpGet("ByTeacher/{id}")]
-        public async Task<IActionResult> GetByTeacherId(int id, bool? status = null)
+        public async Task<IActionResult> GetByTeacherId(
+            int id, 
+            [FromQuery] PaginatedRequest request,
+            [FromQuery] bool? status = null)
         {
             try
             {
-                var query = new GetProposalsByTeacherQuery(id, status);
+                var query = new GetProposalsByTeacherQuery(
+                    id, 
+                    request.PageNumber, 
+                    request.PageSize, 
+                    request.SortBy ?? "", 
+                    request.IsDescending, 
+                    request.Filters ?? new Dictionary<string, string>(), 
+                    status);
+                
                 var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<List<ProposalWithDetailsResponseDto>> { 
+                
+                return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> { 
                     Success = true, 
                     Data = result,
-                    Messages = new List<string> { $"Se encontraron {result.Count} propuestas asignadas al docente." }
+                    Messages = new List<string> { $"Se encontraron {result.TotalRecords} propuestas asignadas al docente." }
                 });
             }
             catch (Exception ex)

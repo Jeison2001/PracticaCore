@@ -1,5 +1,6 @@
 using Application.Shared.DTOs.Proposal;
 using Application.Shared.DTOs.UserInscriptionModality;
+using Domain.Common;
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
@@ -13,7 +14,7 @@ using AutoMapper;
 
 namespace Application.Shared.Queries.Proposal.Handlers
 {
-    public class GetProposalsByTeacherQueryHandler : IRequestHandler<GetProposalsByTeacherQuery, List<ProposalWithDetailsResponseDto>>
+    public class GetProposalsByTeacherQueryHandler : IRequestHandler<GetProposalsByTeacherQuery, PaginatedResult<ProposalWithDetailsResponseDto>>
     {
         private readonly ILogger<GetProposalsByTeacherQueryHandler> _logger;
         private readonly IProposalRepository _proposalRepository;
@@ -29,27 +30,38 @@ namespace Application.Shared.Queries.Proposal.Handlers
             _mapper = mapper;
         }
 
-        public async Task<List<ProposalWithDetailsResponseDto>> Handle(
+        public async Task<PaginatedResult<ProposalWithDetailsResponseDto>> Handle(
             GetProposalsByTeacherQuery request,
             CancellationToken cancellationToken)
         {
             try
             {
                 // Obtener las propuestas con una consulta optimizada en el repositorio
-                var proposalsWithDetails = await _proposalRepository.GetProposalsByTeacherWithDetailsAsync(
-                    request.TeacherId, 
-                    request.StatusFilter, 
+                var proposalsWithDetailsPaginated = await _proposalRepository.GetProposalsByTeacherWithDetailsPaginatedAsync(
+                    request.TeacherId,
+                    request.PageNumber,
+                    request.PageSize,
+                    request.SortBy,
+                    request.IsDescending,
+                    request.Filters,
+                    request.StatusFilter,
                     cancellationToken);
 
-                if (!proposalsWithDetails.Any())
+                if (!proposalsWithDetailsPaginated.Items.Any())
                 {
-                    return new List<ProposalWithDetailsResponseDto>();
+                    return new PaginatedResult<ProposalWithDetailsResponseDto>
+                    {
+                        Items = new List<ProposalWithDetailsResponseDto>(),
+                        TotalRecords = 0,
+                        PageNumber = request.PageNumber,
+                        PageSize = request.PageSize
+                    };
                 }
 
                 // Mapear a DTOs
-                var result = new List<ProposalWithDetailsResponseDto>();
+                var resultItems = new List<ProposalWithDetailsResponseDto>();
                 
-                foreach (var proposalWithDetails in proposalsWithDetails)
+                foreach (var proposalWithDetails in proposalsWithDetailsPaginated.Items)
                 {
                     var proposal = proposalWithDetails.Proposal;
                     
@@ -73,7 +85,7 @@ namespace Application.Shared.Queries.Proposal.Handlers
                     }
 
                     // Crear DTO de propuesta con detalles
-                    result.Add(new ProposalWithDetailsResponseDto
+                    resultItems.Add(new ProposalWithDetailsResponseDto
                     {
                         Proposal = _mapper.Map<ProposalDto>(proposal),
                         StateProposalName = proposal.StateProposal?.Name ?? string.Empty,
@@ -83,11 +95,18 @@ namespace Application.Shared.Queries.Proposal.Handlers
                     });
                 }
 
-                return result;
+                // Devolver resultado paginado
+                return new PaginatedResult<ProposalWithDetailsResponseDto>
+                {
+                    Items = resultItems,
+                    TotalRecords = proposalsWithDetailsPaginated.TotalRecords,
+                    PageNumber = request.PageNumber,
+                    PageSize = request.PageSize
+                };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving proposals by teacher ID {TeacherId}: {Message}", request.TeacherId, ex.Message);
+                _logger.LogError(ex, "Error retrieving paginated proposals by teacher ID {TeacherId}: {Message}", request.TeacherId, ex.Message);
                 throw;
             }
         }
