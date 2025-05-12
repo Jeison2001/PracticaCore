@@ -90,5 +90,28 @@ namespace Api.Controllers
                 });
             }
         }
+
+        [HttpGet("ByTeacher/{id}")]
+        public async Task<IActionResult> GetByTeacherId(int id, bool? status = null)
+        {
+            try
+            {
+                var query = new GetProposalsByTeacherQuery(id, status);
+                var result = await _mediator.Send(query);
+                return Ok(new ApiResponse<List<ProposalWithDetailsResponseDto>> { 
+                    Success = true, 
+                    Data = result,
+                    Messages = new List<string> { $"Se encontraron {result.Count} propuestas asignadas al docente." }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Errors = new List<string> { $"Error al obtener las propuestas asignadas al docente: {ex.Message}" }
+                });
+            }
+        }
     }
 }
