@@ -9,6 +9,9 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text;
+using System.Text.Json;
+using System.Reflection;
 
 namespace Infrastructure.Repositories.Cache
 {
@@ -80,16 +83,13 @@ namespace Infrastructure.Repositories.Cache
         }
 
         public Task<IEnumerable<T>> GetAllAsync(
-            Expression<Func<T, bool>>? filter = null, 
-            Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null, 
-            int? pageNumber = null, 
+            Expression<Func<T, bool>>? filter = null,
+            Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+            int? pageNumber = null,
             int? pageSize = null)
         {
-            // Para consultas con filtros y parámetros, creamos una clave única en caché
-            // Usamos métodos seguros para obtener el hash de las expresiones
-            string filterHash = filter != null ? filter.ToString().GetHashCode().ToString() : "nofilter";
-            
-            // Para orderBy, que es un Func, necesitamos ser más cuidadosos
+            // Clave base sin discriminator
+            string filterHash = filter != null ? GenerateExpressionKey(filter) : "nofilter";
             string orderByHash = "noorder";
             if (orderBy != null)
             {
@@ -99,7 +99,6 @@ namespace Infrastructure.Repositories.Cache
                     orderByHash = orderByToString.GetHashCode().ToString();
                 }
             }
-            
             string paginationKey = (pageNumber.HasValue && pageSize.HasValue) ? $"_page{pageNumber}_size{pageSize}" : "";
             string cacheKey = $"{_entityName}_list_{filterHash}_{orderByHash}{paginationKey}";
             
@@ -109,14 +108,12 @@ namespace Infrastructure.Repositories.Cache
         }
 
         public Task<PaginatedResult<T>> GetAllWithPaginationAsync(
-            Expression<Func<T, bool>>? filter = null, 
-            Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null, 
-            int pageNumber = 1, 
+            Expression<Func<T, bool>>? filter = null,
+            Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+            int pageNumber = 1,
             int pageSize = 10)
         {
-            // Aplicamos el mismo enfoque seguro para las claves de caché
-            string filterHash = filter != null ? filter.ToString().GetHashCode().ToString() : "nofilter";
-            
+            string filterHash = filter != null ? GenerateExpressionKey(filter) : "nofilter";
             string orderByHash = "noorder";
             if (orderBy != null)
             {
@@ -126,7 +123,6 @@ namespace Infrastructure.Repositories.Cache
                     orderByHash = orderByToString.GetHashCode().ToString();
                 }
             }
-            
             string cacheKey = $"{_entityName}_list_paginated_{filterHash}_{orderByHash}_page{pageNumber}_size{pageSize}";
             
             return ExecuteWithFallbackAsync<PaginatedResult<T>>(
@@ -142,10 +138,11 @@ namespace Infrastructure.Repositories.Cache
                 () => _decoratedRepository.GetByIdAsync(id));
         }
 
-        public Task<T?> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken)
+        public Task<T?> GetFirstOrDefaultAsync(
+            Expression<Func<T, bool>> predicate,
+            CancellationToken cancellationToken)
         {
-            // Manejo seguro del hash para el predicado (predicate no puede ser nulo por definición de interfaz)
-            string predicateHash = predicate.ToString().GetHashCode().ToString();
+            string predicateHash = GenerateExpressionKey(predicate);
             string cacheKey = $"{_entityName}_first_{predicateHash}";
             
             return ExecuteWithFallbackAsync<T?>(
@@ -189,10 +186,29 @@ namespace Infrastructure.Repositories.Cache
             }
         }
 
+        // Helper para enriquecer la clave de caché con valores capturados en el cierre
+        private string AugmentCacheKey(string baseKey, Delegate dataOperation)
+        {
+            var sb = new StringBuilder(baseKey);
+            var target = dataOperation.Target;
+            if (target != null)
+            {
+                var fields = target.GetType()
+                    .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                foreach (var f in fields)
+                {
+                    var val = f.GetValue(target);
+                    if (val == null || val is IRepository<T, TId>) continue;
+                    sb.Append('|').Append(JsonSerializer.Serialize(val));
+                }
+            }
+            return sb.ToString();
+        }
+
         /// <summary>
         /// Ejecuta una operación con caché con degradación elegante a la operación directa en caso de error
         /// </summary>
-        private async Task<T> ExecuteWithFallbackAsync<T>(string cacheKey, Func<Task<T>> dataOperation)
+        private async Task<TResult> ExecuteWithFallbackAsync<TResult>(string cacheKey, Func<Task<TResult>> dataOperation)
         {
             if (!_isCacheHealthy)
             {
@@ -202,17 +218,15 @@ namespace Infrastructure.Repositories.Cache
 
             try
             {
-                return await _cacheService.GetOrCreateAsync(cacheKey, dataOperation, _cacheTimeMinutes);
+                // Enriquecer clave con valores del closure para evitar colisiones
+                var fullKey = AugmentCacheKey(cacheKey, dataOperation);
+                return await _cacheService.GetOrCreateAsync(fullKey, dataOperation, _cacheTimeMinutes);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al acceder a caché para {entityType} con clave {key}. Usando operación directa.",
                     _entityName, cacheKey);
-                
-                // Marcar el caché como no saludable temporalmente
                 await TryResetCacheAsync();
-                
-                // Ejecutar la operación directa como fallback
                 return await dataOperation();
             }
         }
@@ -231,7 +245,7 @@ namespace Infrastructure.Repositories.Cache
                 _logger.LogWarning("Caché reiniciado para la entidad {entityType}", _entityName);
                 
                 // Programar la reactivación del caché después de un tiempo
-                Task.Delay(TimeSpan.FromMinutes(5))
+                _ = Task.Delay(TimeSpan.FromMinutes(5))
                     .ContinueWith(_ => {
                         _isCacheHealthy = true;
                         _logger.LogInformation("Caché reactivado para la entidad {entityType}", _entityName);
@@ -240,6 +254,36 @@ namespace Infrastructure.Repositories.Cache
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al intentar reiniciar el caché para {entityType}", _entityName);
+            }
+        }
+
+        // Agregar métodos para generar claves únicas de expresiones incluyendo valores capturados
+        private static string GenerateExpressionKey(Expression expression)
+        {
+            var sb = new StringBuilder();
+            var constants = new List<object>();
+            var collector = new ConstantCollector(constants);
+            collector.Visit(expression);
+            sb.Append(expression.ToString());
+            foreach (var constant in constants)
+            {
+                sb.Append("|");
+                sb.Append(JsonSerializer.Serialize(constant));
+            }
+            return sb.ToString().GetHashCode().ToString();
+        }
+
+        private class ConstantCollector : ExpressionVisitor
+        {
+            private readonly List<object> _constants;
+            public ConstantCollector(List<object> constants) => _constants = constants;
+            protected override Expression VisitConstant(ConstantExpression node)
+            {
+                if (node.Value != null)
+                {
+                    _constants.Add(node.Value);
+                }
+                return base.VisitConstant(node);
             }
         }
     }
