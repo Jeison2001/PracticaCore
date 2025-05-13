@@ -70,18 +70,65 @@ namespace Application.Shared.Commands
             }
             catch (DbUpdateException ex)
             {
-                if (ex.InnerException?.Message.Contains("duplicate") == true ||
-                    ex.InnerException?.Message.Contains("unique") == true ||
-                    ex.InnerException?.Message.Contains("violation of primary key") == true)
+                var innerExceptionMessage = ex.InnerException?.Message;
+
+                if (innerExceptionMessage != null)
                 {
-                    throw new InvalidOperationException("El registro ya existe en la base de datos.", ex);
+                    // Intentar identificar violaciones de llaves foráneas de forma genérica
+                    // Esto es menos robusto que usar las propiedades específicas del proveedor de BD
+                    if (innerExceptionMessage.Contains("violates foreign key constraint") ||
+                        innerExceptionMessage.Contains("FOREIGN KEY constraint") ||
+                        innerExceptionMessage.Contains("referential integrity constraint")) // Añadir otras variaciones comunes
+                    {
+                        // Intentar extraer el nombre de la restricción si está disponible en el mensaje
+                        var constraintName = ExtractConstraintName(innerExceptionMessage);
+                        if (!string.IsNullOrEmpty(constraintName) && constraintName.Equals("fkteachingassignmentinscriptionmodality", StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException("Error de llave foránea: El valor de 'idInscriptionModality' no es válido o no existe.", ex);
+                        }
+                        else if (!string.IsNullOrEmpty(constraintName))
+                        {
+                             throw new InvalidOperationException($"Error de llave foránea: La restricción '{constraintName}' ha sido violada. Verifique los datos relacionados.", ex);
+                        }
+                        throw new InvalidOperationException("Error de llave foránea: Uno de los valores proporcionados no existe en las tablas relacionadas.", ex);
+                    }
+
+                    // Mantener la lógica existente para otras violaciones comunes
+                    if (innerExceptionMessage.Contains("duplicate") == true ||
+                        innerExceptionMessage.Contains("unique") == true ||
+                        innerExceptionMessage.Contains("violation of primary key") == true)
+                    {
+                        throw new InvalidOperationException("El registro ya existe en la base de datos.", ex);
+                    }
                 }
+                
                 throw new InvalidOperationException("Error al guardar en la base de datos.", ex);
             }
             catch (Exception ex)
             {
                 throw new InvalidOperationException("Error inesperado al crear la entidad.", ex);
             }
+        }
+private string ExtractConstraintName(string errorMessage)
+        {
+            // Ejemplo de patrones para extraer el nombre de la restricción.
+            // Estos patrones pueden necesitar ajustes dependiendo del formato exacto del mensaje de error de tu proveedor de base de datos.
+            var patterns = new[]
+            {
+                @"constraint ""([^""]+)""", // Para PostgreSQL: constraint "constraint_name"
+                @"constraint '([^']+)'",    // Para SQL Server: constraint 'constraint_name'
+                // Añade más patrones aquí si es necesario para otros proveedores de BD o formatos de mensaje.
+            };
+
+            foreach (var pattern in patterns)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(errorMessage, pattern);
+                if (match.Success && match.Groups.Count > 1)
+                {
+                    return match.Groups[1].Value;
+                }
+            }
+            return string.Empty;
         }
     }
 }
