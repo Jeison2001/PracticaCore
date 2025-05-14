@@ -5,6 +5,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
@@ -13,15 +14,18 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
         private readonly IMediator _mediator;
         private readonly ILogger<CreateInscriptionWithStudentsHandler> _logger;
         private readonly IUserService _userService;
+        private readonly IUnitOfWork _unitOfWork;
 
         public CreateInscriptionWithStudentsHandler(
             IMediator mediator,
             ILogger<CreateInscriptionWithStudentsHandler> logger,
-            IUserService userService)
+            IUserService userService,
+            IUnitOfWork unitOfWork)
         {
             _mediator = mediator;
             _logger = logger;
             _userService = userService;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<InscriptionWithStudentsDto> Handle(
@@ -45,25 +49,32 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 // 2. Get the generated ID for the modality record
                 var inscriptionModalityId = inscriptionModalityDto.Id;
 
-                // 3. Fetch all user identifications in a single step
-                var userIdentifications = await Task.WhenAll(
-                    request.Dto.Students.Select(async s => new
-                    {
-                        s.Identification,
+                // 3. Obtener secuencialmente las identificaciones de usuario para evitar concurrencia en DbContext
+                var userDictionary = new Dictionary<string, UserIdentificationResult>();
+                foreach (var s in request.Dto.Students)
+                {
+                    var identResult = await _userService.GetUserIdByIdentification(
                         s.IdIdentificationType,
-                        UserIdentification = await _userService.GetUserIdByIdentification(s.IdIdentificationType, s.Identification)
-                    })
-                );
+                        s.Identification);
+                    // Validar existencia de usuario
+                    if (identResult == null || identResult.Id <= 0)
+                        throw new KeyNotFoundException($"No se encontró el usuario con identificación '{s.Identification}'");
+                    userDictionary.Add(s.Identification, identResult);
+                }
 
-                var userDictionary = userIdentifications.ToDictionary(
-                    x => x.Identification,
-                    x => x.UserIdentification
-                );
+                // 4. Cargar todos los usuarios de una vez para validación
+                var userIds = userDictionary.Values.Select(x => x.Id).ToList();
+                var users = await _unitOfWork.GetRepository<User, int>()
+                    .GetAllAsync(u => userIds.Contains(u.Id));
+                var usersDict = users.ToDictionary(u => u.Id);
 
-                // 4. Create the student records linked to the modality
+                // 5. Crear los registros de estudiantes enlazados a la modalidad
                 foreach (var studentDto in request.Dto.Students)
                 {
                     var userIdentification = userDictionary[studentDto.Identification];
+                    // Validar que el usuario exista en el diccionario
+                    if (!usersDict.ContainsKey(userIdentification.Id))
+                        throw new KeyNotFoundException($"Usuario con ID {userIdentification.Id} no existe en la base de datos.");
                     await _mediator.Send(
                         new CreateEntityCommand<UserInscriptionModality, int, UserInscriptionModalityDto>(
                             new UserInscriptionModalityDto
@@ -75,7 +86,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                         cancellationToken);
                 }
 
-                // 5. Prepare and return the response
+                // 6. Prepare and return the response
                 var students = request.Dto.Students.Select(s =>
                 {
                     var userIdentification = userDictionary[s.Identification];

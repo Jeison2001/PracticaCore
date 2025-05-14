@@ -30,5 +30,13 @@ namespace Domain.Interfaces
             Dictionary<string, string> filters,
             bool? status = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Obtiene propuestas con sus detalles para un usuario, evitando operaciones paralelas en el DbContext
+        /// </summary>
+        Task<List<ProposalWithDetails>> GetProposalsByUserWithDetailsAsync(
+            int userId,
+            bool? status = null,
+            CancellationToken cancellationToken = default);
     }
 }

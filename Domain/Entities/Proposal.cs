@@ -2,7 +2,6 @@ namespace Domain.Entities
 {
     public class Proposal : BaseEntity<int>
     {
-        public new int Id { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public int IdResearchLine { get; set; }

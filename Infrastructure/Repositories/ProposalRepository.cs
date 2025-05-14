@@ -2,12 +2,11 @@ using Domain.Common;
 using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.Extensions; // for ToPaginatedResultAsync
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,65 +19,6 @@ namespace Infrastructure.Repositories
         public ProposalRepository(AppDbContext context) : base(context)
         {
             _dbContext = context;
-        }
-
-        public async Task<List<ProposalWithDetails>> GetProposalsByTeacherWithDetailsAsync(
-            int teacherId, 
-            bool? status = null,
-            CancellationToken cancellationToken = default)
-        {
-            // Consulta optimizada que inicia con las asignaciones de docentes
-            var query = _dbContext.Set<TeachingAssignment>()
-                .Where(ta => ta.IdTeacher == teacherId);
-                
-            if (status.HasValue)
-            {
-                query = query.Where(ta => ta.StatusRegister == status.Value);
-            }
-
-            // Obtener los IDs de las modalidades de inscripción
-            var inscriptionModalityIds = await query
-                .Select(ta => ta.IdInscriptionModality)
-                .Distinct()
-                .ToListAsync(cancellationToken);
-
-            // Si no hay inscripciones, retornar lista vacía
-            if (!inscriptionModalityIds.Any())
-            {
-                return new List<ProposalWithDetails>();
-            }
-            
-            // Consulta principal optimizada que incluye todas las relaciones necesarias
-            var proposals = await _dbContext.Set<Proposal>()
-                .Where(p => inscriptionModalityIds.Contains(p.Id))
-                .Include(p => p.StateProposal)
-                .Include(p => p.ResearchLine)
-                .Include(p => p.ResearchSubLine)
-                .Include(p => p.InscriptionModality)
-                    .ThenInclude(im => im.TeachingAssignments)
-                        .ThenInclude(ta => ta.Teacher)
-                .AsSplitQuery() // Optimiza el rendimiento para consultas con muchas relaciones
-                .ToListAsync(cancellationToken);
-
-            // Cargamos los usuarios por separado para cada propuesta
-            var result = new List<ProposalWithDetails>();
-            
-            foreach (var proposal in proposals)
-            {
-                var userInscriptionModalities = await _dbContext.Set<UserInscriptionModality>()
-                    .Where(uim => uim.IdInscriptionModality == proposal.Id)
-                    .Include(uim => uim.User)
-                    .ToListAsync(cancellationToken);
-                
-                // Añadir a la lista de resultados
-                result.Add(new ProposalWithDetails
-                {
-                    Proposal = proposal,
-                    UserInscriptionModalities = userInscriptionModalities
-                });
-            }
-
-            return result;
         }
 
         public async Task<PaginatedResult<ProposalWithDetails>> GetProposalsByTeacherWithDetailsPaginatedAsync(
@@ -120,126 +60,129 @@ namespace Infrastructure.Repositories
             
             // Consulta principal para obtener propuestas
             var proposalsQuery = _dbContext.Set<Proposal>()
-                .Where(p => inscriptionModalityIds.Contains(p.Id));
-
-            // Aplicar filtros adicionales si existen
-            if (filters != null && filters.Count > 0)
-            {
-                foreach (var filter in filters)
-                {
-                    // Ejemplo de filtrado por título
-                    if (filter.Key.Equals("title", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(filter.Value))
-                    {
-                        var filterValue = filter.Value.ToLower();
-                        proposalsQuery = proposalsQuery.Where(p => p.Title.ToLower().Contains(filterValue));
-                    }
-                    // Filtro por estado de propuesta
-                    else if (filter.Key.Equals("stateProposalId", StringComparison.OrdinalIgnoreCase) && int.TryParse(filter.Value, out int stateProposalId))
-                    {
-                        proposalsQuery = proposalsQuery.Where(p => p.IdStateProposal == stateProposalId);
-                    }
-                    // Filtro por línea de investigación
-                    else if (filter.Key.Equals("researchLineId", StringComparison.OrdinalIgnoreCase) && int.TryParse(filter.Value, out int researchLineId))
-                    {
-                        proposalsQuery = proposalsQuery.Where(p => p.IdResearchLine == researchLineId);
-                    }
-                    // Filtro por sublínea de investigación
-                    else if (filter.Key.Equals("researchSubLineId", StringComparison.OrdinalIgnoreCase) && int.TryParse(filter.Value, out int researchSubLineId))
-                    {
-                        proposalsQuery = proposalsQuery.Where(p => p.IdResearchSubLine == researchSubLineId);
-                    }
-                }
-            }
-            
-            // Contar total de registros antes de aplicar paginación
-            var totalCount = await proposalsQuery.CountAsync(cancellationToken);
-
-            // Aplicar ordenamiento
-            IQueryable<Proposal> orderedQuery;
-            if (!string.IsNullOrEmpty(sortBy))
-            {
-                // Mapeamos campos comunes que podrían venir en el sortBy
-                switch (sortBy.ToLower())
-                {
-                    case "title":
-                        orderedQuery = isDescending 
-                            ? proposalsQuery.OrderByDescending(p => p.Title)
-                            : proposalsQuery.OrderBy(p => p.Title);
-                        break;
-                    case "stateproposalname":
-                        orderedQuery = isDescending 
-                            ? proposalsQuery.OrderByDescending(p => p.StateProposal.Name)
-                            : proposalsQuery.OrderBy(p => p.StateProposal.Name);
-                        break;
-                    case "researchlinename":
-                        orderedQuery = isDescending 
-                            ? proposalsQuery.OrderByDescending(p => p.ResearchLine.Name)
-                            : proposalsQuery.OrderBy(p => p.ResearchLine.Name);
-                        break;
-                    case "createdat":
-                        orderedQuery = isDescending 
-                            ? proposalsQuery.OrderByDescending(p => p.CreatedAt)
-                            : proposalsQuery.OrderBy(p => p.CreatedAt);
-                        break;
-                    case "updatedat":
-                        orderedQuery = isDescending 
-                            ? proposalsQuery.OrderByDescending(p => p.UpdatedAt)
-                            : proposalsQuery.OrderBy(p => p.UpdatedAt);
-                        break;
-                    default:
-                        // Ordenación por defecto (ID)
-                        orderedQuery = isDescending 
-                            ? proposalsQuery.OrderByDescending(p => p.Id)
-                            : proposalsQuery.OrderBy(p => p.Id);
-                        break;
-                }
-            }
-            else
-            {
-                // Ordenación por ID por defecto
-                orderedQuery = isDescending
-                    ? proposalsQuery.OrderByDescending(p => p.Id)
-                    : proposalsQuery.OrderBy(p => p.Id);
-            }
-
-            // Aplicar paginación y obtener las entidades con include
-            var proposals = await orderedQuery
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
+                .Where(p => inscriptionModalityIds.Contains(p.Id))
                 .Include(p => p.StateProposal)
                 .Include(p => p.ResearchLine)
                 .Include(p => p.ResearchSubLine)
                 .Include(p => p.InscriptionModality)
                     .ThenInclude(im => im.TeachingAssignments)
                         .ThenInclude(ta => ta.Teacher)
+                .AsNoTracking(); // Mejora el rendimiento para consultas de solo lectura
+
+            // Agregar filtros específicos para campos que no son directamente propiedades de Proposal
+            if (filters != null)
+            {
+                foreach (var filter in filters.ToList()) // Usar .ToList() para evitar modificación durante iteración
+                {
+                    // Manejar filtros especiales que no son parte de la entidad Proposal
+                    if (filter.Key.Equals("title", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(filter.Value))
+                    {
+                        var filterValue = filter.Value.ToLower();
+                        proposalsQuery = proposalsQuery.Where(p => p.Title.ToLower().Contains(filterValue));
+                        filters.Remove(filter.Key); // Remover para que FilterBuilder no lo procese dos veces
+                    }
+                }
+                
+                // Los demás filtros se manejan automáticamente mediante FilterBuilder
+            }
+
+            // Preparar campo de ordenamiento dinámico
+            var orderByField = sortBy ?? string.Empty;
+
+            // Aplicar paginación, filtrado y ordenamiento con la extensión genérica
+            var paginatedResult = await proposalsQuery
                 .AsSplitQuery()
+                .ToPaginatedResultAsync<Proposal, int>(
+                    filters ?? new Dictionary<string, string>(),
+                     orderByField,
+                     isDescending,
+                     pageNumber,
+                     pageSize,
+                     cancellationToken);
+
+            var proposals = paginatedResult.Items.ToList();
+            
+            // Cargar todos los usuarios relacionados en una sola consulta
+            var proposalIds = proposals.Select(p => p.Id).ToList();
+            var userInscriptionModalities = await _dbContext.Set<UserInscriptionModality>()
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Include(uim => uim.User)
+                .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
-            // Cargamos los usuarios para cada propuesta
-            var result = new List<ProposalWithDetails>();
-            foreach (var proposal in proposals)
+            // Agrupar usuarios por modalidad de inscripción
+            var usersByModality = userInscriptionModalities
+                .GroupBy(uim => uim.IdInscriptionModality)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Construir el resultado final
+            var result = proposals.Select(proposal => new ProposalWithDetails
             {
-                var userInscriptionModalities = await _dbContext.Set<UserInscriptionModality>()
-                    .Where(uim => uim.IdInscriptionModality == proposal.Id)
-                    .Include(uim => uim.User)
-                    .ToListAsync(cancellationToken);
-                
-                // Añadir a la lista de resultados
-                result.Add(new ProposalWithDetails
-                {
-                    Proposal = proposal,
-                    UserInscriptionModalities = userInscriptionModalities
-                });
-            }
+                Proposal = proposal,
+                UserInscriptionModalities = usersByModality.ContainsKey(proposal.Id)
+                    ? usersByModality[proposal.Id]
+                    : new List<UserInscriptionModality>()
+            }).ToList();
 
             // Retornar resultado paginado
             return new PaginatedResult<ProposalWithDetails>
             {
                 Items = result,
-                TotalRecords = totalCount,
+                TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = pageNumber,
                 PageSize = pageSize
             };
+        }
+
+        public async Task<List<ProposalWithDetails>> GetProposalsByUserWithDetailsAsync(
+            int userId,
+            bool? status = null,
+            CancellationToken cancellationToken = default)
+        {
+            // 1. Obtener IDs de modalidades donde participa el usuario
+            var inscriptionModalityIds = await _dbContext.Set<UserInscriptionModality>()
+                .Where(uim => uim.IdUser == userId)
+                .Select(uim => uim.IdInscriptionModality)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            if (!inscriptionModalityIds.Any())
+                return new List<ProposalWithDetails>();
+
+            // 2. Traer propuestas y sus relaciones
+            var proposals = await _dbContext.Set<Proposal>()
+                .Where(p => inscriptionModalityIds.Contains(p.Id)
+                            && (status == null || p.StatusRegister == status.Value))
+                .Include(p => p.StateProposal)
+                .Include(p => p.ResearchLine)
+                .Include(p => p.ResearchSubLine)
+                .Include(p => p.InscriptionModality)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+
+            if (!proposals.Any())
+                return new List<ProposalWithDetails>();
+
+            // 3. Cargar todos los UserInscriptionModalities y usuarios en una sola consulta
+            var proposalIds = proposals.Select(p => p.Id).ToList();
+            var userInscriptionModalities = await _dbContext.Set<UserInscriptionModality>()
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Include(uim => uim.User)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+
+            // 4. Agrupar por propuesta y construir resultado
+            var usersByModality = userInscriptionModalities
+                .GroupBy(uim => uim.IdInscriptionModality)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            return proposals.Select(p => new ProposalWithDetails
+            {
+                Proposal = p,
+                UserInscriptionModalities = usersByModality.ContainsKey(p.Id)
+                    ? usersByModality[p.Id]
+                    : new List<UserInscriptionModality>()
+            }).ToList();
         }
     }
 }
