@@ -1,9 +1,7 @@
-using Api.Controllers;
 using Application.Shared.DTOs.TeachingAssignment;
 using Application.Shared.Queries.TeachingAssignment;
 using Domain.Entities;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
@@ -20,9 +18,9 @@ namespace Api.Controllers
 
         [HttpGet("ByInscription/{id}")]
         [ProducesResponseType(typeof(List<TeachingAssignmentTeacherDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetByIdInscription(int id)
+        public async Task<IActionResult> GetByIdInscription(int id, bool? status = null)
         {
-            var result = await _mediator.Send(new GetTeachingAssignmentsByProposalIdQuery(id));
+            var result = await _mediator.Send(new GetTeachingAssignmentsByProposalIdQuery(id, status));
             return Ok(result);
         }
     }

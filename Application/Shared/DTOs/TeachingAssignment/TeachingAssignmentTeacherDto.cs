@@ -1,5 +1,3 @@
-using System;
-
 namespace Application.Shared.DTOs.TeachingAssignment
 {
     public class TeachingAssignmentTeacherDto
@@ -10,5 +8,6 @@ namespace Application.Shared.DTOs.TeachingAssignment
         public string Email { get; set; } = string.Empty;
         public int IdTypeTeachingAssignment { get; set; } // Id del tipo de asignación
         public string AssignmentType { get; set; } = string.Empty;
+        public bool StatusRegister { get; set; } // Estado del registro (activo/inactivo)
     }
 }
