@@ -1,7 +1,6 @@
 using Application.Shared.DTOs.Proposal;
 using Application.Shared.DTOs.UserInscriptionModality;
 using AutoMapper;
-using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
 
@@ -29,7 +28,7 @@ namespace Application.Shared.Queries.Proposal.Handlers
 
             return entities.Select(e => new ProposalWithDetailsResponseDto
             {
-                Proposal = _mapper.Map<ProposalDto>(e.Proposal),
+                Proposal = _mapper.Map<ProposalDto>(e.Proposal),                
                 StateProposalName = e.Proposal.StateProposal?.Name ?? string.Empty,
                 ResearchLineName = e.Proposal.ResearchLine?.Name ?? string.Empty,
                 ResearchSubLineName = e.Proposal.ResearchSubLine?.Name ?? string.Empty,
@@ -38,7 +37,6 @@ namespace Application.Shared.Queries.Proposal.Handlers
                     IdInscriptionModality = uim.IdInscriptionModality,
                     IdUser = uim.IdUser,
                     UserName = uim.User?.FirstName + " " + uim.User?.LastName,
-                    Identification = uim.User?.Identification ?? string.Empty,
                     Email = uim.User?.Email ?? string.Empty
                 }).ToList()
             }).ToList();

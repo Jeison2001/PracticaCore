@@ -1,15 +1,9 @@
 using Application.Shared.DTOs.Proposal;
 using Application.Shared.DTOs.UserInscriptionModality;
 using Domain.Common;
-using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using AutoMapper;
 
 namespace Application.Shared.Queries.Proposal.Handlers
@@ -36,7 +30,7 @@ namespace Application.Shared.Queries.Proposal.Handlers
         {
             try
             {
-                // Obtener las propuestas con una consulta optimizada en el repositorio
+                // Obtener las propuestas con una consulta optimizada en el repositorio                
                 var proposalsWithDetailsPaginated = await _proposalRepository.GetProposalsByTeacherWithDetailsPaginatedAsync(
                     request.TeacherId,
                     request.PageNumber,
@@ -44,7 +38,6 @@ namespace Application.Shared.Queries.Proposal.Handlers
                     request.SortBy,
                     request.IsDescending,
                     request.Filters,
-                    request.StatusFilter,
                     cancellationToken);
 
                 if (!proposalsWithDetailsPaginated.Items.Any())
@@ -66,21 +59,14 @@ namespace Application.Shared.Queries.Proposal.Handlers
                     var proposal = proposalWithDetails.Proposal;
                     
                     // Mapear estudiantes a DTOs
-                    var studentDtos = new List<UserInscriptionModalityDto>();
-                    foreach (var student in proposalWithDetails.UserInscriptionModalities)
+                    var studentDtos = new List<UserInscriptionModalityDto>();                    foreach (var student in proposalWithDetails.UserInscriptionModalities)
                     {
                         studentDtos.Add(new UserInscriptionModalityDto
                         {
-                            Id = student.Id,
                             IdInscriptionModality = student.IdInscriptionModality,
                             IdUser = student.IdUser,
                             UserName = student.User?.FirstName + " " + student.User?.LastName,
-                            Identification = student.User?.Identification ?? "",
-                            Email = student.User?.Email ?? "",
-                            CurrentAcademicPeriod = student.User?.CurrentAcademicPeriod ?? "",
-                            CumulativeAverage = student.User?.CumulativeAverage,
-                            ApprovedCredits = student.User?.ApprovedCredits,
-                            TotalAcademicCredits = student.User?.TotalAcademicCredits
+                            Email = student.User?.Email ?? string.Empty
                         });
                     }
 

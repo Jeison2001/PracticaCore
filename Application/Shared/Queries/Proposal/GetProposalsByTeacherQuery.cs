@@ -8,17 +8,15 @@ namespace Application.Shared.Queries.Proposal
     public class GetProposalsByTeacherQuery : IRequest<PaginatedResult<ProposalWithDetailsResponseDto>>
     {
         public int TeacherId { get; init; }
-        public bool? StatusFilter { get; init; }
         public int PageNumber { get; init; } = 1;
         public int PageSize { get; init; } = 10;
         public string SortBy { get; init; } = "";
         public bool IsDescending { get; init; } = false;
         public Dictionary<string, string> Filters { get; init; } = new Dictionary<string, string>();
 
-        public GetProposalsByTeacherQuery(int teacherId, bool? statusFilter = null)
+        public GetProposalsByTeacherQuery(int teacherId)
         {
             TeacherId = teacherId;
-            StatusFilter = statusFilter;
         }
 
         public GetProposalsByTeacherQuery(
@@ -27,11 +25,8 @@ namespace Application.Shared.Queries.Proposal
             int pageSize, 
             string sortBy, 
             bool isDescending, 
-            Dictionary<string, string> filters, 
-            bool? statusFilter = null)
-        {
-            TeacherId = teacherId;
-            StatusFilter = statusFilter;
+            Dictionary<string, string> filters)
+        {            TeacherId = teacherId;
             PageNumber = pageNumber;
             PageSize = pageSize;
             SortBy = sortBy;

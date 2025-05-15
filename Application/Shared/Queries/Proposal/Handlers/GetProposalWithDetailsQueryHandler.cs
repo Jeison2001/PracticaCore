@@ -1,7 +1,6 @@
 using Application.Shared.DTOs.Proposal;
 using Application.Shared.DTOs.UserInscriptionModality;
 using AutoMapper;
-using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
 
@@ -9,72 +8,54 @@ namespace Application.Shared.Queries.Proposal.Handlers
 {
     public class GetProposalWithDetailsQueryHandler : IRequestHandler<GetProposalWithDetailsQuery, ProposalWithDetailsResponseDto>
     {
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly IProposalRepository _proposalRepository;
         private readonly IMapper _mapper;
-        private static readonly int ProcessorCount = Math.Max(1, Environment.ProcessorCount / 2);
 
         public GetProposalWithDetailsQueryHandler(
-            IUnitOfWork unitOfWork,
+            IProposalRepository proposalRepository,
             IMapper mapper)
         {
-            _unitOfWork = unitOfWork;
+            _proposalRepository = proposalRepository;
             _mapper = mapper;
         }
 
         public async Task<ProposalWithDetailsResponseDto> Handle(GetProposalWithDetailsQuery request, CancellationToken cancellationToken)
         {
-            // 1. Obtenemos los repositorios necesarios
-            var proposalRepo = _unitOfWork.GetRepository<Domain.Entities.Proposal, int>();
-            var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
-            var userRepo = _unitOfWork.GetRepository<User, int>();
-            var stateProposalRepo = _unitOfWork.GetRepository<StateProposal, int>();
-            var researchLineRepo = _unitOfWork.GetRepository<ResearchLine, int>();
-            var researchSubLineRepo = _unitOfWork.GetRepository<ResearchSubLine, int>();
+            // 1. Obtener la propuesta con todos sus detalles en una sola consulta usando el repositorio específico
+            var proposalDetail = await _proposalRepository.GetProposalWithDetailsAsync(request.Id, cancellationToken);
             
-            // 2. Obtenemos la propuesta por su ID
-            var proposal = await proposalRepo.GetByIdAsync(request.Id);
-            
-            if (proposal == null)
+            if (proposalDetail == null)
             {
                 throw new KeyNotFoundException($"No se encontró la propuesta con ID {request.Id}");
             }
 
-            // 3. Obtenemos los datos relacionados secuencialmente para evitar problemas con el DbContext
-            var stateProposal = await stateProposalRepo.GetByIdAsync(proposal.IdStateProposal);
-            var researchLine = await researchLineRepo.GetByIdAsync(proposal.IdResearchLine);
-            var researchSubLine = await researchSubLineRepo.GetByIdAsync(proposal.IdResearchSubLine);
-            var students = (await userInscriptionRepo.GetAllAsync(
-                filter: uim => uim.IdInscriptionModality == proposal.Id)).ToList();
-
-            // 4. Optimización para la carga de datos de usuarios
-            var userIds = students.Select(s => s.IdUser).Distinct().ToList();
+            // 2. Mapear la propuesta a DTO
+            var proposalDto = _mapper.Map<ProposalDto>(proposalDetail.Proposal);
             
-            // Cargamos todos los usuarios en una sola consulta
-            var users = (await userRepo.GetAllAsync(
-                filter: u => userIds.Contains(u.Id))).ToList();
+            // 3. Preparamos los DTOs de estudiantes
+            var studentsDto = new List<UserInscriptionModalityDto>();
             
-            // Creamos un diccionario para acceso rápido
-            var userDict = users.ToDictionary(u => u.Id, u => u);
-                
-            // 5. Preparamos los DTOs de estudiantes de manera eficiente
-            var studentsDto = _mapper.Map<List<UserInscriptionModalityDto>>(students);
-            
-            // Asignamos los nombres de usuarios utilizando el diccionario
-            foreach (var student in studentsDto)
+            // Creamos DTOs solo con los campos necesarios (idInscriptionModality, idUser, userName, email)
+            foreach (var uim in proposalDetail.UserInscriptionModalities)
             {
-                if (userDict.TryGetValue(student.IdUser, out var user))
+                var studentDto = new UserInscriptionModalityDto
                 {
-                    student.UserName = $"{user.FirstName} {user.LastName}";
-                }
+                    IdInscriptionModality = uim.IdInscriptionModality,
+                    IdUser = uim.IdUser,
+                    UserName = uim.User?.FirstName + " " + uim.User?.LastName,
+                    Email = uim.User?.Email ?? string.Empty
+                };
+                
+                studentsDto.Add(studentDto);
             }
             
-            // 6. Creamos la respuesta final
+            // 4. Creamos la respuesta final
             var response = new ProposalWithDetailsResponseDto
             {
-                Proposal = _mapper.Map<ProposalDto>(proposal),
-                StateProposalName = stateProposal?.Name ?? string.Empty,
-                ResearchLineName = researchLine?.Name ?? string.Empty,
-                ResearchSubLineName = researchSubLine?.Name ?? string.Empty,
+                Proposal = proposalDto,
+                StateProposalName = proposalDetail.Proposal.StateProposal?.Name ?? string.Empty,
+                ResearchLineName = proposalDetail.Proposal.ResearchLine?.Name ?? string.Empty,
+                ResearchSubLineName = proposalDetail.Proposal.ResearchSubLine?.Name ?? string.Empty,
                 Students = studentsDto
             };
 

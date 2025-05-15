@@ -94,8 +94,7 @@ namespace Api.Controllers
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(
             int id, 
-            [FromQuery] PaginatedRequest request,
-            [FromQuery] bool? status = null)
+            [FromQuery] PaginatedRequest request)
         {
             try
             {
@@ -105,8 +104,7 @@ namespace Api.Controllers
                     request.PageSize, 
                     request.SortBy ?? "", 
                     request.IsDescending, 
-                    request.Filters ?? new Dictionary<string, string>(), 
-                    status);
+                    request.Filters ?? new Dictionary<string, string>());
                 
                 var result = await _mediator.Send(query);
                 
