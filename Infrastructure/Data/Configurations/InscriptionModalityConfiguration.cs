@@ -14,6 +14,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IdModality).IsRequired().HasColumnName("idmodality");
             builder.Property(e => e.IdStateInscription).IsRequired().HasColumnName("idstateinscription");
             builder.Property(e => e.IdAcademicPeriod).IsRequired().HasColumnName("idacademicperiod");
+            builder.Property(e => e.IdStateWorkGrade).HasColumnName("idstateworkgrade").IsRequired(false); // Nuevo campo
             builder.Property(e => e.ApprovalDate).HasColumnName("approvaldate").IsRequired(false);
             builder.Property(e => e.Observations).HasColumnName("observations").IsRequired(false);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
@@ -30,6 +31,11 @@ namespace Infrastructure.Data.Configurations
             builder.HasOne(rm => rm.AcademicPeriod)
                 .WithMany()
                 .HasForeignKey(rm => rm.IdAcademicPeriod);
+
+            builder.HasOne(rm => rm.StateWorkGrade)
+                .WithMany(sw => sw.InscriptionModalities)
+                .HasForeignKey(rm => rm.IdStateWorkGrade)
+                .IsRequired(false); // Nueva relación
         }
     }
 }

@@ -15,6 +15,7 @@ namespace Application.Validations.specificsValidators.InscriptionModality
 
             RuleFor(x => x.IdAcademicPeriod)
                 .NotEmpty().WithMessage("El período académico es requerido.");
+            // IdStateWorkGrade es opcional, no se valida como requerido
         }
     }
 }

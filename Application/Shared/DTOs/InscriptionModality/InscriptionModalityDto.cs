@@ -7,6 +7,7 @@ namespace Application.Shared.DTOs.InscriptionModality
         public int IdModality { get; set; }
         public int IdStateInscription { get; set; }
         public int IdAcademicPeriod { get; set; }
+        public int? IdStateWorkGrade { get; set; } // Nuevo campo
         public DateTime? ApprovalDate { get; set; }
         public string? Observations { get; set; }
         public new int? IdUserCreatedAt { get; set; }
