@@ -46,6 +46,9 @@ namespace Application.Shared.DTOs.NuevaEntidad
     builder.HasOne(p => p.Faculty)
                         .WithMany(f => f.AcademicPrograms)
                         .HasForeignKey(p => p.IdFaculty);
+    - **Nota:** Los nombres de las tablas deben mantenerse en PascalCase (ejemplo: "StateProjectFinal"), pero los nombres de las columnas deben ir en minúsculas para cumplir con las convenciones de PostgreSQL.
+    - Heredar de `BaseEntityConfiguration<Entidad, int>` para las configuraciones de entidades, y llamar a `base.Configure(builder);` al inicio del método `Configure`.
+    - No es necesario mapear explícitamente las propiedades comunes como `CreatedAt`, `UpdatedAt`, `IdUserCreatedAt`, `IdUserUpdatedAt`, `OperationRegister` y `StatusRegister`, ya que se configuran en la clase base.
 **Ejemplo:**
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -57,8 +60,9 @@ namespace Infrastructure.Data.Configurations
     {
         public void Configure(EntityTypeBuilder<NuevaEntidad> builder)
         {
+            builder.ToTable("NuevaEntidad"); // PascalCase para la tabla
             builder.HasKey(e => e.Id);
-            builder.Property(e => e.Propiedad1).IsRequired().HasMaxLength(100);
+            builder.Property(e => e.Propiedad1).HasColumnName("propiedad1").IsRequired().HasMaxLength(100); // minúsculas para columnas
         }
     }
 }
