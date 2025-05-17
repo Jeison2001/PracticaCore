@@ -104,7 +104,7 @@ namespace Infrastructure.Repositories
             )).ToList();
         }
 
-        public async Task<List<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByTeacherIdWithProposalAndStudentsAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
+        public async Task<PaginatedResult<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByTeacherIdWithProposalAndStudentsAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
         {
             var proposalIds = await _context.Set<TeachingAssignment>()
                 .Where(ta => ta.IdTeacher == teacherId)
@@ -112,30 +112,59 @@ namespace Infrastructure.Repositories
                 .Distinct()
                 .ToListAsync();
 
-            var query = _context.PreliminaryProjects
+            var orderByField = sortBy ?? string.Empty;
+            var preliminaryProjectsQuery = _context.PreliminaryProjects
                 .Include(p => p.StatePreliminaryProject)
-                .Where(p => proposalIds.Contains(p.Id));
+                .Where(p => proposalIds.Contains(p.Id))
+                .AsQueryable();
 
-            var result = await query
-                .Join(_context.Set<Proposal>().Include(x => x.StateProposal).Include(x => x.ResearchLine).Include(x => x.ResearchSubLine).Include(x => x.InscriptionModality),
-                    prelim => prelim.Id,
-                    proposal => proposal.Id,
-                    (prelim, proposal) => new { prelim, proposal })
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
+            var paginatedResult = await preliminaryProjectsQuery
+                .ToPaginatedResultAsync<PreliminaryProject, int>(
+                    filters ?? new Dictionary<string, string>(),
+                    orderByField,
+                    isDescending,
+                    pageNumber,
+                    pageSize);
+
+            var projects = paginatedResult.Items.ToList();
+            if (!projects.Any())
+            {
+                return new PaginatedResult<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>
+                {
+                    Items = new List<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>(),
+                    TotalRecords = paginatedResult.TotalRecords,
+                    PageNumber = paginatedResult.PageNumber,
+                    PageSize = paginatedResult.PageSize
+                };
+            }
+
+            var resultProposalIds = projects.Select(f => f.Id).ToList();
+            var proposals = await _context.Set<Proposal>()
+                .Where(p => resultProposalIds.Contains(p.Id))
+                .Include(x => x.StateProposal)
+                .Include(x => x.ResearchLine)
+                .Include(x => x.ResearchSubLine)
+                .Include(x => x.InscriptionModality)
                 .ToListAsync();
 
-            var resultProposalIds = result.Select(x => x.proposal.Id).ToList();
             var students = await _context.Set<UserInscriptionModality>()
                 .Where(uim => resultProposalIds.Contains(uim.IdInscriptionModality))
                 .Include(uim => uim.User)
                 .ToListAsync();
 
-            return result.Select(x => (
-                x.prelim,
-                x.proposal,
-                students.Where(uim => uim.IdInscriptionModality == x.proposal.Id).ToList()
+            var items = projects.Select(f => (
+                f,
+                proposals.FirstOrDefault(p => p.Id == f.Id)!,
+                students.Where(uim => uim.IdInscriptionModality == f.Id).ToList()
             )).ToList();
+
+            return new PaginatedResult<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>
+            {
+                Items = items,
+                TotalRecords = paginatedResult.TotalRecords,
+                PageNumber = paginatedResult.PageNumber,
+                PageSize = paginatedResult.PageSize
+            };
         }
     }
 }

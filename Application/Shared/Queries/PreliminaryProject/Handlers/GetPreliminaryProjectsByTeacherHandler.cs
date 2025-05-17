@@ -19,10 +19,10 @@ namespace Application.Shared.Queries.PreliminaryProject.Handlers
         }
         public async Task<PaginatedResult<PreliminaryProjectWithDetailsResponseDto>> Handle(GetPreliminaryProjectsByTeacherQuery request, CancellationToken cancellationToken)
         {
-            var entities = await _repository.GetByTeacherIdWithProposalAndStudentsAsync(request.TeacherId, request.PageNumber, request.PageSize, request.SortBy, request.IsDescending, request.Filters);
+            var pagedResult = await _repository.GetByTeacherIdWithProposalAndStudentsAsync(request.TeacherId, request.PageNumber, request.PageSize, request.SortBy, request.IsDescending, request.Filters);
             return new PaginatedResult<PreliminaryProjectWithDetailsResponseDto>
             {
-                Items = entities.Select(e => new PreliminaryProjectWithDetailsResponseDto
+                Items = pagedResult.Items.Select(e => new PreliminaryProjectWithDetailsResponseDto
                 {
                     PreliminaryProject = new PreliminaryProjectDetailsDto
                     {
@@ -67,7 +67,9 @@ namespace Application.Shared.Queries.PreliminaryProject.Handlers
                         }).ToList()
                     }
                 }).ToList(),
-                TotalRecords = entities.Count
+                TotalRecords = pagedResult.TotalRecords,
+                PageNumber = pagedResult.PageNumber,
+                PageSize = pagedResult.PageSize
             };
         }
     }
