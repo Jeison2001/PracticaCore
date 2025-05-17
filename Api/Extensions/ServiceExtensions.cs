@@ -4,7 +4,7 @@ using Application.Shared.DTOs;
 using Application.Shared.Mappings;
 using Application.Shared.Queries;
 using Application.Validations.BaseValidators;
-using Application.Validations.SpecificValidators.Example;
+using Application.Validations.SpecificValidators.InscriptionModality;
 using Domain.Entities;
 using Domain.Interfaces;
 using Domain.Interfaces.Registration;
@@ -58,10 +58,10 @@ namespace Api.Extensions
             services.AddAutoMapper(typeof(GenericProfile));
 
             // Auto-registro de validadores
-            services.AddValidatorsFromAssembly(typeof(CreateExampleCommandValidator).Assembly);
+            services.AddValidatorsFromAssembly(typeof(InscriptionModalityValidator).Assembly);
 
             // Auto-registro basado en interfaces marcadoras para servicios de aplicación
-            RegisterByLifetime(services, typeof(CreateExampleCommandValidator).Assembly);
+            RegisterByLifetime(services, typeof(InscriptionModalityValidator).Assembly);
 
             // Luego registrar los validadores genéricos solo donde no existan específicos
             RegisterGenericValidators(services);

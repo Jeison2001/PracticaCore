@@ -69,7 +69,7 @@ namespace Infrastructure.Data.Configurations
 ```
 
 ## 4. Capa de Validaciones
-1. Crear una nueva carpeta en `Application/Validations/specificsValidators`.
+1. Crear una nueva carpeta en `Application/Validations/SpecificsValidators`.
 2. Dentro de esta carpeta, crear una subcarpeta con el nombre de la entidad base y clase de validación para el Dto.
 
 **Ejemplo:**

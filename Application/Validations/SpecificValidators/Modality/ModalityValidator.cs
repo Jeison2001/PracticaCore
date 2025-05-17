@@ -1,7 +1,7 @@
 using Application.Shared.DTOs.Modality;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.Modality
+namespace Application.Validations.SpecificValidators.Modality
 {
     public class ModalityValidator : AbstractValidator<ModalityDto>
     {

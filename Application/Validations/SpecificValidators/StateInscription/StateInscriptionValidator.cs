@@ -2,7 +2,7 @@
 using Application.Shared.DTOs.StateInscription;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.StateInscription
+namespace Application.Validations.SpecificValidators.StateInscription
 {
     public class StateInscriptionValidator : AbstractValidator<StateInscriptionDto>
     {

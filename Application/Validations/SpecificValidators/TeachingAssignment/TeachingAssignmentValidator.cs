@@ -1,7 +1,7 @@
 using Application.Shared.DTOs.TeachingAssignment;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.TeachingAssignment
+namespace Application.Validations.SpecificValidators.TeachingAssignment
 {
     public class TeachingAssignmentValidator : AbstractValidator<TeachingAssignmentDto>
     {

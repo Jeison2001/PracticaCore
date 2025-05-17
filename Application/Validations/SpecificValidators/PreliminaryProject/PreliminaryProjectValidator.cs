@@ -1,7 +1,7 @@
 using Application.Shared.DTOs.PreliminaryProject;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.PreliminaryProject
+namespace Application.Validations.SpecificValidators.PreliminaryProject
 {
     public class PreliminaryProjectValidator : AbstractValidator<PreliminaryProjectDto>
     {

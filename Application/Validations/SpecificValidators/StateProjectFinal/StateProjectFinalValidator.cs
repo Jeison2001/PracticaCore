@@ -1,7 +1,7 @@
 using Application.Shared.DTOs.StateProjectFinal;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.StateProjectFinal
+namespace Application.Validations.SpecificValidators.StateProjectFinal
 {
     public class StateProjectFinalValidator : AbstractValidator<StateProjectFinalDto>
     {

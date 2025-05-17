@@ -1,7 +1,7 @@
 using Application.Shared.DTOs.InscriptionModality;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.InscriptionModality
+namespace Application.Validations.SpecificValidators.InscriptionModality
 {
     public class InscriptionModalityValidator : AbstractValidator<InscriptionModalityDto>
     {

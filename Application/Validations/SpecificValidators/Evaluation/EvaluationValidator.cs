@@ -1,7 +1,7 @@
 using Application.Shared.DTOs.Evaluation;
 using FluentValidation;
 
-namespace Application.Validations.specificsValidators.Evaluation
+namespace Application.Validations.SpecificValidators.Evaluation
 {
     public class EvaluationValidator : AbstractValidator<EvaluationDto>
     {

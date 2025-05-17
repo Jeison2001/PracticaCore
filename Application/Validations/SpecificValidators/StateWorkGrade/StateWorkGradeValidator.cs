@@ -1,7 +1,7 @@
 using FluentValidation;
 using Application.Shared.DTOs.StateWorkGrade;
 
-namespace Application.Validations.specificsValidators.StateWorkGrade
+namespace Application.Validations.SpecificValidators.StateWorkGrade
 {
     public class StateWorkGradeValidator : AbstractValidator<StateWorkGradeDto>
     {
