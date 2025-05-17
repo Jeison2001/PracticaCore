@@ -80,21 +80,28 @@ namespace Infrastructure.Repositories
 
         public async Task<List<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByUserIdWithProposalAndStudentsAsync(int userId, bool? status = null)
         {
-            // 1. Obtener los ids de ProjectFinals creados por el usuario
-            var projectFinalsQuery = _context.ProjectFinals
-                .Include(p => p.StateProjectFinal)
-                .Where(p => p.IdUserCreatedAt == userId)
-                .AsQueryable();
+            // 1. Obtener los IDs de modalidades donde participa el usuario
+            var inscriptionModalityIds = await _context.Set<UserInscriptionModality>()
+                .Where(uim => uim.IdUser == userId)
+                .Select(uim => uim.IdInscriptionModality)
+                .Distinct()
+                .ToListAsync();
 
-            if (status.HasValue)
-                projectFinalsQuery = projectFinalsQuery.Where(p => p.StatusRegister == status.Value);
-
-            var finals = await projectFinalsQuery.ToListAsync();
-            if (!finals.Any())
+            if (!inscriptionModalityIds.Any())
                 return new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>();
 
-            // 2. Traer las propuestas asociadas
-            var proposalIds = finals.Select(f => f.Id).ToList();
+            // 2. Traer ProjectFinals y sus relaciones
+            var projects = await _context.ProjectFinals
+                .Include(p => p.StateProjectFinal)
+                .Where(p => inscriptionModalityIds.Contains(p.Id)
+                            && (status == null || p.StatusRegister == status.Value))
+                .ToListAsync();
+
+            if (!projects.Any())
+                return new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>();
+
+            // 3. Traer las propuestas asociadas
+            var proposalIds = projects.Select(f => f.Id).ToList();
             var proposals = await _context.Set<Proposal>()
                 .Where(p => proposalIds.Contains(p.Id))
                 .Include(x => x.StateProposal)
@@ -103,14 +110,14 @@ namespace Infrastructure.Repositories
                 .Include(x => x.InscriptionModality)
                 .ToListAsync();
 
-            // 3. Traer los estudiantes asociados
+            // 4. Traer los estudiantes asociados
             var students = await _context.Set<UserInscriptionModality>()
                 .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
                 .Include(uim => uim.User)
                 .ToListAsync();
 
-            // 4. Armar el resultado
-            return finals.Select(f => (
+            // 5. Armar el resultado
+            return projects.Select(f => (
                 f,
                 proposals.FirstOrDefault(p => p.Id == f.Id)!,
                 students.Where(uim => uim.IdInscriptionModality == f.Id).ToList()
