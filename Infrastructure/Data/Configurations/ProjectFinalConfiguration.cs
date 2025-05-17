@@ -14,7 +14,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.ReportApprovalDate).HasColumnName("reportapprovaldate");
             builder.Property(e => e.FinalPhaseApprovalDate).HasColumnName("finalphaseapprovaldate");
             builder.Property(e => e.Observations).HasColumnName("observations").HasColumnType("text");
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat");
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
             builder.HasOne(e => e.StateProjectFinal)
                 .WithMany()
                 .HasForeignKey(e => e.IdStateProjectFinal);

@@ -13,7 +13,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IdStatePreliminaryProject).HasColumnName("idstatepreliminaryproject").IsRequired();
             builder.Property(e => e.ApprovalDate).HasColumnName("approvaldate");
             builder.Property(e => e.Observations).HasColumnName("observations").HasColumnType("text");
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat");
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
             builder.HasOne(e => e.StatePreliminaryProject)
                 .WithMany()
                 .HasForeignKey(e => e.IdStatePreliminaryProject);

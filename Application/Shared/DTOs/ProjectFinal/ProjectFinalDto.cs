@@ -1,5 +1,4 @@
 using System;
-using Application.Shared.DTOs.StateProjectFinal;
 
 namespace Application.Shared.DTOs.ProjectFinal
 {
@@ -9,6 +8,6 @@ namespace Application.Shared.DTOs.ProjectFinal
         public DateTime? ReportApprovalDate { get; set; }
         public DateTime? FinalPhaseApprovalDate { get; set; }
         public string? Observations { get; set; }
-        public StateProjectFinalDto? StateProjectFinal { get; set; }
+        public new int? IdUserCreatedAt { get; set; }
     }
 }
