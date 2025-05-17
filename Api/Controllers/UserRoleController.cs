@@ -1,7 +1,8 @@
-using Api.Controllers;
 using Api.Responses;
 using Application.Shared.DTOs;
+using Application.Shared.DTOs.Role;
 using Application.Shared.DTOs.UserRole;
+using Application.Shared.Queries.Role;
 using Application.Shared.Queries.UserRole;
 using Domain.Common;
 using Domain.Entities;
@@ -46,6 +47,23 @@ namespace Api.Controllers
 
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<UserRoleWithUserDetailsDto>> { Success = true, Data = result });
+        }
+
+        /// <summary>
+        /// Obtiene los roles asignados a un usuario específico
+        /// </summary>
+        /// <param name="userId">ID del usuario</param>
+        /// <returns>Lista de roles asignados al usuario</returns>
+        [HttpGet("ByUser/{id}")]
+        public async Task<ActionResult<List<RoleDto>>> GetUserRolesByUserId(int id)
+        {
+            if (id <= 0)
+                return BadRequest("El ID de usuario debe ser válido.");
+
+            var roles = await _mediator.Send(new GetRolesByUserIdQuery { UserId = id });
+            if (roles == null || !roles.Any())
+                return NotFound($"No se encontraron roles para el usuario con ID {id}.");
+            return Ok(roles);
         }
     }
 }
