@@ -1,34 +1,141 @@
+using Domain.Common;
 using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories
 {
     public class PreliminaryProjectRepository : BaseRepository<PreliminaryProject, int>, IPreliminaryProjectRepository
     {
-        private readonly AppDbContext _context;
+        private new readonly AppDbContext _context;
         public PreliminaryProjectRepository(AppDbContext context) : base(context)
         {
             _context = context;
         }
 
-        public async Task<List<PreliminaryProject>> GetByUserIdAsync(int userId, bool? status = null)
+        public async Task<PaginatedResult<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetAllWithProposalAndStudentsAsync(int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
         {
-            // TODO: Implementar consulta real
-            return await _context.PreliminaryProjects.Where(p => p.IdUserCreatedAt == userId).ToListAsync();
+            var orderByField = sortBy ?? string.Empty;
+            // 1. Paginar PreliminaryProjects primero
+            var preliminaryProjectsQuery = _context.PreliminaryProjects
+                .Include(p => p.StatePreliminaryProject)
+                .AsQueryable();
+
+            // Aquí podrías aplicar filtros adicionales si lo deseas
+            // preliminaryProjectsQuery = ...
+
+            var paginatedResult = await preliminaryProjectsQuery
+                .ToPaginatedResultAsync<PreliminaryProject, int>(
+                    filters ?? new Dictionary<string, string>(),
+                    orderByField,
+                    isDescending,
+                    pageNumber,
+                    pageSize);
+
+            var projects = paginatedResult.Items.ToList();
+            if (!projects.Any())
+            {
+                return new PaginatedResult<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>
+                {
+                    Items = new List<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>(),
+                    TotalRecords = paginatedResult.TotalRecords,
+                    PageNumber = paginatedResult.PageNumber,
+                    PageSize = paginatedResult.PageSize
+                };
+            }
+
+            // 2. Traer las propuestas asociadas
+            var proposalIds = projects.Select(f => f.Id).ToList();
+            var proposals = await _context.Set<Proposal>()
+                .Where(p => proposalIds.Contains(p.Id))
+                .Include(x => x.StateProposal)
+                .Include(x => x.ResearchLine)
+                .Include(x => x.ResearchSubLine)
+                .Include(x => x.InscriptionModality)
+                .ToListAsync();
+
+            // 3. Traer los estudiantes asociados
+            var students = await _context.Set<UserInscriptionModality>()
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Include(uim => uim.User)
+                .ToListAsync();
+
+            // 4. Armar el resultado
+            var items = projects.Select(f => (
+                f,
+                proposals.FirstOrDefault(p => p.Id == f.Id)!,
+                students.Where(uim => uim.IdInscriptionModality == f.Id).ToList()
+            )).ToList();
+
+            return new PaginatedResult<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>
+            {
+                Items = items,
+                TotalRecords = paginatedResult.TotalRecords,
+                PageNumber = paginatedResult.PageNumber,
+                PageSize = paginatedResult.PageSize
+            };
         }
 
-        public async Task<List<PreliminaryProject>> GetByTeacherIdAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
+        public async Task<List<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByUserIdWithProposalAndStudentsAsync(int userId, bool? status = null)
         {
-            // TODO: Implementar consulta real
-            return await _context.PreliminaryProjects.Take(pageSize).ToListAsync();
+            var query = _context.PreliminaryProjects
+                .Include(p => p.StatePreliminaryProject)
+                .Where(p => p.IdUserCreatedAt == userId);
+
+            var result = await query
+                .Join(_context.Set<Proposal>().Include(x => x.StateProposal).Include(x => x.ResearchLine).Include(x => x.ResearchSubLine).Include(x => x.InscriptionModality),
+                    prelim => prelim.Id,
+                    proposal => proposal.Id,
+                    (prelim, proposal) => new { prelim, proposal })
+                .ToListAsync();
+
+            var proposalIds = result.Select(x => x.proposal.Id).ToList();
+            var students = await _context.Set<UserInscriptionModality>()
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Include(uim => uim.User)
+                .ToListAsync();
+
+            return result.Select(x => (
+                x.prelim,
+                x.proposal,
+                students.Where(uim => uim.IdInscriptionModality == x.proposal.Id).ToList()
+            )).ToList();
         }
 
-        public async Task<List<PreliminaryProject>> GetAllWithDetailsAsync(int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
+        public async Task<List<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByTeacherIdWithProposalAndStudentsAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
         {
-            // TODO: Implementar consulta real
-            return await _context.PreliminaryProjects.Take(pageSize).ToListAsync();
+            var proposalIds = await _context.Set<TeachingAssignment>()
+                .Where(ta => ta.IdTeacher == teacherId)
+                .Select(ta => ta.IdInscriptionModality)
+                .Distinct()
+                .ToListAsync();
+
+            var query = _context.PreliminaryProjects
+                .Include(p => p.StatePreliminaryProject)
+                .Where(p => proposalIds.Contains(p.Id));
+
+            var result = await query
+                .Join(_context.Set<Proposal>().Include(x => x.StateProposal).Include(x => x.ResearchLine).Include(x => x.ResearchSubLine).Include(x => x.InscriptionModality),
+                    prelim => prelim.Id,
+                    proposal => proposal.Id,
+                    (prelim, proposal) => new { prelim, proposal })
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var resultProposalIds = result.Select(x => x.proposal.Id).ToList();
+            var students = await _context.Set<UserInscriptionModality>()
+                .Where(uim => resultProposalIds.Contains(uim.IdInscriptionModality))
+                .Include(uim => uim.User)
+                .ToListAsync();
+
+            return result.Select(x => (
+                x.prelim,
+                x.proposal,
+                students.Where(uim => uim.IdInscriptionModality == x.proposal.Id).ToList()
+            )).ToList();
         }
     }
 }
