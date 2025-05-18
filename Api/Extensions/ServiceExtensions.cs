@@ -202,6 +202,7 @@ namespace Api.Extensions
 
                 // Registrar Command Handlers
                 RegisterCommandHandler(services, typeof(CreateEntityCommand<,,>), typeof(CreateEntityCommandHandler<,,>), entityType, idType, dtoType);
+                RegisterCommandHandler(services, typeof(CreateEntitiesCommand<,,>), typeof(CreateEntitiesCommandHandler<,,>), entityType, idType, dtoType);
                 RegisterCommandHandler(services, typeof(UpdateEntityCommand<,,>), typeof(UpdateEntityCommandHandler<,,>), entityType, idType, dtoType);
                 RegisterCommandHandler(services, typeof(UpdateStatusEntityCommand<,>), typeof(UpdateStatusEntityCommandHandler<,>), entityType, idType, dtoType);
             }
@@ -222,22 +223,26 @@ namespace Api.Extensions
         private static void RegisterCommandHandler(IServiceCollection services, Type commandType, Type handlerType, Type entityType, Type idType, Type dtoType)
         {
             Type[] genericArgs;
+            Type responseType;
+
             if (commandType == typeof(UpdateStatusEntityCommand<,>))
             {
-                genericArgs = new[] {entityType, idType};
+                genericArgs = new[] { entityType, idType };
+                responseType = typeof(bool);
+            }
+            else if (commandType == typeof(CreateEntitiesCommand<,,>))
+            {
+                genericArgs = new[] { entityType, idType, dtoType };
+                responseType = typeof(List<>).MakeGenericType(dtoType);
             }
             else
             {
-                genericArgs = new[] {entityType, idType, dtoType};
+                genericArgs = new[] { entityType, idType, dtoType };
+                responseType = dtoType;
             }
 
             var genericCommand = commandType.MakeGenericType(genericArgs);
             var genericHandler = handlerType.MakeGenericType(genericArgs);
-
-            Type responseType = commandType == typeof(UpdateStatusEntityCommand<,>)
-                ? typeof(bool)
-                : dtoType;
-
             var handlerInterface = typeof(IRequestHandler<,>).MakeGenericType(genericCommand, responseType);
             services.AddTransient(handlerInterface, genericHandler);
         }

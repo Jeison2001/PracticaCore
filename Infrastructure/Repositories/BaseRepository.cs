@@ -81,6 +81,11 @@ namespace Infrastructure.Repositories
         public async Task AddAsync(T entity)
             => await _context.Set<T>().AddAsync(entity);
 
+        public async Task AddRangeAsync(IEnumerable<T> entities)
+        {
+            await _context.Set<T>().AddRangeAsync(entities);
+        }
+
         public Task UpdateAsync(T entity)
         {
             _context.Entry(entity).State = EntityState.Modified;

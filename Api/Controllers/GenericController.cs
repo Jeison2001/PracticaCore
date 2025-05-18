@@ -50,6 +50,16 @@ namespace Api.Controllers
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, new ApiResponse<TDto> { Success = true, Data = result });
         }
 
+        [HttpPost("multiple")]
+        public async Task<IActionResult> CreateMultiple([FromBody] List<TDto> dtos)
+        {
+            if (dtos == null || !dtos.Any())
+                return BadRequest("Debe proporcionar al menos un elemento.");
+
+            var result = await _mediator.Send(new CreateEntitiesCommand<T, TId, TDto>(dtos));
+            return Ok(new ApiResponse<List<TDto>> { Success = true, Data = result });
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(TId id, [FromBody] TDto dto)
         {

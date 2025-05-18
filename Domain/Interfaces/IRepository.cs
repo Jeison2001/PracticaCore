@@ -10,6 +10,7 @@ namespace Domain.Interfaces
         Task UpdatePartialAsync(T entity, Expression<Func<T, object>>[] updatedProperties);
         Task<IEnumerable<T>> GetAllAsync();
         Task AddAsync(T entity);
+        Task AddRangeAsync(IEnumerable<T> entities); // Bulk insert method for multiple entities
         Task UpdateAsync(T entity);
         Task DeleteAsync(T entity);
         Task<T?> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken);

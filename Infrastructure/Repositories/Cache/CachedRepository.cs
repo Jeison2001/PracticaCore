@@ -58,6 +58,21 @@ namespace Infrastructure.Repositories.Cache
             }
         }
 
+        public async Task AddRangeAsync(IEnumerable<T> entities)
+        {
+            await _decoratedRepository.AddRangeAsync(entities);
+            try
+            {
+                // Invalidar la caché de listados al agregar múltiples entidades
+                await _cacheService.RemoveByPatternAsync($"{_entityName}_list*");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al invalidar caché después de agregar múltiples entidades de {entityType}", _entityName);
+                await TryResetCacheAsync();
+            }
+        }
+
         public async Task DeleteAsync(T entity)
         {
             await _decoratedRepository.DeleteAsync(entity);
