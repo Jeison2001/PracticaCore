@@ -32,6 +32,37 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             CreateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
         {
+            // Validación: Debe haber al menos un estudiante
+            if (request.Dto.Students == null || !request.Dto.Students.Any())
+                throw new InvalidOperationException("Se requiere al menos un estudiante para crear una inscripción de modalidad.");
+
+            // Validación: No debe haber estudiantes repetidos
+            var repeated = request.Dto.Students.GroupBy(s => s.IdUser).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (repeated.Any())
+                throw new InvalidOperationException($"No se puede repetir el estudiante con IdUser: {string.Join(", ", repeated)}");
+
+            // Validación: Cupo máximo
+            var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
+            var modality = await modalityRepo.GetByIdAsync(request.Dto.InscriptionModality.IdModality);
+            if (modality == null)
+                throw new KeyNotFoundException($"No se encontró la modalidad con Id {request.Dto.InscriptionModality.IdModality}");
+            if (modality.MaxStudents > 0 && request.Dto.Students.Count > modality.MaxStudents)
+                throw new InvalidOperationException($"El número de estudiantes ({request.Dto.Students.Count}) excede el cupo máximo permitido ({modality.MaxStudents}) para la modalidad seleccionada.");
+
+            // Validación: Todos los usuarios deben tener el rol STUDENT
+            var studentUserIds = request.Dto.Students.Select(s => s.IdUser).Distinct().ToList();
+            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
+            var roleRepo = _unitOfWork.GetRepository<Role, int>();
+            var studentRole = await roleRepo.GetAllAsync(r => r.Name == "STUDENT");
+            if (!studentRole.Any())
+                throw new InvalidOperationException("No existe el rol STUDENT en el sistema.");
+            var studentRoleId = studentRole.First().Id;
+            var userRoles = await userRoleRepo.GetAllAsync(ur => studentUserIds.Contains(ur.IdUser) && ur.IdRole == studentRoleId);
+            var usersWithStudentRole = userRoles.Select(ur => ur.IdUser).Distinct().ToList();
+            var usersWithoutStudentRole = studentUserIds.Except(usersWithStudentRole).ToList();
+            if (usersWithoutStudentRole.Any())
+                throw new InvalidOperationException($"Los siguientes usuarios no tienen el rol STUDENT: {string.Join(", ", usersWithoutStudentRole)}");
+
             try
             {
                 // 1. Create the modality record

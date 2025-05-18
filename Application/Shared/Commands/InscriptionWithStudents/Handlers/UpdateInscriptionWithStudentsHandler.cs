@@ -3,6 +3,7 @@ using Application.Shared.DTOs.UserInscriptionModality;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Application.Shared.Queries;
 using Domain.Entities;
+using Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -12,19 +13,45 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
     {
         private readonly IMediator _mediator;
         private readonly ILogger<UpdateInscriptionWithStudentsHandler> _logger;
+        private readonly IUnitOfWork _unitOfWork;
 
         public UpdateInscriptionWithStudentsHandler(
             IMediator mediator,
-            ILogger<UpdateInscriptionWithStudentsHandler> logger)
+            ILogger<UpdateInscriptionWithStudentsHandler> logger,
+            IUnitOfWork unitOfWork)
         {
             _mediator = mediator;
             _logger = logger;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<InscriptionWithStudentsDto> Handle(
             UpdateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
         {
+            // Validación: Debe haber al menos un estudiante
+            if (request.Dto.Students == null || !request.Dto.Students.Any())
+                throw new InvalidOperationException("Se requiere al menos un estudiante para la inscripción de modalidad.");
+
+            // Validación: No debe haber estudiantes repetidos
+            var repeated = request.Dto.Students.GroupBy(s => s.IdUser).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (repeated.Any())
+                throw new InvalidOperationException($"No se puede repetir el estudiante con IdUser: {string.Join(", ", repeated)}");
+
+            // Validación: Cupo máximo
+            // Obtener modalidad asociada
+            var getModalityQuery = new GetEntityByIdQuery<InscriptionModality, int, InscriptionModalityDto>(request.Id);
+            var inscriptionModality = await _mediator.Send(getModalityQuery, cancellationToken);
+            if (inscriptionModality == null)
+                throw new KeyNotFoundException($"No se encontró la inscripción de modalidad con Id {request.Id}");
+            var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
+            var modality = await modalityRepo.GetByIdAsync(inscriptionModality.IdModality);
+            if (modality == null)
+                throw new KeyNotFoundException($"No se encontró la modalidad con Id {inscriptionModality.IdModality}");
+            var estudiantesActivos = request.Dto.Students.Count(s => s.StatusRegister);
+            if (modality.MaxStudents > 0 && estudiantesActivos > modality.MaxStudents)
+                throw new InvalidOperationException($"El número de estudiantes activos ({estudiantesActivos}) excede el cupo máximo permitido ({modality.MaxStudents}) para la modalidad seleccionada.");
+
             // **Validation:** Ensure all students belong to the InscriptionModality being updated
             foreach (var studentDto in request.Dto.Students)
             {
@@ -45,6 +72,20 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     }
                 }
             }
+
+            // Validación: Todos los usuarios deben tener el rol STUDENT
+            var userIds = request.Dto.Students.Select(s => s.IdUser).Distinct().ToList();
+            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
+            var roleRepo = _unitOfWork.GetRepository<Role, int>();
+            var studentRole = await roleRepo.GetAllAsync(r => r.Name == "STUDENT");
+            if (!studentRole.Any())
+                throw new InvalidOperationException("No existe el rol STUDENT en el sistema.");
+            var studentRoleId = studentRole.First().Id;
+            var userRoles = await userRoleRepo.GetAllAsync(ur => userIds.Contains(ur.IdUser) && ur.IdRole == studentRoleId);
+            var usersWithStudentRole = userRoles.Select(ur => ur.IdUser).Distinct().ToList();
+            var usersWithoutStudentRole = userIds.Except(usersWithStudentRole).ToList();
+            if (usersWithoutStudentRole.Any())
+                throw new InvalidOperationException($"Los siguientes usuarios no tienen el rol STUDENT: {string.Join(", ", usersWithoutStudentRole)}");
 
             try
             {
