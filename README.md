@@ -83,9 +83,76 @@ El proyecto está diseñado para ser altamente modular, lo que facilita la escal
 - **Registro Automático**: Servicios, validadores y handlers se registran automáticamente mediante convenciones.
 - **Mapeo Automático**: AutoMapper configura mapeos genéricos entre entidades y DTOs.
 
+### Automatización de registro de servicios y handlers
+
+El proyecto utiliza métodos de registro automático para minimizar la configuración manual y facilitar la escalabilidad:
+
+- **Servicios**: Se registran automáticamente según su ciclo de vida (`ITransientService`, `IScopedService`, `ISingletonService`) usando convenciones e interfaces marcadoras.
+- **Handlers y Validadores**: Los handlers genéricos de MediatR y los validadores de FluentValidation se registran automáticamente para todas las entidades y DTOs que sigan la convención de heredar de `BaseEntity<>` y `BaseDto<>` respectivamente.
+- **Convención**: Para que el registro automático funcione, las clases deben heredar de las bases genéricas y estar en los ensamblados escaneados.
+
+Esto permite que, al agregar una nueva entidad y su DTO siguiendo la convención, los comandos, queries, handlers y validadores genéricos sean registrados y funcionales sin configuración adicional.
+
 ### Rendimiento
 - **Caché**: Decoradores como `CachedRepository` mejoran el rendimiento al reducir las consultas repetidas a la base de datos.
 - **Consultas Optimizadas**: Uso de `.AsNoTracking()` para mejorar el rendimiento en consultas de solo lectura.
+
+> ⚠️ **Nota sobre el caché:**
+> El decorador `CachedRepository` solo aplica caché automáticamente a las operaciones estándar del repositorio genérico (consultas simples de una entidad, sin Includes ni joins complejos).
+> 
+> Métodos personalizados en repositorios como `ProposalRepository`, `UserRoleRepository` o `TeachingAssignmentRepository` que usan Includes, joins o proyecciones complejas **NO** se benefician del caché genérico. Si se requiere caché para estos casos, debe implementarse manualmente y considerar cuidadosamente la coherencia e invalidación de los datos.
+
+## Manejo global de errores
+
+El proyecto utiliza un middleware global para capturar y responder a las excepciones de forma uniforme. Los códigos de estado y formatos de respuesta son los siguientes:
+
+- **400 Bad Request**: Errores de validación (por ejemplo, validaciones de FluentValidation).
+  ```json
+  {
+    "success": false,
+    "errors": ["El campo X es requerido."]
+  }
+  ```
+- **401 Unauthorized**: Acceso no autorizado.
+  ```json
+  {
+    "success": false,
+    "errors": ["No autorizado."]
+  }
+  ```
+- **404 Not Found**: Recurso no encontrado (por ejemplo, KeyNotFoundException).
+  ```json
+  {
+    "success": false,
+    "errors": ["No se encontró el recurso solicitado."]
+  }
+  ```
+- **500 Internal Server Error**: Errores inesperados del servidor.
+  ```json
+  {
+    "success": false,
+    "errors": ["Mensaje de error interno."]
+  }
+  ```
+
+Todas las respuestas de error siguen el formato del objeto `ApiResponse`, asegurando consistencia en toda la API.
+
+## Buenas prácticas para consultas en repositorios
+
+- Utiliza `.AsNoTracking()` en todas las consultas de solo lectura para mejorar el rendimiento y reducir el uso de memoria.
+- Aplica paginación y filtros antes de ejecutar la consulta para evitar traer datos innecesarios de la base de datos.
+- Usa extensiones como `ToPaginatedResultAsync` para construir respuestas paginadas de manera eficiente.
+- Realiza proyecciones y mapeos solo después de obtener los datos necesarios, evitando cargar relaciones innecesarias.
+
+Estas prácticas ya están implementadas en repositorios como `ProposalRepository`, `UserRoleRepository` y `TeachingAssignmentRepository`.
+
+## Refactorización y mantenimiento
+
+- Identifica clases o métodos grandes y divídelos en componentes más pequeños y reutilizables.
+- Abstrae patrones repetidos en servicios, extensiones o utilidades para evitar duplicación de lógica.
+- Mantén el código limpio, con responsabilidades claras y siguiendo los principios de SOLID y Clean Architecture.
+- Revisa periódicamente clases como `JwtService`, `ProposalRepository` y otros servicios complejos para detectar oportunidades de simplificación y mejora.
+- Documenta los cambios y refactorizaciones relevantes para facilitar el mantenimiento futuro.
 
 ## Contribución
 1. Crea un fork del repositorio.

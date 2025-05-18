@@ -38,6 +38,16 @@ namespace Api.Middlewares
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 response.Errors.AddRange(validationException.Errors.Select(e => e.ErrorMessage));
             }
+            else if (exception is KeyNotFoundException)
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                response.Errors.Add(exception.Message);
+            }
+            else if (exception is UnauthorizedAccessException)
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                response.Errors.Add("No autorizado.");
+            }
             else
             {
                 context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
