@@ -13,10 +13,12 @@ namespace Domain.Entities
         public long FileSize { get; set; }
         public string? Version { get; set; }
         public string DocumentState { get; set; } = "CARGADO";
+        public int? IdDocumentOld { get; set; } // Referencia al documento anterior
 
         // Navigation properties
         public virtual DocumentType? DocumentType { get; set; }
         public virtual User? Uploader { get; set; }
         public virtual InscriptionModality? InscriptionModality { get; set; }
+        public virtual Document? DocumentOld { get; set; }
     }
 }

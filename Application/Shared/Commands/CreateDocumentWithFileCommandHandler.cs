@@ -27,11 +27,21 @@ namespace Application.Shared.Commands
         public async Task<DocumentDto> Handle(CreateDocumentWithFileCommand request, CancellationToken cancellationToken)
         {
             var dto = request.Dto;
+            int idDocumentType = dto.IdDocumentType;
+            // Si se provee el code, buscar el id correspondiente
+            if (!string.IsNullOrWhiteSpace(dto.CodeDocumentType))
+            {
+                var docTypeRepo = _unitOfWork.GetRepository<DocumentType, int>();
+                var docType = await docTypeRepo.GetFirstOrDefaultAsync(x => x.Code == dto.CodeDocumentType, cancellationToken);
+                if (docType == null)
+                    throw new KeyNotFoundException($"No se encontró DocumentType con code '{dto.CodeDocumentType}'");
+                idDocumentType = docType.Id;
+            }
             var entity = new Document
             {
                 IdInscriptionModality = dto.IdInscriptionModality,
                 IdUploader = dto.IdUploader,
-                IdDocumentType = dto.IdDocumentType,
+                IdDocumentType = idDocumentType,
                 Name = dto.Name ?? dto.File.FileName,
                 OriginalFileName = dto.File.FileName,
                 StoredFileName = request.StoredFileName,
@@ -47,6 +57,13 @@ namespace Application.Shared.Commands
                 OperationRegister = dto.OperationRegister,
                 StatusRegister = dto.StatusRegister
             };
+            // Asegurar que las fechas sean UTC
+            entity.CreatedAt = dto.CreatedAt.Kind == DateTimeKind.Utc
+                ? dto.CreatedAt
+                : DateTime.SpecifyKind(dto.CreatedAt, DateTimeKind.Utc);
+            entity.UpdatedAt = (dto.UpdatedAt ?? DateTime.UtcNow).Kind == DateTimeKind.Utc
+                ? (dto.UpdatedAt ?? DateTime.UtcNow)
+                : DateTime.SpecifyKind(dto.UpdatedAt ?? DateTime.UtcNow, DateTimeKind.Utc);
             await _repository.AddAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
             return _mapper.Map<DocumentDto>(entity);

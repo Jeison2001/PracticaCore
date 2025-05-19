@@ -25,17 +25,36 @@ namespace Application.Shared.Commands
             if (entity == null)
                 throw new KeyNotFoundException($"Documento con id {request.Id} no encontrado.");
 
+            int idDocumentType = request.Dto.IdDocumentType;
+            if (!string.IsNullOrWhiteSpace(request.Dto.CodeDocumentType))
+            {
+                var docTypeRepo = _unitOfWork.GetRepository<DocumentType, int>();
+                var docType = await docTypeRepo.GetFirstOrDefaultAsync(x => x.Code == request.Dto.CodeDocumentType, cancellationToken);
+                if (docType == null)
+                    throw new KeyNotFoundException($"No se encontró DocumentType con code '{request.Dto.CodeDocumentType}'");
+                idDocumentType = docType.Id;
+            }
+
             // Actualizar metadatos
             entity.IdInscriptionModality = request.Dto.IdInscriptionModality;
             entity.IdUploader = request.Dto.IdUploader;
-            entity.IdDocumentType = request.Dto.IdDocumentType;
+            entity.IdDocumentType = idDocumentType;
             entity.Name = request.Dto.Name ?? entity.Name;
             entity.Version = request.Dto.Version;
             entity.DocumentState = request.Dto.DocumentState ?? entity.DocumentState;
             entity.IdUserUpdatedAt = request.Dto.IdUserUpdatedAt;
-            entity.UpdatedAt = request.Dto.UpdatedAt ?? DateTime.UtcNow;
+            
+            // Asegurar que las fechas sean UTC
+            entity.CreatedAt = request.Dto.CreatedAt.Kind == DateTimeKind.Utc
+                ? request.Dto.CreatedAt
+                : DateTime.SpecifyKind(request.Dto.CreatedAt, DateTimeKind.Utc);
+            entity.UpdatedAt = (request.Dto.UpdatedAt ?? DateTime.UtcNow).Kind == DateTimeKind.Utc
+                ? (request.Dto.UpdatedAt ?? DateTime.UtcNow)
+                : DateTime.SpecifyKind(request.Dto.UpdatedAt ?? DateTime.UtcNow, DateTimeKind.Utc);
+            
             entity.OperationRegister = request.Dto.OperationRegister;
             entity.StatusRegister = request.Dto.StatusRegister;
+            entity.IdDocumentOld = request.Dto.IdDocumentOld;
 
             // Si hay archivo nuevo, actualizar info de archivo
             if (request.StoredFileName != null && request.StoragePath != null && request.MimeType != null && request.FileSize != null)

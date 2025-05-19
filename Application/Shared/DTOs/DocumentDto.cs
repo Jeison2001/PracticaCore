@@ -13,5 +13,6 @@ namespace Application.Shared.DTOs
         public long FileSize { get; set; }
         public string? Version { get; set; }
         public string DocumentState { get; set; } = "CARGADO";
+        public int? IdDocumentOld { get; set; }
     }
 }

@@ -147,15 +147,67 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int id, [FromForm] DocumentUpdateDto dto)
         {
-            await Task.CompletedTask;
-            // TODO: Implementar handler UpdateDocumentWithFileCommand y su lógica
-            return StatusCode(StatusCodes.Status501NotImplemented, new Responses.ApiResponse<object>
+            var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
+            string? uniqueFileName = null;
+            string? mimeType = null;
+            long? fileSize = null;
+            // Validar y guardar archivo solo si se envía uno nuevo
+            if (dto.File != null)
             {
-                Success = false,
-                Data = null,
-                Errors = new List<string> { "No implementado: lógica de actualización de documento y archivo" },
-                Messages = new List<string>()
-            });
+                var fileExt = System.IO.Path.GetExtension(dto.File.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(fileExt))
+                {
+                    return BadRequest(new Responses.ApiResponse<object>
+                    {
+                        Success = false,
+                        Data = null,
+                        Errors = new List<string> { $"Formato de archivo no permitido. Solo se aceptan: {string.Join(", ", allowedExtensions)}" },
+                        Messages = new List<string>()
+                    });
+                }
+                uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, HttpContext.RequestAborted);
+                mimeType = dto.File.ContentType;
+                fileSize = dto.File.Length;
+            }
+            try
+            {
+                var command = new Application.Shared.Commands.UpdateDocumentWithFileCommand(
+                    id,
+                    dto,
+                    uniqueFileName,
+                    string.Empty, // StoragePath ya no se usa
+                    mimeType,
+                    fileSize
+                );
+                var result = await _mediator.Send(command);
+                return Ok(new Responses.ApiResponse<DocumentDto>
+                {
+                    Success = true,
+                    Data = result,
+                    Errors = new List<string>(),
+                    Messages = new List<string>()
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { ex.Message },
+                    Messages = new List<string>()
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { ex.Message },
+                    Messages = new List<string>()
+                });
+            }
         }
 
         /// <summary>

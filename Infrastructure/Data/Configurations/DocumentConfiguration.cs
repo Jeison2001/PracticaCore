@@ -36,6 +36,12 @@ namespace Infrastructure.Data.Configurations
             builder.HasOne(d => d.InscriptionModality)
                 .WithMany()
                 .HasForeignKey(d => d.IdInscriptionModality);
+
+            builder.Property(e => e.IdDocumentOld).HasColumnName("iddocumentold").IsRequired(false);
+            builder.HasOne(d => d.DocumentOld)
+                .WithMany()
+                .HasForeignKey(d => d.IdDocumentOld)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }
