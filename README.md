@@ -73,6 +73,9 @@ El proyecto está diseñado para ser altamente modular, lo que facilita la escal
 
 ### Operaciones Genéricas
 - **Controladores Genéricos**: Los controladores como `GenericController` manejan operaciones CRUD comunes, reduciendo la duplicación de código.
+  - **Personalización de Endpoints**: Los métodos de acción en `GenericController` (como `GetById`, `GetAll`, `Create`, `Update`, `UpdateStatus`, `CreateMultiple`) son virtuales. Esto permite que los controladores de entidad específicos (ej. `ProposalController`, `UserController`) puedan:
+    - Sobrescribir estos métodos para implementar una lógica personalizada para un endpoint particular.
+    - Deshabilitar endpoints específicos para una entidad marcando el método sobrescrito con `[NonAction]` y devolviendo, por ejemplo, `NotFound()`. Esto proporciona flexibilidad para exponer solo los endpoints necesarios por entidad.
 - **Repositorios Genéricos**: Implementan operaciones estándar como paginación, filtrado y ordenamiento dinámico.
 
 ### Manejo de Errores

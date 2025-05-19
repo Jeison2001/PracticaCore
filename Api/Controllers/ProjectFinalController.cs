@@ -52,5 +52,17 @@ namespace Api.Controllers
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<ProjectFinalWithDetailsResponseDto>> { Success = true, Data = result });
         }
+
+        [NonAction]
+        public override Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> GetById(int id)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
     }
 }

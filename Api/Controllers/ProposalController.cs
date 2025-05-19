@@ -123,5 +123,17 @@ namespace Api.Controllers
                 });
             }
         }
+
+        [NonAction]
+        public override Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> GetById(int id)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
     }
 }

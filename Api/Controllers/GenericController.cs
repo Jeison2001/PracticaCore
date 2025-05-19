@@ -21,14 +21,14 @@ namespace Api.Controllers
         public GenericController(IMediator mediator) => _mediator = mediator;
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(TId id)
+        public virtual async Task<IActionResult> GetById(TId id)
         {
             var result = await _mediator.Send(new GetEntityByIdQuery<T, TId, TDto>(id));
             return Ok(new ApiResponse<TDto> { Success = true, Data = result });
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+        public virtual async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
         {
             var query = new GetAllEntitiesQuery<T, TId, TDto>
             {
@@ -44,14 +44,14 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] TDto dto)
+        public virtual async Task<IActionResult> Create([FromBody] TDto dto)
         {
             var result = await _mediator.Send(new CreateEntityCommand<T, TId, TDto>(dto));
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, new ApiResponse<TDto> { Success = true, Data = result });
         }
 
         [HttpPost("multiple")]
-        public async Task<IActionResult> CreateMultiple([FromBody] List<TDto> dtos)
+        public virtual async Task<IActionResult> CreateMultiple([FromBody] List<TDto> dtos)
         {
             if (dtos == null || !dtos.Any())
                 return BadRequest("Debe proporcionar al menos un elemento.");
@@ -61,14 +61,14 @@ namespace Api.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(TId id, [FromBody] TDto dto)
+        public virtual async Task<IActionResult> Update(TId id, [FromBody] TDto dto)
         {
             var result = await _mediator.Send(new UpdateEntityCommand<T, TId, TDto>(id, dto));
             return Ok(new ApiResponse<TDto> { Success = true, Data = result });
         }
 
         [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateStatus(TId id, [FromBody] UpdateStatusRequestDto dto)
+        public virtual async Task<IActionResult> UpdateStatus(TId id, [FromBody] UpdateStatusRequestDto dto)
         {
             var command = new UpdateStatusEntityCommand<T, TId>(
                 id,
