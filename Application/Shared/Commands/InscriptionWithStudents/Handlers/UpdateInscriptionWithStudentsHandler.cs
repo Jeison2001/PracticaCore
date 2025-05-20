@@ -73,20 +73,6 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 }
             }
 
-            // Validación: Todos los usuarios deben tener el rol STUDENT
-            var userIds = request.Dto.Students.Select(s => s.IdUser).Distinct().ToList();
-            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
-            var roleRepo = _unitOfWork.GetRepository<Role, int>();
-            var studentRole = await roleRepo.GetAllAsync(r => r.Name == "STUDENT");
-            if (!studentRole.Any())
-                throw new InvalidOperationException("No existe el rol STUDENT en el sistema.");
-            var studentRoleId = studentRole.First().Id;
-            var userRoles = await userRoleRepo.GetAllAsync(ur => userIds.Contains(ur.IdUser) && ur.IdRole == studentRoleId);
-            var usersWithStudentRole = userRoles.Select(ur => ur.IdUser).Distinct().ToList();
-            var usersWithoutStudentRole = userIds.Except(usersWithStudentRole).ToList();
-            if (usersWithoutStudentRole.Any())
-                throw new InvalidOperationException($"Los siguientes usuarios no tienen el rol STUDENT: {string.Join(", ", usersWithoutStudentRole)}");
-
             try
             {
                 // Log the DTO values for debugging
