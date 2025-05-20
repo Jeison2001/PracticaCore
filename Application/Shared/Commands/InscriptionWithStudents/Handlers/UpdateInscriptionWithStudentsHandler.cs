@@ -49,8 +49,6 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             if (modality == null)
                 throw new KeyNotFoundException($"No se encontró la modalidad con Id {inscriptionModality.IdModality}");
             var estudiantesActivos = request.Dto.Students.Count(s => s.StatusRegister);
-            if (modality.MaxStudents > 0 && estudiantesActivos > modality.MaxStudents)
-                throw new InvalidOperationException($"El número de estudiantes activos ({estudiantesActivos}) excede el cupo máximo permitido ({modality.MaxStudents}) para la modalidad seleccionada.");
 
             // **Validation:** Ensure all students belong to the InscriptionModality being updated
             foreach (var studentDto in request.Dto.Students)

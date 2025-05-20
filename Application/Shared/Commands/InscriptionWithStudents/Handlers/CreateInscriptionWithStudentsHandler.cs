@@ -41,13 +41,11 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             if (repeated.Any())
                 throw new InvalidOperationException($"No se puede repetir el estudiante con IdUser: {string.Join(", ", repeated)}");
 
-            // Validación: Cupo máximo
+            // Validación: Modalidad existente
             var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
             var modality = await modalityRepo.GetByIdAsync(request.Dto.InscriptionModality.IdModality);
             if (modality == null)
                 throw new KeyNotFoundException($"No se encontró la modalidad con Id {request.Dto.InscriptionModality.IdModality}");
-            if (modality.MaxStudents > 0 && request.Dto.Students.Count > modality.MaxStudents)
-                throw new InvalidOperationException($"El número de estudiantes ({request.Dto.Students.Count}) excede el cupo máximo permitido ({modality.MaxStudents}) para la modalidad seleccionada.");
 
             try
             {
