@@ -1,5 +1,6 @@
 using Api.Controllers;
 using Api.Responses;
+using Application.Shared.DTOs.Role;
 using Application.Shared.DTOs.UserRole;
 using Application.Shared.Queries.UserRole;
 using MediatR;
@@ -22,38 +23,45 @@ namespace Tests.UnitTests.Api.Controllers
         public async Task GetUserRolesByUserId_ReturnsOkResult_WithUserRolesList()
         {
             // Arrange
-            var userId = 1;
-            var userRoles = new List<UserRoleInfoDto>
+            var userId = 1;            var userRoles = new List<UserRoleInfoDto>
             {
                 new UserRoleInfoDto
                 {
-                    // Propiedades del RoleDto (heredadas)
-                    Id = 1,
-                    Code = "ADMIN",
-                    Name = "Administrator",
-                    Description = "Full system access",
-                    
-                    // Propiedades específicas de UserRoleInfoDto
-                    UserRoleId = 1, // ID del registro UserRole
-                    UserId = userId,
-                    StatusRegister = true,
-                    OperationRegister = "CREATE",
-                    IdUserCreatedAt = 1
+                    Role = new RoleDto
+                    {
+                        Id = 1,
+                        Code = "ADMIN",
+                        Name = "Administrator",
+                        Description = "Full system access",                    StatusRegister = true
+                    },
+                    UserRole = new UserRoleDto
+                    {
+                        Id = 1, // ID del registro UserRole
+                        IdUser = userId,
+                        IdRole = 1,
+                        StatusRegister = true,
+                        OperationRegister = "CREATE",
+                        IdUserCreatedAt = 1
+                    }
                 },
                 new UserRoleInfoDto
                 {
-                    // Propiedades del RoleDto (heredadas)
-                    Id = 2,
-                    Code = "USER",
-                    Name = "Regular User",
-                    Description = "Basic system access",
-                    
-                    // Propiedades específicas de UserRoleInfoDto
-                    UserRoleId = 2, // ID del registro UserRole
-                    UserId = userId,
-                    StatusRegister = true,
-                    OperationRegister = "CREATE",
-                    IdUserCreatedAt = 1
+                    Role = new RoleDto
+                    {
+                        Id = 2,
+                        Code = "USER",
+                        Name = "Regular User",
+                        Description = "Basic system access",
+                        StatusRegister = true                    },
+                    UserRole = new UserRoleDto
+                    {
+                        Id = 2, // ID del registro UserRole
+                        IdUser = userId,
+                        IdRole = 2,
+                        StatusRegister = true,
+                        OperationRegister = "CREATE",
+                        IdUserCreatedAt = 1
+                    }
                 }
             };
 
@@ -69,17 +77,15 @@ namespace Tests.UnitTests.Api.Controllers
             
             Assert.True(apiResponse.Success);
             Assert.NotNull(apiResponse.Data);
-            Assert.Equal(2, apiResponse.Data.Count);
-
-            // Verificar que se devuelve el UserRoleId (necesario para desactivación)
-            Assert.Equal(1, apiResponse.Data.First().UserRoleId);
-            Assert.Equal(2, apiResponse.Data.Last().UserRoleId);
+            Assert.Equal(2, apiResponse.Data.Count);            // Verificar que se devuelve el UserRoleId (necesario para desactivación)
+            Assert.Equal(1, apiResponse.Data.First().UserRole.Id);
+            Assert.Equal(2, apiResponse.Data.Last().UserRole.Id);
 
             // Verificar que se devuelve la información completa del rol
-            Assert.Equal("ADMIN", apiResponse.Data.First().Code);
-            Assert.Equal("Administrator", apiResponse.Data.First().Name);
-            Assert.Equal("USER", apiResponse.Data.Last().Code);
-            Assert.Equal("Regular User", apiResponse.Data.Last().Name);
+            Assert.Equal("ADMIN", apiResponse.Data.First().Role.Code);
+            Assert.Equal("Administrator", apiResponse.Data.First().Role.Name);
+            Assert.Equal("USER", apiResponse.Data.Last().Role.Code);
+            Assert.Equal("Regular User", apiResponse.Data.Last().Role.Name);
         }
 
         [Fact]
@@ -114,16 +120,21 @@ namespace Tests.UnitTests.Api.Controllers
         public async Task GetUserRolesByUserId_CallsMediatorWithCorrectQuery()
         {
             // Arrange
-            var userId = 123;
-            var userRoles = new List<UserRoleInfoDto>
+            var userId = 123;            var userRoles = new List<UserRoleInfoDto>
             {
                 new UserRoleInfoDto
                 {
-                    Id = 1,
-                    Code = "TEST",
-                    Name = "Test Role",
-                    UserRoleId = 1,
-                    UserId = userId
+                    Role = new RoleDto 
+                    { 
+                        Id = 1, 
+                        Code = "TEST",                    Name = "Test Role" 
+                    },
+                    UserRole = new UserRoleDto
+                    {
+                        Id = 1,
+                        IdUser = userId,
+                        IdRole = 1
+                    }
                 }
             };
 

@@ -1,3 +1,4 @@
+using Application.Shared.DTOs.Role;
 using Application.Shared.DTOs.UserRole;
 using Domain.Interfaces.Auth;
 using Domain.Interfaces;
@@ -31,30 +32,35 @@ namespace Application.Shared.Queries.UserRole.Handlers
                 cancellationToken: cancellationToken
             );
 
-            var result = new List<UserRoleInfoDto>();
-
-            foreach (var userRole in userRoles.Items)
+            var result = new List<UserRoleInfoDto>();            foreach (var userRole in userRoles.Items)
             {
                 // Obtener la información del rol
                 var role = await _roleRepository.GetByIdAsync(userRole.IdRole);
                 
                 if (role != null)
-                {
-                    result.Add(new UserRoleInfoDto
+                {                    result.Add(new UserRoleInfoDto
                     {
-                        // Propiedades del RoleDto (heredadas)
-                        Id = role.Id,
-                        Code = role.Code,
-                        Name = role.Name,
-                        Description = role.Description,
-                        
-                        // Propiedades adicionales específicas de UserRoleInfoDto
-                        UserRoleId = userRole.Id, // ID del registro UserRole para operaciones
-                        UserId = userRole.IdUser,
-                        CreatedAt = userRole.CreatedAt,
-                        IdUserCreatedAt = userRole.IdUserCreatedAt,
-                        StatusRegister = userRole.StatusRegister,
-                        OperationRegister = userRole.OperationRegister
+                        Role = new RoleDto
+                        {
+                            Id = role.Id,
+                            Code = role.Code,
+                            Name = role.Name,
+                            Description = role.Description,
+                            IdUserCreatedAt = role.IdUserCreatedAt,
+                            IdUserUpdatedAt = role.IdUserUpdatedAt,
+                            StatusRegister = role.StatusRegister,
+                            OperationRegister = role.OperationRegister
+                        },
+                        UserRole = new UserRoleDto
+                        {
+                            Id = userRole.Id, // ID del registro UserRole para operaciones
+                            IdUser = userRole.IdUser,
+                            IdRole = userRole.IdRole,
+                            IdUserCreatedAt = userRole.IdUserCreatedAt,
+                            IdUserUpdatedAt = userRole.IdUserUpdatedAt,
+                            StatusRegister = userRole.StatusRegister,
+                            OperationRegister = userRole.OperationRegister
+                        }
                     });
                 }
             }
