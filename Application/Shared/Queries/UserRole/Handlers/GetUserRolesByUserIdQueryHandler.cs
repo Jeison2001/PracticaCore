@@ -1,19 +1,26 @@
 using Application.Shared.DTOs.UserRole;
 using Domain.Interfaces.Auth;
+using Domain.Interfaces;
 using MediatR;
 
 namespace Application.Shared.Queries.UserRole.Handlers
 {
-    public class GetUserRolesByUserIdQueryHandler : IRequestHandler<GetUserRolesByUserIdQuery, List<UserRoleDto>>
+    public class GetUserRolesByUserIdQueryHandler : IRequestHandler<GetUserRolesByUserIdQuery, List<UserRoleInfoDto>>
     {
         private readonly IUserRoleRepository _userRoleRepository;
-        public GetUserRolesByUserIdQueryHandler(IUserRoleRepository userRoleRepository)
+        private readonly IRepository<Domain.Entities.Role, int> _roleRepository;
+
+        public GetUserRolesByUserIdQueryHandler(
+            IUserRoleRepository userRoleRepository,
+            IRepository<Domain.Entities.Role, int> roleRepository)
         {
             _userRoleRepository = userRoleRepository;
+            _roleRepository = roleRepository;
         }
-        public async Task<List<UserRoleDto>> Handle(GetUserRolesByUserIdQuery request, CancellationToken cancellationToken)
+
+        public async Task<List<UserRoleInfoDto>> Handle(GetUserRolesByUserIdQuery request, CancellationToken cancellationToken)
         {
-            // Fetch all user roles for the user (direct assignments only)
+            // Obtener todos los UserRoles para el usuario
             var userRoles = await _userRoleRepository.GetUserRolesWithUserDetailsAsync(
                 roleCode: null,
                 pageNumber: 1,
@@ -23,13 +30,36 @@ namespace Application.Shared.Queries.UserRole.Handlers
                 filters: new Dictionary<string, string> { { "IdUser", request.UserId.ToString() } },
                 cancellationToken: cancellationToken
             );
-            return userRoles.Items.Select(ur => new UserRoleDto
+
+            var result = new List<UserRoleInfoDto>();
+
+            foreach (var userRole in userRoles.Items)
             {
-                Id = ur.Id,
-                IdUser = ur.IdUser,
-                IdRole = ur.IdRole,
-                IdUserCreatedAt = ur.IdUserCreatedAt
-            }).ToList();
+                // Obtener la información del rol
+                var role = await _roleRepository.GetByIdAsync(userRole.IdRole);
+                
+                if (role != null)
+                {
+                    result.Add(new UserRoleInfoDto
+                    {
+                        // Propiedades del RoleDto (heredadas)
+                        Id = role.Id,
+                        Code = role.Code,
+                        Name = role.Name,
+                        Description = role.Description,
+                        
+                        // Propiedades adicionales específicas de UserRoleInfoDto
+                        UserRoleId = userRole.Id, // ID del registro UserRole para operaciones
+                        UserId = userRole.IdUser,
+                        CreatedAt = userRole.CreatedAt,
+                        IdUserCreatedAt = userRole.IdUserCreatedAt,
+                        StatusRegister = userRole.StatusRegister,
+                        OperationRegister = userRole.OperationRegister
+                    });
+                }
+            }
+
+            return result;
         }
     }
 }

@@ -29,47 +29,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             UpdateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
         {
-            // Validación: Debe haber al menos un estudiante
-            if (request.Dto.Students == null || !request.Dto.Students.Any())
-                throw new InvalidOperationException("Se requiere al menos un estudiante para la inscripción de modalidad.");
-
-            // Validación: No debe haber estudiantes repetidos
-            var repeated = request.Dto.Students.GroupBy(s => s.IdUser).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-            if (repeated.Any())
-                throw new InvalidOperationException($"No se puede repetir el estudiante con IdUser: {string.Join(", ", repeated)}");
-
-            // Validación: Cupo máximo
-            // Obtener modalidad asociada
-            var getModalityQuery = new GetEntityByIdQuery<InscriptionModality, int, InscriptionModalityDto>(request.Id);
-            var inscriptionModality = await _mediator.Send(getModalityQuery, cancellationToken);
-            if (inscriptionModality == null)
-                throw new KeyNotFoundException($"No se encontró la inscripción de modalidad con Id {request.Id}");
-            var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
-            var modality = await modalityRepo.GetByIdAsync(inscriptionModality.IdModality);
-            if (modality == null)
-                throw new KeyNotFoundException($"No se encontró la modalidad con Id {inscriptionModality.IdModality}");
-            var estudiantesActivos = request.Dto.Students.Count(s => s.StatusRegister);
-
-            // **Validation:** Ensure all students belong to the InscriptionModality being updated
-            foreach (var studentDto in request.Dto.Students)
-            {
-                if (studentDto.Id != 0)
-                {
-                    // Fetch the existing student from the database
-                    var existingStudentQuery = new GetEntityByIdQuery<UserInscriptionModality, int, UserInscriptionModalityDto>(studentDto.Id);
-                    var existingStudent = await _mediator.Send(existingStudentQuery, cancellationToken);
-
-                    if (existingStudent == null)
-                    {
-                        throw new KeyNotFoundException($"Student with ID {studentDto.Id} not found");
-                    }
-
-                    if (existingStudent.IdInscriptionModality != request.Id)
-                    {
-                        throw new InvalidOperationException($"Student with ID {studentDto.Id} belongs to another modality registration.");
-                    }
-                }
-            }
+            // Validaciones previas eliminadas. Se implementará nueva lógica de validación.
 
             try
             {

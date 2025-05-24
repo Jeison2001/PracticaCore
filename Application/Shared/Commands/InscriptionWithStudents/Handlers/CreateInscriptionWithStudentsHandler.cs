@@ -5,7 +5,6 @@ using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
@@ -44,8 +43,31 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             // Validación: Modalidad existente
             var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
             var modality = await modalityRepo.GetByIdAsync(request.Dto.InscriptionModality.IdModality);
-            if (modality == null)
-                throw new KeyNotFoundException($"No se encontró la modalidad con Id {request.Dto.InscriptionModality.IdModality}");
+
+            // Validación: Cupo máximo de estudiantes
+            var maxStudents = modality?.MaxStudents ?? 0;
+            if (maxStudents > 0 && request.Dto.Students.Count > maxStudents)
+                throw new InvalidOperationException($"La modalidad solo permite un máximo de {maxStudents} estudiantes.");
+
+            // Validación: Todos los usuarios deben tener el rol 'STUDENT'
+            var userIds = request.Dto.Students.Select(s => s.IdUser).ToList();
+            var users = await _unitOfWork.GetRepository<User, int>()
+                .GetAllAsync(u => userIds.Contains(u.Id));
+            var usersDict = users.ToDictionary(u => u.Id);
+            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
+            var userRoles = await userRoleRepo.GetAllAsync(ur => userIds.Contains(ur.IdUser));
+            var roleRepo = _unitOfWork.GetRepository<Role, int>();
+            var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT", cancellationToken);
+            if (studentRole == null)
+                throw new InvalidOperationException("No se encontró el rol 'STUDENT' en el sistema.");
+            var studentRoleId = studentRole.Id;
+            foreach (var student in request.Dto.Students) {
+                var hasStudentRole = userRoles.Any(ur => ur.IdUser == student.IdUser && ur.IdRole == studentRoleId);
+                if (!usersDict.ContainsKey(student.IdUser) || !hasStudentRole)
+                {
+                    throw new InvalidOperationException($"El usuario con Id {student.IdUser} no tiene el rol 'STUDENT'.");
+                }
+            }
 
             try
             {
@@ -78,17 +100,17 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 }
 
                 // 4. Cargar todos los usuarios de una vez para validación
-                var userIds = userDictionary.Values.Select(x => x.Id).ToList();
-                var users = await _unitOfWork.GetRepository<User, int>()
-                    .GetAllAsync(u => userIds.Contains(u.Id));
-                var usersDict = users.ToDictionary(u => u.Id);
+                var allUserIds = userDictionary.Values.Select(x => x.Id).ToList();
+                var allUsers = await _unitOfWork.GetRepository<User, int>()
+                    .GetAllAsync(u => allUserIds.Contains(u.Id));
+                var allUsersDict = allUsers.ToDictionary(u => u.Id);
 
                 // 5. Crear los registros de estudiantes enlazados a la modalidad
                 foreach (var studentDto in request.Dto.Students)
                 {
                     var userIdentification = userDictionary[studentDto.Identification];
                     // Validar que el usuario exista en el diccionario
-                    if (!usersDict.ContainsKey(userIdentification.Id))
+                    if (!allUsersDict.ContainsKey(userIdentification.Id))
                         throw new KeyNotFoundException($"Usuario con ID {userIdentification.Id} no existe en la base de datos.");
                     await _mediator.Send(
                         new CreateEntityCommand<UserInscriptionModality, int, UserInscriptionModalityDto>(

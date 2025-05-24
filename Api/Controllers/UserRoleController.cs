@@ -1,8 +1,6 @@
 using Api.Responses;
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.Role;
 using Application.Shared.DTOs.UserRole;
-using Application.Shared.Queries.Role;
 using Application.Shared.Queries.UserRole;
 using Domain.Common;
 using Domain.Entities;
@@ -43,27 +41,23 @@ namespace Api.Controllers
                 SortBy = request.SortBy,
                 IsDescending = request.IsDescending,
                 Filters = request.Filters
-            };
-
-            var result = await _mediator.Send(query);
+            };            var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<UserRoleWithUserDetailsDto>> { Success = true, Data = result });
-        }
-
-        /// <summary>
-        /// Obtiene los roles asignados a un usuario específico
+        }        /// <summary>
+        /// Obtiene los roles asignados a un usuario específico con información completa del rol
         /// </summary>
-        /// <param name="userId">ID del usuario</param>
-        /// <returns>Lista de roles asignados al usuario</returns>
+        /// <param name="id">ID del usuario</param>
+        /// <returns>Lista de roles del usuario con información del registro de relación</returns>
         [HttpGet("ByUser/{id}")]
-        public async Task<ActionResult<List<RoleDto>>> GetUserRolesByUserId(int id)
+        public async Task<ActionResult<List<UserRoleInfoDto>>> GetUserRolesByUserId(int id)
         {
             if (id <= 0)
                 return BadRequest("El ID de usuario debe ser válido.");
 
-            var roles = await _mediator.Send(new GetRolesByUserIdQuery { UserId = id });
-            if (roles == null || !roles.Any())
-                return NotFound($"No se encontraron roles para el usuario con ID {id}.");
-            return Ok(roles);
+            var userRoles = await _mediator.Send(new GetUserRolesByUserIdQuery { UserId = id });
+            if (userRoles == null || !userRoles.Any())
+                return NotFound($"No se encontraron registros de UserRole para el usuario con ID {id}.");
+            return Ok(new ApiResponse<List<UserRoleInfoDto>> { Success = true, Data = userRoles });
         }
     }
 }
