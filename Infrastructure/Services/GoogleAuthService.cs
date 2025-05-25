@@ -68,9 +68,7 @@ namespace Infrastructure.Services
                     user.FirstName,
                     user.LastName,
                     user.Identification
-                );
-
-                // Crear respuesta de autenticación con la estructura jerárquica
+                );                // Crear respuesta de autenticación con la estructura jerárquica
                 return new AuthResponse
                 {
                     Token = token,
@@ -80,7 +78,8 @@ namespace Infrastructure.Services
                         Email = user.Email,
                         FirstName = user.FirstName,
                         LastName = user.LastName,
-                        Identification = user.Identification
+                        Identification = user.Identification,
+                        IdIdentificationType = user.IdIdentificationType
                     },
                     Roles = roles,
                     Permissions = hierarchicalPermissions

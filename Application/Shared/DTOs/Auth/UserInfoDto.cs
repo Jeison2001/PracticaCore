@@ -7,5 +7,6 @@ namespace Application.Shared.DTOs.Auth
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string Identification { get; set; } = string.Empty;
+        public int IdIdentificationType { get; set; }
     }
 }
