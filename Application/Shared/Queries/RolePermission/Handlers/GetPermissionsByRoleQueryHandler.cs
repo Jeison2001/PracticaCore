@@ -19,9 +19,7 @@ namespace Application.Shared.Queries.RolePermission.Handlers
             _roleRepository = roleRepository;
             _rolePermissionRepository = rolePermissionRepository;
             _permissionRepository = permissionRepository;
-        }
-
-        public async Task<List<RolePermissionInfoDto>> Handle(GetPermissionsByRoleQuery request, CancellationToken cancellationToken)
+        }        public async Task<List<RolePermissionInfoDto>> Handle(GetPermissionsByRoleQuery request, CancellationToken cancellationToken)
         {
             // Validar que al menos uno de los parámetros esté presente
             if (!request.RoleId.HasValue && string.IsNullOrEmpty(request.RoleCode))
@@ -31,8 +29,24 @@ namespace Application.Shared.Queries.RolePermission.Handlers
 
             Domain.Entities.Role? role = null;
 
+            // Si ambos parámetros están presentes, validar que correspondan al mismo rol
+            if (request.RoleId.HasValue && !string.IsNullOrEmpty(request.RoleCode))
+            {
+                var roleById = await _roleRepository.GetByIdAsync(request.RoleId.Value);
+                var roleByCode = await _roleRepository.GetFirstOrDefaultAsync(
+                    r => r.Code.ToLower() == request.RoleCode.ToLower(), 
+                    cancellationToken);
+
+                if (roleById != null && roleByCode != null && roleById.Id != roleByCode.Id)
+                {
+                    throw new ArgumentException($"Conflicto: El ID {request.RoleId} corresponde al rol '{roleById.Code}' pero el código proporcionado es '{request.RoleCode}'. Los parámetros deben referirse al mismo rol.");
+                }
+
+                // Usar el rol encontrado por ID (tiene precedencia si ambos existen)
+                role = roleById ?? roleByCode;
+            }
             // Buscar el rol por ID o por código
-            if (request.RoleId.HasValue)
+            else if (request.RoleId.HasValue)
             {
                 role = await _roleRepository.GetByIdAsync(request.RoleId.Value);
             }
