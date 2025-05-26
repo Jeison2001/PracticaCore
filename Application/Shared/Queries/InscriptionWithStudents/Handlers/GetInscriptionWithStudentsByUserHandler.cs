@@ -148,13 +148,14 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                                 UpdatedAt = student.UpdatedAt,
                                 StatusRegister = student.StatusRegister
                             };
-
+                            
                             if (users.TryGetValue(student.IdUser, out var user))
                             {
                                 studentDto.UserName = $"{user.FirstName} {user.LastName}";
-                                studentDto.Identification = user.Identification;
-                                studentDto.Email = user.Email;
-                                studentDto.CurrentAcademicPeriod = user.CurrentAcademicPeriod;
+                                studentDto.Identification = user.Identification ?? string.Empty;
+                                studentDto.IdIdentificationType = user.IdIdentificationType;
+                                studentDto.Email = user.Email ?? string.Empty;
+                                studentDto.CurrentAcademicPeriod = user.CurrentAcademicPeriod ?? string.Empty;
                                 studentDto.CumulativeAverage = user.CumulativeAverage;
                                 studentDto.ApprovedCredits = user.ApprovedCredits;
                                 studentDto.TotalAcademicCredits = user.TotalAcademicCredits;

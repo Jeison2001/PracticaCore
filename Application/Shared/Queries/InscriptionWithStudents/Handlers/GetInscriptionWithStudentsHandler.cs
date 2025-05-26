@@ -80,9 +80,10 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                     if (user != null)
                     {
                         student.UserName = $"{user.FirstName} {user.LastName}";
-                        student.Identification = user.Identification;
-                        student.Email = user.Email;
-                        student.CurrentAcademicPeriod = user.CurrentAcademicPeriod;
+                        student.Identification = user.Identification ?? string.Empty;
+                        student.IdIdentificationType = user.IdIdentificationType;
+                        student.Email = user.Email ?? string.Empty;
+                        student.CurrentAcademicPeriod = user.CurrentAcademicPeriod ?? string.Empty;
                         student.CumulativeAverage = user.CumulativeAverage;
                         student.ApprovedCredits = user.ApprovedCredits;
                         student.TotalAcademicCredits = user.TotalAcademicCredits;
