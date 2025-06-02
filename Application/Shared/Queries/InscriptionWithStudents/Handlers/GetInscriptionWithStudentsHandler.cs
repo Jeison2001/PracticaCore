@@ -15,6 +15,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
         private readonly IRepository<AcademicPeriod, int> _academicPeriodRepository;
         private readonly IRepository<Modality, int> _modalityRepository;
         private readonly IRepository<StateInscription, int> _stateInscriptionRepository;
+        private readonly IRepository<StageModality, int> _stageModalityRepository;
         private readonly IRepository<User, int> _userRepository;
 
         public GetInscriptionWithStudentsHandler(
@@ -23,6 +24,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
             IRepository<AcademicPeriod, int> academicPeriodRepository,
             IRepository<Modality, int> modalityRepository,
             IRepository<StateInscription, int> stateInscriptionRepository,
+            IRepository<StageModality, int> stageModalityRepository,
             IRepository<User, int> userRepository)
         {
             _mediator = mediator;
@@ -30,6 +32,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
             _academicPeriodRepository = academicPeriodRepository;
             _modalityRepository = modalityRepository;
             _stateInscriptionRepository = stateInscriptionRepository;
+            _stageModalityRepository = stageModalityRepository;
             _userRepository = userRepository;
         }
 
@@ -52,6 +55,13 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 var academicPeriod = await _academicPeriodRepository.GetByIdAsync(inscriptionModalityDto.IdAcademicPeriod);
                 var modality = await _modalityRepository.GetByIdAsync(inscriptionModalityDto.IdModality);
                 var stateInscription = await _stateInscriptionRepository.GetByIdAsync(inscriptionModalityDto.IdStateInscription);
+                
+                // Obtener la etapa de modalidad si existe
+                StageModality? stageModality = null;
+                if (inscriptionModalityDto.IdStageModality.HasValue)
+                {
+                    stageModality = await _stageModalityRepository.GetByIdAsync(inscriptionModalityDto.IdStageModality.Value);
+                }
 
                 if (academicPeriod == null || modality == null || stateInscription == null)
                 {
@@ -97,6 +107,8 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                     AcademicPeriodCode = academicPeriod.Code, // Obtener el código del periodo académico
                     ModalityName = modality.Name, // Obtener el nombre de la modalidad
                     StateInscriptionName = stateInscription.Name, // Obtener el nombre del estado de inscripción
+                    StageModalityName = stageModality?.Name, // Obtener el nombre de la etapa de modalidad
+                    StageOrder = stageModality?.StageOrder, // Obtener el orden de la etapa
                     Students = students
                 };
             }

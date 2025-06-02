@@ -16,6 +16,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
         private readonly IRepository<AcademicPeriod, int> _academicPeriodRepository;
         private readonly IRepository<Modality, int> _modalityRepository;
         private readonly IRepository<StateInscription, int> _stateInscriptionRepository;
+        private readonly IRepository<StageModality, int> _stageModalityRepository;
         private readonly IRepository<User, int> _userRepository;
         private readonly IRepository<InscriptionModality, int> _inscriptionModalityRepository;
 
@@ -25,6 +26,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
             IRepository<AcademicPeriod, int> academicPeriodRepository,
             IRepository<Modality, int> modalityRepository,
             IRepository<StateInscription, int> stateInscriptionRepository,
+            IRepository<StageModality, int> stageModalityRepository,
             IRepository<User, int> userRepository,
             IRepository<InscriptionModality, int> inscriptionModalityRepository)
         {
@@ -33,6 +35,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
             _academicPeriodRepository = academicPeriodRepository;
             _modalityRepository = modalityRepository;
             _stateInscriptionRepository = stateInscriptionRepository;
+            _stageModalityRepository = stageModalityRepository;
             _userRepository = userRepository;
             _inscriptionModalityRepository = inscriptionModalityRepository;
         }
@@ -87,10 +90,15 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 var studentsByModality = allStudents.GroupBy(s => s.IdInscriptionModality)
                     .ToDictionary(g => g.Key, g => g.ToList());
 
-                // 5. Obtener información relacionada (períodos académicos, modalidades, estados)
+                // 5. Obtener información relacionada (períodos académicos, modalidades, estados, etapas)
                 var academicPeriodsIds = inscriptionModalities.Select(rm => rm.IdAcademicPeriod).Distinct().ToList();
                 var modalitiesIds = inscriptionModalities.Select(rm => rm.IdModality).Distinct().ToList();
                 var statesIds = inscriptionModalities.Select(rm => rm.IdStateInscription).Distinct().ToList();
+                var stageModalityIds = inscriptionModalities
+                    .Where(rm => rm.IdStageModality.HasValue)
+                    .Select(rm => rm.IdStageModality!.Value)
+                    .Distinct()
+                    .ToList();
 
                 // Usar GetAllAsync con filtros para obtener las entidades relacionadas
                 var academicPeriods = await _academicPeriodRepository.GetAllAsync(
@@ -102,9 +110,17 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 var states = await _stateInscriptionRepository.GetAllAsync(
                     filter: s => statesIds.Contains(s.Id));
 
+                var stageModalities = new List<StageModality>();
+                if (stageModalityIds.Any())
+                {
+                    stageModalities = (await _stageModalityRepository.GetAllAsync(
+                        filter: sm => stageModalityIds.Contains(sm.Id))).ToList();
+                }
+
                 var academicPeriodsDict = academicPeriods.ToDictionary(ap => ap.Id);
                 var modalitiesDict = modalities.ToDictionary(m => m.Id);
                 var statesDict = states.ToDictionary(s => s.Id);
+                var stageModalitiesDict = stageModalities.ToDictionary(sm => sm.Id);
 
                 // 6. Obtener información de los usuarios para los nombres
                 var userIds = allStudents.Select(s => s.IdUser).Distinct().ToList();
@@ -127,6 +143,13 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                     academicPeriodsDict.TryGetValue(inscriptionModalityDto.IdAcademicPeriod, out var academicPeriod);
                     modalitiesDict.TryGetValue(inscriptionModalityDto.IdModality, out var modality);
                     statesDict.TryGetValue(inscriptionModalityDto.IdStateInscription, out var stateInscription);
+                    
+                    // Obtener la etapa de modalidad si existe
+                    StageModality? stageModality = null;
+                    if (inscriptionModalityDto.IdStageModality.HasValue)
+                    {
+                        stageModalitiesDict.TryGetValue(inscriptionModalityDto.IdStageModality.Value, out stageModality);
+                    }
 
                     if (academicPeriod == null || modality == null || stateInscription == null)
                     {
@@ -166,6 +189,8 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                         AcademicPeriodCode = academicPeriod.Code,
                         ModalityName = modality.Name,
                         StateInscriptionName = stateInscription.Name,
+                        StageModalityName = stageModality?.Name,
+                        StageOrder = stageModality?.StageOrder,
                         Students = studentDtos
                     });
                 }

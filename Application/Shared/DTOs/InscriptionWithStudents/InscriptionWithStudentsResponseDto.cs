@@ -9,6 +9,8 @@ namespace Application.Shared.DTOs.InscriptionWithStudents
         public string AcademicPeriodCode { get; set; }
         public string ModalityName { get; set; }
         public string StateInscriptionName { get; set; }
+        public string? StageModalityName { get; set; }
+        public int? StageOrder { get; set; }
         public List<UserInscriptionModalityDto> Students { get; set; }
     }
 }

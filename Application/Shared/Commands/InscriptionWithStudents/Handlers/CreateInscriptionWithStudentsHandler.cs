@@ -138,7 +138,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
             try
             {
-                // 1. Create the modality record (sin IdStateInscription - será manejado por trigger)
+                // 1. Create the modality record (sin IdStateInscription e IdStageModality - serán manejados por trigger)
                 var inscriptionModalityDto = await _mediator.Send(
                     new CreateEntityCommand<InscriptionModality, int, InscriptionModalityDto>(
                         new InscriptionModalityDto
