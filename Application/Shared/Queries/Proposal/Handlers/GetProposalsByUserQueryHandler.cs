@@ -24,12 +24,10 @@ namespace Application.Shared.Queries.Proposal.Handlers
             var entities = await _proposalRepository.GetProposalsByUserWithDetailsAsync(
                 request.UserId,
                 request.Status,
-                cancellationToken);
-
-            return entities.Select(e => new ProposalWithDetailsResponseDto
+                cancellationToken);            return entities.Select(e => new ProposalWithDetailsResponseDto
             {
                 Proposal = _mapper.Map<ProposalDto>(e.Proposal),                
-                StateProposalName = e.Proposal.StateProposal?.Name ?? string.Empty,
+                StateStageName = e.Proposal.StateStage?.Name ?? string.Empty,
                 ResearchLineName = e.Proposal.ResearchLine?.Name ?? string.Empty,
                 ResearchSubLineName = e.Proposal.ResearchSubLine?.Name ?? string.Empty,
                 Students = e.UserInscriptionModalities.Select(uim => new UserInscriptionModalityDto

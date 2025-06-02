@@ -7,7 +7,7 @@ namespace Application.Validations.SpecificValidators.ProjectFinal
     {
         public ProjectFinalValidator()
         {
-            RuleFor(x => x.IdStateProjectFinal).GreaterThan(0).WithMessage("Debe tener un estado final válido.");
+            RuleFor(x => x.IdStateStage).GreaterThan(0).WithMessage("Debe tener un estado final válido.");
         }
     }
 }

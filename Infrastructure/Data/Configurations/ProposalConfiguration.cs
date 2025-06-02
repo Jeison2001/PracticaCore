@@ -11,10 +11,9 @@ namespace Infrastructure.Data.Configurations
             base.Configure(builder);
             builder.ToTable("Proposal");
             builder.Property(e => e.Title).IsRequired().HasMaxLength(500).HasColumnName("title");
-            builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);
-            builder.Property(e => e.IdResearchLine).HasColumnName("idresearchline");
+            builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);            builder.Property(e => e.IdResearchLine).HasColumnName("idresearchline");
             builder.Property(e => e.IdResearchSubLine).HasColumnName("idresearchsubline");
-            builder.Property(e => e.IdStateProposal).HasColumnName("idstateproposal");
+            builder.Property(e => e.IdStateStage).HasColumnName("idstatestage");
 
             // Configure relationships
             builder.HasOne(p => p.InscriptionModality)
@@ -29,9 +28,9 @@ namespace Infrastructure.Data.Configurations
                 .WithMany()
                 .HasForeignKey(p => p.IdResearchSubLine);
 
-            builder.HasOne(p => p.StateProposal)
-                .WithMany(s => s.Proposals)
-                .HasForeignKey(p => p.IdStateProposal);
+            builder.HasOne(p => p.StateStage)
+                .WithMany()
+                .HasForeignKey(p => p.IdStateStage);
         }
     }
 }

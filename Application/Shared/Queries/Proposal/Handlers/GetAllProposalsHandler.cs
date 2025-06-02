@@ -72,13 +72,11 @@ namespace Application.Shared.Queries.Proposal.Handlers
                         };
                         
                         studentDtosForProposal.Add(studentDto);
-                    }
-
-                    // Añadir la propuesta completa a la respuesta
+                    }                    // Añadir la propuesta completa a la respuesta
                     resultItems.Add(new ProposalWithDetailsResponseDto
                     {
                         Proposal = proposalDto,
-                        StateProposalName = item.Proposal.StateProposal?.Name ?? string.Empty,
+                        StateStageName = item.Proposal.StateStage?.Name ?? string.Empty,
                         ResearchLineName = item.Proposal.ResearchLine?.Name ?? string.Empty,
                         ResearchSubLineName = item.Proposal.ResearchSubLine?.Name ?? "No aplica",
                         Students = studentDtosForProposal

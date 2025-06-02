@@ -6,9 +6,8 @@ namespace Application.Shared.DTOs.Proposal
     {
         public new int Id { get; set; }
         public string Title { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public int IdResearchLine { get; set; }
+        public string? Description { get; set; }        public int IdResearchLine { get; set; }
         public int IdResearchSubLine { get; set; }
-        public int IdStateProposal { get; set; }
+        public int IdStateStage { get; set; }
     }
 }

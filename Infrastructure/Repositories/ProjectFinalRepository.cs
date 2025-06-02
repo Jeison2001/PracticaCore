@@ -17,10 +17,9 @@ namespace Infrastructure.Repositories
 
         public async Task<PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetAllWithProposalAndStudentsAsync(int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
         {
-            var orderByField = sortBy ?? string.Empty;
-            // 1. Paginar ProjectFinals primero
+            var orderByField = sortBy ?? string.Empty;            // 1. Paginar ProjectFinals primero
             var projectFinalsQuery = _context.ProjectFinals
-                .Include(p => p.StateProjectFinal)
+                .Include(p => p.StateStage)
                 .AsQueryable();
 
             // Aquí podrías aplicar filtros adicionales si lo deseas
@@ -48,9 +47,8 @@ namespace Infrastructure.Repositories
 
             // 2. Traer las propuestas asociadas
             var proposalIds = finals.Select(f => f.Id).ToList();
-            var proposals = await _context.Set<Proposal>()
-                .Where(p => proposalIds.Contains(p.Id))
-                .Include(x => x.StateProposal)
+            var proposals = await _context.Set<Proposal>()                .Where(p => proposalIds.Contains(p.Id))
+                .Include(x => x.StateStage)
                 .Include(x => x.ResearchLine)
                 .Include(x => x.ResearchSubLine)
                 .Include(x => x.InscriptionModality)
@@ -88,11 +86,9 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             if (!inscriptionModalityIds.Any())
-                return new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>();
-
-            // 2. Traer ProjectFinals y sus relaciones
+                return new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>();            // 2. Traer ProjectFinals y sus relaciones
             var projects = await _context.ProjectFinals
-                .Include(p => p.StateProjectFinal)
+                .Include(p => p.StateStage)
                 .Where(p => inscriptionModalityIds.Contains(p.Id)
                             && (status == null || p.StatusRegister == status.Value))
                 .ToListAsync();
@@ -104,7 +100,7 @@ namespace Infrastructure.Repositories
             var proposalIds = projects.Select(f => f.Id).ToList();
             var proposals = await _context.Set<Proposal>()
                 .Where(p => proposalIds.Contains(p.Id))
-                .Include(x => x.StateProposal)
+                .Include(x => x.StateStage)
                 .Include(x => x.ResearchLine)
                 .Include(x => x.ResearchSubLine)
                 .Include(x => x.InscriptionModality)
@@ -134,7 +130,7 @@ namespace Infrastructure.Repositories
 
             var orderByField = sortBy ?? string.Empty;
             var projectFinalsQuery = _context.ProjectFinals
-                .Include(p => p.StateProjectFinal)
+                .Include(p => p.StateStage)
                 .Where(p => proposalIds.Contains(p.Id))
                 .AsQueryable();
 
@@ -161,7 +157,7 @@ namespace Infrastructure.Repositories
             var resultProposalIds = finals.Select(f => f.Id).ToList();
             var proposals = await _context.Set<Proposal>()
                 .Where(p => resultProposalIds.Contains(p.Id))
-                .Include(x => x.StateProposal)
+                .Include(x => x.StateStage)
                 .Include(x => x.ResearchLine)
                 .Include(x => x.ResearchSubLine)
                 .Include(x => x.InscriptionModality)

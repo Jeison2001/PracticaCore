@@ -68,13 +68,11 @@ namespace Application.Shared.Queries.Proposal.Handlers
                             UserName = student.User?.FirstName + " " + student.User?.LastName,
                             Email = student.User?.Email ?? string.Empty
                         });
-                    }
-
-                    // Crear DTO de propuesta con detalles
+                    }                    // Crear DTO de propuesta con detalles
                     resultItems.Add(new ProposalWithDetailsResponseDto
                     {
                         Proposal = _mapper.Map<ProposalDto>(proposal),
-                        StateProposalName = proposal.StateProposal?.Name ?? string.Empty,
+                        StateStageName = proposal.StateStage?.Name ?? string.Empty,
                         ResearchLineName = proposal.ResearchLine?.Name ?? string.Empty,
                         ResearchSubLineName = proposal.ResearchSubLine?.Name ?? string.Empty,
                         Students = studentDtos

@@ -3,7 +3,7 @@ using Application.Shared.Queries.PreliminaryProject;
 using MediatR;
 using Domain.Interfaces;
 using Application.Shared.DTOs.Proposal;
-using Application.Shared.DTOs.StatePreliminaryProject;
+using Application.Shared.DTOs.StateStage;
 using Application.Shared.DTOs.UserInscriptionModality;
 
 namespace Application.Shared.Queries.PreliminaryProject.Handlers
@@ -19,33 +19,31 @@ namespace Application.Shared.Queries.PreliminaryProject.Handlers
         {
             var entities = await _repository.GetByUserIdWithProposalAndStudentsAsync(request.UserId, request.Status);
             return entities.Select(e => new PreliminaryProjectWithDetailsResponseDto
-            {
-                PreliminaryProject = new PreliminaryProjectDetailsDto
+            {                PreliminaryProject = new PreliminaryProjectDetailsDto
                 {
                     Id = e.Project.Id,
-                    IdStatePreliminaryProject = e.Project.IdStatePreliminaryProject,
+                    IdStateStage = e.Project.IdStateStage,
                     ApprovalDate = e.Project.ApprovalDate,
                     Observations = e.Project.Observations,
-                    StatePreliminaryProject = e.Project.StatePreliminaryProject != null ? new StatePreliminaryProjectDto
+                    StateStage = e.Project.StateStage != null ? new StateStageDto
                     {
-                        Id = e.Project.StatePreliminaryProject.Id,
-                        Code = e.Project.StatePreliminaryProject.Code,
-                        Name = e.Project.StatePreliminaryProject.Name,
-                        Description = e.Project.StatePreliminaryProject.Description
+                        Id = e.Project.StateStage.Id,
+                        Code = e.Project.StateStage.Code,
+                        Name = e.Project.StateStage.Name,
+                        Description = e.Project.StateStage.Description
                     } : null
                 },
                 Proposal = new ProposalWithDetailsResponseDto
-                {
-                    Proposal = new ProposalDto
+                {                    Proposal = new ProposalDto
                     {
                         Id = e.Proposal.Id,
                         Title = e.Proposal.Title,
                         Description = e.Proposal.Description,
                         IdResearchLine = e.Proposal.IdResearchLine,
                         IdResearchSubLine = e.Proposal.IdResearchSubLine,
-                        IdStateProposal = e.Proposal.IdStateProposal
+                        IdStateStage = e.Proposal.IdStateStage
                     },
-                    StateProposalName = e.Proposal.StateProposal?.Name ?? string.Empty,
+                    StateStageName = e.Proposal.StateStage?.Name ?? string.Empty,
                     ResearchLineName = e.Proposal.ResearchLine?.Name ?? string.Empty,
                     ResearchSubLineName = e.Proposal.ResearchSubLine?.Name ?? string.Empty,
                     Students = e.Students.Select(uim => new UserInscriptionModalityDto

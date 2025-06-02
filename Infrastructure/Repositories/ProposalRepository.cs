@@ -50,7 +50,7 @@ namespace Infrastructure.Repositories
               // Consulta principal para obtener propuestas
             var proposalsQuery = _dbContext.Set<Proposal>()
                 .Where(p => inscriptionModalityIds.Contains(p.Id))
-                .Include(p => p.StateProposal)
+                .Include(p => p.StateStage)
                 .Include(p => p.ResearchLine)
                 .Include(p => p.ResearchSubLine)
                 .Include(p => p.InscriptionModality)
@@ -143,7 +143,7 @@ namespace Infrastructure.Repositories
             var proposals = await _dbContext.Set<Proposal>()
                 .Where(p => inscriptionModalityIds.Contains(p.Id)
                             && (status == null || p.StatusRegister == status.Value))
-                .Include(p => p.StateProposal)
+                .Include(p => p.StateStage)
                 .Include(p => p.ResearchLine)
                 .Include(p => p.ResearchSubLine)
                 .Include(p => p.InscriptionModality)
@@ -174,12 +174,11 @@ namespace Infrastructure.Repositories
 
         public async Task<ProposalWithDetails?> GetProposalWithDetailsAsync(
             int id,
-            CancellationToken cancellationToken = default)
-        {
+            CancellationToken cancellationToken = default)        {
             // 1. Obtenemos la propuesta con sus relaciones
             var proposal = await _dbContext.Set<Proposal>()
                 .Where(p => p.Id == id)
-                .Include(p => p.StateProposal)
+                .Include(p => p.StateStage)
                 .Include(p => p.ResearchLine)
                 .Include(p => p.ResearchSubLine)
                 .Include(p => p.InscriptionModality)
@@ -220,10 +219,9 @@ namespace Infrastructure.Repositories
             {
                 proposalsQuery = proposalsQuery.Where(p => p.StatusRegister == status.Value);
             }
-            
-            // Incluir relaciones necesarias
+              // Incluir relaciones necesarias
             proposalsQuery = proposalsQuery
-                .Include(p => p.StateProposal)
+                .Include(p => p.StateStage)
                 .Include(p => p.ResearchLine)
                 .Include(p => p.ResearchSubLine)
                 .Include(p => p.InscriptionModality)

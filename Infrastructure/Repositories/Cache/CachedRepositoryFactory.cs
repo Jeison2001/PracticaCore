@@ -21,12 +21,10 @@ namespace Infrastructure.Repositories.Cache
         {
             _unitOfWork = unitOfWork;
             _cacheService = cacheService;
-            _loggerFactory = loggerFactory;
-
-            // Definimos tiempos de caché diferenciados para las distintas entidades paramétricas
+            _loggerFactory = loggerFactory;            // Definimos tiempos de caché diferenciados para las distintas entidades paramétricas
             _entityCacheTimes = new Dictionary<Type, int>
             {
-                { typeof(StateProposal), 60 },        // 1 hora
+                { typeof(StateStage), 60 },           // 1 hora
                 { typeof(ResearchLine), 60 },         // 1 hora
                 { typeof(ResearchSubLine), 60 },      // 1 hora
                 { typeof(StateInscription), 60 },     // 1 hora

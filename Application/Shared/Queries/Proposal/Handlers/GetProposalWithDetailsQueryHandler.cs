@@ -48,12 +48,11 @@ namespace Application.Shared.Queries.Proposal.Handlers
                 
                 studentsDto.Add(studentDto);
             }
-            
-            // 4. Creamos la respuesta final
+              // 4. Creamos la respuesta final
             var response = new ProposalWithDetailsResponseDto
             {
                 Proposal = proposalDto,
-                StateProposalName = proposalDetail.Proposal.StateProposal?.Name ?? string.Empty,
+                StateStageName = proposalDetail.Proposal.StateStage?.Name ?? string.Empty,
                 ResearchLineName = proposalDetail.Proposal.ResearchLine?.Name ?? string.Empty,
                 ResearchSubLineName = proposalDetail.Proposal.ResearchSubLine?.Name ?? string.Empty,
                 Students = studentsDto

@@ -5,10 +5,10 @@ namespace Application.Shared.DTOs.Proposal
 {
     public class ProposalWithDetailsResponseDto
     {
-        public ProposalDto Proposal { get; set; }
-        public string StateProposalName { get; set; }
-        public string ResearchLineName { get; set; }
-        public string ResearchSubLineName { get; set; }
-        public List<UserInscriptionModalityDto> Students { get; set; }
+        public required ProposalDto Proposal { get; set; }
+        public required string StateStageName { get; set; }
+        public required string ResearchLineName { get; set; }
+        public required string ResearchSubLineName { get; set; }
+        public required List<UserInscriptionModalityDto> Students { get; set; }
     }
 }

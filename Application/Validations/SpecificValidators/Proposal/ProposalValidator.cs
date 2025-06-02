@@ -17,7 +17,7 @@ namespace Application.Validations.SpecificValidators.Proposal
             RuleFor(x => x.IdResearchSubLine)
                 .NotEmpty().WithMessage("La sublínea de investigación es obligatoria.");
                 
-            RuleFor(x => x.IdStateProposal)
+            RuleFor(x => x.IdStateStage)
                 .NotEmpty().WithMessage("El estado de la propuesta es obligatorio.");
                 
             RuleFor(x => x.Id)

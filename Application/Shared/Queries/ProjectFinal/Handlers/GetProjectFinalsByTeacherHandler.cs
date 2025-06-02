@@ -20,34 +20,32 @@ namespace Application.Shared.Queries.ProjectFinal.Handlers
             return new PaginatedResult<ProjectFinalWithDetailsResponseDto>
             {
                 Items = pagedResult.Items.Select(e => new ProjectFinalWithDetailsResponseDto
-                {
-                    ProjectFinal = new ProjectFinalDetailsDto
+                {                    ProjectFinal = new ProjectFinalDetailsDto
                     {
                         Id = e.Project.Id,
-                        IdStateProjectFinal = e.Project.IdStateProjectFinal,
+                        IdStateStage = e.Project.IdStateStage,
                         ReportApprovalDate = e.Project.ReportApprovalDate,
                         FinalPhaseApprovalDate = e.Project.FinalPhaseApprovalDate,
                         Observations = e.Project.Observations,
-                        StateProjectFinal = e.Project.StateProjectFinal != null ? new Application.Shared.DTOs.StateProjectFinal.StateProjectFinalDto
+                        StateStage = e.Project.StateStage != null ? new Application.Shared.DTOs.StateStage.StateStageDto
                         {
-                            Id = e.Project.StateProjectFinal.Id,
-                            Code = e.Project.StateProjectFinal.Code,
-                            Name = e.Project.StateProjectFinal.Name,
-                            Description = e.Project.StateProjectFinal.Description
+                            Id = e.Project.StateStage.Id,
+                            Code = e.Project.StateStage.Code,
+                            Name = e.Project.StateStage.Name,
+                            Description = e.Project.StateStage.Description
                         } : null
                     },
                     Proposal = new ProposalWithDetailsResponseDto
-                    {
-                        Proposal = new ProposalDto
+                    {                        Proposal = new ProposalDto
                         {
                             Id = e.Proposal.Id,
                             Title = e.Proposal.Title,
                             Description = e.Proposal.Description,
                             IdResearchLine = e.Proposal.IdResearchLine,
                             IdResearchSubLine = e.Proposal.IdResearchSubLine,
-                            IdStateProposal = e.Proposal.IdStateProposal
+                            IdStateStage = e.Proposal.IdStateStage
                         },
-                        StateProposalName = e.Proposal.StateProposal?.Name ?? string.Empty,
+                        StateStageName = e.Proposal.StateStage?.Name ?? string.Empty,
                         ResearchLineName = e.Proposal.ResearchLine?.Name ?? string.Empty,
                         ResearchSubLineName = e.Proposal.ResearchSubLine?.Name ?? string.Empty,
                         Students = e.Students.Select(uim => new Application.Shared.DTOs.UserInscriptionModality.UserInscriptionModalityDto
