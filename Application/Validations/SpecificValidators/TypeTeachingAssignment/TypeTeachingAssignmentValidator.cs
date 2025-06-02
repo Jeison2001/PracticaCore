@@ -4,8 +4,7 @@ using FluentValidation;
 namespace Application.Validations.SpecificValidators.TypeTeachingAssignment
 {
     public class TypeTeachingAssignmentValidator : AbstractValidator<TypeTeachingAssignmentDto>
-    {
-        public TypeTeachingAssignmentValidator()
+    {        public TypeTeachingAssignmentValidator()
         {
             RuleFor(x => x.Code)
                 .NotEmpty().WithMessage("El código es requerido.")
@@ -14,6 +13,10 @@ namespace Application.Validations.SpecificValidators.TypeTeachingAssignment
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("El nombre es requerido.")
                 .MaximumLength(100).WithMessage("El nombre no puede exceder 100 caracteres.");
+                
+            RuleFor(x => x.MaxAssignments)
+                .GreaterThan(0).WithMessage("El número máximo de asignaciones debe ser mayor a 0.")
+                .When(x => x.MaxAssignments.HasValue);
         }
     }
 }
