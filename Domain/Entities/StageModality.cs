@@ -7,10 +7,9 @@ namespace Domain.Entities
         public string Name { get; set; } = string.Empty;
         public int StageOrder { get; set; }
         public string? Description { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
-
-        // Navigation properties
+        public new int? IdUserCreatedAt { get; set; }        // Navigation properties
         public virtual Modality? Modality { get; set; }
         public virtual ICollection<StateStage>? StateStages { get; set; }
+        public virtual ICollection<InscriptionModality>? InscriptionModalities { get; set; }
     }
 }
