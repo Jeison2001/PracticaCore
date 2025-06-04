@@ -1,11 +1,13 @@
-namespace Application.Shared.DTOs
-{    public class DocumentTypeDto : BaseDto<int>
+namespace Domain.Entities
+{
+    public class DocumentClass : BaseEntity<int>
     {
-        public int IdDocumentClass { get; set; }
-        public int? IdStageModality { get; set; }
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public new int? IdUserCreatedAt { get; set; }
+
+        // Navigation properties
+        public virtual ICollection<DocumentType>? DocumentTypes { get; set; }
     }
 }

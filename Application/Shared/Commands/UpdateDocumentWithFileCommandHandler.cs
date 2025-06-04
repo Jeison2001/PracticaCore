@@ -33,15 +33,11 @@ namespace Application.Shared.Commands
                 if (docType == null)
                     throw new KeyNotFoundException($"No se encontró DocumentType con code '{request.Dto.CodeDocumentType}'");
                 idDocumentType = docType.Id;
-            }
-
-            // Actualizar metadatos
+            }            // Actualizar metadatos
             entity.IdInscriptionModality = request.Dto.IdInscriptionModality;
-            entity.IdUploader = request.Dto.IdUploader;
             entity.IdDocumentType = idDocumentType;
             entity.Name = request.Dto.Name ?? entity.Name;
             entity.Version = request.Dto.Version;
-            entity.DocumentState = request.Dto.DocumentState ?? entity.DocumentState;
             entity.IdUserUpdatedAt = request.Dto.IdUserUpdatedAt;
             
             // Asegurar que las fechas sean UTC

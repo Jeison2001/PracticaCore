@@ -5,14 +5,12 @@ using Domain.Entities;
 namespace Infrastructure.Data.Configurations
 {
     public class DocumentConfiguration : BaseEntityConfiguration<Document, int>
-    {
-        public override void Configure(EntityTypeBuilder<Document> builder)
+    {        public override void Configure(EntityTypeBuilder<Document> builder)
         {
             base.Configure(builder);
             builder.ToTable("Document");
             
             builder.Property(e => e.IdInscriptionModality).HasColumnName("idinscriptionmodality").IsRequired(false);
-            builder.Property(e => e.IdUploader).HasColumnName("iduploader").IsRequired();
             builder.Property(e => e.IdDocumentType).HasColumnName("iddocumenttype").IsRequired();
             builder.Property(e => e.Name).HasMaxLength(255).HasColumnName("name").IsRequired(false);
             builder.Property(e => e.OriginalFileName).IsRequired().HasMaxLength(255).HasColumnName("originalfilename");
@@ -22,22 +20,18 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.MimeType).IsRequired().HasMaxLength(100).HasColumnName("mimetype");
             builder.Property(e => e.FileSize).IsRequired().HasColumnName("filesize");
             builder.Property(e => e.Version).HasMaxLength(50).HasColumnName("version").IsRequired(false);
-            builder.Property(e => e.DocumentState).IsRequired().HasMaxLength(50).HasColumnName("documentstate").HasDefaultValue("CARGADO");
+            builder.Property(e => e.IdDocumentOld).HasColumnName("iddocumentold").IsRequired(false);
 
             // Relationships
             builder.HasOne(d => d.DocumentType)
                 .WithMany()
                 .HasForeignKey(d => d.IdDocumentType);
 
-            builder.HasOne(d => d.Uploader)
-                .WithMany()
-                .HasForeignKey(d => d.IdUploader);
-
             builder.HasOne(d => d.InscriptionModality)
                 .WithMany()
-                .HasForeignKey(d => d.IdInscriptionModality);
+                .HasForeignKey(d => d.IdInscriptionModality)
+                .OnDelete(DeleteBehavior.SetNull);
 
-            builder.Property(e => e.IdDocumentOld).HasColumnName("iddocumentold").IsRequired(false);
             builder.HasOne(d => d.DocumentOld)
                 .WithMany()
                 .HasForeignKey(d => d.IdDocumentOld)

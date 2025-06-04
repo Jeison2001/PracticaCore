@@ -36,11 +36,9 @@ namespace Application.Shared.Commands
                 if (docType == null)
                     throw new KeyNotFoundException($"No se encontró DocumentType con code '{dto.CodeDocumentType}'");
                 idDocumentType = docType.Id;
-            }
-            var entity = new Document
+            }            var entity = new Document
             {
                 IdInscriptionModality = dto.IdInscriptionModality,
-                IdUploader = dto.IdUploader,
                 IdDocumentType = idDocumentType,
                 Name = dto.Name ?? dto.File.FileName,
                 OriginalFileName = dto.File.FileName,
@@ -49,7 +47,6 @@ namespace Application.Shared.Commands
                 MimeType = dto.File.ContentType,
                 FileSize = dto.File.Length,
                 Version = dto.Version,
-                DocumentState = "CARGADO",
                 IdUserCreatedAt = dto.IdUserCreatedAt,
                 CreatedAt = dto.CreatedAt,
                 IdUserUpdatedAt = dto.IdUserUpdatedAt,

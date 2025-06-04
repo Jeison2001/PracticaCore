@@ -12,6 +12,9 @@ namespace Infrastructure.Data
          public DbSet<ProjectFinal> ProjectFinals => Set<ProjectFinal>();
          public DbSet<StageModality> StageModalities => Set<StageModality>();
          public DbSet<StateStage> StateStages => Set<StateStage>();
+         public DbSet<DocumentClass> DocumentClasses => Set<DocumentClass>();
+         public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
+         public DbSet<Document> Documents => Set<Document>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(BaseEntityConfiguration<,>).Assembly);
