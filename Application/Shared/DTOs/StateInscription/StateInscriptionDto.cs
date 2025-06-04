@@ -8,7 +8,8 @@ namespace Application.Shared.DTOs.StateInscription
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public bool IsSelectable { get; set; } = true;
+        public bool IsInitialState { get; set; } = false;
+        public bool IsFinalStateForStage { get; set; } = false;
         public new int? IdUserCreatedAt { get; set; }
     }
 }

@@ -14,7 +14,8 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.Code).IsRequired().HasMaxLength(50).HasColumnName("code");
             builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("name");
             builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);
-            builder.Property(e => e.IsSelectable).IsRequired().HasColumnName("isselectable").HasDefaultValue(true);
+            builder.Property(e => e.IsInitialState).IsRequired().HasColumnName("isinitialstate").HasDefaultValue(false);
+            builder.Property(e => e.IsFinalStateForStage).IsRequired().HasColumnName("isfinalstateforstage").HasDefaultValue(false);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
         }
     }
