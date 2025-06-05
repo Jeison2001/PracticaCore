@@ -12,11 +12,10 @@ namespace Api.Controllers
         private readonly IMediator _mediator;
         public UserPermissionController(IMediator mediator) : base(mediator)
         {
-            _mediator = mediator;
-        }
+            _mediator = mediator;        }
 
         [HttpGet("ByUser/{id}")]
-        public async Task<ActionResult<List<PermissionDto>>> GetUserPermissionsByUserId(int id)
+        public async Task<ActionResult<List<UserPermissionInfoDto>>> GetUserPermissionsByUserId(int id)
         {
             if (id <= 0)
                 return BadRequest("El ID de usuario debe ser válido.");
