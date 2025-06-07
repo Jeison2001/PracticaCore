@@ -60,9 +60,12 @@ namespace Application.Shared.Queries.RolePermission.Handlers
             if (role == null)
             {
                 return new List<RolePermissionInfoDto>();
-            }            // Obtener todos los RolePermissions para el rol encontrado
+            }
+            
+            // Obtener los RolePermissions para el rol encontrado, con filtro opcional por StatusRegister
             var rolePermissions = await _rolePermissionRepository.GetAllAsync(
-                rp => rp.IdRole == role.Id && rp.StatusRegister);
+                rp => rp.IdRole == role.Id &&
+                      (request.StatusRegister == null || rp.StatusRegister == request.StatusRegister.Value));
 
             var result = new List<RolePermissionInfoDto>();
 

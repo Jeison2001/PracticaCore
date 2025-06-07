@@ -21,11 +21,13 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="id">ID del rol (opcional)</param>
         /// <param name="code">Código del rol (opcional)</param>
+        /// <param name="statusRegister">Estado del registro (true=activos, false=inactivos, null=todos)</param>
         /// <returns>Lista de permisos del rol con información del registro de relación</returns>
         [HttpGet("ByRole")]
         public async Task<ActionResult<List<RolePermissionInfoDto>>> GetPermissionsByRole(
-            [FromQuery] int? id = null, 
-            [FromQuery] string? code = null)
+            [FromQuery] int? id = null,
+            [FromQuery] string? code = null,
+            [FromQuery] bool? statusRegister = null)
         {
             // Validar que al menos uno de los parámetros sea proporcionado
             if (!id.HasValue && string.IsNullOrEmpty(code))
@@ -39,7 +41,7 @@ namespace Api.Controllers
 
             try
             {
-                var permissions = await _mediator.Send(new GetPermissionsByRoleQuery(id, code));
+                var permissions = await _mediator.Send(new GetPermissionsByRoleQuery(id, code, statusRegister));
                 
                 if (permissions == null || !permissions.Any())
                 {
