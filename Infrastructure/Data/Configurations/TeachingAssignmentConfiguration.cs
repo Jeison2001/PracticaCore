@@ -15,6 +15,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IdTypeTeachingAssignment).IsRequired().HasColumnName("idtypeteachingassignment");
             builder.Property(e => e.RevocationDate).HasColumnName("revocationdate").IsRequired(false);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.IdTeacherResearchProfile).HasColumnName("idteacherresearchprofile").IsRequired(false);
 
             // Configure foreign key relationships
             builder.HasOne(e => e.InscriptionModality)
@@ -28,6 +29,10 @@ namespace Infrastructure.Data.Configurations
             builder.HasOne(e => e.TypeTeachingAssignment)
                 .WithMany(t => t.TeachingAssignments)
                 .HasForeignKey(e => e.IdTypeTeachingAssignment);
+
+            builder.HasOne(e => e.TeacherResearchProfile)
+                .WithMany(p => p.TeachingAssignments)
+                .HasForeignKey(e => e.IdTeacherResearchProfile);
         }
     }
 }

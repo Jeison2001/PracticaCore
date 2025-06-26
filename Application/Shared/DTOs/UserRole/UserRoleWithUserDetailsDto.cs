@@ -1,4 +1,6 @@
 using Application.Shared.DTOs;
+using Application.Shared.DTOs.TeacherResearchProfile;
+using Application.Shared.DTOs.TeachingAssignment;
 
 namespace Application.Shared.DTOs.UserRole
 {
@@ -15,5 +17,9 @@ namespace Application.Shared.DTOs.UserRole
         public string LastName { get; set; } = string.Empty;
         public string FullName => $"{FirstName} {LastName}";
         public string Identification { get; set; } = string.Empty;
+
+        // NUEVO: Solo para roleCode == TEACHER
+        public List<TeachingAssignmentCargoInfoDto>? TeachingAssignmentsByCargo { get; set; }
+        public List<TeacherResearchProfileDto>? TeacherResearchProfiles { get; set; }
     }
 }

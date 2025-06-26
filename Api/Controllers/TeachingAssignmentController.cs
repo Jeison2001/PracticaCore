@@ -1,3 +1,4 @@
+using Application.Shared.Commands.TeachingAssignment;
 using Application.Shared.DTOs.TeachingAssignment;
 using Application.Shared.Queries.TeachingAssignment;
 using Domain.Entities;
@@ -22,6 +23,20 @@ namespace Api.Controllers
         {
             var result = await _mediator.Send(new GetTeachingAssignmentsByProposalIdQuery(id, status));
             return Ok(result);
+        }
+        
+        [HttpPost]
+        public override async Task<IActionResult> Create([FromBody] TeachingAssignmentDto dto)
+        {
+            try
+            {
+                var result = await _mediator.Send(new CreateTeachingAssignmentCommand(dto));
+                return CreatedAtAction(nameof(GetByIdInscription), new { id = result.IdInscriptionModality }, result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
     }
 }
