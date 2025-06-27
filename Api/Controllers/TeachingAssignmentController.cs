@@ -38,5 +38,19 @@ namespace Api.Controllers
                 return BadRequest(new { error = ex.Message });
             }
         }
+
+        [HttpPut("{id}")]
+        public override async Task<IActionResult> Update(int id, [FromBody] TeachingAssignmentDto dto)
+        {
+            try
+            {
+                var result = await _mediator.Send(new UpdateTeachingAssignmentCommand(id, dto));
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
     }
 }
