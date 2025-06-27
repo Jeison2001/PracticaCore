@@ -107,6 +107,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                     AcademicPeriodCode = academicPeriod.Code, // Obtener el código del periodo académico
                     ModalityName = modality.Name, // Obtener el nombre de la modalidad
                     StateInscriptionName = stateInscription.Name, // Obtener el nombre del estado de inscripción
+                    StateInscriptionCode = stateInscription.Code, // Código del estado de la inscripción
                     StageModalityName = stageModality?.Name, // Obtener el nombre de la etapa de modalidad
                     StageOrder = stageModality?.StageOrder, // Obtener el orden de la etapa
                     Students = students

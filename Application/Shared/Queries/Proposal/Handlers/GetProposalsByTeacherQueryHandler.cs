@@ -73,6 +73,7 @@ namespace Application.Shared.Queries.Proposal.Handlers
                     {
                         Proposal = _mapper.Map<ProposalDto>(proposal),
                         StateStageName = proposal.StateStage?.Name ?? string.Empty,
+                        StateStageCode = proposal.StateStage?.Code ?? string.Empty,
                         ResearchLineName = proposal.ResearchLine?.Name ?? string.Empty,
                         ResearchSubLineName = proposal.ResearchSubLine?.Name ?? string.Empty,
                         Students = studentDtos

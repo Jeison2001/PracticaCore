@@ -10,5 +10,6 @@ namespace Application.Shared.DTOs.Proposal
         public required string ResearchLineName { get; set; }
         public required string ResearchSubLineName { get; set; }
         public required List<UserInscriptionModalityDto> Students { get; set; }
+        public string? StateStageCode { get; set; } // Código del estado de la fase
     }
 }

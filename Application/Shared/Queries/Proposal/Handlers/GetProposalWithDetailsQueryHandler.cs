@@ -53,6 +53,7 @@ namespace Application.Shared.Queries.Proposal.Handlers
             {
                 Proposal = proposalDto,
                 StateStageName = proposalDetail.Proposal.StateStage?.Name ?? string.Empty,
+                StateStageCode = proposalDetail.Proposal.StateStage?.Code ?? string.Empty,
                 ResearchLineName = proposalDetail.Proposal.ResearchLine?.Name ?? string.Empty,
                 ResearchSubLineName = proposalDetail.Proposal.ResearchSubLine?.Name ?? string.Empty,
                 Students = studentsDto

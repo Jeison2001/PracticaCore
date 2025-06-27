@@ -26,8 +26,9 @@ namespace Application.Shared.Queries.Proposal.Handlers
                 request.Status,
                 cancellationToken);            return entities.Select(e => new ProposalWithDetailsResponseDto
             {
-                Proposal = _mapper.Map<ProposalDto>(e.Proposal),                
+                Proposal = _mapper.Map<ProposalDto>(e.Proposal),
                 StateStageName = e.Proposal.StateStage?.Name ?? string.Empty,
+                StateStageCode = e.Proposal.StateStage?.Code ?? string.Empty,
                 ResearchLineName = e.Proposal.ResearchLine?.Name ?? string.Empty,
                 ResearchSubLineName = e.Proposal.ResearchSubLine?.Name ?? string.Empty,
                 Students = e.UserInscriptionModalities.Select(uim => new UserInscriptionModalityDto

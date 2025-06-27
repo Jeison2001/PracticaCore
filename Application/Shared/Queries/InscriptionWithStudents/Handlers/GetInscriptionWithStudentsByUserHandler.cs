@@ -172,6 +172,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                         AcademicPeriodCode = academicPeriod.Code,
                         ModalityName = modality.Name,
                         StateInscriptionName = stateInscription.Name,
+                        StateInscriptionCode = stateInscription.Code, // Código del estado de la inscripción
                         Students = studentDtos
                     });
                 }
