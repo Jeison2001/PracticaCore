@@ -2,10 +2,7 @@ using System.Text;
 using Api.Extensions;
 using Api.Middlewares;
 using Api.SwaggerFilters;
-using Domain.Interfaces.Auth;
 using Infrastructure.Extensions;
-using Infrastructure.Repositories;
-using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -29,10 +26,6 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
-
-// Registrar servicios de autenticación de Google
-builder.Services.AddScoped<IUserInfoRepository, UserInfoRepository>();
-builder.Services.AddScoped<IAuthService, GoogleAuthService>();
 
 // Configurar autenticación JWT
 builder.Services.AddAuthentication(options =>

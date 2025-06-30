@@ -11,5 +11,8 @@ namespace Application.Shared.DTOs
         public long FileSize { get; set; }
         public string? Version { get; set; }
         public int? IdDocumentOld { get; set; }
+        
+        // DocumentType information
+        public DocumentTypeDto? DocumentType { get; set; }
     }
 }

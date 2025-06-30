@@ -50,13 +50,20 @@ namespace Api.Controllers
         }
 
         /// <summary>
-        /// Obtiene todos los documentos asociados a una inscripción (IdInscriptionModality).
+        /// Obtiene una lista paginada y filtrada de documentos asociados a una modalidad de inscripción.
+        /// Permite filtrar por idStageModality e idDocumentClass, además de parámetros de paginación y ordenamiento.
         /// </summary>
         /// <param name="id">Id de la modalidad de inscripción.</param>
         /// <param name="request">Parámetros de paginación, filtrado y ordenamiento.</param>
-        /// <returns>Lista de documentos.</returns>
+        /// <param name="idStageModality">Id de la modalidad de etapa (opcional).</param>
+        /// <param name="idDocumentClass">Id de la clase de documento (opcional).</param>
+        /// <returns>Lista paginada de documentos.</returns>
         [HttpGet("ByInscriptionModality/{id}")]
-        public async Task<IActionResult> GetByInscriptionModality(int id, [FromQuery] PaginatedRequest request)
+        public async Task<IActionResult> GetByInscriptionModality(
+            int id, 
+            [FromQuery] PaginatedRequest request,
+            [FromQuery] int? idStageModality = null,
+            [FromQuery] int? idDocumentClass = null)
         {
             try
             {
@@ -66,7 +73,9 @@ namespace Api.Controllers
                     request.PageSize,
                     request.SortBy,
                     request.IsDescending,
-                    request.Filters
+                    request.Filters,
+                    idStageModality,
+                    idDocumentClass
                 );
                 
                 var result = await _mediator.Send(query);

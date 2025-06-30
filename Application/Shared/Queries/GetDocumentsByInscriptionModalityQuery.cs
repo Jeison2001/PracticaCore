@@ -13,6 +13,8 @@ namespace Application.Shared.Queries
         public string? SortBy { get; init; }
         public bool IsDescending { get; init; } = false;
         public Dictionary<string, string>? Filters { get; init; }
+        public int? IdStageModality { get; init; }
+        public int? IdDocumentClass { get; init; }
 
         public GetDocumentsByInscriptionModalityQuery(
             int idInscriptionModality,
@@ -20,7 +22,9 @@ namespace Application.Shared.Queries
             int pageSize = 10,
             string? sortBy = null,
             bool isDescending = false,
-            Dictionary<string, string>? filters = null)
+            Dictionary<string, string>? filters = null,
+            int? idStageModality = null,
+            int? idDocumentClass = null)
         {
             IdInscriptionModality = idInscriptionModality;
             PageNumber = pageNumber < 1 ? 1 : pageNumber;
@@ -28,6 +32,8 @@ namespace Application.Shared.Queries
             SortBy = sortBy;
             IsDescending = isDescending;
             Filters = filters;
+            IdStageModality = idStageModality;
+            IdDocumentClass = idDocumentClass;
         }
     }
 }
