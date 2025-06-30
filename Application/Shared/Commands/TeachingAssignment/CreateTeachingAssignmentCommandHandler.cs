@@ -42,7 +42,7 @@ namespace Application.Shared.Commands.TeachingAssignment
                     throw new InvalidOperationException($"El docente ya tiene el máximo permitido ({type.MaxAssignments}) de asignaciones activas para este cargo.");
             }
 
-            // 1. Verificar si ya existe una asignación activa para el mismo teacher, inscripcion y cargo
+            // Verificar si ya existe una asignación activa para el mismo teacher, inscripcion y cargo
             var existing = await _repository.GetFirstOrDefaultAsync(x =>
                 x.IdTeacher == dto.IdTeacher &&
                 x.IdInscriptionModality == dto.IdInscriptionModality &&
@@ -51,23 +51,11 @@ namespace Application.Shared.Commands.TeachingAssignment
                 cancellationToken);
             if (existing != null)
             {
-                // Ya existe exactamente la misma asignación activa, omitir registro (no error, solo return null o el existente)
+                // Ya existe exactamente la misma asignación activa, retornar la existente
                 return _mapper.Map<TeachingAssignmentDto>(existing);
             }
 
-            // 2. Verificar si existe una asignación activa para la misma inscripcion y cargo pero con otro teacher
-            var previous = await _repository.GetFirstOrDefaultAsync(x =>
-                x.IdInscriptionModality == dto.IdInscriptionModality &&
-                x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
-                x.StatusRegister &&
-                x.IdTeacher != dto.IdTeacher,
-                cancellationToken);
-            if (previous != null)
-            {
-                previous.StatusRegister = false;
-                await _repository.UpdateAsync(previous);
-            }
-
+            // Crear nueva asignación directamente
             var entity = _mapper.Map<Domain.Entities.TeachingAssignment>(dto);
             await _repository.AddAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
