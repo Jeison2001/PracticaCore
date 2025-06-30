@@ -25,6 +25,12 @@ namespace Application.Shared.Queries.PreliminaryProject.Handlers
                     IdStateStage = e.Project.IdStateStage,
                     ApprovalDate = e.Project.ApprovalDate,
                     Observations = e.Project.Observations,
+                    IdUserCreatedAt = e.Project.IdUserCreatedAt ?? 0,
+                    CreatedAt = e.Project.CreatedAt,
+                    IdUserUpdatedAt = e.Project.IdUserUpdatedAt,
+                    UpdatedAt = e.Project.UpdatedAt,
+                    OperationRegister = e.Project.OperationRegister ?? string.Empty,
+                    StatusRegister = e.Project.StatusRegister,
                     StateStage = e.Project.StateStage != null ? new StateStageDto
                     {
                         Id = e.Project.StateStage.Id,

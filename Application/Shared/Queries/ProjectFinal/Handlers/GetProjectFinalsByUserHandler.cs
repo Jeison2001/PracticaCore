@@ -24,6 +24,12 @@ namespace Application.Shared.Queries.ProjectFinal.Handlers
                     ReportApprovalDate = e.Project.ReportApprovalDate,
                     FinalPhaseApprovalDate = e.Project.FinalPhaseApprovalDate,
                     Observations = e.Project.Observations,
+                    IdUserCreatedAt = e.Project.IdUserCreatedAt ?? 0,
+                    CreatedAt = e.Project.CreatedAt,
+                    IdUserUpdatedAt = e.Project.IdUserUpdatedAt,
+                    UpdatedAt = e.Project.UpdatedAt,
+                    OperationRegister = e.Project.OperationRegister ?? string.Empty,
+                    StatusRegister = e.Project.StatusRegister,
                     StateStage = e.Project.StateStage != null ? new Application.Shared.DTOs.StateStage.StateStageDto
                     {
                         Id = e.Project.StateStage.Id,

@@ -4,7 +4,7 @@
     {
         public TId Id { get; set; }
         public int IdUserCreatedAt { get; set; }
-        public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int? IdUserUpdatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public string OperationRegister { get; set; } = string.Empty;
