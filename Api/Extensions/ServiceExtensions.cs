@@ -34,6 +34,7 @@ namespace Api.Extensions
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IPreliminaryProjectRepository, PreliminaryProjectRepository>();
             services.AddScoped<IProjectFinalRepository, ProjectFinalRepository>();
+            services.AddScoped<IAcademicPracticeRepository, AcademicPracticeRepository>();
 
             // Configurar el servicio de almacenamiento de archivos según la configuración
             ConfigureFileStorageService(services, config);

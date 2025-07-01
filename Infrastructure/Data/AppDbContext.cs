@@ -10,6 +10,7 @@ namespace Infrastructure.Data
          public DbSet<User> Users => Set<User>();
          public DbSet<PreliminaryProject> PreliminaryProjects => Set<PreliminaryProject>();
          public DbSet<ProjectFinal> ProjectFinals => Set<ProjectFinal>();
+         public DbSet<AcademicPractice> AcademicPractices => Set<AcademicPractice>();
          public DbSet<StageModality> StageModalities => Set<StageModality>();
          public DbSet<StateStage> StateStages => Set<StateStage>();
          public DbSet<DocumentClass> DocumentClasses => Set<DocumentClass>();
