@@ -1,5 +1,5 @@
 using FluentValidation;
-using Application.Shared.DTOs;
+using Application.Shared.DTOs.DocumentType;
 
 namespace Application.Validations.SpecificValidators.DocumentType
 {

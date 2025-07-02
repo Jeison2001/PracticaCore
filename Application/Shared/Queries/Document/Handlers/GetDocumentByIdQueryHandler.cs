@@ -1,4 +1,4 @@
-using Application.Shared.DTOs;
+using Application.Shared.DTOs.Document;
 using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -6,15 +6,15 @@ using MediatR;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Application.Shared.Queries
+namespace Application.Shared.Queries.Document.Handlers
 {
     public class GetDocumentByIdQueryHandler : IRequestHandler<GetDocumentByIdQuery, DocumentDto?>
     {
-        private readonly IRepository<Document, int> _repository;
+        private readonly IRepository<Domain.Entities.Document, int> _repository;
         private readonly IMapper _mapper;
 
         public GetDocumentByIdQueryHandler(
-            IRepository<Document, int> repository,
+            IRepository<Domain.Entities.Document, int> repository,
             IMapper mapper)
         {
             _repository = repository;

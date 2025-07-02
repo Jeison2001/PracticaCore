@@ -1,4 +1,4 @@
-using Application.Shared.DTOs;
+using Application.Shared.DTOs.Document;
 using AutoMapper;
 using Domain.Common;
 using Domain.Entities;
@@ -12,7 +12,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Application.Shared.Queries
+namespace Application.Shared.Queries.Document.Handlers
 {
     public class GetDocumentsByInscriptionModalityQueryHandler : IRequestHandler<GetDocumentsByInscriptionModalityQuery, PaginatedResult<DocumentDto>>
     {

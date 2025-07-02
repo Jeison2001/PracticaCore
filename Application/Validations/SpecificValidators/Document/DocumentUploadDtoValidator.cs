@@ -1,4 +1,4 @@
-using Application.Shared.DTOs;
+using Application.Shared.DTOs.Document;
 using FluentValidation;
 
 namespace Application.Validations.SpecificValidators.Document

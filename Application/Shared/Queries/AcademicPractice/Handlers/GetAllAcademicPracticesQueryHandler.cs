@@ -1,5 +1,5 @@
-using Application.Shared.DTOs;
 using Application.Shared.DTOs.AcademicPractice;
+using Application.Shared.DTOs.Document;
 using AutoMapper;
 using Domain.Common;
 using Domain.Interfaces;
@@ -61,7 +61,7 @@ namespace Application.Shared.Queries.AcademicPractice.Handlers
 
                 // Mapear documentos usando DocumentDto existente
                 var documentsDto = practiceDetail.Documents
-                    .Select(doc => _mapper.Map<Application.Shared.DTOs.DocumentDto>(doc))
+                    .Select(doc => _mapper.Map<DocumentDto>(doc))
                     .ToList();
 
                 // Mapear progreso de fase

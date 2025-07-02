@@ -1,4 +1,6 @@
-namespace Application.Shared.DTOs
+using Application.Shared.DTOs.DocumentType;
+
+namespace Application.Shared.DTOs.Document
 {    public class DocumentDto : BaseDto<int>
     {
         public int? IdInscriptionModality { get; set; }

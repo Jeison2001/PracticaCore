@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Http;
 
-namespace Application.Shared.DTOs
+namespace Application.Shared.DTOs.Document
 {    public class DocumentUpdateDto : BaseDto<int>
     {
         public int? IdInscriptionModality { get; set; }

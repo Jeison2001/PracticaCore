@@ -1,4 +1,4 @@
-using Application.Shared.DTOs;
+using Application.Shared.DTOs.Document;
 using MediatR;
 
 namespace Application.Shared.Commands

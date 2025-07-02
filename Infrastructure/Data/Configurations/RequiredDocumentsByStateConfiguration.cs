@@ -33,7 +33,8 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.OrderDisplay)
                 .HasColumnName("orderdisplay")
                 .IsRequired(false);
-            
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+
             // Unique constraint
             builder.HasIndex(e => new { e.IdStateStage, e.IdDocumentType })
                 .HasDatabaseName("UQ_RequiredDocState")

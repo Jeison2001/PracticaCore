@@ -1,10 +1,10 @@
 using Application.Shared.DTOs.AcademicPractice;
 using Application.Shared.DTOs.TeachingAssignment;
 using Application.Shared.DTOs.User;
-using Application.Shared.DTOs;
 using AutoMapper;
 using Domain.Interfaces;
 using MediatR;
+using Application.Shared.DTOs.Document;
 
 namespace Application.Shared.Queries.AcademicPractice.Handlers
 {

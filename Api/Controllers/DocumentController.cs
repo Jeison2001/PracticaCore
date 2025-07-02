@@ -1,5 +1,9 @@
 using Application.Shared.DTOs;
+using Application.Shared.DTOs.Document;
+using Application.Shared.DTOs.RequiredDocumentsByState;
 using Application.Shared.Queries;
+using Application.Shared.Queries.Document;
+using Application.Shared.Queries.RequiredDocuments;
 using Domain.Common;
 using Domain.Interfaces;
 using MediatR;
@@ -64,7 +68,7 @@ namespace Api.Controllers
         {
             try
             {
-                var query = new Application.Shared.Queries.GetDocumentsByInscriptionModalityQuery(
+                var query = new GetDocumentsByInscriptionModalityQuery(
                     id,
                     request.PageNumber,
                     request.PageSize,
@@ -109,7 +113,7 @@ namespace Api.Controllers
                 var query = new GetRequiredDocumentsByCurrentStateQuery(inscriptionModalityId);
                 var result = await _mediator.Send(query);
                 
-                return Ok(new Responses.ApiResponse<List<RequiredDocumentDto>>
+                return Ok(new Responses.ApiResponse<List<RequiredDocumentsByStateDto>>
                 {
                     Success = true,
                     Data = result,

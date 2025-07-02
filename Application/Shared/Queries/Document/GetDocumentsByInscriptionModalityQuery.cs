@@ -1,9 +1,9 @@
-using Application.Shared.DTOs;
+using Application.Shared.DTOs.Document;
 using Domain.Common;
 using MediatR;
 using System.Collections.Generic;
 
-namespace Application.Shared.Queries
+namespace Application.Shared.Queries.Document
 {
     public record GetDocumentsByInscriptionModalityQuery : IRequest<PaginatedResult<DocumentDto>>
     {
