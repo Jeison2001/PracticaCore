@@ -1,6 +1,8 @@
+using Application.Shared.DTOs;
+
 namespace Application.Shared.DTOs.AcademicPractice
 {
-    public class UpdateInstitutionInfoDto
+    public class UpdateInstitutionInfoDto : BaseDto<int>
     {
         public string? Title { get; set; }
         public string? InstitutionName { get; set; }

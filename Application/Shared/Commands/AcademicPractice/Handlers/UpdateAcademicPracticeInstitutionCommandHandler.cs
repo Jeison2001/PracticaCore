@@ -1,4 +1,5 @@
 using Application.Shared.Commands.AcademicPractice;
+using Application.Shared.DTOs.AcademicPractice;
 using Domain.Interfaces;
 using MediatR;
 
@@ -19,35 +20,66 @@ namespace Application.Shared.Commands.AcademicPractice.Handlers
 
         public async Task<bool> Handle(UpdateAcademicPracticeInstitutionCommand request, CancellationToken cancellationToken)
         {
-            var academicPractice = await _academicPracticeRepository.GetByIdAsync(request.AcademicPracticeId);
+            var dto = request.Dto;
+            var academicPractice = await _academicPracticeRepository.GetByIdAsync(dto.Id);
             
             if (academicPractice == null)
                 return false;
 
             // Update institution information
-            if (!string.IsNullOrEmpty(request.InstitutionName))
-                academicPractice.InstitutionName = request.InstitutionName;
+            if (!string.IsNullOrEmpty(dto.InstitutionName))
+                academicPractice.InstitutionName = dto.InstitutionName;
                 
-            if (!string.IsNullOrEmpty(request.InstitutionContact))
-                academicPractice.InstitutionContact = request.InstitutionContact;
+            if (!string.IsNullOrEmpty(dto.InstitutionContact))
+                academicPractice.InstitutionContact = dto.InstitutionContact;
                 
-            if (request.PracticeStartDate.HasValue)
-                academicPractice.PracticeStartDate = request.PracticeStartDate;
-                
-            if (request.PracticeEndDate.HasValue)
-                academicPractice.PracticeEndDate = request.PracticeEndDate;
-                
-            if (request.PracticeHours.HasValue)
-                academicPractice.PracticeHours = request.PracticeHours;
-                
-            if (request.IsEmprendimiento.HasValue)
-                academicPractice.IsEmprendimiento = request.IsEmprendimiento.Value;
-                
-            if (!string.IsNullOrEmpty(request.Observations))
-                academicPractice.Observations = request.Observations;
+            if (dto.PracticeStartDate.HasValue)
+                academicPractice.PracticeStartDate = DateTime.SpecifyKind(dto.PracticeStartDate.Value, DateTimeKind.Utc);
 
+            if (dto.PracticeEndDate.HasValue)
+                academicPractice.PracticeEndDate = DateTime.SpecifyKind(dto.PracticeEndDate.Value, DateTimeKind.Utc);
+
+            if (dto.PracticeHours.HasValue)
+                academicPractice.PracticeHours = dto.PracticeHours;
+                
+            academicPractice.IsEmprendimiento = dto.IsEmprendimiento;
+                
+            if (!string.IsNullOrEmpty(dto.Observations))
+                academicPractice.Observations = dto.Observations;
+
+            // Asignar siempre UpdatedAt como UTC (no usar el del DTO)
             academicPractice.UpdatedAt = DateTime.UtcNow;
-            academicPractice.IdUserUpdatedAt = request.UserId;
+            academicPractice.IdUserUpdatedAt = dto.IdUserUpdatedAt;
+            
+            // Solo forzar CreatedAt si viene del DTO y no es default
+            if (dto.CreatedAt != default)
+                academicPractice.CreatedAt = DateTime.SpecifyKind(dto.CreatedAt, DateTimeKind.Utc);
+                
+            // ASEGURAR que todas las fechas existentes en la entidad sean UTC
+            if (academicPractice.CreatedAt.Kind != DateTimeKind.Utc)
+                academicPractice.CreatedAt = DateTime.SpecifyKind(academicPractice.CreatedAt, DateTimeKind.Utc);
+                
+            // Asegurar fechas específicas de AcademicPractice sean UTC
+            if (academicPractice.PracticeStartDate.HasValue && academicPractice.PracticeStartDate.Value.Kind != DateTimeKind.Utc)
+                academicPractice.PracticeStartDate = DateTime.SpecifyKind(academicPractice.PracticeStartDate.Value, DateTimeKind.Utc);
+                
+            if (academicPractice.PracticeEndDate.HasValue && academicPractice.PracticeEndDate.Value.Kind != DateTimeKind.Utc)
+                academicPractice.PracticeEndDate = DateTime.SpecifyKind(academicPractice.PracticeEndDate.Value, DateTimeKind.Utc);
+                
+            if (academicPractice.AvalApprovalDate.HasValue && academicPractice.AvalApprovalDate.Value.Kind != DateTimeKind.Utc)
+                academicPractice.AvalApprovalDate = DateTime.SpecifyKind(academicPractice.AvalApprovalDate.Value, DateTimeKind.Utc);
+                
+            if (academicPractice.PlanApprovalDate.HasValue && academicPractice.PlanApprovalDate.Value.Kind != DateTimeKind.Utc)
+                academicPractice.PlanApprovalDate = DateTime.SpecifyKind(academicPractice.PlanApprovalDate.Value, DateTimeKind.Utc);
+                
+            if (academicPractice.DevelopmentCompletionDate.HasValue && academicPractice.DevelopmentCompletionDate.Value.Kind != DateTimeKind.Utc)
+                academicPractice.DevelopmentCompletionDate = DateTime.SpecifyKind(academicPractice.DevelopmentCompletionDate.Value, DateTimeKind.Utc);
+                
+            if (academicPractice.FinalReportApprovalDate.HasValue && academicPractice.FinalReportApprovalDate.Value.Kind != DateTimeKind.Utc)
+                academicPractice.FinalReportApprovalDate = DateTime.SpecifyKind(academicPractice.FinalReportApprovalDate.Value, DateTimeKind.Utc);
+                
+            if (academicPractice.FinalApprovalDate.HasValue && academicPractice.FinalApprovalDate.Value.Kind != DateTimeKind.Utc)
+                academicPractice.FinalApprovalDate = DateTime.SpecifyKind(academicPractice.FinalApprovalDate.Value, DateTimeKind.Utc);
 
             await _academicPracticeRepository.UpdateAsync(academicPractice);
             await _unitOfWork.CommitAsync(cancellationToken);

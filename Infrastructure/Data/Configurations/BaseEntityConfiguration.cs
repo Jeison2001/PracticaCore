@@ -26,7 +26,7 @@ namespace Infrastructure.Data.Configurations
         public override void Configure(EntityTypeBuilder<Faculty> builder)
         {
             base.Configure(builder);
-            builder.ToTable("faculty");
+            builder.ToTable("Faculty");
             builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("name");
             builder.Property(e => e.Code).IsRequired().HasMaxLength(20).HasColumnName("code");
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
@@ -38,7 +38,7 @@ namespace Infrastructure.Data.Configurations
         public override void Configure(EntityTypeBuilder<AcademicProgram> builder)
         {
             base.Configure(builder);
-            builder.ToTable("academicprogram");
+            builder.ToTable("AcademicProgram");
             builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("name");
             builder.Property(e => e.Code).IsRequired().HasMaxLength(20).HasColumnName("code");
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
@@ -57,7 +57,7 @@ namespace Infrastructure.Data.Configurations
         public override void Configure(EntityTypeBuilder<IdentificationType> builder)
         {
             base.Configure(builder);
-            builder.ToTable("identificationtype");
+            builder.ToTable("IdentificationType");
             builder.Property(e => e.Code).IsRequired().HasMaxLength(20).HasColumnName("code");
             builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("name");
             builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);
@@ -70,7 +70,7 @@ namespace Infrastructure.Data.Configurations
         public override void Configure(EntityTypeBuilder<Role> builder)
         {
             base.Configure(builder);
-            builder.ToTable("role");
+            builder.ToTable("Role");
             builder.Property(e => e.Code).IsRequired().HasMaxLength(20).HasColumnName("code");
             builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("name");
             builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);

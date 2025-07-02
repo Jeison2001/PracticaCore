@@ -1,4 +1,5 @@
 using Application.Shared.Commands.AcademicPractice;
+using Application.Shared.DTOs.AcademicPractice;
 using Domain.Interfaces;
 using MediatR;
 
@@ -19,13 +20,14 @@ namespace Application.Shared.Commands.AcademicPractice.Handlers
 
         public async Task<bool> Handle(UpdateAcademicPracticePhaseCommand request, CancellationToken cancellationToken)
         {
+            var dto = request.Dto;
             var result = await _academicPracticeRepository.UpdateAcademicPracticeStateAsync(
-                request.AcademicPracticeId,
-                request.NewStateStageId,
-                request.PhaseType,
-                request.ApprovalDate,
-                request.Observations,
-                request.EvaluatorObservations,
+                dto.Id, // id
+                dto.NewStateStageId, // nuevo estado de la fase
+                dto.PhaseType,
+                dto.ApprovalDate,
+                dto.Observations,
+                dto.EvaluatorObservations,
                 cancellationToken);
 
             if (result)
