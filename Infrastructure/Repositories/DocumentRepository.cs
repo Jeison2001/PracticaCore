@@ -59,5 +59,35 @@ namespace Infrastructure.Repositories
                 PageSize = pageSize
             };
         }
+
+        public async Task<List<RequiredDocumentsByState>> GetRequiredDocumentsByCurrentStateAsync(
+            int inscriptionModalityId,
+            CancellationToken cancellationToken)
+        {
+            // Obtener el estado actual de la práctica académica
+            var academicPractice = await _context.AcademicPractices
+                .Where(ap => ap.Id == inscriptionModalityId && ap.StatusRegister == true)
+                .Select(ap => new { ap.Id, ap.IdStateStage })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (academicPractice == null)
+            {
+                throw new KeyNotFoundException($"No se encontró una práctica académica activa para la inscripción {inscriptionModalityId}");
+            }
+
+            // Consultar los documentos requeridos para el estado actual con todos los includes
+            var requiredDocuments = await _context.RequiredDocumentsByStates
+                .Include(rds => rds.DocumentType)
+                    .ThenInclude(dt => dt.DocumentClass)
+                .Include(rds => rds.StateStage)
+                .Where(rds => rds.IdStateStage == academicPractice.IdStateStage 
+                           && rds.StatusRegister == true
+                           && rds.DocumentType.StatusRegister == true)
+                .OrderBy(rds => rds.OrderDisplay)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+
+            return requiredDocuments;
+        }
     }
 }

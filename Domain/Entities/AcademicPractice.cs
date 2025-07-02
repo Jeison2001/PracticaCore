@@ -5,6 +5,7 @@ namespace Domain.Entities
     public class AcademicPractice : BaseEntity<int>
     {
         public int IdStateStage { get; set; }
+        public string? Title { get; set; }                   // ✅ AÑADIDO
         public string? InstitutionName { get; set; }
         public string? InstitutionContact { get; set; }
         public DateTime? PracticeStartDate { get; set; }

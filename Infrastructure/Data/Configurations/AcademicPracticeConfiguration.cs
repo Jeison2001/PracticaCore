@@ -16,6 +16,13 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IdStateStage)
                 .HasColumnName("idstatestage")
                 .IsRequired();
+                
+            // Title field
+            builder.Property(e => e.Title)
+                .HasColumnName("title")                      // ✅ CORREGIDO: en minúscula
+                .HasMaxLength(500)
+                .HasDefaultValue("")
+                .IsRequired();
             
             // Institution fields
             builder.Property(e => e.InstitutionName)

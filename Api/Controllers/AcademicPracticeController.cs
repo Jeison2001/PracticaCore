@@ -1,3 +1,4 @@
+
 using Api.Responses;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.AcademicPractice;
@@ -177,24 +178,5 @@ namespace Api.Controllers
                 });
             }
         }
-    }
-
-    // Supporting DTOs for specific operations
-    public class UpdateInstitutionInfoDto
-    {
-        public string? InstitutionName { get; set; }
-        public string? InstitutionContact { get; set; }
-        public DateTime? PracticeStartDate { get; set; }
-        public DateTime? PracticeEndDate { get; set; }
-        public int? PracticeHours { get; set; }
-        public string? Observations { get; set; }
-    }
-
-    public class UpdatePhaseApprovalDto
-    {
-        public string PhaseType { get; set; } = string.Empty; // "Aval", "Plan", "Development", "FinalReport", "Final"
-        public DateTime? ApprovalDate { get; set; }
-        public string? Observations { get; set; }
-        public string? EvaluatorObservations { get; set; }
     }
 }

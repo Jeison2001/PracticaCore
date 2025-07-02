@@ -17,5 +17,9 @@ namespace Domain.Interfaces
             string? sortBy,
             bool isDescending,
             CancellationToken cancellationToken);
+
+        Task<List<RequiredDocumentsByState>> GetRequiredDocumentsByCurrentStateAsync(
+            int inscriptionModalityId,
+            CancellationToken cancellationToken);
     }
 }

@@ -59,7 +59,8 @@ namespace Application.Shared.Queries.Proposal.Handlers
                     var proposal = proposalWithDetails.Proposal;
                     
                     // Mapear estudiantes a DTOs
-                    var studentDtos = new List<UserInscriptionModalityDto>();                    foreach (var student in proposalWithDetails.UserInscriptionModalities)
+                    var studentDtos = new List<UserInscriptionModalityDto>();
+                    foreach (var student in proposalWithDetails.UserInscriptionModalities)
                     {
                         studentDtos.Add(new UserInscriptionModalityDto
                         {

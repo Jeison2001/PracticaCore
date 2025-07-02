@@ -1,13 +1,9 @@
-using Api.Controllers;
 using Application.Shared.DTOs;
 using Application.Shared.Queries;
 using Domain.Common;
-using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 
 namespace Api.Controllers
 {
@@ -18,6 +14,7 @@ namespace Api.Controllers
         private readonly IMediator _mediator;
         private readonly IConfiguration _configuration;
         private readonly IFileStorageService _fileStorageService;
+        
         public DocumentController(IMediator mediator, IConfiguration configuration, IFileStorageService fileStorageService)
         {
             _mediator = mediator;
@@ -94,6 +91,49 @@ namespace Api.Controllers
                     Success = false,
                     Data = null,
                     Errors = new List<string> { $"Error al obtener los documentos: {ex.Message}" },
+                    Messages = new List<string>()
+                });
+            }
+        }
+
+        /// <summary>
+        /// Obtiene los tipos de documentos requeridos para el estado actual de una inscripción.
+        /// </summary>
+        /// <param name="inscriptionModalityId">ID de la InscriptionModality</param>
+        /// <returns>Lista de DocumentType requeridos para el estado actual</returns>
+        [HttpGet("RequiredByCurrentState/{inscriptionModalityId}")]
+        public async Task<IActionResult> GetRequiredDocumentsByCurrentState(int inscriptionModalityId)
+        {
+            try
+            {
+                var query = new GetRequiredDocumentsByCurrentStateQuery(inscriptionModalityId);
+                var result = await _mediator.Send(query);
+                
+                return Ok(new Responses.ApiResponse<List<RequiredDocumentDto>>
+                {
+                    Success = true,
+                    Data = result,
+                    Errors = new List<string>(),
+                    Messages = new List<string>()
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { ex.Message },
+                    Messages = new List<string>()
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { $"Error al obtener documentos requeridos: {ex.Message}" },
                     Messages = new List<string>()
                 });
             }

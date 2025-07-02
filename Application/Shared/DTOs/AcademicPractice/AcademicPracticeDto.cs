@@ -6,6 +6,7 @@ namespace Application.Shared.DTOs.AcademicPractice
     {
         public new int Id { get; set; }
         public int IdStateStage { get; set; }
+        public string? Title { get; set; }                   // ✅ AÑADIDO
         public string? InstitutionName { get; set; }
         public string? InstitutionContact { get; set; }
         public DateTime? PracticeStartDate { get; set; }
