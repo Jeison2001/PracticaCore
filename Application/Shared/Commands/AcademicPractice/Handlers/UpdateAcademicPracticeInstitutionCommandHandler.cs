@@ -43,6 +43,9 @@ namespace Application.Shared.Commands.AcademicPractice.Handlers
 
         private static void UpdateInstitutionFields(Domain.Entities.AcademicPractice academicPractice, UpdateInstitutionInfoDto dto)
         {
+            if (!string.IsNullOrEmpty(dto.Title))
+                academicPractice.Title = dto.Title;
+                
             if (!string.IsNullOrEmpty(dto.InstitutionName))
                 academicPractice.InstitutionName = dto.InstitutionName;
                 
