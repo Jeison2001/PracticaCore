@@ -58,8 +58,6 @@ namespace Domain.Interfaces
         Task<bool> UpdateAcademicPracticeStateAsync(
             int id, 
             int newStateStageId, 
-            string phaseType,
-            DateTime? approvalDate = null,
             string? observations = null,
             string? evaluatorObservations = null,
             CancellationToken cancellationToken = default);

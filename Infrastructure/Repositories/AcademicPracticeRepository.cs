@@ -3,6 +3,7 @@ using Domain.Interfaces;
 using Domain.Common;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Application.Shared.DTOs.AcademicPractice.Enums;
 
 namespace Infrastructure.Repositories;
 
@@ -70,6 +71,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         Dictionary<string, string> filters, 
         CancellationToken cancellationToken = default)
     {
+        filters ??= new Dictionary<string, string>(); // Previene null reference
         var query = _context.AcademicPractices
             .Include(ap => ap.InscriptionModality)
                 .ThenInclude(im => im.Modality)
@@ -147,6 +149,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         Dictionary<string, string> filters, 
         CancellationToken cancellationToken = default)
     {
+        filters ??= new Dictionary<string, string>(); // Previene null reference
         // Get academic practices assigned to a teacher through teaching assignments
         var academicPracticeIds = await _context.Set<TeachingAssignment>()
             .Where(ta => ta.IdTeacher == teacherId)
@@ -266,8 +269,6 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
     public async Task<bool> UpdateAcademicPracticeStateAsync(
         int id, 
         int newStateStageId, 
-        string phaseType, 
-        DateTime? approvalDate = null, 
         string? observations = null, 
         string? evaluatorObservations = null, 
         CancellationToken cancellationToken = default)
@@ -278,29 +279,21 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         if (academicPractice == null) return false;
 
         academicPractice.IdStateStage = newStateStageId;
-        
-        // Update phase-specific approval dates based on phase type
-        if (approvalDate.HasValue)
+
+        // Asigna la(s) fecha(s) relevante(s) automáticamente según el estado destino
+        switch ((AcademicPracticeStateStageEnum)newStateStageId)
         {
-            switch (phaseType.ToLower())
-            {
-                case "aval":
-                case "approval":
-                    academicPractice.AvalApprovalDate = approvalDate;
-                    break;
-                case "plan":
-                    academicPractice.PlanApprovalDate = approvalDate;
-                    break;
-                case "development":
-                    academicPractice.DevelopmentCompletionDate = approvalDate;
-                    break;
-                case "finalreport":
-                    academicPractice.FinalReportApprovalDate = approvalDate;
-                    break;
-                case "final":
-                    academicPractice.FinalApprovalDate = approvalDate;
-                    break;
-            }
+            case AcademicPracticeStateStageEnum.InscriptionApproved: // 20
+                academicPractice.AvalApprovalDate = DateTime.UtcNow;
+                academicPractice.PlanApprovalDate = DateTime.UtcNow;
+                break;
+            case AcademicPracticeStateStageEnum.DevelopmentCompleted: // 24
+                academicPractice.DevelopmentCompletionDate = DateTime.UtcNow;
+                break;
+            case AcademicPracticeStateStageEnum.FinalApproved: // 29
+                academicPractice.FinalApprovalDate = DateTime.UtcNow;
+                break;
+            // Si se agregan más fechas/estados, añadir aquí
         }
 
         if (!string.IsNullOrEmpty(observations))

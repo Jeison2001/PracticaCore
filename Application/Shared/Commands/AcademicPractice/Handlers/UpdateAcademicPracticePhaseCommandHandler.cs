@@ -24,8 +24,6 @@ namespace Application.Shared.Commands.AcademicPractice.Handlers
             var result = await _academicPracticeRepository.UpdateAcademicPracticeStateAsync(
                 dto.Id, // id
                 dto.NewStateStageId, // nuevo estado de la fase
-                dto.PhaseType,
-                dto.ApprovalDate,
                 dto.Observations,
                 dto.EvaluatorObservations,
                 cancellationToken);
