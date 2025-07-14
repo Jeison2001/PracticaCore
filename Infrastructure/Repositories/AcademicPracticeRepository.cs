@@ -2,6 +2,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Domain.Common;
 using Infrastructure.Data;
+using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Application.Shared.DTOs.AcademicPractice.Enums;
 
@@ -84,22 +85,11 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             .Include(ap => ap.StateStage)
             .AsQueryable();
 
-        // Apply filters
-        if (filters.ContainsKey("state") && !string.IsNullOrEmpty(filters["state"]))
-        {
-            query = query.Where(ap => ap.StateStage.Code == filters["state"]);
-        }
+        // Usar el sistema genérico de filtros en lugar de filtros manuales
+        query = query.ApplyFilters<AcademicPractice, int>(filters);
 
-        if (filters.ContainsKey("modality") && !string.IsNullOrEmpty(filters["modality"]))
-        {
-            query = query.Where(ap => ap.InscriptionModality.Modality!.Code == filters["modality"]);
-        }
-
-        if (filters.ContainsKey("institution") && !string.IsNullOrEmpty(filters["institution"]))
-        {
-            query = query.Where(ap => ap.InstitutionName != null && 
-                                     ap.InstitutionName.Contains(filters["institution"]));
-        }
+        // Aplicar filtros específicos para entidades relacionadas
+        query = ApplySpecificFilters(query, filters);
 
         // Apply sorting
         query = (sortBy?.ToLower() ?? "defaultSortField") switch
@@ -167,16 +157,11 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             .Include(ap => ap.StateStage)
             .AsQueryable();
 
-        // Apply filters
-        if (filters.ContainsKey("state") && !string.IsNullOrEmpty(filters["state"]))
-        {
-            query = query.Where(ap => ap.StateStage.Code == filters["state"]);
-        }
+        // Usar el sistema genérico de filtros en lugar de filtros manuales
+        query = query.ApplyFilters<AcademicPractice, int>(filters);
 
-        if (filters.ContainsKey("modality") && !string.IsNullOrEmpty(filters["modality"]))
-        {
-            query = query.Where(ap => ap.InscriptionModality.Modality!.Code == filters["modality"]);
-        }
+        // Aplicar filtros específicos para entidades relacionadas
+        query = ApplySpecificFilters(query, filters);
 
         // Apply sorting
         query = (sortBy?.ToLower() ?? "defaultSortField") switch
@@ -366,5 +351,85 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
                 }
             }
         };
+    }
+
+    /// <summary>
+    /// Aplica filtros específicos para entidades relacionadas que no están en la entidad principal
+    /// </summary>
+    private static IQueryable<AcademicPractice> ApplySpecificFilters(IQueryable<AcademicPractice> query, Dictionary<string, string> filters)
+    {
+        foreach (var filter in filters)
+        {
+            var key = filter.Key.ToLower();
+            var value = filter.Value;
+
+            if (string.IsNullOrEmpty(value)) continue;
+
+            switch (key)
+            {
+                case "idstagemodality":
+                case "idstagemodality@eq":
+                    if (int.TryParse(value, out int stageModalityId))
+                    {
+                        query = query.Where(ap => ap.InscriptionModality != null && 
+                                                ap.InscriptionModality.IdStageModality == stageModalityId);
+                    }
+                    break;
+
+                case "idmodality":
+                case "idmodality@eq":
+                    if (int.TryParse(value, out int modalityId))
+                    {
+                        query = query.Where(ap => ap.InscriptionModality != null && 
+                                                ap.InscriptionModality.IdModality == modalityId);
+                    }
+                    break;
+
+                case "idstateinscription":
+                case "idstateinscription@eq":
+                    if (int.TryParse(value, out int stateInscriptionId))
+                    {
+                        query = query.Where(ap => ap.InscriptionModality != null && 
+                                                ap.InscriptionModality.IdStateInscription == stateInscriptionId);
+                    }
+                    break;
+
+                case "idacademicperiod":
+                case "idacademicperiod@eq":
+                    if (int.TryParse(value, out int academicPeriodId))
+                    {
+                        query = query.Where(ap => ap.InscriptionModality != null && 
+                                                ap.InscriptionModality.IdAcademicPeriod == academicPeriodId);
+                    }
+                    break;
+
+                case "idstatestage":
+                case "idstatestage@eq":
+                    if (int.TryParse(value, out int stateStageId))
+                    {
+                        query = query.Where(ap => ap.IdStateStage == stateStageId);
+                    }
+                    break;
+
+                // Mantener algunos filtros por nombre para casos específicos si es necesario
+                case "modalityname@like":
+                    query = query.Where(ap => ap.InscriptionModality != null && 
+                                            ap.InscriptionModality.Modality != null &&
+                                            ap.InscriptionModality.Modality.Name != null &&
+                                            ap.InscriptionModality.Modality.Name.Contains(value));
+                    break;
+
+                case "stateinscriptionname@like":
+                    query = query.Where(ap => ap.InscriptionModality != null && 
+                                            ap.InscriptionModality.StateInscription != null &&
+                                            ap.InscriptionModality.StateInscription.Name != null &&
+                                            ap.InscriptionModality.StateInscription.Name.Contains(value));
+                    break;
+
+                // Agregar más filtros específicos según necesidad
+            }
+        }
+
+        return query;
     }
 }

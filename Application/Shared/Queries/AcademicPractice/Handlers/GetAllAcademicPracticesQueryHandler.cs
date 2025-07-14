@@ -71,12 +71,12 @@ namespace Application.Shared.Queries.AcademicPractice.Handlers
                 var responseDto = new AcademicPracticeWithDetailsResponseDto
                 {
                     AcademicPractice = practiceDetailsDto,
-                    InscriptionModalityId = practiceDetail.InscriptionModality.Id,
+                    InscriptionModalityId = practiceDetail.InscriptionModality?.Id ?? 0,
                     ModalityName = practiceDetail.Modality?.Name ?? string.Empty,
                     StateInscriptionName = practiceDetail.StateInscription?.Name ?? string.Empty,
                     AcademicPeriodCode = practiceDetail.AcademicPeriod?.Code ?? string.Empty,
-                    InscriptionApprovalDate = practiceDetail.InscriptionModality.ApprovalDate,
-                    InscriptionObservations = practiceDetail.InscriptionModality.Observations,
+                    InscriptionApprovalDate = practiceDetail.InscriptionModality?.ApprovalDate,
+                    InscriptionObservations = practiceDetail.InscriptionModality?.Observations,
                     Students = studentsDto,
                     Teachers = teachersDto,
                     Documents = documentsDto,

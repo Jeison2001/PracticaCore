@@ -94,7 +94,7 @@ namespace Api.Controllers
 
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(
-            int id, 
+            int id,
             [FromQuery] PaginatedRequest request)
         {
             try
@@ -164,24 +164,17 @@ namespace Api.Controllers
                 });
             }
         }
-
-        [HttpGet("Simple")]
-        public async Task<IActionResult> GetSimple()
+        
+        [NonAction]
+        public override Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
         {
-            try
-            {
-                var query = new GetSimpleAcademicPracticesQuery();
-                var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<List<AcademicPracticeDto>> { Success = true, Data = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"Error en endpoint simple: {ex.Message}" }
-                });
-            }
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> GetById(int id)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
         }
     }
 }
