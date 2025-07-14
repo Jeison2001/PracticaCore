@@ -106,7 +106,16 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        // Convert to detailed results (simplified for performance)
+        // Get academic practice IDs for efficient student loading
+        var academicPracticeIds = academicPractices.Select(ap => ap.Id).ToList();
+        
+        // Load students for these specific academic practices
+        var userInscriptionModalities = await _context.Set<UserInscriptionModality>()
+            .Where(uim => academicPracticeIds.Contains(uim.IdInscriptionModality))
+            .Include(uim => uim.User)
+            .ToListAsync(cancellationToken);
+
+        // Convert to detailed results with students
         var items = academicPractices.Select(ap => new AcademicPracticeWithDetails
         {
             AcademicPractice = ap,
@@ -116,7 +125,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             Modality = ap.InscriptionModality?.Modality,
             StateInscription = ap.InscriptionModality?.StateInscription,
             AcademicPeriod = ap.InscriptionModality?.AcademicPeriod,
-            UserInscriptionModalities = new List<UserInscriptionModality>(),
+            UserInscriptionModalities = userInscriptionModalities.Where(uim => uim.IdInscriptionModality == ap.Id).ToList(),
             TeachingAssignments = new List<TeachingAssignment>(),
             Documents = new List<Document>()
         }).ToList();
