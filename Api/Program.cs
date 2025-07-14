@@ -6,6 +6,8 @@ using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Hangfire;
+using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,16 @@ builder.Services.AddApplicationLayer();
 
 // Registramos los servicios de caché
 builder.Services.AddCacheServices();
+
+// Configurar Hangfire con PostgreSQL
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Default")));
+
+// Agregar el servidor de Hangfire
+builder.Services.AddHangfireServer();
 
 // Add CORS configuration
 builder.Services.AddCors(options =>
@@ -106,6 +118,15 @@ app.UseCors("AllowAll");
 // Añadir autenticación al pipeline
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Configurar Hangfire Dashboard (solo en desarrollo para seguridad)
+if (app.Environment.IsDevelopment())
+{
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new HangfireAuthorizationFilter() }
+    });
+}
 
 app.MapControllers();
 

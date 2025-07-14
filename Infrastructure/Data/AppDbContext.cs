@@ -17,6 +17,10 @@ namespace Infrastructure.Data
          public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
          public DbSet<Document> Documents => Set<Document>();
          public DbSet<RequiredDocumentsByState> RequiredDocumentsByStates => Set<RequiredDocumentsByState>();
+         
+         // Email Notification entities
+         public DbSet<EmailNotificationConfig> EmailNotificationConfigs => Set<EmailNotificationConfig>();
+         public DbSet<EmailRecipientRule> EmailRecipientRules => Set<EmailRecipientRule>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(BaseEntityConfiguration<,>).Assembly);

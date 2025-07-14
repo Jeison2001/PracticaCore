@@ -3,6 +3,8 @@ using Application.Shared.DTOs.UserInscriptionModality;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Interfaces.Registration;
+using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -15,19 +17,22 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
         private readonly IUserService _userService;
         private readonly IAcademicPeriodService _academicPeriodService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IEmailNotificationQueueService _queueService;
 
         public CreateInscriptionWithStudentsHandler(
             IMediator mediator,
             ILogger<CreateInscriptionWithStudentsHandler> logger,
             IUserService userService,
             IAcademicPeriodService academicPeriodService,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IEmailNotificationQueueService queueService)
         {
             _mediator = mediator;
             _logger = logger;
             _userService = userService;
             _academicPeriodService = academicPeriodService;
             _unitOfWork = unitOfWork;
+            _queueService = queueService;
         }        public async Task<InscriptionWithStudentsDto> Handle(
             CreateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
@@ -180,11 +185,76 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     };
                 }).ToList();
 
-                return new InscriptionWithStudentsDto
+                var result = new InscriptionWithStudentsDto
                 {
                     InscriptionModality = inscriptionModalityDto,
                     Students = students
                 };
+
+                // 5. Enviar notificación automática después de crear exitosamente la inscripción
+                try
+                {
+                    // Obtener información adicional para la notificación
+                    var academicPeriod = await _academicPeriodService.GetAcademicPeriodByIdAsync(academicPeriodId);
+                    
+                    var studentsInfo = request.Dto.Students.Select(studentDto => 
+                    {
+                        var userInfo = userDictionary[studentDto.Identification];
+                        var user = usersDict[userInfo.Id];
+                        return new { 
+                            Name = $"{user.FirstName} {user.LastName}",
+                            Email = user.Email,
+                            Identification = studentDto.Identification
+                        };
+                    }).ToList();
+
+                    // Preparar datos del evento para la notificación
+                    // Lógica para múltiples estudiantes: Si hay un solo estudiante, usar sus datos individuales
+                    // Si hay múltiples, usar el primer estudiante como principal y lista completa en variables agregadas
+                    var primaryStudent = studentsInfo.FirstOrDefault();
+                    var isMultipleStudents = studentsInfo.Count > 1;
+                    
+                    var eventData = new Dictionary<string, object>
+                    {
+                        ["InscriptionId"] = inscriptionModalityId,
+                        ["ModalityName"] = modality.Name,
+                        ["AcademicPeriod"] = academicPeriod?.Code ?? "N/A",
+                        ["InscriptionDate"] = DateTime.Now.ToString("dd/MM/yyyy HH:mm"),
+                        ["StudentsCount"] = students.Count,
+                        ["IsMultipleStudents"] = isMultipleStudents,
+                        ["Observations"] = request.Dto.InscriptionModality.Observations ?? "",
+                        // Datos del estudiante principal (primer estudiante)
+                        ["StudentName"] = primaryStudent?.Name ?? "N/A",
+                        ["StudentEmail"] = primaryStudent?.Email ?? "N/A",
+                        ["StudentIdentification"] = primaryStudent?.Identification ?? "N/A",
+                        // Datos agregados de todos los estudiantes
+                        ["StudentNames"] = string.Join(", ", studentsInfo.Select(s => s.Name)),
+                        ["StudentEmails"] = string.Join(", ", studentsInfo.Select(s => s.Email)),
+                        ["StudentIdentifications"] = string.Join(", ", studentsInfo.Select(s => s.Identification))
+                    };
+
+                    // Agregar información de cada estudiante individualmente para plantillas más específicas
+                    for (int i = 0; i < studentsInfo.Count; i++)
+                    {
+                        eventData[$"Student{i + 1}Name"] = studentsInfo[i].Name;
+                        eventData[$"Student{i + 1}Email"] = studentsInfo[i].Email;
+                        eventData[$"Student{i + 1}Identification"] = studentsInfo[i].Identification;
+                    }
+
+                    // Encolar evento de notificación para procesamiento asíncrono
+                    var jobId = _queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
+                    
+                    _logger.LogInformation("Notificación automática encolada para inscripción ID {InscriptionId} con JobId: {JobId}", 
+                        inscriptionModalityId, jobId);
+                }
+                catch (Exception notificationEx)
+                {
+                    // Log del error pero no fallar el proceso principal
+                    _logger.LogError(notificationEx, "Error al enviar notificación automática para inscripción ID {InscriptionId}", inscriptionModalityId);
+                    // No re-lanzar la excepción para que la inscripción se complete exitosamente
+                }
+
+                return result;
             }
             catch (Exception ex)
             {

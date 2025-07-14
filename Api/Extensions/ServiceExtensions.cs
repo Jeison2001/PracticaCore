@@ -10,6 +10,7 @@ using Domain.Interfaces;
 using Domain.Interfaces.Registration;
 using FluentValidation;
 using Infrastructure.Data;
+using Infrastructure.Extensions;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
 using MediatR;
@@ -38,6 +39,9 @@ namespace Api.Extensions
 
             // Configurar el servicio de almacenamiento de archivos según la configuración
             ConfigureFileStorageService(services, config);
+
+            // Configurar el servicio de notificaciones según la configuración
+            ConfigureNotificationService(services, config);
 
             // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
@@ -272,6 +276,15 @@ namespace Api.Extensions
                     services.AddSingleton<IFileStorageService>(sp => new LocalFileStorageService(localPath));
                     break;
             }
+        }
+
+        /// <summary>
+        /// Configura el servicio de notificaciones según la configuración
+        /// </summary>
+        private static void ConfigureNotificationService(IServiceCollection services, IConfiguration config)
+        {
+            // Usar la nueva extensión centralizada para notificaciones
+            services.AddEmailNotificationServices(config);
         }
     }
 }
