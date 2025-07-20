@@ -7,7 +7,7 @@ using Domain.Interfaces.Registration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
-namespace Infrastructure.Services.Authorization
+namespace Infrastructure.Services.Auth
 {
     /// <summary>
     /// Implementación del servicio de autorización JWT.

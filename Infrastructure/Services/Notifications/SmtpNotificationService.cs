@@ -5,81 +5,68 @@ using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Mail;
 
-namespace Infrastructure.Services
+namespace Infrastructure.Services.Notifications
 {
     /// <summary>
-    /// Implementación del servicio de notificaciones usando Azure/Outlook SMTP
+    /// Servicio único para notificaciones por email usando cualquier proveedor SMTP (Gmail, Outlook, etc.)
     /// </summary>
-    public class AzureNotificationService : INotificationService
+    public class SmtpNotificationService : INotificationService
     {
         private readonly IConfiguration _configuration;
-        private readonly ILogger<AzureNotificationService> _logger;
+        private readonly ILogger<SmtpNotificationService> _logger;
 
-        public AzureNotificationService(IConfiguration configuration, ILogger<AzureNotificationService> logger)
+        public SmtpNotificationService(IConfiguration configuration, ILogger<SmtpNotificationService> logger)
         {
             _configuration = configuration;
             _logger = logger;
         }
 
         /// <summary>
-        /// Envía un email usando Azure/Outlook SMTP
+        /// Envía un email usando SMTP
         /// </summary>
         public async Task<bool> SendEmailAsync(EmailNotification notification, CancellationToken cancellationToken = default)
         {
             try
             {
-                using var client = CreateAzureSmtpClient();
+                using var client = CreateSmtpClient();
                 using var message = CreateMailMessage(notification);
 
                 await client.SendMailAsync(message, cancellationToken);
                 
-                _logger.LogInformation("Email enviado exitosamente a {To} via Azure/Outlook SMTP", notification.To);
+                _logger.LogInformation("Email enviado exitosamente a {To}", notification.To);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al enviar email a {To} via Azure/Outlook SMTP: {Message}", notification.To, ex.Message);
+                _logger.LogError(ex, "Error al enviar email a {To}: {Message}", notification.To, ex.Message);
                 return false;
             }
         }
 
-        private SmtpClient CreateAzureSmtpClient()
+        private SmtpClient CreateSmtpClient()
         {
-            var azureSettings = _configuration.GetSection("Azure:Smtp");
-            
+            var smtpSettings = _configuration.GetSection("EmailNotification:SmtpSettings");
             var client = new SmtpClient
             {
-                Host = azureSettings["Host"] ?? "smtp-mail.outlook.com",
-                Port = int.Parse(azureSettings["Port"] ?? "587"),
-                EnableSsl = true,
+                Host = smtpSettings["Host"] ?? "localhost",
+                Port = int.Parse(smtpSettings["Port"] ?? "587"),
+                EnableSsl = bool.Parse(smtpSettings["EnableSsl"] ?? "true"),
                 UseDefaultCredentials = false
             };
-
-            var username = azureSettings["Username"] ?? azureSettings["Email"];
-            var password = azureSettings["Password"];
-            
+            var username = smtpSettings["Username"];
+            var password = smtpSettings["Password"];
             if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
             {
                 client.Credentials = new NetworkCredential(username, password);
             }
-            else
-            {
-                throw new InvalidOperationException("Azure/Outlook SMTP credentials no están configuradas correctamente");
-            }
-
             return client;
         }
 
         private MailMessage CreateMailMessage(EmailNotification notification)
         {
-            var fromAddress = notification.From ?? _configuration["Azure:Smtp:DefaultFrom"] ?? _configuration["Azure:Smtp:Email"];
-            var fromName = notification.FromName ?? _configuration["Azure:Smtp:DefaultFromName"] ?? "Sistema";
-
-            if (string.IsNullOrEmpty(fromAddress))
-            {
-                throw new InvalidOperationException("No se ha configurado una dirección de remitente para Azure/Outlook");
-            }
-
+            var smtpSettings = _configuration.GetSection("EmailNotification:SmtpSettings");
+            var fromAddress = notification.From ?? smtpSettings["DefaultFrom"] ?? "noreply@example.com";
+            var fromName = notification.FromName ?? smtpSettings["DefaultFromName"] ?? "Sistema";
             var message = new MailMessage
             {
                 From = new MailAddress(fromAddress, fromName),
@@ -88,30 +75,21 @@ namespace Infrastructure.Services
                 IsBodyHtml = notification.IsHtml,
                 Priority = ConvertPriority(notification.Priority)
             };
-
-            // Agregar destinatario principal
             message.To.Add(notification.To);
-
-            // Agregar CC
             foreach (var cc in notification.Cc)
             {
                 message.CC.Add(cc);
             }
-
-            // Agregar BCC
             foreach (var bcc in notification.Bcc)
             {
                 message.Bcc.Add(bcc);
             }
-
-            // Agregar adjuntos
             foreach (var attachment in notification.Attachments)
             {
                 var stream = new MemoryStream(attachment.Content);
                 var mailAttachment = new Attachment(stream, attachment.FileName, attachment.ContentType);
                 message.Attachments.Add(mailAttachment);
             }
-
             return message;
         }
 

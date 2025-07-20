@@ -3,7 +3,7 @@ using Domain.Entities;
 using Domain.Interfaces.Auth;
 using Google.Apis.Auth;
 
-namespace Infrastructure.Services
+namespace Infrastructure.Services.Auth
 {
     public class GoogleAuthService : IAuthService
     {

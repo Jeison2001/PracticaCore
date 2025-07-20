@@ -1,10 +1,7 @@
 using Domain.Interfaces;
 using Domain.Interfaces.Registration;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace Infrastructure.Services
+namespace Infrastructure.Services.Storage
 {
     public class LocalFileStorageService : IFileStorageService, ISingletonService
     {

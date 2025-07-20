@@ -2,12 +2,8 @@ using Domain.Interfaces;
 using Domain.Interfaces.Registration;
 using Google.Cloud.Storage.V1;
 using Microsoft.Extensions.Options;
-using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace Infrastructure.Services
+namespace Infrastructure.Services.Storage
 {
     public class GoogleCloudOptions
     {

@@ -1,6 +1,6 @@
 using Application.Common.Services;
 using Domain.Interfaces;
-using Infrastructure.Services;
+using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -16,27 +16,18 @@ namespace Infrastructure.Extensions
         {
             // Determinar el proveedor configurado
             var provider = configuration["EmailNotification:Provider"]?.ToUpper() ?? "SMTP";
-            
-            // Solo registrar el servicio de notificación básico apropiado
-            // Los demás servicios (IEmailNotificationEventService, IEmailRecipientResolverService) 
-            // se auto-registran con Scrutor por heredar de IScopedService
-            switch (provider)
+
+            // Validar proveedor soportado
+            if (provider != "SMTP")
             {
-                case "GOOGLE":
-                case "GMAIL":
-                    services.AddScoped<INotificationService, GoogleNotificationService>();
-                    break;
-                    
-                case "AZURE":
-                case "OUTLOOK":
-                    services.AddScoped<INotificationService, AzureNotificationService>();
-                    break;
-                    
-                case "SMTP":
-                default:
-                    services.AddScoped<INotificationService, SmtpNotificationService>();
-                    break;
+                throw new NotSupportedException($"Proveedor de notificaciones '{provider}' no soportado. Solo SMTP está disponible actualmente.");
             }
+
+            // Registrar el servicio SMTP
+            services.AddScoped<INotificationService, SmtpNotificationService>();
+
+            // Nota: Las implementaciones deben leer SIEMPRE de EmailNotification:SmtpSettings
+            // Ejemplo: configuration.GetSection("EmailNotification:SmtpSettings")
 
             return services;
         }

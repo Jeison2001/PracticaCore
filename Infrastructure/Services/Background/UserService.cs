@@ -1,9 +1,8 @@
 using Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using Infrastructure.Data;
 
-namespace Infrastructure.Services
+namespace Infrastructure.Services.Background
 {
     public class UserService : IUserService
     {

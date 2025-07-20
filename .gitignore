@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 Api/Uploads/
 *.sql
+docker-compose.yml

@@ -153,21 +153,58 @@ namespace Application.Common.Services
 
             try
             {
-                // Obtener email directamente de los datos del evento
-                var emailKey = rule.RuleValue.ToUpper() switch
+                // Para STUDENT, manejar tanto emails individuales como múltiples
+                if (rule.RuleValue.ToUpper() == "STUDENT")
                 {
-                    "STUDENT" => "StudentEmail",
-                    "DIRECTOR" => "DirectorEmail",
-                    "COORDINATOR" => "CoordinatorEmail",
-                    _ => rule.RuleValue
-                };
-
-                if (eventData.ContainsKey(emailKey))
-                {
-                    var email = eventData[emailKey]?.ToString();
-                    if (!string.IsNullOrEmpty(email))
+                    // Primero intentar obtener todos los emails (para múltiples estudiantes)
+                    if (eventData.ContainsKey("StudentEmails"))
                     {
-                        emails.Add(email);
+                        var studentEmails = eventData["StudentEmails"]?.ToString();
+                        if (!string.IsNullOrEmpty(studentEmails))
+                        {
+                            // Si hay múltiples emails separados por coma, dividirlos
+                            var emailList = studentEmails.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                                       .Select(e => e.Trim())
+                                                       .Where(e => !string.IsNullOrEmpty(e))
+                                                       .ToList();
+                            emails.AddRange(emailList);
+                            
+                            _logger.LogInformation("📧 Resolviendo emails de estudiantes: {Count} emails encontrados", emailList.Count);
+                            foreach (var email in emailList)
+                            {
+                                _logger.LogInformation("  → {Email}", email);
+                            }
+                        }
+                    }
+                    
+                    // Fallback: usar email individual si no hay múltiples
+                    if (!emails.Any() && eventData.ContainsKey("StudentEmail"))
+                    {
+                        var email = eventData["StudentEmail"]?.ToString();
+                        if (!string.IsNullOrEmpty(email))
+                        {
+                            emails.Add(email);
+                            _logger.LogInformation("📧 Usando email individual de estudiante: {Email}", email);
+                        }
+                    }
+                }
+                else
+                {
+                    // Para otros tipos de participantes, usar la lógica original
+                    var emailKey = rule.RuleValue.ToUpper() switch
+                    {
+                        "DIRECTOR" => "DirectorEmail",
+                        "COORDINATOR" => "CoordinatorEmail",
+                        _ => rule.RuleValue
+                    };
+
+                    if (eventData.ContainsKey(emailKey))
+                    {
+                        var email = eventData[emailKey]?.ToString();
+                        if (!string.IsNullOrEmpty(email))
+                        {
+                            emails.Add(email);
+                        }
                     }
                 }
             }
@@ -178,6 +215,7 @@ namespace Application.Common.Services
 
             return emails;
         }
+                   
 
         private async Task<IEnumerable<User>> ApplyAdditionalConditionsAsync(IEnumerable<User> users, string conditions, Dictionary<string, object> eventData)
         {

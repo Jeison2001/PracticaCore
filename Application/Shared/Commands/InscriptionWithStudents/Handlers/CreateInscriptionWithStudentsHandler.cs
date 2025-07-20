@@ -208,38 +208,20 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                         };
                     }).ToList();
 
-                    // Preparar datos del evento para la notificación
-                    // Lógica para múltiples estudiantes: Si hay un solo estudiante, usar sus datos individuales
-                    // Si hay múltiples, usar el primer estudiante como principal y lista completa en variables agregadas
-                    var primaryStudent = studentsInfo.FirstOrDefault();
-                    var isMultipleStudents = studentsInfo.Count > 1;
-                    
+                    // Preparar datos del evento para INSCRIPTION_CREATED - solo campos necesarios
                     var eventData = new Dictionary<string, object>
                     {
+                        // Datos básicos de la inscripción
                         ["InscriptionId"] = inscriptionModalityId,
                         ["ModalityName"] = modality.Name,
                         ["AcademicPeriod"] = academicPeriod?.Code ?? "N/A",
                         ["InscriptionDate"] = DateTime.Now.ToString("dd/MM/yyyy HH:mm"),
-                        ["StudentsCount"] = students.Count,
-                        ["IsMultipleStudents"] = isMultipleStudents,
-                        ["Observations"] = request.Dto.InscriptionModality.Observations ?? "",
-                        // Datos del estudiante principal (primer estudiante)
-                        ["StudentName"] = primaryStudent?.Name ?? "N/A",
-                        ["StudentEmail"] = primaryStudent?.Email ?? "N/A",
-                        ["StudentIdentification"] = primaryStudent?.Identification ?? "N/A",
-                        // Datos agregados de todos los estudiantes
+                        
+                        // Información de estudiantes (agregada)
+                        ["StudentsCount"] = studentsInfo.Count,
                         ["StudentNames"] = string.Join(", ", studentsInfo.Select(s => s.Name)),
-                        ["StudentEmails"] = string.Join(", ", studentsInfo.Select(s => s.Email)),
-                        ["StudentIdentifications"] = string.Join(", ", studentsInfo.Select(s => s.Identification))
+                        ["StudentEmails"] = string.Join(", ", studentsInfo.Select(s => s.Email))
                     };
-
-                    // Agregar información de cada estudiante individualmente para plantillas más específicas
-                    for (int i = 0; i < studentsInfo.Count; i++)
-                    {
-                        eventData[$"Student{i + 1}Name"] = studentsInfo[i].Name;
-                        eventData[$"Student{i + 1}Email"] = studentsInfo[i].Email;
-                        eventData[$"Student{i + 1}Identification"] = studentsInfo[i].Identification;
-                    }
 
                     // Encolar evento de notificación para procesamiento asíncrono
                     var jobId = _queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
