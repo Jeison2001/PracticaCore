@@ -1,5 +1,4 @@
 using Domain.Interfaces.Notifications;
-using Domain.Interfaces;
 using Domain.Common;
 using Hangfire;
 using Microsoft.Extensions.Logging;
@@ -61,8 +60,6 @@ namespace Infrastructure.Services.Notifications
         {
             try
             {
-                _logger.LogInformation("Iniciando procesamiento en background del evento {EventName}", eventName);
-                
                 // Procesar evento usando el servicio existente
                 await _eventService.ProcessEventAsync(eventName, eventData, CancellationToken.None);
                 
@@ -80,8 +77,6 @@ namespace Infrastructure.Services.Notifications
         {
             try
             {
-                _logger.LogInformation("Iniciando envío directo en background para {To}", to);
-                
                 // Crear notificación usando el servicio existente
                 var notification = new EmailNotification
                 {

@@ -1,5 +1,5 @@
-using Domain.Interfaces;
 using Domain.Interfaces.Registration;
+using Domain.Interfaces.Storage;
 using Google.Cloud.Storage.V1;
 using Microsoft.Extensions.Options;
 

@@ -1,8 +1,8 @@
 using Domain.Entities;
 using Domain.Interfaces;
-using Domain.Interfaces.Registration;
 using Domain.Common;
 using Microsoft.AspNetCore.Mvc;
+using Domain.Interfaces.Notifications;
 
 namespace Api.Controllers
 {

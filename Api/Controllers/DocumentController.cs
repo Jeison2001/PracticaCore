@@ -1,11 +1,10 @@
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Document;
 using Application.Shared.DTOs.RequiredDocumentsByState;
-using Application.Shared.Queries;
 using Application.Shared.Queries.Document;
 using Application.Shared.Queries.RequiredDocuments;
 using Domain.Common;
-using Domain.Interfaces;
+using Domain.Interfaces.Storage;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

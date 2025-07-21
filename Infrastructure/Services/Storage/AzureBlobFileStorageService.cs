@@ -1,10 +1,10 @@
-using Domain.Interfaces;
 using Domain.Interfaces.Registration;
 
 namespace Infrastructure.Services.Storage
 {
     using Azure.Storage.Blobs;
     using Azure.Storage.Blobs.Models;
+    using Domain.Interfaces.Storage;
     using Microsoft.Extensions.Configuration;
 
     public class AzureBlobFileStorageService : IFileStorageService, ISingletonService

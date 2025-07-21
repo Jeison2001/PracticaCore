@@ -1,8 +1,7 @@
-using Domain.Common;
 using Domain.Interfaces.Registration;
 using Domain.Entities;
 
-namespace Domain.Interfaces
+namespace Domain.Interfaces.Notifications
 {
     /// <summary>
     /// Servicio para manejar eventos de notificación automáticos

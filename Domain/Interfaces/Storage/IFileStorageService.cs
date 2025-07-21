@@ -1,8 +1,4 @@
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace Domain.Interfaces
+namespace Domain.Interfaces.Storage
 {
     public interface IFileStorageService
     {

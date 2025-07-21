@@ -1,7 +1,7 @@
 using Domain.Common;
 using Domain.Interfaces.Registration;
 
-namespace Domain.Interfaces
+namespace Domain.Interfaces.Notifications
 {
     /// <summary>
     /// Interfaz para el servicio de notificaciones

@@ -8,6 +8,7 @@ using Application.Validations.SpecificValidators.InscriptionModality;
 using Domain.Entities;
 using Domain.Interfaces;
 using Domain.Interfaces.Registration;
+using Domain.Interfaces.Storage;
 using FluentValidation;
 using Infrastructure.Data;
 using Infrastructure.Extensions;

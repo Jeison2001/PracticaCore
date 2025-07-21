@@ -1,9 +1,7 @@
-using Application.Common.Services;
-using Domain.Interfaces;
+using Domain.Interfaces.Notifications;
 using Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Extensions
 {

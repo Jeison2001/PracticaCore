@@ -1,6 +1,6 @@
 using Domain.Interfaces.Registration;
 
-namespace Domain.Interfaces
+namespace Domain.Interfaces.Notifications
 {
     /// <summary>
     /// Servicio simplificado para notificaciones automáticas de cambios en entidades

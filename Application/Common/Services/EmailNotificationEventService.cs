@@ -1,9 +1,8 @@
 using Domain.Common;
 using Domain.Entities;
 using Domain.Interfaces;
-using Domain.Interfaces.Registration;
+using Domain.Interfaces.Notifications;
 using Microsoft.Extensions.Logging;
-using System.Text.RegularExpressions;
 
 namespace Application.Common.Services
 {

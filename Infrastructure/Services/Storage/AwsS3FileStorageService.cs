@@ -1,11 +1,7 @@
-using Domain.Interfaces;
 using Domain.Interfaces.Registration;
-using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
+using Domain.Interfaces.Storage;
 
-namespace Infrastructure.Services
+namespace Infrastructure.Services.Storage
 {
     public class AwsS3FileStorageService : IFileStorageService, ISingletonService
     {
