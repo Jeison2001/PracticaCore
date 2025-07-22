@@ -6,7 +6,6 @@ using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
-using ProposalNotificationService = Domain.Interfaces.Notifications.IProposalNotificationService;
 
 namespace Application.Shared.Commands
 {
@@ -18,13 +17,13 @@ namespace Application.Shared.Commands
         private readonly IRepository<T, TId> _repository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly ProposalNotificationService? _proposalNotificationService;
+        private readonly IProposalNotificationService? _proposalNotificationService;
 
         public CreateEntityCommandHandler(
             IRepository<T, TId> repository,
             IMapper mapper,
             IUnitOfWork unitOfWork,
-            ProposalNotificationService? proposalNotificationService = null)
+            IProposalNotificationService? proposalNotificationService = null)
         {
             _repository = repository;
             _mapper = mapper;

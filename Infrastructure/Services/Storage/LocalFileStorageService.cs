@@ -1,14 +1,17 @@
+using Domain.Configuration;
 using Domain.Interfaces.Registration;
 using Domain.Interfaces.Storage;
+using Microsoft.Extensions.Options;
 
 namespace Infrastructure.Services.Storage
 {
     public class LocalFileStorageService : IFileStorageService, ISingletonService
     {
         private readonly string _basePath;
-        public LocalFileStorageService(string basePath)
+        
+        public LocalFileStorageService(IOptions<LocalStorageOptions> options)
         {
-            _basePath = basePath;
+            _basePath = options.Value.BasePath ?? "Uploads";
         }
 
         public async Task<string> SaveFileAsync(Stream fileStream, string fileName, CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using Domain.Configuration;
 using Domain.Interfaces.Registration;
 
 namespace Infrastructure.Services.Storage
@@ -5,21 +6,20 @@ namespace Infrastructure.Services.Storage
     using Azure.Storage.Blobs;
     using Azure.Storage.Blobs.Models;
     using Domain.Interfaces.Storage;
-    using Microsoft.Extensions.Configuration;
+    using Microsoft.Extensions.Options;
 
     public class AzureBlobFileStorageService : IFileStorageService, ISingletonService
     {
         private readonly BlobContainerClient _containerClient;
         private readonly string _baseUrl;
 
-        public AzureBlobFileStorageService(IConfiguration configuration)
+        public AzureBlobFileStorageService(IOptions<AzureBlobOptions> options)
         {
-            var azureConfig = configuration.GetSection("FileStorage:AzureBlob");
-            var connectionString = azureConfig["ConnectionString"];
-            var containerName = azureConfig["ContainerName"];
-            _baseUrl = azureConfig["BaseUrl"] ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(containerName))
-                throw new InvalidOperationException("Azure Blob Storage configuration is missing or invalid.");
+            var opts = options.Value;
+            var connectionString = opts.ConnectionString ?? throw new InvalidOperationException("ConnectionString no configurado");
+            var containerName = opts.ContainerName ?? throw new InvalidOperationException("ContainerName no configurado");
+            _baseUrl = opts.BaseUrl ?? string.Empty;
+            
             _containerClient = new BlobContainerClient(connectionString, containerName);
             _containerClient.CreateIfNotExists();
         }

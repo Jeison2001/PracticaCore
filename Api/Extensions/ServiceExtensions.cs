@@ -5,6 +5,7 @@ using Application.Shared.Mappings;
 using Application.Shared.Queries;
 using Application.Validations.BaseValidators;
 using Application.Validations.SpecificValidators.InscriptionModality;
+using Domain.Configuration;
 using Domain.Entities;
 using Domain.Interfaces;
 using Domain.Interfaces.Registration;
@@ -35,10 +36,6 @@ namespace Api.Extensions
             // Registrar el repositorio genérico
             services.AddScoped(typeof(IRepository<,>), typeof(BaseRepository<,>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
-            services.AddScoped<IUserService, UserService>();
-            services.AddScoped<IPreliminaryProjectRepository, PreliminaryProjectRepository>();
-            services.AddScoped<IProjectFinalRepository, ProjectFinalRepository>();
-            services.AddScoped<IAcademicPracticeRepository, AcademicPracticeRepository>();
 
             // Configurar el servicio de almacenamiento de archivos según la configuración
             ConfigureFileStorageService(services, config);
@@ -48,8 +45,6 @@ namespace Api.Extensions
 
             // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
-
-            services.Configure<GoogleCloudOptions>(config.GetSection("FileStorage:GoogleCloud"));
         }
 
         public static void AddApplicationLayer(this IServiceCollection services)
@@ -261,14 +256,15 @@ namespace Api.Extensions
         private static void ConfigureFileStorageService(IServiceCollection services, IConfiguration config)
         {
             var provider = config["FileStorage:Provider"]?.ToLower() ?? "local";
-            var localPath = config["FileStorage:LocalPath"] ?? "Uploads";
 
             switch (provider)
             {
                 case "google":
+                    services.Configure<GoogleCloudOptions>(config.GetSection("FileStorage:GoogleCloud"));
                     services.AddSingleton<IFileStorageService, GoogleCloudFileStorageService>();
                     break;
                 case "azure":
+                    services.Configure<AzureBlobOptions>(config.GetSection("FileStorage:AzureBlob"));
                     services.AddSingleton<IFileStorageService, AzureBlobFileStorageService>();
                     break;
                 case "aws":
@@ -276,7 +272,11 @@ namespace Api.Extensions
                     break;
                 case "local":
                 default:
-                    services.AddSingleton<IFileStorageService>(sp => new LocalFileStorageService(localPath));
+                    services.Configure<LocalStorageOptions>(opt => 
+                    {
+                        opt.BasePath = config["FileStorage:LocalPath"] ?? "Uploads";
+                    });
+                    services.AddSingleton<IFileStorageService, LocalFileStorageService>();
                     break;
             }
         }
