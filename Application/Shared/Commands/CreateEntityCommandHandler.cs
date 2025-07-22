@@ -5,6 +5,7 @@ using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Reflection;
 
 namespace Application.Shared.Commands
@@ -18,16 +19,19 @@ namespace Application.Shared.Commands
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IProposalNotificationService? _proposalNotificationService;
+        private readonly ILogger<CreateEntityCommandHandler<T, TId, TDto>> _logger;
 
         public CreateEntityCommandHandler(
             IRepository<T, TId> repository,
             IMapper mapper,
             IUnitOfWork unitOfWork,
+            ILogger<CreateEntityCommandHandler<T, TId, TDto>> logger,
             IProposalNotificationService? proposalNotificationService = null)
         {
             _repository = repository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
+            _logger = logger;
             _proposalNotificationService = proposalNotificationService;
         }
 
@@ -154,12 +158,13 @@ private string ExtractConstraintName(string errorMessage)
                     {
                         try
                         {
+                            _logger.LogInformation("Iniciando procesamiento de notificación para Proposal ID: {ProposalId}", proposalEntity.Id);
                             await _proposalNotificationService.ProcessProposalEventAsync(proposalEntity, (Domain.Enums.StateStageEnum)proposalEntity.IdStateStage);
+                            _logger.LogInformation("Notificación procesada exitosamente para Proposal ID: {ProposalId}", proposalEntity.Id);
                         }
                         catch (Exception ex)
                         {
-                            // Note: No logger available in CreateEntityCommandHandler, consider adding one if needed
-                            Console.WriteLine($"Error procesando notificación para Proposal ID: {proposalEntity.Id} - {ex.Message}");
+                            _logger.LogError(ex, "Error procesando notificación para Proposal ID: {ProposalId}", proposalEntity.Id);
                         }
                     });
                 }
