@@ -16,9 +16,17 @@ namespace Application.Validations.SpecificValidators.Proposal
 
             RuleFor(x => x.IdResearchSubLine)
                 .NotEmpty().WithMessage("La sublínea de investigación es obligatoria.");
-                
+
             RuleFor(x => x.Id)
                 .NotEmpty().WithMessage("La modalidad de inscripción es obligatoria.");
+
+            RuleFor(x => x.GeneralObjective)
+                .NotEmpty().WithMessage("El objetivo general es obligatorio.");
+
+            RuleFor(x => x.SpecificObjectives)
+                .NotNull().WithMessage("Debe especificar al menos un objetivo específico.")
+                .Must(list => list != null && list.Count > 0)
+                .WithMessage("Debe especificar al menos un objetivo específico.");
         }
     }
 }

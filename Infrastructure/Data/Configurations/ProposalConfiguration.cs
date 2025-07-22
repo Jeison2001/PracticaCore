@@ -11,7 +11,11 @@ namespace Infrastructure.Data.Configurations
             base.Configure(builder);
             builder.ToTable("Proposal");
             builder.Property(e => e.Title).IsRequired().HasMaxLength(500).HasColumnName("title");
-            builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);            builder.Property(e => e.IdResearchLine).HasColumnName("idresearchline");
+            builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);
+            builder.Property(e => e.GeneralObjective).HasColumnName("generalobjective").IsRequired();
+            builder.Property(e => e.SpecificObjectives).HasColumnName("specificobjectives").HasColumnType("text[]").IsRequired();
+            builder.Property(e => e.Observation).HasColumnName("observation").IsRequired(false);
+            builder.Property(e => e.IdResearchLine).HasColumnName("idresearchline");
             builder.Property(e => e.IdResearchSubLine).HasColumnName("idresearchsubline");
             builder.Property(e => e.IdStateStage).HasColumnName("idstatestage");
 

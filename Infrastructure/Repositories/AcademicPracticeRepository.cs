@@ -4,7 +4,7 @@ using Domain.Common;
 using Infrastructure.Data;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
-using Application.Shared.DTOs.AcademicPractice.Enums;
+using Domain.Enums;
 
 namespace Infrastructure.Repositories;
 

@@ -6,6 +6,7 @@ using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using ProposalNotificationService = Domain.Interfaces.Notifications.IProposalNotificationService;
 
 namespace Application.Shared.Commands
 {
@@ -18,6 +19,7 @@ namespace Application.Shared.Commands
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEntityNotificationService? _notificationService;
+        private readonly ProposalNotificationService? _proposalNotificationService;
         private readonly ILogger<UpdateEntityCommandHandler<T, TId, TDto>> _logger;
 
         public UpdateEntityCommandHandler(
@@ -25,12 +27,14 @@ namespace Application.Shared.Commands
             IMapper mapper, 
             IUnitOfWork unitOfWork,
             ILogger<UpdateEntityCommandHandler<T, TId, TDto>> logger,
-            IEntityNotificationService? notificationService = null)
+            IEntityNotificationService? notificationService = null,
+            ProposalNotificationService? proposalNotificationService = null)
         {
             _repository = repository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
+            _proposalNotificationService = proposalNotificationService;
             _logger = logger;
         }
 
@@ -59,14 +63,56 @@ namespace Application.Shared.Commands
 
             await _repository.UpdateAsync(existingEntity);
             await _unitOfWork.CommitAsync(ct);
-            
-            if (_notificationService != null && existingEntity is InscriptionModality)
-            {
-                _logger.LogInformation("📧 Procesando notificaciones para InscriptionModality ID: {Id}", existingEntity.Id);
-                await _notificationService.ProcessInscriptionModalityChangesAsync(originalEntity, existingEntity, ct);
-            }
+
+            // Procesar notificaciones en background
+            ProcessNotificationsAsync(existingEntity, originalEntity);
 
             return _mapper.Map<TDto>(existingEntity);
+        }
+
+        private void ProcessNotificationsAsync(T existingEntity, T originalEntity)
+        {
+            // Notificación para Proposal en background
+            if (_proposalNotificationService != null && typeof(T) == typeof(Proposal))
+            {
+                var proposalEntity = existingEntity as Proposal;
+                if (proposalEntity != null)
+                {
+                    _logger.LogInformation("📧 Encolando notificación para Proposal ID: {Id}", proposalEntity.Id);
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _proposalNotificationService.ProcessProposalEventAsync(proposalEntity, (Domain.Enums.StateStageEnum)proposalEntity.IdStateStage);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error procesando notificación para Proposal ID: {Id}", proposalEntity.Id);
+                        }
+                    });
+                }
+            }
+
+            // Notificación para InscriptionModality en background
+            if (_notificationService != null && typeof(T) == typeof(InscriptionModality))
+            {
+                var inscriptionEntity = existingEntity as InscriptionModality;
+                if (inscriptionEntity != null)
+                {
+                    _logger.LogInformation("📧 Encolando notificación para InscriptionModality ID: {Id}", inscriptionEntity.Id);
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _notificationService.ProcessInscriptionModalityChangesAsync(originalEntity, existingEntity);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error procesando notificación para InscriptionModality ID: {Id}", inscriptionEntity.Id);
+                        }
+                    });
+                }
+            }
         }
     }
 }

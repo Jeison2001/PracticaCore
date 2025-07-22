@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.AcademicPractice.Enums
+namespace Domain.Enums
 {
     /// <summary>
     /// Enum para mapear los estados clave de la práctica académica a sus IDs de base de datos.

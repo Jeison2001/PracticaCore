@@ -120,13 +120,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Configurar Hangfire Dashboard (solo en desarrollo para seguridad)
-if (app.Environment.IsDevelopment())
-{
+// if (app.Environment.IsDevelopment())
+// {
     app.UseHangfireDashboard("/hangfire", new DashboardOptions
     {
         Authorization = new[] { new HangfireAuthorizationFilter() }
     });
-}
+// }
 
 app.MapControllers();
 

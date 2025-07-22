@@ -2,9 +2,11 @@
 using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
+using ProposalNotificationService = Domain.Interfaces.Notifications.IProposalNotificationService;
 
 namespace Application.Shared.Commands
 {
@@ -16,12 +18,18 @@ namespace Application.Shared.Commands
         private readonly IRepository<T, TId> _repository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ProposalNotificationService? _proposalNotificationService;
 
-        public CreateEntityCommandHandler(IRepository<T, TId> repository, IMapper mapper, IUnitOfWork unitOfWork)
+        public CreateEntityCommandHandler(
+            IRepository<T, TId> repository,
+            IMapper mapper,
+            IUnitOfWork unitOfWork,
+            ProposalNotificationService? proposalNotificationService = null)
         {
             _repository = repository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
+            _proposalNotificationService = proposalNotificationService;
         }
 
         public async Task<TDto> Handle(CreateEntityCommand<T, TId, TDto> request, CancellationToken ct)
@@ -66,6 +74,10 @@ namespace Application.Shared.Commands
             {
                 await _repository.AddAsync(entity);
                 await _unitOfWork.CommitAsync(ct);
+                
+                // Procesar notificaciones en background
+                ProcessNotificationsAsync(entity);
+                
                 return _mapper.Map<TDto>(entity);
             }
             catch (DbUpdateException ex)
@@ -129,6 +141,30 @@ private string ExtractConstraintName(string errorMessage)
                 }
             }
             return string.Empty;
+        }
+
+        private void ProcessNotificationsAsync(T entity)
+        {
+            // Notificación para Proposal en background
+            if (_proposalNotificationService != null && typeof(T) == typeof(Proposal))
+            {
+                var proposalEntity = entity as Proposal;
+                if (proposalEntity != null)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _proposalNotificationService.ProcessProposalEventAsync(proposalEntity, (Domain.Enums.StateStageEnum)proposalEntity.IdStateStage);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Note: No logger available in CreateEntityCommandHandler, consider adding one if needed
+                            Console.WriteLine($"Error procesando notificación para Proposal ID: {proposalEntity.Id} - {ex.Message}");
+                        }
+                    });
+                }
+            }
         }
     }
 }
