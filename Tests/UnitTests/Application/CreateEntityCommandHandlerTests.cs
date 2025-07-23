@@ -13,6 +13,7 @@ namespace Tests.UnitTests.Application
         private readonly Mock<IRepository<TestEntity, int>> _mockRepository;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<IUnitOfWork> _mockUnitOfWork;
+        private readonly Mock<Microsoft.Extensions.Logging.ILogger<CreateEntityCommandHandler<TestEntity, int, TestDto>>> _mockLogger;
         private readonly CreateEntityCommandHandler<TestEntity, int, TestDto> _handler;
 
         public CreateEntityCommandHandlerTests()
@@ -20,11 +21,14 @@ namespace Tests.UnitTests.Application
             _mockRepository = new Mock<IRepository<TestEntity, int>>();
             _mockMapper = new Mock<IMapper>();
             _mockUnitOfWork = new Mock<IUnitOfWork>();
+            _mockLogger = new Mock<Microsoft.Extensions.Logging.ILogger<CreateEntityCommandHandler<TestEntity, int, TestDto>>>();
 
             _handler = new CreateEntityCommandHandler<TestEntity, int, TestDto>(
                 _mockRepository.Object,
                 _mockMapper.Object,
-                _mockUnitOfWork.Object);
+                _mockUnitOfWork.Object,
+                _mockLogger.Object,
+                null);
         }
 
         [Fact]
