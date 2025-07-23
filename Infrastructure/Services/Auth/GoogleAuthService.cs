@@ -1,5 +1,6 @@
 using Application.Shared.DTOs.Auth;
 using Domain.Entities;
+using Domain.Interfaces;
 using Domain.Interfaces.Auth;
 using Google.Apis.Auth;
 
@@ -9,12 +10,14 @@ namespace Infrastructure.Services.Auth
     {
         private readonly IJwtService _jwtService;
         private readonly IUserInfoRepository _userInfoRepository;
+        private readonly IRepository<Role, int> _roleRepository;
         private const string InstitutionalDomain = "@unicesar.edu.co";
 
-        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository)
+        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, Domain.Interfaces.IRepository<Domain.Entities.Role, int> roleRepository)
         {
             _jwtService = jwtService;
             _userInfoRepository = userInfoRepository;
+            _roleRepository = roleRepository;
         }
 
         public async Task<dynamic> AuthenticateWithGoogleAsync(string idToken)
@@ -48,14 +51,21 @@ namespace Infrastructure.Services.Auth
                 */
 
                 // Obtener roles y permisos del usuario secuencialmente para evitar problemas de concurrencia con DbContext
-                var roles = await _userInfoRepository.GetUserRolesAsync(user.Id);
-                
+
+                var roleNames = await _userInfoRepository.GetUserRolesAsync(user.Id);
+                var allRoles = await _roleRepository.GetAllAsync(r => roleNames.Contains(r.Name));
+                var rolesDto = allRoles.Select(r => new AuthRoleDto
+                {
+                    Name = r.Name,
+                    Code = r.Code
+                }).ToList();
+
                 // Obtener información completa de permisos, incluyendo ParentCode
                 var permissionsFullInfo = await _userInfoRepository.GetUserPermissionsFullInfoAsync(user.Id);
-                
+
                 // Extraer solo los códigos de permisos para el token
                 var permissionCodes = permissionsFullInfo.Select(p => p.Code).ToList();
-                
+
                 // Construir la jerarquía de permisos utilizando la información completa (ParentCode)
                 var hierarchicalPermissions = BuildPermissionHierarchy(permissionsFullInfo);
 
@@ -63,12 +73,14 @@ namespace Infrastructure.Services.Auth
                 string token = _jwtService.GenerateTokenWithClaims(
                     user.Id.ToString(), 
                     user.Email, 
-                    roles, 
+                    rolesDto.Select(r => r.Name).ToList(), // solo nombres para el token
                     permissionCodes,
                     user.FirstName,
                     user.LastName,
                     user.Identification
-                );                // Crear respuesta de autenticación con la estructura jerárquica
+                );
+
+                // Crear respuesta de autenticación con la estructura jerárquica
                 return new AuthResponse
                 {
                     Token = token,
@@ -81,7 +93,7 @@ namespace Infrastructure.Services.Auth
                         Identification = user.Identification,
                         IdIdentificationType = user.IdIdentificationType
                     },
-                    Roles = roles,
+                    Roles = rolesDto,
                     Permissions = hierarchicalPermissions
                 };
             }
