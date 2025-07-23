@@ -17,6 +17,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.AllowsExtension).IsRequired().HasColumnName("allowsextension").HasDefaultValue(false);
             builder.Property(e => e.RequiresDirector).IsRequired().HasColumnName("requiresdirector").HasDefaultValue(true);
             builder.Property(e => e.MaxStudents).IsRequired().HasColumnName("maxstudents").HasDefaultValue(1);
+            builder.Property(e => e.MaxSpecificObjectives).HasColumnName("maxspecificobjectives").IsRequired(false);
             builder.Property(e => e.SpecificRequirements).HasColumnName("specificrequirements").IsRequired(false);
             builder.Property(e => e.RequiresResearchHotbed).IsRequired().HasColumnName("requiresresearchhotbed").HasDefaultValue(false);
             builder.Property(e => e.RequiresApproval).IsRequired().HasColumnName("requiresapproval").HasDefaultValue(true);

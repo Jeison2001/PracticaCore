@@ -7,6 +7,7 @@ namespace Application.Common.Services
 {
     /// <summary>
     /// Servicio simplificado para procesar notificaciones automáticas de cambios en entidades
+    /// ✅ Clean Architecture: Inyección directa de dependencias, Hangfire maneja el scope automáticamente
     /// </summary>
     public class EntityNotificationService : IEntityNotificationService
     {
@@ -101,6 +102,7 @@ namespace Application.Common.Services
 
             try
             {
+                // ✅ Clean Architecture: Inyección directa sin múltiples scopes
                 // 1. ModalityName - REQUERIDO por todas las plantillas
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
                 var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
@@ -137,6 +139,7 @@ namespace Application.Common.Services
 
         private async Task AddStudentDataAsync(InscriptionModality inscription, Dictionary<string, object> eventData, CancellationToken cancellationToken)
         {
+            // ✅ Clean Architecture: Inyección directa sin múltiples scopes
             var userRepo = _unitOfWork.GetRepository<User, int>();
             var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
             
@@ -209,6 +212,7 @@ namespace Application.Common.Services
         {
             try
             {
+                // ✅ Clean Architecture: Inyección directa sin múltiples scopes
                 var stateRepo = _unitOfWork.GetRepository<StateInscription, int>();
                 var state = await stateRepo.GetByIdAsync(stateId);
                 

@@ -5,6 +5,7 @@ using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 
@@ -19,20 +20,26 @@ namespace Application.Shared.Commands
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IProposalNotificationService? _proposalNotificationService;
+        private readonly IEntityNotificationService? _notificationService;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<CreateEntityCommandHandler<T, TId, TDto>> _logger;
 
         public CreateEntityCommandHandler(
             IRepository<T, TId> repository,
             IMapper mapper,
             IUnitOfWork unitOfWork,
+            IServiceProvider serviceProvider,
             ILogger<CreateEntityCommandHandler<T, TId, TDto>> logger,
-            IProposalNotificationService? proposalNotificationService = null)
+            IProposalNotificationService? proposalNotificationService = null,
+            IEntityNotificationService? notificationService = null)
         {
             _repository = repository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
-            _logger = logger;
+            _serviceProvider = serviceProvider;
             _proposalNotificationService = proposalNotificationService;
+            _notificationService = notificationService;
+            _logger = logger;
         }
 
         public async Task<TDto> Handle(CreateEntityCommand<T, TId, TDto> request, CancellationToken ct)
@@ -149,22 +156,51 @@ private string ExtractConstraintName(string errorMessage)
         private void ProcessNotificationsAsync(T entity)
         {
             // Notificación para Proposal en background
-            if (_proposalNotificationService != null && typeof(T) == typeof(Proposal))
+            if (typeof(T) == typeof(Proposal))
             {
                 var proposalEntity = entity as Proposal;
                 if (proposalEntity != null)
                 {
+                    _logger.LogInformation("📧 Encolando notificación para Proposal ID: {Id}", proposalEntity.Id);
                     _ = Task.Run(async () =>
                     {
                         try
                         {
-                            _logger.LogInformation("Iniciando procesamiento de notificación para Proposal ID: {ProposalId}", proposalEntity.Id);
-                            await _proposalNotificationService.ProcessProposalEventAsync(proposalEntity, (Domain.Enums.StateStageEnum)proposalEntity.IdStateStage);
-                            _logger.LogInformation("Notificación procesada exitosamente para Proposal ID: {ProposalId}", proposalEntity.Id);
+                            // ✅ CORRECTO: Crear scope específico para background task
+                            using var scope = _serviceProvider.CreateScope();
+                            var backgroundProposalService = scope.ServiceProvider.GetRequiredService<IProposalNotificationService>();
+                            
+                            await backgroundProposalService.ProcessProposalEventAsync(proposalEntity, (Domain.Enums.StateStageEnum)proposalEntity.IdStateStage);
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error procesando notificación para Proposal ID: {ProposalId}", proposalEntity.Id);
+                            _logger.LogError(ex, "Error procesando notificación para Proposal ID: {Id}", proposalEntity.Id);
+                        }
+                    });
+                }
+            }
+
+            // Notificación para InscriptionModality en background (preparado para futuro uso)
+            if (typeof(T) == typeof(InscriptionModality))
+            {
+                var inscriptionEntity = entity as InscriptionModality;
+                if (inscriptionEntity != null)
+                {
+                    _logger.LogInformation("📧 Encolando notificación para InscriptionModality ID: {Id}", inscriptionEntity.Id);
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // ✅ CORRECTO: Crear scope específico para background task
+                            using var scope = _serviceProvider.CreateScope();
+                            var backgroundNotificationService = scope.ServiceProvider.GetRequiredService<IEntityNotificationService>();
+                            
+                            // Para creación, usamos la misma entidad como "before" y "after"
+                            await backgroundNotificationService.ProcessInscriptionModalityChangesAsync(inscriptionEntity, inscriptionEntity);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error procesando notificación para InscriptionModality ID: {Id}", inscriptionEntity.Id);
                         }
                     });
                 }
