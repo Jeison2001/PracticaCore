@@ -32,13 +32,15 @@ namespace Application.Shared.Queries.UserRole.Handlers
                 cancellationToken: cancellationToken
             );
 
-            var result = new List<UserRoleInfoDto>();            foreach (var userRole in userRoles.Items)
+            var result = new List<UserRoleInfoDto>();
+            foreach (var userRole in userRoles.Items)
             {
                 // Obtener la información del rol
                 var role = await _roleRepository.GetByIdAsync(userRole.IdRole);
-                
+
                 if (role != null)
-                {                    result.Add(new UserRoleInfoDto
+                {
+                    result.Add(new UserRoleInfoDto
                     {
                         Role = new RoleDto
                         {

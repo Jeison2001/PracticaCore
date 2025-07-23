@@ -30,8 +30,7 @@ namespace Infrastructure.Repositories
             IQueryable<UserRole> query = _context.Set<UserRole>()
                 .Include(ur => ur.User)
                 .Include(ur => ur.Role)
-                .AsNoTracking() // Mejora el rendimiento para consultas de solo lectura
-                .Where(ur => ur.StatusRegister);
+                .AsNoTracking();
 
             // Filtrar por código de rol si se proporciona
             if (!string.IsNullOrEmpty(roleCode))
