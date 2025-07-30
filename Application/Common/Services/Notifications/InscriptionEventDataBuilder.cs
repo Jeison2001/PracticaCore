@@ -55,10 +55,17 @@ namespace Application.Common.Services.Notifications
                     ["InscriptionState"] = stateInscription?.Name ?? string.Empty,
                     ["EventType"] = eventType,
                     ["ModalityName"] = modality?.Name ?? string.Empty,
+                    ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty, // AcademicPeriod solo tiene Code
                     ["AcademicPeriodCode"] = academicPeriod?.Code ?? string.Empty,
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
+                    ["StudentsCount"] = studentCount, // Alias para templates que usan StudentsCount
+                    ["InscriptionDate"] = inscription.CreatedAt.ToString("dd/MM/yyyy"),
+                    ["ApprovalDate"] = inscription.ApprovalDate?.ToString("dd/MM/yyyy") ?? inscription.UpdatedAt?.ToString("dd/MM/yyyy") ?? string.Empty,
+                    ["ReviewDate"] = inscription.UpdatedAt?.ToString("dd/MM/yyyy") ?? string.Empty,
+                    ["ApprovalComments"] = inscription.Observations ?? string.Empty,
+                    ["RejectionComments"] = inscription.Observations ?? string.Empty,
                     ["CreatedAt"] = inscription.CreatedAt,
                     ["UpdatedAt"] = inscription.UpdatedAt ?? DateTime.UtcNow
                 };
@@ -93,10 +100,17 @@ namespace Application.Common.Services.Notifications
                     ["InscriptionState"] = "PENDIENTE",
                     ["EventType"] = "INSCRIPTION_CREATED",
                     ["ModalityName"] = modality?.Name ?? string.Empty,
+                    ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty,
                     ["AcademicPeriodCode"] = academicPeriod?.Code ?? string.Empty,
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
+                    ["StudentsCount"] = studentCount, // Alias para templates
+                    ["InscriptionDate"] = DateTime.UtcNow.ToString("dd/MM/yyyy"),
+                    ["ApprovalDate"] = string.Empty,
+                    ["ReviewDate"] = string.Empty,
+                    ["ApprovalComments"] = string.Empty,
+                    ["RejectionComments"] = string.Empty,
                     ["CreatedAt"] = DateTime.UtcNow
                 };
 

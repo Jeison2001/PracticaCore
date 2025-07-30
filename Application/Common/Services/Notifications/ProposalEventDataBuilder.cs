@@ -70,16 +70,24 @@ namespace Application.Common.Services.Notifications
                 {
                     ["ProposalId"] = proposal.Id,
                     ["ProposalTitle"] = proposal.Title ?? string.Empty,
-                    ["ProposalDescription"] = proposal.GeneralObjective ?? string.Empty,
+                    ["ProposalDescription"] = proposal.Description ?? proposal.GeneralObjective ?? string.Empty,
+                    ["GeneralObjective"] = proposal.GeneralObjective ?? string.Empty,
+                    ["SpecificObjectives"] = string.Join("; ", proposal.SpecificObjectives ?? new List<string>()),
                     ["ProposalStateStage"] = stateStage?.Name ?? string.Empty,
                     ["EventType"] = eventType,
                     ["ModalityName"] = modality?.Name ?? string.Empty,
+                    ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty,
                     ["AcademicPeriodCode"] = academicPeriod?.Code ?? string.Empty,
                     ["ResearchLineName"] = researchLine?.Name ?? string.Empty,
                     ["ResearchSubLineName"] = researchSubLine?.Name ?? string.Empty,
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
+                    ["StudentsCount"] = studentCount, // Alias para templates que usan StudentsCount
+                    ["SubmissionDate"] = proposal.CreatedAt.ToString("dd/MM/yyyy"),
+                    ["ApprovalDate"] = proposal.UpdatedAt?.ToString("dd/MM/yyyy") ?? string.Empty,
+                    ["Observation"] = proposal.Observation ?? string.Empty,
+                    ["RejectionComments"] = proposal.Observation ?? string.Empty,
                     ["CreatedAt"] = proposal.CreatedAt,
                     ["UpdatedAt"] = proposal.UpdatedAt ?? DateTime.UtcNow
                 };
