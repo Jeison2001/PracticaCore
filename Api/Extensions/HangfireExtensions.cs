@@ -21,12 +21,7 @@ namespace Api.Extensions
                 .UseRecommendedSerializerSettings()
                 .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString), new PostgreSqlStorageOptions
                 {
-                    // Configuraciones MUY conservadoras para Supabase
-                    QueuePollInterval = TimeSpan.FromSeconds(60), // Mucho menos frecuente
-                    JobExpirationCheckInterval = TimeSpan.FromHours(6), // Muy poco frecuente
-                    CountersAggregateInterval = TimeSpan.FromMinutes(30), // Muy poco frecuente
-                    PrepareSchemaIfNecessary = true,
-                    
+
                     // Timeouts MUY generosos para conexiones inestables
                     TransactionSynchronisationTimeout = TimeSpan.FromMinutes(2), // 2 minutos
                     InvisibilityTimeout = TimeSpan.FromHours(1), // 1 hora
@@ -37,22 +32,12 @@ namespace Api.Extensions
                     EnableTransactionScopeEnlistment = true
                 }));
 
-            // Configurar servidor con valores MUY conservadores para Supabase
-            services.AddHangfireServer(options =>
-            {
-                options.WorkerCount = 1; // Solo 1 worker para minimizar conexiones
-                options.Queues = new[] { "default" }; // Solo 1 cola esencial
-                options.HeartbeatInterval = TimeSpan.FromMinutes(2); // Cada 2 minutos
-                options.ServerTimeout = TimeSpan.FromMinutes(10); // Timeout muy generoso
-                options.SchedulePollingInterval = TimeSpan.FromMinutes(1); // Cada minuto
-                options.ServerCheckInterval = TimeSpan.FromMinutes(5); // Cada 5 minutos
-                options.CancellationCheckInterval = TimeSpan.FromMinutes(1); // Cada minuto
-            });
+
             // Configuración global de reintentos para conexiones inestables
             GlobalJobFilters.Filters.Add(new AutomaticRetryAttribute
             {
-                Attempts = 5, // Más reintentos por conexiones inestables
-                DelaysInSeconds = new[] { 60, 300, 900, 1800, 3600 }, // 1min, 5min, 15min, 30min, 1h
+                Attempts = 4, // Más reintentos por conexiones inestables
+                DelaysInSeconds = new[] { 60, 300, 1800, 3600 }, // 1min, 5min, 30min, 1h
                 LogEvents = false // Desactivar logging excesivo
             });
 
