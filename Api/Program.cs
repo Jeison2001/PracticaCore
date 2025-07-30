@@ -18,15 +18,8 @@ builder.Services.AddApplicationLayer();
 // Registramos los servicios de caché
 builder.Services.AddCacheServices();
 
-// Configurar Hangfire con PostgreSQL
-builder.Services.AddHangfire(configuration => configuration
-    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("Default")));
-
-// Agregar el servidor de Hangfire
-builder.Services.AddHangfireServer();
+// Configurar Hangfire con configuraciones robustas
+builder.Services.AddHangfireConfiguration(builder.Configuration);
 
 // Add CORS configuration
 builder.Services.AddCors(options =>
@@ -119,14 +112,11 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Configurar Hangfire Dashboard (solo en desarrollo para seguridad)
-// if (app.Environment.IsDevelopment())
-// {
-    app.UseHangfireDashboard("/hangfire", new DashboardOptions
-    {
-        Authorization = new[] { new HangfireAuthorizationFilter() }
-    });
-// }
+// Configurar Hangfire Dashboard con manejo de errores mejorado
+app.UseHangfireConfiguration(app.Environment);
+
+// Configurar jobs recurrentes si es necesario
+app.ConfigureHangfireJobs();
 
 app.MapControllers();
 
