@@ -5,7 +5,7 @@ namespace Domain.Interfaces.Notifications
     /// <summary>
     /// Servicio simplificado para notificaciones automáticas de cambios en entidades
     /// </summary>
-    public interface IEntityNotificationService : IScopedService
+    public interface IInscriptionNotificationService : IScopedService
     {
         /// <summary>
         /// Procesa notificaciones automáticas para cambios en InscriptionModality

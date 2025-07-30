@@ -20,7 +20,7 @@ namespace Application.Shared.Commands
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IProposalNotificationService? _proposalNotificationService;
-        private readonly IEntityNotificationService? _notificationService;
+        private readonly IInscriptionNotificationService? _notificationService;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<CreateEntityCommandHandler<T, TId, TDto>> _logger;
 
@@ -31,7 +31,7 @@ namespace Application.Shared.Commands
             IServiceProvider serviceProvider,
             ILogger<CreateEntityCommandHandler<T, TId, TDto>> logger,
             IProposalNotificationService? proposalNotificationService = null,
-            IEntityNotificationService? notificationService = null)
+            IInscriptionNotificationService? notificationService = null)
         {
             _repository = repository;
             _mapper = mapper;
@@ -193,7 +193,7 @@ private string ExtractConstraintName(string errorMessage)
                         {
                             // ✅ CORRECTO: Crear scope específico para background task
                             using var scope = _serviceProvider.CreateScope();
-                            var backgroundNotificationService = scope.ServiceProvider.GetRequiredService<IEntityNotificationService>();
+                            var backgroundNotificationService = scope.ServiceProvider.GetRequiredService<IInscriptionNotificationService>();
                             
                             // Para creación, usamos la misma entidad como "before" y "after"
                             await backgroundNotificationService.ProcessInscriptionModalityChangesAsync(inscriptionEntity, inscriptionEntity);

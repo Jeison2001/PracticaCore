@@ -9,16 +9,16 @@ namespace Application.Common.Services
     /// Servicio simplificado para procesar notificaciones automáticas de cambios en entidades
     /// ✅ Clean Architecture: Inyección directa de dependencias, Hangfire maneja el scope automáticamente
     /// </summary>
-    public class EntityNotificationService : IEntityNotificationService
+    public class InscriptionNotificationService : IInscriptionNotificationService
     {
         private readonly IEmailNotificationQueueService _queueService;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly ILogger<EntityNotificationService> _logger;
+        private readonly ILogger<InscriptionNotificationService> _logger;
 
-        public EntityNotificationService(
+        public InscriptionNotificationService(
             IEmailNotificationQueueService queueService,
             IUnitOfWork unitOfWork,
-            ILogger<EntityNotificationService> logger)
+            ILogger<InscriptionNotificationService> logger)
         {
             _queueService = queueService;
             _unitOfWork = unitOfWork;
@@ -29,7 +29,7 @@ namespace Application.Common.Services
         {
             try
             {
-                _logger.LogInformation("🔔 EntityNotificationService: Iniciando procesamiento de cambios en InscriptionModality");
+                _logger.LogInformation("🔔 InscriptionNotificationService: Iniciando procesamiento de cambios en InscriptionModality");
                 
                 var oldInscription = oldEntity as InscriptionModality;
                 var newInscription = newEntity as InscriptionModality;

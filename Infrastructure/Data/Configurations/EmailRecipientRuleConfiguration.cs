@@ -12,7 +12,7 @@ namespace Infrastructure.Data.Configurations
         public void Configure(EntityTypeBuilder<EmailRecipientRule> builder)
         {
             // Tabla
-            builder.ToTable("emailrecipientrule");
+            builder.ToTable("EmailRecipientRule");
             
             // Clave primaria
             builder.HasKey(e => e.Id);

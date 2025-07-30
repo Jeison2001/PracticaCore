@@ -12,7 +12,7 @@ namespace Infrastructure.Data.Configurations
         public void Configure(EntityTypeBuilder<EmailNotificationConfig> builder)
         {
             // Tabla
-            builder.ToTable("emailnotificationconfig");
+            builder.ToTable("EmailNotificationConfig");
             
             // Clave primaria
             builder.HasKey(e => e.Id);

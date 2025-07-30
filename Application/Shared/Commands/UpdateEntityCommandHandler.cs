@@ -19,7 +19,7 @@ namespace Application.Shared.Commands
         private readonly IRepository<T, TId> _repository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IEntityNotificationService? _notificationService;
+        private readonly IInscriptionNotificationService? _notificationService;
         private readonly ProposalNotificationService? _proposalNotificationService;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<UpdateEntityCommandHandler<T, TId, TDto>> _logger;
@@ -30,7 +30,7 @@ namespace Application.Shared.Commands
             IUnitOfWork unitOfWork,
             IServiceProvider serviceProvider,
             ILogger<UpdateEntityCommandHandler<T, TId, TDto>> logger,
-            IEntityNotificationService? notificationService = null,
+            IInscriptionNotificationService? notificationService = null,
             ProposalNotificationService? proposalNotificationService = null)
         {
             _repository = repository;
@@ -77,17 +77,24 @@ namespace Application.Shared.Commands
         private void ProcessNotificationsAsync(T existingEntity, T originalEntity)
         {
             // Notificación para Proposal en background
-            if (_proposalNotificationService != null && typeof(T) == typeof(Proposal))
+            if (typeof(T) == typeof(Proposal))
             {
                 var proposalEntity = existingEntity as Proposal;
                 if (proposalEntity != null)
                 {
                     _logger.LogInformation("📧 Encolando notificación para Proposal ID: {Id}", proposalEntity.Id);
+                    
+                    // ✅ SIMPLE: Fire and forget - el ProposalNotificationService maneja su propio scope
                     _ = Task.Run(async () =>
                     {
                         try
                         {
-                            await _proposalNotificationService.ProcessProposalEventAsync(proposalEntity, (Domain.Enums.StateStageEnum)proposalEntity.IdStateStage);
+                            // Crear un scope completamente nuevo para el background task
+                            using var scope = _serviceProvider.CreateScope();
+                            var backgroundProposalNotificationService = scope.ServiceProvider.GetRequiredService<IProposalNotificationService>();
+                            
+                            // El servicio maneja su propia DB connection
+                            await backgroundProposalNotificationService.ProcessProposalEventAsync(proposalEntity, (Domain.Enums.StateStageEnum)proposalEntity.IdStateStage);
                         }
                         catch (Exception ex)
                         {
@@ -113,7 +120,7 @@ namespace Application.Shared.Commands
                         {
                             // Crear un scope completamente nuevo para el background task
                             using var scope = _serviceProvider.CreateScope();
-                            var backgroundNotificationService = scope.ServiceProvider.GetRequiredService<IEntityNotificationService>();
+                            var backgroundNotificationService = scope.ServiceProvider.GetRequiredService<IInscriptionNotificationService>();
                             
                             // Ahora usar el servicio con su propio contexto
                             await backgroundNotificationService.ProcessInscriptionModalityChangesAsync(originalEntity, existingEntity);

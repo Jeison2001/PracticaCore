@@ -233,7 +233,6 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 {
                     // Log del error pero no fallar el proceso principal
                     _logger.LogError(notificationEx, "Error al enviar notificación automática para inscripción ID {InscriptionId}", inscriptionModalityId);
-                    // No re-lanzar la excepción para que la inscripción se complete exitosamente
                 }
 
                 return result;

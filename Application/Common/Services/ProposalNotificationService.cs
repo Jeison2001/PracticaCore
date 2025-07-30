@@ -25,19 +25,38 @@ namespace Application.Common.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// Procesa un evento de propuesta. 
+        /// NOTA: Este método debe ser llamado desde un scope ya establecido (ej: UpdateEntityCommandHandler)
+        /// </summary>
         public async Task ProcessProposalEventAsync(Proposal proposal, StateStageEnum stateStage, CancellationToken cancellationToken = default)
         {
             try
             {
+                _logger.LogInformation("📧 Procesando notificación para Proposal ID: {Id}", proposal.Id);
+
                 var eventData = await BuildProposalEventDataAsync(proposal, stateStage, cancellationToken);
-                var eventName = stateStage.ToString();
+                var eventName = GetEventNameFromState(stateStage);
                 var jobId = _queueService.EnqueueEventNotification(eventName, eventData);
-                _logger.LogInformation("Evento {EventName} encolado para Proposal ID: {Id}, JobId: {JobId}", eventName, proposal.Id, jobId);
+                
+                _logger.LogInformation("✅ Evento {EventName} encolado para Proposal ID: {Id}, JobId: {JobId}", eventName, proposal.Id, jobId);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "Error procesando evento de propuesta para Proposal ID: {Id}", proposal.Id);
+                _logger.LogError(ex, "❌ Error procesando evento de propuesta para Proposal ID: {Id}", proposal.Id);
+                throw; // Re-throw para que el caller maneje el error
             }
+        }
+
+        private string GetEventNameFromState(StateStageEnum stateStage)
+        {
+            return stateStage switch
+            {
+                StateStageEnum.PROP_RADICADA => "PROPOSAL_SUBMITTED",
+                StateStageEnum.PROP_PERTINENTE => "PROPOSAL_APPROVED", 
+                StateStageEnum.PROP_NO_PERTINENTE => "PROPOSAL_REJECTED",
+                _ => stateStage.ToString()
+            };
         }
 
         private async Task<Dictionary<string, object>> BuildProposalEventDataAsync(Proposal proposal, StateStageEnum stateStage, CancellationToken cancellationToken)
@@ -45,122 +64,118 @@ namespace Application.Common.Services
             var eventData = new Dictionary<string, object>();
             try
             {
+                // 🔧 EJECUTAR CONSULTAS SECUENCIALMENTE para evitar DbContext concurrency issues
+                // DbContext no es thread-safe, no podemos usar Task.WhenAll con el mismo contexto
+                
+                var studentsCount = await GetStudentsCountAsync(proposal.Id);
+                var studentData = await GetStudentDataAsync(proposal.Id);
+                var researchLineName = await GetResearchLineNameAsync(proposal.IdResearchLine);
+                var researchSubLineName = await GetResearchSubLineNameAsync(proposal.IdResearchSubLine);
+
                 // Solo los campos requeridos por las plantillas
                 eventData["ProposalTitle"] = proposal.Title;
-                eventData["StudentsCount"] = await GetStudentsCountAsync(proposal.Id);
-                eventData["StudentNames"] = await GetStudentNamesAsync(proposal.Id);
-                eventData["StudentEmails"] = await GetStudentEmailsAsync(proposal.Id);
-                eventData["ResearchLineName"] = await GetResearchLineNameAsync(proposal.IdResearchLine);
-                eventData["ResearchSubLineName"] = await GetResearchSubLineNameAsync(proposal.IdResearchSubLine);
+                eventData["StudentsCount"] = studentsCount;
+                eventData["StudentNames"] = studentData.Names;
+                eventData["StudentEmails"] = studentData.Emails;
+                eventData["ResearchLineName"] = researchLineName;
+                eventData["ResearchSubLineName"] = researchSubLineName;
                 eventData["GeneralObjective"] = proposal.GeneralObjective ?? "";
-                eventData["SpecificObjectives"] = proposal.SpecificObjectives != null ? string.Join("<br>", proposal.SpecificObjectives) : "";
-                eventData["Observation"] = proposal.Observation ?? "";
+                eventData["SpecificObjectives"] = proposal.SpecificObjectives?.Any() == true 
+                    ? string.Join("<br>", proposal.SpecificObjectives) 
+                    : "";
+                eventData["Observation"] = proposal.Observation ?? "Sin observaciones";
+
+                // Campos específicos para diferentes tipos de rechazo/observaciones
+                eventData["RejectionComments"] = proposal.Observation ?? "Revisa los requisitos y vuelve a enviar la propuesta.";
 
                 // Fechas según evento
-                if (stateStage == StateStageEnum.PROP_RADICADA)
-                    eventData["SubmissionDate"] = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
-                if (stateStage == StateStageEnum.PROP_PERTINENTE)
-                    eventData["ApprovalDate"] = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
-                if (stateStage == StateStageEnum.PROP_NO_PERTINENTE)
-                    eventData["ReviewDate"] = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
-                // Si se requiere lógica para ajustes, agregar aquí cuando el estado esté confirmado en la BD
-                // Ejemplo:
-                // if (stateStage == StateStageEnum.PROP_AJUSTES)
-                //     eventData["ReviewDate"] = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+                var currentDate = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+                switch (stateStage)
+                {
+                    case StateStageEnum.PROP_RADICADA:
+                        eventData["SubmissionDate"] = currentDate;
+                        break;
+                    case StateStageEnum.PROP_PERTINENTE:
+                        eventData["ApprovalDate"] = currentDate;
+                        break;
+                    case StateStageEnum.PROP_NO_PERTINENTE:
+                        eventData["ReviewDate"] = currentDate;
+                        break;
+                    // case StateStageEnum.PROP_AJUSTES:
+                    //     eventData["ReviewDate"] = currentDate;
+                    //     break;
+                    // Agregar más casos según sea necesario
+                }
+
+                _logger.LogInformation("✅ Event data generado para Proposal ID: {ProposalId} con {Count} placeholders", 
+                    proposal.Id, eventData.Count);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error obteniendo datos para evento de propuesta. Usando valores por defecto.");
-                eventData["ProposalTitle"] = proposal.Title;
-                eventData["StudentsCount"] = 1;
-                eventData["StudentNames"] = "Estudiante";
-                eventData["StudentEmails"] = "";
-                eventData["ResearchLineName"] = "Línea";
-                eventData["ResearchSubLineName"] = "Sub línea";
-                eventData["GeneralObjective"] = "";
-                eventData["SpecificObjectives"] = "";
-                eventData["Observation"] = "";
+                _logger.LogWarning(ex, "Error obteniendo datos para evento de propuesta ID: {ProposalId}", proposal.Id);
             }
             return eventData;
         }
 
-        private async Task<string> GetModalityNameAsync(int modalityId)
+        /// <summary>
+        /// Obtiene datos consolidados de estudiantes para una propuesta
+        /// </summary>
+        private async Task<(string Names, string Emails)> GetStudentDataAsync(int proposalId)
         {
-            var repo = _unitOfWork.GetRepository<Modality, int>();
-            var modality = await repo.GetByIdAsync(modalityId);
-            return modality?.Name ?? "Modalidad";
+            var userRepo = _unitOfWork.GetRepository<User, int>();
+            var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
+
+            // Buscar todos los usuarios asociados a esta inscripción que estén activos
+            var userInscriptions = await userInscriptionRepo.GetAllAsync(
+                ui => ui.IdInscriptionModality == proposalId && ui.StatusRegister == true);
+            
+            if (!userInscriptions.Any()) 
+            {
+                _logger.LogWarning("⚠️ No se encontraron usuarios activos para Proposal ID: {ProposalId}", proposalId);
+                return ("", "");
+            }
+            
+            var userIds = userInscriptions.Select(ui => ui.IdUser).ToList();
+            var users = await userRepo.GetAllAsync(u => userIds.Contains(u.Id));
+            
+            var names = users.Select(u => $"{u.FirstName} {u.LastName}").ToList();
+            var emails = users.Where(u => !string.IsNullOrEmpty(u.Email))
+                              .Select(u => u.Email).ToList();
+            
+            _logger.LogInformation("🔍 Encontrados {Count} estudiantes para Proposal ID: {ProposalId}", names.Count, proposalId);
+            
+            return (string.Join(", ", names), string.Join(", ", emails));
         }
 
-        private async Task<string> GetAcademicPeriodCodeAsync(int periodId)
-        {
-            var repo = _unitOfWork.GetRepository<AcademicPeriod, int>();
-            var period = await repo.GetByIdAsync(periodId);
-            return period?.Code ?? "Período";
-        }
-
+        /// <summary>
+        /// Obtiene el conteo total de estudiantes para una propuesta
+        /// </summary>
         private async Task<int> GetStudentsCountAsync(int proposalId)
         {
-            var repo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
-            var users = await repo.GetAllAsync(ui => ui.IdInscriptionModality == proposalId && ui.StatusRegister == true);
-            return users.Count();
-        }
-
-        private async Task<string> GetStudentNamesAsync(int proposalId)
-        {
-            var userRepo = _unitOfWork.GetRepository<User, int>();
             var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
-            var userInscriptions = await userInscriptionRepo.GetAllAsync(ui => ui.IdInscriptionModality == proposalId && ui.StatusRegister == true);
-            var names = new List<string>();
-            foreach (var ui in userInscriptions)
-            {
-                var user = await userRepo.GetByIdAsync(ui.IdUser);
-                if (user != null)
-                    names.Add($"{user.FirstName} {user.LastName}");
-            }
-            return string.Join(", ", names);
+            var userInscriptions = await userInscriptionRepo.GetAllAsync(
+                ui => ui.IdInscriptionModality == proposalId && ui.StatusRegister == true);
+            return userInscriptions.Count();
         }
 
-        private async Task<string> GetStudentEmailsAsync(int proposalId)
-        {
-            var userRepo = _unitOfWork.GetRepository<User, int>();
-            var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
-            var userInscriptions = await userInscriptionRepo.GetAllAsync(ui => ui.IdInscriptionModality == proposalId && ui.StatusRegister == true);
-            var emails = new List<string>();
-            foreach (var ui in userInscriptions)
-            {
-                var user = await userRepo.GetByIdAsync(ui.IdUser);
-                if (user != null && !string.IsNullOrEmpty(user.Email))
-                    emails.Add(user.Email);
-            }
-            return string.Join(", ", emails);
-        }
-
+        /// <summary>
+        /// Obtiene el nombre de línea de investigación
+        /// </summary>
         private async Task<string> GetResearchLineNameAsync(int researchLineId)
         {
-            var repo = _unitOfWork.GetRepository<ResearchLine, int>();
-            var line = await repo.GetByIdAsync(researchLineId);
-            return line?.Name ?? "Línea";
+            var researchLineRepo = _unitOfWork.GetRepository<ResearchLine, int>();
+            var researchLine = await researchLineRepo.GetByIdAsync(researchLineId);
+            return researchLine?.Name ?? "No especificada";
         }
 
+        /// <summary>
+        /// Obtiene el nombre de sublínea de investigación
+        /// </summary>
         private async Task<string> GetResearchSubLineNameAsync(int researchSubLineId)
         {
-            var repo = _unitOfWork.GetRepository<ResearchSubLine, int>();
-            var subLine = await repo.GetByIdAsync(researchSubLineId);
-            return subLine?.Name ?? "Sub línea";
+            var researchSubLineRepo = _unitOfWork.GetRepository<ResearchSubLine, int>();
+            var researchSubLine = await researchSubLineRepo.GetByIdAsync(researchSubLineId);
+            return researchSubLine?.Name ?? "No especificada";
         }
     }
-
-
-    // Usar el enum de StateStage para reflejar los estados reales de la BD
-    // El enum se encuentra en Application.Shared.DTOs.Enums.StateStageEnum
-    // Si se requiere lógica para ajustes, agregar cuando el estado esté confirmado en la BD
-
-    // public enum ProposalEventType
-    // {
-    //     PROPOSAL_SUBMITTED,
-    //     PROPOSAL_APPROVED,
-    //     PROPOSAL_REJECTED,
-    //     PROPOSAL_ADJUSTMENTS
-    // }
-
 }
