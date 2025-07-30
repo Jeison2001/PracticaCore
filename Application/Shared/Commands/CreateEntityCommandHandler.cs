@@ -5,7 +5,6 @@ using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 
@@ -19,26 +18,20 @@ namespace Application.Shared.Commands
         private readonly IRepository<T, TId> _repository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IProposalNotificationService? _proposalNotificationService;
-        private readonly IInscriptionNotificationService? _notificationService;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly INotificationDispatcher? _notificationDispatcher;
         private readonly ILogger<CreateEntityCommandHandler<T, TId, TDto>> _logger;
 
         public CreateEntityCommandHandler(
             IRepository<T, TId> repository,
             IMapper mapper,
             IUnitOfWork unitOfWork,
-            IServiceProvider serviceProvider,
             ILogger<CreateEntityCommandHandler<T, TId, TDto>> logger,
-            IProposalNotificationService? proposalNotificationService = null,
-            IInscriptionNotificationService? notificationService = null)
+            INotificationDispatcher? notificationDispatcher = null)
         {
             _repository = repository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
-            _serviceProvider = serviceProvider;
-            _proposalNotificationService = proposalNotificationService;
-            _notificationService = notificationService;
+            _notificationDispatcher = notificationDispatcher;
             _logger = logger;
         }
 
@@ -155,56 +148,29 @@ private string ExtractConstraintName(string errorMessage)
 
         private void ProcessNotificationsAsync(T entity)
         {
-            // Notificación para Proposal en background
-            if (typeof(T) == typeof(Proposal))
+            // Solo procesar Proposals - InscriptionModality manejado por handler específico
+            if (typeof(T) == typeof(Proposal) && _notificationDispatcher != null)
             {
-                var proposalEntity = entity as Proposal;
-                if (proposalEntity != null)
+                // ✅ MEJORADO: Fire-and-forget seguro con manejo de scope
+                _ = Task.Run(async () =>
                 {
-                    _logger.LogInformation("📧 Encolando notificación para Proposal ID: {Id}", proposalEntity.Id);
-                    _ = Task.Run(async () =>
+                    try
                     {
-                        try
-                        {
-                            // ✅ CORRECTO: Crear scope específico para background task
-                            using var scope = _serviceProvider.CreateScope();
-                            var backgroundProposalService = scope.ServiceProvider.GetRequiredService<IProposalNotificationService>();
-                            
-                            await backgroundProposalService.ProcessProposalEventAsync(proposalEntity, (Domain.Enums.StateStageEnum)proposalEntity.IdStateStage);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error procesando notificación para Proposal ID: {Id}", proposalEntity.Id);
-                        }
-                    });
-                }
+                        _logger.LogDebug("Dispatching creation notification for {EntityType} ID: {Id}", typeof(T).Name, entity.Id);
+                        
+                        // El dispatcher ahora maneja su propio scope internamente
+                        await _notificationDispatcher.DispatchEntityCreationAsync<T, TId>(entity);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error dispatching creation notification for {EntityType} ID: {Id}", typeof(T).Name, entity.Id);
+                    }
+                });
             }
 
-            // Notificación para InscriptionModality en background (preparado para futuro uso)
-            if (typeof(T) == typeof(InscriptionModality))
-            {
-                var inscriptionEntity = entity as InscriptionModality;
-                if (inscriptionEntity != null)
-                {
-                    _logger.LogInformation("📧 Encolando notificación para InscriptionModality ID: {Id}", inscriptionEntity.Id);
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            // ✅ CORRECTO: Crear scope específico para background task
-                            using var scope = _serviceProvider.CreateScope();
-                            var backgroundNotificationService = scope.ServiceProvider.GetRequiredService<IInscriptionNotificationService>();
-                            
-                            // Para creación, usamos la misma entidad como "before" y "after"
-                            await backgroundNotificationService.ProcessInscriptionModalityChangesAsync(inscriptionEntity, inscriptionEntity);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error procesando notificación para InscriptionModality ID: {Id}", inscriptionEntity.Id);
-                        }
-                    });
-                }
-            }
+            // ❌ ELIMINADO COMPLETAMENTE: InscriptionModality ya no se notifica aquí
+            // InscriptionModality solo se crea via CreateInscriptionWithStudentsHandler
+            // que usa InscriptionCreationService para notificaciones
         }
     }
 }

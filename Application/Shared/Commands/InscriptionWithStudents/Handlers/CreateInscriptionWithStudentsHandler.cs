@@ -17,7 +17,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
         private readonly IUserService _userService;
         private readonly IAcademicPeriodService _academicPeriodService;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IEmailNotificationQueueService _queueService;
+        private readonly IInscriptionCreationService _inscriptionCreationService;
 
         public CreateInscriptionWithStudentsHandler(
             IMediator mediator,
@@ -25,14 +25,14 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             IUserService userService,
             IAcademicPeriodService academicPeriodService,
             IUnitOfWork unitOfWork,
-            IEmailNotificationQueueService queueService)
+            IInscriptionCreationService inscriptionCreationService)
         {
             _mediator = mediator;
             _logger = logger;
             _userService = userService;
             _academicPeriodService = academicPeriodService;
             _unitOfWork = unitOfWork;
-            _queueService = queueService;
+            _inscriptionCreationService = inscriptionCreationService;
         }        public async Task<InscriptionWithStudentsDto> Handle(
             CreateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
@@ -194,40 +194,15 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 // 5. Enviar notificación automática después de crear exitosamente la inscripción
                 try
                 {
-                    // Obtener información adicional para la notificación
-                    var academicPeriod = await _academicPeriodService.GetAcademicPeriodByIdAsync(academicPeriodId);
+                    var studentIds = userDictionary.Values.Select(u => u.Id);
+                    await _inscriptionCreationService.ProcessInscriptionCreationAsync(
+                        inscriptionModalityId, 
+                        request.Dto.InscriptionModality.IdModality,
+                        academicPeriodId,
+                        studentIds,
+                        cancellationToken);
                     
-                    var studentsInfo = request.Dto.Students.Select(studentDto => 
-                    {
-                        var userInfo = userDictionary[studentDto.Identification];
-                        var user = usersDict[userInfo.Id];
-                        return new { 
-                            Name = $"{user.FirstName} {user.LastName}",
-                            Email = user.Email,
-                            Identification = studentDto.Identification
-                        };
-                    }).ToList();
-
-                    // Preparar datos del evento para INSCRIPTION_CREATED - solo campos necesarios
-                    var eventData = new Dictionary<string, object>
-                    {
-                        // Datos básicos de la inscripción
-                        ["InscriptionId"] = inscriptionModalityId,
-                        ["ModalityName"] = modality.Name,
-                        ["AcademicPeriod"] = academicPeriod?.Code ?? "N/A",
-                        ["InscriptionDate"] = DateTime.Now.ToString("dd/MM/yyyy HH:mm"),
-                        
-                        // Información de estudiantes (agregada)
-                        ["StudentsCount"] = studentsInfo.Count,
-                        ["StudentNames"] = string.Join(", ", studentsInfo.Select(s => s.Name)),
-                        ["StudentEmails"] = string.Join(", ", studentsInfo.Select(s => s.Email))
-                    };
-
-                    // Encolar evento de notificación para procesamiento asíncrono
-                    var jobId = _queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
-                    
-                    _logger.LogInformation("Notificación automática encolada para inscripción ID {InscriptionId} con JobId: {JobId}", 
-                        inscriptionModalityId, jobId);
+                    _logger.LogInformation("Notificación automática procesada para inscripción ID {InscriptionId}", inscriptionModalityId);
                 }
                 catch (Exception notificationEx)
                 {
