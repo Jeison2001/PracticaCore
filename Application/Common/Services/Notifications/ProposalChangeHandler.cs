@@ -44,12 +44,16 @@ namespace Application.Common.Services.Notifications
 
         public async Task HandleCreationAsync(Proposal entity, CancellationToken cancellationToken = default)
         {
-            // Lógica específica para creación de propuestas si es necesaria
-            var eventData = await _eventDataBuilder.BuildProposalEventDataAsync(entity.Id, "PROPOSAL_CREATED");
-            var jobId = _queueService.EnqueueEventNotification("PROPOSAL_CREATED", eventData);
-            
-            _logger.LogInformation("Propuesta creada - Evento PROPOSAL_CREATED encolado para ID: {ProposalId}, JobId: {JobId}", 
-                entity.Id, jobId);
+            var eventName = GetProposalEventName((StateStageEnum)entity.IdStateStage);
+            if (!string.IsNullOrEmpty(eventName))
+            {
+                // Lógica específica para creación de propuestas si es necesaria
+                var eventData = await _eventDataBuilder.BuildProposalEventDataAsync(entity.Id, eventName);
+                var jobId = _queueService.EnqueueEventNotification(eventName, eventData);
+
+                _logger.LogInformation("Propuesta creada - Evento {EventName} encolado para ID: {ProposalId}, JobId: {JobId}",
+                    eventName, entity.Id, jobId);
+            }
         }
 
         private string GetProposalEventName(StateStageEnum stateStage)
