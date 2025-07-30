@@ -11,12 +11,12 @@ namespace Application.Common.Services
     /// </summary>
     public class NotificationDispatcher : INotificationDispatcher
     {
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly ILogger<NotificationDispatcher> _logger;
 
-        public NotificationDispatcher(IServiceProvider serviceProvider, ILogger<NotificationDispatcher> logger)
+        public NotificationDispatcher(IServiceScopeFactory serviceScopeFactory, ILogger<NotificationDispatcher> logger)
         {
-            _serviceProvider = serviceProvider;
+            _serviceScopeFactory = serviceScopeFactory;
             _logger = logger;
         }
 
@@ -26,8 +26,8 @@ namespace Application.Common.Services
         {
             try
             {
-                // ✅ CRÍTICO: Crear nuevo scope para evitar ObjectDisposedException
-                using var scope = _serviceProvider.CreateScope();
+                // ✅ CRÍTICO: Usar IServiceScopeFactory para crear scope independiente
+                using var scope = _serviceScopeFactory.CreateScope();
                 var handler = scope.ServiceProvider.GetService<IEntityChangeHandler<T, TId>>();
                 
                 if (handler != null)
@@ -54,8 +54,8 @@ namespace Application.Common.Services
         {
             try
             {
-                // ✅ CRÍTICO: Crear nuevo scope para evitar ObjectDisposedException
-                using var scope = _serviceProvider.CreateScope();
+                // ✅ CRÍTICO: Usar IServiceScopeFactory para crear scope independiente
+                using var scope = _serviceScopeFactory.CreateScope();
                 var handler = scope.ServiceProvider.GetService<IEntityChangeHandler<T, TId>>();
                 
                 if (handler != null)
