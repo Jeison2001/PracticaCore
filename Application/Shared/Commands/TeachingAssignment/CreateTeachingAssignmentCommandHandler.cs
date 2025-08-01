@@ -2,7 +2,9 @@ using Application.Shared.DTOs.TeachingAssignment;
 using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Interfaces.Notifications;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Shared.Commands.TeachingAssignment
 {
@@ -12,17 +14,23 @@ namespace Application.Shared.Commands.TeachingAssignment
         private readonly IRepository<TypeTeachingAssignment, int> _typeRepository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly INotificationDispatcher _notificationDispatcher;
+        private readonly ILogger<CreateTeachingAssignmentCommandHandler> _logger;
 
         public CreateTeachingAssignmentCommandHandler(
             ITeachingAssignmentRepository repository,
             IRepository<TypeTeachingAssignment, int> typeRepository,
             IMapper mapper,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            INotificationDispatcher notificationDispatcher,
+            ILogger<CreateTeachingAssignmentCommandHandler> logger)
         {
             _repository = repository;
             _typeRepository = typeRepository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
+            _notificationDispatcher = notificationDispatcher;
+            _logger = logger;
         }
 
         public async Task<TeachingAssignmentDto> Handle(CreateTeachingAssignmentCommand request, CancellationToken cancellationToken)
@@ -59,7 +67,31 @@ namespace Application.Shared.Commands.TeachingAssignment
             var entity = _mapper.Map<Domain.Entities.TeachingAssignment>(dto);
             await _repository.AddAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
+
+            // Procesar notificaciones en background
+            ProcessNotificationsAsync(entity);
+
             return _mapper.Map<TeachingAssignmentDto>(entity);
+        }
+
+        private void ProcessNotificationsAsync(Domain.Entities.TeachingAssignment entity)
+        {
+            if (_notificationDispatcher != null)
+            {
+                // ✅ Fire-and-forget seguro con manejo de scope
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        _logger.LogDebug("Dispatching creation notification for TeachingAssignment ID: {AssignmentId}", entity.Id);
+                        await _notificationDispatcher.DispatchEntityCreationAsync<Domain.Entities.TeachingAssignment, int>(entity);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error dispatching creation notification for TeachingAssignment ID: {AssignmentId}", entity.Id);
+                    }
+                });
+            }
         }
     }
 }
