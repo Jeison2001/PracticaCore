@@ -59,9 +59,11 @@ namespace Application.Shared.Commands.TeachingAssignment
             if (exists != null)
                 return _mapper.Map<TeachingAssignmentDto>(entity);
 
+            // Copia profunda del estado original ANTES de modificar
+            var originalEntityJson = System.Text.Json.JsonSerializer.Serialize(entity);
+            var originalEntity = System.Text.Json.JsonSerializer.Deserialize<Domain.Entities.TeachingAssignment>(originalEntityJson)!;
 
             // Mapear cambios
-            var originalEntity = _mapper.Map<Domain.Entities.TeachingAssignment>(entity);
             _mapper.Map(dto, entity);
             await _repository.UpdateAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);

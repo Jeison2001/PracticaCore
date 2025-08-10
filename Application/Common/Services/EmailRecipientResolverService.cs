@@ -131,6 +131,27 @@ namespace Application.Common.Services
                     case "STUDENT_ASSIGNED":
                         emails.AddRange(await GetStudentAssignedEmailsAsync(eventData));
                         break;
+                    case "ASSIGNED_TEACHER":
+                        emails.AddRange(await GetAssignedTeacherEmailsAsync(eventData));
+                        break;
+                    case "UNASSIGNED_TEACHER":
+                        emails.AddRange(await GetUnassignedTeacherEmailsAsync(eventData));
+                        break;
+                    case "EVALUATOR_ASSIGNED":
+                        emails.AddRange(await GetTeachersByAssignmentTypeAsync(eventData, "EVALUADOR"));
+                        break;
+                    case "JURY_EVALUATOR_ASSIGNED":
+                        emails.AddRange(await GetTeachersByAssignmentTypeAsync(eventData, "JURADO_EVALUADOR"));
+                        break;
+                    case "DIRECTOR_ASSIGNED":
+                        emails.AddRange(await GetTeachersByAssignmentTypeAsync(eventData, "DIRECTOR"));
+                        break;
+                    case "CO_DIRECTOR_ASSIGNED":
+                        emails.AddRange(await GetTeachersByAssignmentTypeAsync(eventData, "CO_DIRECTOR"));
+                        break;
+                    case "ASESOR_ASSIGNED":
+                        emails.AddRange(await GetTeachersByAssignmentTypeAsync(eventData, "ASESOR"));
+                        break;
                     // Agregar más casos según necesidades
                 }
             }
@@ -278,10 +299,30 @@ namespace Application.Common.Services
 
         private async Task<List<string>> GetStudentAssignedEmailsAsync(Dictionary<string, object> eventData)
         {
-            // Implementar lógica para obtener emails de estudiantes asignados
             var emails = new List<string>();
             
-            if (eventData.ContainsKey("StudentId"))
+            // Manejo de múltiples estudiantes (nuevo - para asignaciones docentes)
+            if (eventData.ContainsKey("StudentEmails"))
+            {
+                var studentEmails = eventData["StudentEmails"]?.ToString();
+                if (!string.IsNullOrEmpty(studentEmails))
+                {
+                    var emailList = studentEmails.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                               .Select(e => e.Trim())
+                                               .Where(e => !string.IsNullOrEmpty(e))
+                                               .ToList();
+                    emails.AddRange(emailList);
+                    
+                    _logger.LogInformation("📧 Emails de estudiantes asignados: {Count} emails encontrados", emailList.Count);
+                    foreach (var email in emailList)
+                    {
+                        _logger.LogInformation("  → {Email}", email);
+                    }
+                }
+            }
+            
+            // Manejo de estudiante individual (legacy - mantener compatibilidad)
+            if (!emails.Any() && eventData.ContainsKey("StudentId"))
             {
                 var studentId = Convert.ToInt32(eventData["StudentId"]);
                 var userRepo = _unitOfWork.GetRepository<User, int>();
@@ -290,7 +331,136 @@ namespace Application.Common.Services
                 if (student != null && !string.IsNullOrEmpty(student.Email))
                 {
                     emails.Add(student.Email);
+                    _logger.LogInformation("📧 Email individual de estudiante por ID: {Email}", student.Email);
                 }
+            }
+            
+            // Fallback: usar email individual si no hay múltiples ni ID
+            if (!emails.Any() && eventData.ContainsKey("StudentEmail"))
+            {
+                var email = eventData["StudentEmail"]?.ToString();
+                if (!string.IsNullOrEmpty(email))
+                {
+                    emails.Add(email);
+                    _logger.LogInformation("📧 Email individual de estudiante (fallback): {Email}", email);
+                }
+            }
+
+            return emails;
+        }
+
+        private async Task<List<string>> GetAssignedTeacherEmailsAsync(Dictionary<string, object> eventData)
+        {
+            var emails = new List<string>();
+            
+            // Obtener email del docente asignado
+            if (eventData.ContainsKey("TeacherEmail"))
+            {
+                var teacherEmail = eventData["TeacherEmail"]?.ToString();
+                if (!string.IsNullOrEmpty(teacherEmail))
+                {
+                    emails.Add(teacherEmail);
+                    _logger.LogInformation("📧 Email del docente asignado: {Email}", teacherEmail);
+                }
+            }
+
+            return emails;
+        }
+
+        private async Task<List<string>> GetUnassignedTeacherEmailsAsync(Dictionary<string, object> eventData)
+        {
+            var emails = new List<string>();
+            
+            // Obtener email del docente que fue desasignado
+            if (eventData.ContainsKey("UnassignedTeacherEmail"))
+            {
+                var teacherEmail = eventData["UnassignedTeacherEmail"]?.ToString();
+                if (!string.IsNullOrEmpty(teacherEmail))
+                {
+                    emails.Add(teacherEmail);
+                    _logger.LogInformation("📧 Email del docente desasignado: {Email}", teacherEmail);
+                }
+            }
+            // Fallback usando TeacherEmail para compatibilidad
+            else if (eventData.ContainsKey("TeacherEmail"))
+            {
+                var teacherEmail = eventData["TeacherEmail"]?.ToString();
+                if (!string.IsNullOrEmpty(teacherEmail))
+                {
+                    emails.Add(teacherEmail);
+                    _logger.LogInformation("📧 Email del docente (fallback): {Email}", teacherEmail);
+                }
+            }
+
+            return emails;
+        }
+
+        /// <summary>
+        /// Obtiene emails de docentes asignados según el tipo de asignación
+        /// Método genérico que maneja DIRECTOR, EVALUADOR, JURADO_EVALUADOR, etc.
+        /// </summary>
+        /// <param name="eventData">Datos del evento que debe contener InscriptionModalityId</param>
+        /// <param name="assignmentTypeCode">Código del tipo de asignación (DIRECTOR, EVALUADOR, JURADO_EVALUADOR, etc.)</param>
+        /// <returns>Lista de emails de los docentes asignados</returns>
+        private async Task<List<string>> GetTeachersByAssignmentTypeAsync(Dictionary<string, object> eventData, string assignmentTypeCode)
+        {
+            var emails = new List<string>();
+            
+            try
+            {
+                if (!eventData.ContainsKey("InscriptionModalityId"))
+                {
+                    _logger.LogWarning("⚠️ No se encontró InscriptionModalityId en eventData para obtener docentes del tipo: {AssignmentType}", assignmentTypeCode);
+                    return emails;
+                }
+
+                var inscriptionModalityId = Convert.ToInt32(eventData["InscriptionModalityId"]);
+                
+                var teachingAssignmentRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
+                var typeTeachingAssignmentRepo = _unitOfWork.GetRepository<TypeTeachingAssignment, int>();
+                var userRepo = _unitOfWork.GetRepository<User, int>();
+
+                // Buscar el tipo de asignación por código
+                var assignmentType = await typeTeachingAssignmentRepo.GetFirstOrDefaultAsync(
+                    tta => tta.Code == assignmentTypeCode, 
+                    CancellationToken.None);
+
+                if (assignmentType == null)
+                {
+                    _logger.LogWarning("⚠️ No se encontró TypeTeachingAssignment con código: {AssignmentTypeCode}", assignmentTypeCode);
+                    return emails;
+                }
+
+                // Obtener asignaciones de docentes para esta inscripción y tipo
+                var assignments = await teachingAssignmentRepo.GetAllAsync(
+                    filter: ta => ta.IdInscriptionModality == inscriptionModalityId && 
+                                 ta.IdTypeTeachingAssignment == assignmentType.Id &&
+                                 ta.StatusRegister);
+
+                if (!assignments.Any())
+                {
+                    _logger.LogWarning("⚠️ No se encontraron asignaciones del tipo {AssignmentType} para InscriptionModalityId: {Id}", 
+                        assignmentTypeCode, inscriptionModalityId);
+                    return emails;
+                }
+
+                var teacherIds = assignments.Select(ta => ta.IdTeacher).ToList();
+                var teachers = await userRepo.GetAllAsync(
+                    filter: u => teacherIds.Contains(u.Id) && u.StatusRegister);
+
+                emails.AddRange(teachers.Select(t => t.Email).Where(email => !string.IsNullOrEmpty(email)));
+                
+                _logger.LogInformation("📧 Docentes del tipo {AssignmentType} encontrados: {Count} emails", 
+                    assignmentTypeCode, emails.Count);
+                
+                foreach (var email in emails)
+                {
+                    _logger.LogInformation("  → {AssignmentType}: {Email}", assignmentTypeCode, email);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error obteniendo emails de docentes del tipo: {AssignmentType}", assignmentTypeCode);
             }
 
             return emails;

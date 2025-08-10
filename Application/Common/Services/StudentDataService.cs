@@ -66,16 +66,14 @@ namespace Application.Common.Services
         {
             try
             {
-                // Migrar lógica desde InscriptionNotificationService.AddStudentDataAsync()
+                // Obtener usuarios asociados a la InscriptionModality (solo activos)
                 var userInscriptionModalityRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
-                
-                // Obtener usuarios asociados a la inscripción
                 var userInscriptions = await userInscriptionModalityRepo
-                    .GetAllAsync(uim => uim.IdInscriptionModality == inscriptionId);
+                    .GetAllAsync(uim => uim.IdInscriptionModality == inscriptionId && uim.StatusRegister);
 
                 if (!userInscriptions.Any())
                 {
-                    _logger.LogDebug("No students found for Inscription ID: {InscriptionId}", inscriptionId);
+                    _logger.LogDebug("No students found for InscriptionModality ID: {InscriptionModalityId}", inscriptionId);
                     return (string.Empty, string.Empty, 0);
                 }
 
@@ -84,7 +82,7 @@ namespace Application.Common.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving student data for Inscription ID: {InscriptionId}", inscriptionId);
+                _logger.LogError(ex, "Error retrieving student data for InscriptionModality ID: {InscriptionModalityId}", inscriptionId);
                 return (string.Empty, string.Empty, 0);
             }
         }

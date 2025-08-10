@@ -26,9 +26,10 @@ namespace Infrastructure.Services.Storage
 
         public async Task<string> SaveFileAsync(Stream fileStream, string fileName, CancellationToken cancellationToken)
         {
-            var blobClient = _containerClient.GetBlobClient(fileName);
+            var uniqueFileName = $"{Guid.NewGuid()}{Path.GetExtension(fileName)}";
+            var blobClient = _containerClient.GetBlobClient(uniqueFileName);
             await blobClient.UploadAsync(fileStream, overwrite: true, cancellationToken);
-            return !string.IsNullOrEmpty(_baseUrl) ? $"{_baseUrl}/{fileName}" : blobClient.Uri.ToString();
+            return uniqueFileName;
         }
 
         public async Task<Stream> GetFileAsync(string fileName, CancellationToken cancellationToken)

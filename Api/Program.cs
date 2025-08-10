@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Hangfire;
-using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,8 +17,9 @@ builder.Services.AddApplicationLayer();
 // Registramos los servicios de caché
 builder.Services.AddCacheServices();
 
-// Configurar Hangfire con configuraciones robustas
-builder.Services.AddHangfireConfiguration(builder.Configuration);
+// Configurar Hangfire
+builder.Services.AddHangfireDefault(builder.Configuration);
+builder.Services.AddHangfireServer();
 
 // Add CORS configuration
 builder.Services.AddCors(options =>
@@ -115,8 +115,7 @@ app.UseAuthorization();
 // Configurar Hangfire Dashboard con manejo de errores mejorado
 app.UseHangfireConfiguration(app.Environment);
 
-// Configurar jobs recurrentes si es necesario
-app.ConfigureHangfireJobs();
+
 
 app.MapControllers();
 

@@ -1,5 +1,6 @@
 using Domain.Interfaces.Notifications;
 using Infrastructure.Services.Notifications;
+using Application.Common.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,14 @@ namespace Infrastructure.Extensions
 
             // Registrar el servicio SMTP
             services.AddScoped<INotificationService, SmtpNotificationService>();
+
+            // Registrar servicios de cola de notificaciones
+            services.AddScoped<IEmailNotificationQueueService, EmailNotificationQueueService>();
+            services.AddScoped<IEmailNotificationEventService, EmailNotificationEventService>();
+
+            // Registrar constructores de datos de eventos
+            services.AddScoped<IPreliminaryProjectEventDataBuilder, PreliminaryProjectEventDataBuilder>();
+            services.AddScoped<IProjectFinalEventDataBuilder, ProjectFinalEventDataBuilder>();
 
             // Nota: Las implementaciones deben leer SIEMPRE de EmailNotification:SmtpSettings
             // Ejemplo: configuration.GetSection("EmailNotification:SmtpSettings")
