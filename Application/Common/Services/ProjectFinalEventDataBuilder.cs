@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using Microsoft.Extensions.Logging;
@@ -151,14 +152,19 @@ namespace Application.Common.Services
         /// </summary>
         private string GetEvaluationResultText(string stateCode)
         {
-            return stateCode switch
+            if (Enum.TryParse<StateStageCodeEnum>(stateCode, out var code))
             {
-                "PFINF_INFORME_APROBADO" => "APROBADO",
-                "PFINF_INFORME_CON_OBSERVACIONES" => "CON OBSERVACIONES",
-                "PFINF_RADICADO_EN_EVALUACION" => "EN EVALUACIÓN",
-                "PFINF_PENDIENTE_INFORME" => "PENDIENTE INFORME",
-                _ => "ESTADO DESCONOCIDO"
-            };
+                return code switch
+                {
+                    StateStageCodeEnum.PFINF_INFORME_APROBADO => "APROBADO",
+                    StateStageCodeEnum.PFINF_INFORME_CON_OBSERVACIONES => "CON OBSERVACIONES",
+                    StateStageCodeEnum.PFINF_RADICADO_EN_EVALUACION => "EN EVALUACIÓN",
+                    StateStageCodeEnum.PFINF_PENDIENTE_INFORME => "PENDIENTE INFORME",
+                    _ => "ESTADO DESCONOCIDO"
+                };
+            }
+
+            return "ESTADO DESCONOCIDO";
         }
     }
 }

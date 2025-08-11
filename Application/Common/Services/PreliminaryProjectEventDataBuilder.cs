@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using Microsoft.Extensions.Logging;
@@ -150,15 +151,20 @@ namespace Application.Common.Services
         /// </summary>
         private string GetEvaluationResultText(string stateCode)
         {
-            return stateCode switch
+            if (Enum.TryParse<StateStageCodeEnum>(stateCode, out var code))
             {
-                "AP_APROBADO" => "APROBADO",
-                "AP_CON_OBSERVACIONES" => "CON OBSERVACIONES",
-                "AP_EN_EVALUACION" => "EN EVALUACIÓN",
-                "AP_RADICADO_PEND_ASIG_EVAL" => "RADICADO - PENDIENTE ASIGNACIÓN",
-                "AP_PENDIENTE_DOCUMENTO" => "PENDIENTE DOCUMENTO",
-                _ => "ESTADO DESCONOCIDO"
-            };
+                return code switch
+                {
+                    StateStageCodeEnum.AP_APROBADO => "APROBADO",
+                    StateStageCodeEnum.AP_CON_OBSERVACIONES => "CON OBSERVACIONES",
+                    StateStageCodeEnum.AP_EN_EVALUACION => "EN EVALUACIÓN",
+                    StateStageCodeEnum.AP_RADICADO_PEND_ASIG_EVAL => "RADICADO - PENDIENTE ASIGNACIÓN",
+                    StateStageCodeEnum.AP_PENDIENTE_DOCUMENTO => "PENDIENTE DOCUMENTO",
+                    _ => "ESTADO DESCONOCIDO"
+                };
+            }
+
+            return "ESTADO DESCONOCIDO";
         }
     }
 }

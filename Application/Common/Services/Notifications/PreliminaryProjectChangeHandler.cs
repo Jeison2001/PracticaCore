@@ -1,4 +1,6 @@
 using Domain.Entities;
+using Domain.Enums;
+using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using Microsoft.Extensions.Logging;
 
@@ -12,15 +14,18 @@ namespace Application.Common.Services.Notifications
     {
         private readonly IEmailNotificationQueueService _queueService;
         private readonly IPreliminaryProjectEventDataBuilder _eventDataBuilder;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<PreliminaryProjectChangeHandler> _logger;
 
         public PreliminaryProjectChangeHandler(
             IEmailNotificationQueueService queueService,
             IPreliminaryProjectEventDataBuilder eventDataBuilder,
+            IUnitOfWork unitOfWork,
             ILogger<PreliminaryProjectChangeHandler> logger)
         {
             _queueService = queueService;
             _eventDataBuilder = eventDataBuilder;
+            _unitOfWork = unitOfWork;
             _logger = logger;
         }
 
@@ -31,7 +36,7 @@ namespace Application.Common.Services.Notifications
             // Solo procesar si cambió el estado
             if (oldEntity.IdStateStage != newEntity.IdStateStage)
             {
-                var eventName = GetPreliminaryProjectEventName(newEntity.IdStateStage);
+                var eventName = await GetPreliminaryProjectEventNameAsync(newEntity.IdStateStage, cancellationToken);
                 if (!string.IsNullOrEmpty(eventName))
                 {
                     var eventData = await _eventDataBuilder.BuildPreliminaryProjectEventDataAsync(newEntity.Id, eventName);
@@ -64,7 +69,7 @@ namespace Application.Common.Services.Notifications
             _logger.LogInformation("🔄 Iniciando procesamiento de notificaciones para nuevo PreliminaryProject ID: {PreliminaryProjectId}", entity.Id);
 
             // Para nuevos anteproyectos, considerar notificar según el estado inicial
-            var eventName = GetPreliminaryProjectEventName(entity.IdStateStage);
+            var eventName = await GetPreliminaryProjectEventNameAsync(entity.IdStateStage, cancellationToken);
             if (!string.IsNullOrEmpty(eventName))
             {
                 var eventData = await _eventDataBuilder.BuildPreliminaryProjectEventDataAsync(entity.Id, eventName);
@@ -83,28 +88,33 @@ namespace Application.Common.Services.Notifications
         /// <summary>
         /// Mapea el estado del anteproyecto a un nombre de evento
         /// </summary>
-        private string GetPreliminaryProjectEventName(int stateStageId)
+        private async Task<string> GetPreliminaryProjectEventNameAsync(int stateStageId, CancellationToken cancellationToken)
         {
-            // Mapeo basado en los eventos configurados en EmailNotificationConfig
-            // IMPORTANTE: Estos IDs deben ser actualizados con los valores reales de la BD
-            // Ejecutar script: Tables v2/50_GET_STATESTAGE_IDS_FOR_HANDLERS.sql para obtener IDs correctos
-            
-            return stateStageId switch
+            // Resolver por código del estado para evitar dependencia de IDs entre ambientes
+            try
             {
-                // TODO: CONFIGURAR CON IDs REALES DE StateStage - Valores de ejemplo:
-                // Ejemplo: si AP_RADICADO_PEND_ASIG_EVAL tiene ID=6, cambiar por: 6 => "ANTEPROYECTO_SUBMITTED",
-                
-                // ⚠️ TEMPORAL - Usar IDs reales de StateStage:
-                // [ID_AP_RADICADO_PEND_ASIG_EVAL] => "ANTEPROYECTO_SUBMITTED",
-                // [ID_AP_APROBADO] => "ANTEPROYECTO_EVALUATION_RESULT",  
-                // [ID_AP_CON_OBSERVACIONES] => "ANTEPROYECTO_EVALUATION_RESULT",
-                
-                _ => string.Empty // No generar evento para otros estados
-            };
-            
-            // EVENTOS CONFIGURADOS DISPONIBLES:
-            // - "ANTEPROYECTO_SUBMITTED": Notifica al comité para asignación de evaluadores
-            // - "ANTEPROYECTO_EVALUATION_RESULT": Notifica al estudiante del resultado de evaluación
+                var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
+                var stateStage = await stateStageRepo.GetByIdAsync(stateStageId);
+                var code = stateStage?.Code;
+
+                if (!string.IsNullOrWhiteSpace(code) && Enum.TryParse<StateStageCodeEnum>(code, out var stateCode))
+                {
+                    return stateCode switch
+                    {
+                        StateStageCodeEnum.AP_RADICADO_PEND_ASIG_EVAL => "ANTEPROYECTO_SUBMITTED",
+                        StateStageCodeEnum.AP_APROBADO => "ANTEPROYECTO_EVALUATION_RESULT",
+                        StateStageCodeEnum.AP_CON_OBSERVACIONES => "ANTEPROYECTO_EVALUATION_RESULT",
+                        _ => string.Empty
+                    };
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resolving PreliminaryProject event name for StateStageId {StateStageId}", stateStageId);
+                return string.Empty;
+            }
         }
     }
 }
