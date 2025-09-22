@@ -45,6 +45,8 @@ namespace Application.Shared.Queries.PreliminaryProject.Handlers
                         Id = e.Proposal.Id,
                         Title = e.Proposal.Title,
                         Description = e.Proposal.Description,
+                        GeneralObjective = e.Proposal.GeneralObjective,
+                        SpecificObjectives = e.Proposal.SpecificObjectives,
                         IdResearchLine = e.Proposal.IdResearchLine,
                         IdResearchSubLine = e.Proposal.IdResearchSubLine,
                         IdStateStage = e.Proposal.IdStateStage

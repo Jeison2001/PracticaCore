@@ -32,6 +32,7 @@ namespace Infrastructure.Extensions
             // Registrar constructores de datos de eventos
             services.AddScoped<IPreliminaryProjectEventDataBuilder, PreliminaryProjectEventDataBuilder>();
             services.AddScoped<IProjectFinalEventDataBuilder, ProjectFinalEventDataBuilder>();
+            services.AddScoped<IAcademicPracticeEventDataBuilder, AcademicPracticeEventDataBuilder>();
 
             // Nota: Las implementaciones deben leer SIEMPRE de EmailNotification:SmtpSettings
             // Ejemplo: configuration.GetSection("EmailNotification:SmtpSettings")

@@ -1,6 +1,7 @@
-using Application.Shared.Commands.AcademicPractice;
 using Application.Shared.DTOs.AcademicPractice;
+using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Interfaces.Notifications;
 using MediatR;
 
 namespace Application.Shared.Commands.AcademicPractice.Handlers
@@ -8,35 +9,54 @@ namespace Application.Shared.Commands.AcademicPractice.Handlers
     public class UpdateAcademicPracticeInstitutionCommandHandler : IRequestHandler<UpdateAcademicPracticeInstitutionCommand, bool>
     {
         private readonly IAcademicPracticeRepository _academicPracticeRepository;
-        private readonly IUnitOfWork _unitOfWork;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly INotificationDispatcher _notificationDispatcher;
 
         public UpdateAcademicPracticeInstitutionCommandHandler(
             IAcademicPracticeRepository academicPracticeRepository,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            INotificationDispatcher notificationDispatcher)
         {
             _academicPracticeRepository = academicPracticeRepository;
             _unitOfWork = unitOfWork;
+            _notificationDispatcher = notificationDispatcher;
         }
 
         public async Task<bool> Handle(UpdateAcademicPracticeInstitutionCommand request, CancellationToken cancellationToken)
         {
             var dto = request.Dto;
             var academicPractice = await _academicPracticeRepository.GetByIdAsync(dto.Id);
-            
             if (academicPractice == null)
                 return false;
 
-            // Update institution information
+            // Snapshot para notificaciones (copia superficial suficiente para comparar IdStateStage)
+            var originalEntity = new Domain.Entities.AcademicPractice
+            {
+                Id = academicPractice.Id,
+                IdStateStage = academicPractice.IdStateStage
+            };
+
+            // Actualizar campos de institución
             UpdateInstitutionFields(academicPractice, dto);
-            
-            // Update tracking fields
+
+            // Cambiar de estado si se especifica (ej: pasar a PA_PEND_APROBACION_DOCUMENTOS después de radicar docs)
+            if (dto.NewStateStageId.HasValue && dto.NewStateStageId.Value > 0 && dto.NewStateStageId.Value != academicPractice.IdStateStage)
+            {
+                academicPractice.IdStateStage = dto.NewStateStageId.Value;
+            }
+
+            // Tracking
             UpdateTrackingFields(academicPractice, dto);
-            
-            // Ensure all dates in entity are UTC
             NormalizeAllDatesToUtc(academicPractice);
 
             await _academicPracticeRepository.UpdateAsync(academicPractice);
             await _unitOfWork.CommitAsync(cancellationToken);
+
+            // Despachar notificación si hubo cambio de estado
+            if (originalEntity.IdStateStage != academicPractice.IdStateStage)
+            {
+                await _notificationDispatcher.DispatchEntityChangeAsync<Domain.Entities.AcademicPractice, int>(originalEntity, academicPractice, cancellationToken);
+            }
 
             return true;
         }

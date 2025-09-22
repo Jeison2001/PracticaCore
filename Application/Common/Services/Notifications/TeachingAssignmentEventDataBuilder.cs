@@ -110,6 +110,19 @@ namespace Application.Common.Services.Notifications
         {
             try
             {
+                // Si la modalidad es PRACTICA_ACADEMICA intentar obtener el título directamente de AcademicPractice
+                var modalityRepoLocal = _unitOfWork.GetRepository<Modality, int>();
+                var modalityLocal = await modalityRepoLocal.GetByIdAsync(inscription.IdModality);
+                if (modalityLocal?.Code == "PRACTICA_ACADEMICA")
+                {
+                    var practiceRepo = _unitOfWork.GetRepository<AcademicPractice, int>();
+                    var practice = await practiceRepo.GetByIdAsync(inscription.Id);
+                    if (practice != null && !string.IsNullOrWhiteSpace(practice.Title))
+                    {
+                        return practice.Title;
+                    }
+                }
+
                 // Verificar si tiene propuesta
                 var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
                 var proposal = await proposalRepo.GetFirstOrDefaultAsync(p => p.InscriptionModality.Id == inscription.Id, CancellationToken.None);
@@ -140,10 +153,9 @@ namespace Application.Common.Services.Notifications
                 }
 
                 // Si no tiene ningún proyecto específico, usar información de la modalidad
-                var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
-                var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
-                
-                return $"Trabajo de {modality?.Name ?? "modalidad"} - Inscripción #{inscription.Id}";
+                // Reusar modalidad ya obtenida (o recargar si no estaba)
+                var modalityFallback = modalityLocal ?? await modalityRepoLocal.GetByIdAsync(inscription.IdModality);
+                return $"Trabajo de {modalityFallback?.Name ?? "modalidad"} - Inscripción #{inscription.Id}";
             }
             catch (Exception ex)
             {
