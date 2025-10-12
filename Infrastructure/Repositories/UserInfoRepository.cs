@@ -117,6 +117,10 @@ namespace Infrastructure.Repositories
             if (user != null)
                 return user;
 
+            // Generar un número aleatorio de 10 dígitos
+            var random = new Random();
+            var tempIdentification = random.Next(1000000000, int.MaxValue).ToString();
+
             // Crear nuevo usuario con datos básicos
             user = new User
             {
@@ -125,7 +129,7 @@ namespace Infrastructure.Repositories
                 LastName = lastName,
                 // Valores por defecto para campos requeridos
                 IdIdentificationType = 1, // Asume que existe al menos un tipo de identificación
-                Identification = "Por asignar",
+                Identification = tempIdentification,
                 IdAcademicProgram = 1 // Asume que existe al menos un programa académico
             };
 
