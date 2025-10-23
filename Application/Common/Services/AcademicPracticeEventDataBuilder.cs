@@ -94,8 +94,6 @@ namespace Application.Common.Services
                     // PLACEHOLDERS DINÁMICOS PARA TEMPLATES GENÉRICOS
                     ["Phase"] = phaseInfo.Phase,
                     ["PhaseDescription"] = phaseInfo.PhaseDescription,
-                    ["DocumentsReceived"] = phaseInfo.DocumentsReceived,
-                    ["EvaluationTime"] = phaseInfo.EvaluationTime,
                     ["NextSteps"] = phaseInfo.NextSteps,
                     ["ObservationAction"] = phaseInfo.ObservationAction,
                     ["ImportantNote"] = phaseInfo.ImportantNote,
@@ -154,9 +152,7 @@ namespace Application.Common.Services
                 {
                     Phase = "Inscripción",
                     PhaseDescription = "su solicitud de inscripción para la modalidad de Práctica Académica",
-                    DocumentsReceived = "Aval institucional y plan de trabajo",
-                    EvaluationTime = "El comité revisará su documentación y le informará sobre la decisión en un plazo máximo de 5 días hábiles.",
-                    NextSteps = "<li>Esperar la respuesta del comité evaluador</li><li>Revisar el estado de su solicitud en el sistema</li>",
+                    NextSteps = "<li>El comité revisará su documentación y le informará sobre la decisión en un plazo máximo de 5 días hábiles</li><li>Revisar el estado de su solicitud en el sistema</li><li>Mantener disponibilidad para posibles consultas</li>",
                     ObservationAction = "Debe revisar y corregir la documentación según las observaciones del comité. Una vez realizadas las correcciones, radique nuevamente los documentos.",
                     ImportantNote = "Esta revisión determinará si puede proceder a la fase de desarrollo de su práctica académica.",
                     CongratulationMessage = "Puede proceder inmediatamente a la fase de desarrollo de su práctica académica.",
@@ -197,7 +193,7 @@ namespace Application.Common.Services
                 {
                     Phase = "Desarrollo",
                     PhaseDescription = "su fase de desarrollo de práctica académica",
-                    NextSteps = "<li>El comité está revisando su documentación de desarrollo</li><li>Aguarde respuesta del comité evaluador</li><li>Mantenga disponibilidad para posibles consultas</li><li>Esté preparado para atender observaciones si las hay</li>",
+                    NextSteps = "<li>El comité revisará su documentación de desarrollo y le informará sobre la decisión en un plazo máximo de 15 días hábiles</li><li>Aguarde respuesta del comité evaluador</li><li>Mantenga disponibilidad para posibles consultas</li><li>Esté preparado para atender observaciones si las hay</li>",
                     ImportantNote = "Su documentación de desarrollo está en proceso de evaluación por parte del comité. Pronto recibirá respuesta del comité evaluador."
                 },
                 StateStageCodeEnum.PA_DESARROLLO_OBSERVACIONES => new PhaseInfo
@@ -232,9 +228,7 @@ namespace Application.Common.Services
                 {
                     Phase = "Informe Final",
                     PhaseDescription = "su informe final de práctica académica",
-                    DocumentsReceived = "Informe final y certificación institucional",
-                    EvaluationTime = "Los evaluadores tienen un plazo máximo de 25 días hábiles para completar la revisión de su informe final.",
-                    NextSteps = "<li>Esperar los resultados de la evaluación</li><li>Mantener comunicación con la coordinación si es necesario</li>",
+                    NextSteps = "<li>Los evaluadores tienen un plazo máximo de 25 días hábiles para completar la revisión de su informe final</li><li>Mantener comunicación con la coordinación si es necesario</li><li>El proceso incluye revisión técnica, evaluación de objetivos y verificación de certificación institucional</li>",
                     ImportantNote = "El proceso de evaluación incluye revisión técnica del informe, evaluación del cumplimiento de objetivos y verificación de la certificación institucional."
                 },
                 StateStageCodeEnum.PA_INFORME_FINAL_OBSERVACIONES => new PhaseInfo
@@ -271,8 +265,6 @@ namespace Application.Common.Services
         {
             public string Phase { get; set; } = string.Empty;
             public string PhaseDescription { get; set; } = string.Empty;
-            public string DocumentsReceived { get; set; } = string.Empty;
-            public string EvaluationTime { get; set; } = string.Empty;
             public string NextSteps { get; set; } = string.Empty;
             public string ObservationAction { get; set; } = string.Empty;
             public string ImportantNote { get; set; } = string.Empty;
