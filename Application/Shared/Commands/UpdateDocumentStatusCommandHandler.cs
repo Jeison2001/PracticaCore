@@ -2,6 +2,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
 using System;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -23,11 +24,19 @@ namespace Application.Shared.Commands
             var entity = await _repository.GetByIdAsync(request.Id);
             if (entity == null)
                 return false;
+
             entity.StatusRegister = request.StatusRegister;
             entity.IdUserUpdatedAt = request.IdUserUpdateAt;
             entity.OperationRegister = request.OperationRegister;
             entity.UpdatedAt = DateTime.UtcNow;
-            await _repository.UpdateAsync(entity);
+
+            await _repository.UpdatePartialAsync(entity, new Expression<Func<Document, object>>[] {
+                e => e.StatusRegister,
+                e => e.IdUserUpdatedAt,
+                e => e.OperationRegister,
+                e => e.UpdatedAt
+            });
+
             await _unitOfWork.CommitAsync(cancellationToken);
             return true;
         }

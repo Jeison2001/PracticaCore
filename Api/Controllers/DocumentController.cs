@@ -26,6 +26,34 @@ namespace Api.Controllers
         }
 
         /// <summary>
+        /// Obtiene un documento por su ID.
+        /// </summary>
+        /// <param name="id">Id del documento.</param>
+        /// <returns>Documento.</returns>
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var result = await _mediator.Send(new GetDocumentByIdQuery(id));
+            if (result == null)
+            {
+                return NotFound(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { "Documento no encontrado" },
+                    Messages = new List<string>()
+                });
+            }
+            return Ok(new Responses.ApiResponse<DocumentDto>
+            {
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
+        }
+
+        /// <summary>
         /// Descarga o previsualiza el archivo asociado a un documento.
         /// </summary>
         /// <param name="id">Id del documento.</param>
@@ -240,15 +268,50 @@ namespace Api.Controllers
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
         {
-            await Task.CompletedTask;
-            // TODO: Implementar handler UpdateDocumentStatusCommand y su lógica
-            return StatusCode(StatusCodes.Status501NotImplemented, new Responses.ApiResponse<object>
+            try
             {
-                Success = false,
-                Data = null,
-                Errors = new List<string> { "No implementado: lógica de cambio de estado StatusRegister" },
-                Messages = new List<string>()
-            });
+                var command = new Application.Shared.Commands.UpdateDocumentStatusCommand(id, dto.StatusRegister, dto.IdUserUpdateAt, dto.OperationRegister);
+                var result = await _mediator.Send(command);
+                
+                if (!result)
+                {
+                    return NotFound(new Responses.ApiResponse<object>
+                    {
+                        Success = false,
+                        Data = null,
+                        Errors = new List<string> { "Documento no encontrado" },
+                        Messages = new List<string>()
+                    });
+                }
+
+                return Ok(new Responses.ApiResponse<bool>
+                {
+                    Success = true,
+                    Data = true,
+                    Errors = new List<string>(),
+                    Messages = new List<string> { "Estado actualizado correctamente" }
+                });
+            }
+            catch (FluentValidation.ValidationException ex)
+            {
+                return BadRequest(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = ex.Errors.Select(e => e.ErrorMessage).ToList(),
+                    Messages = new List<string>()
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { ex.Message },
+                    Messages = new List<string>()
+                });
+            }
         }
     }
 }
