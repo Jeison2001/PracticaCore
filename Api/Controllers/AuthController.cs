@@ -1,3 +1,4 @@
+using Api.Responses;
 using Application.Shared.DTOs.Auth;
 using Domain.Interfaces.Auth;
 using Microsoft.AspNetCore.Authorization;
@@ -22,22 +23,11 @@ namespace Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthRequest request)
         {
-            try
-            {
-                if (string.IsNullOrEmpty(request.IdToken))
-                    return BadRequest("Token de autenticación requerido");
+            if (string.IsNullOrEmpty(request.IdToken))
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Token de autenticación requerido" } });
 
-                var response = await _authService.AuthenticateWithGoogleAsync(request.IdToken);
-                return Ok(response);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Error interno del servidor", details = ex.Message });
-            }
+            var response = await _authService.AuthenticateWithGoogleAsync(request.IdToken);
+            return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
         }
     }
 }

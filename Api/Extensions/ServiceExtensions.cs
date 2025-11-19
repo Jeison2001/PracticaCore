@@ -29,8 +29,14 @@ namespace Api.Extensions
     {
         public static void AddInfrastructure(this IServiceCollection services, IConfiguration config)
         {
-            services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(config.GetConnectionString("Default")));
+            // Si la configuración indica usar base de datos en memoria (para tests), saltamos la configuración de Npgsql
+            // La configuración de InMemory se hará en el WebApplicationFactory
+            // Usamos variable de entorno porque la configuración de WebApplicationFactory llega tarde para Program.cs
+            if (Environment.GetEnvironmentVariable("UseInMemoryDatabase") != "true")
+            {
+                services.AddDbContext<AppDbContext>(options =>
+                    options.UseNpgsql(config.GetConnectionString("Default")));
+            }
             //options.UseSqlServer(config.GetConnectionString("Default")));
 
             // Registrar el repositorio genérico

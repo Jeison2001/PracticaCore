@@ -15,9 +15,9 @@ namespace Application.Validations.SpecificValidators.Proposal
                 .GreaterThan(0)
                 .WithMessage("El estado de la propuesta debe ser un valor válido mayor a 0.");
 
-            // Incluir las validaciones del ProposalValidator para el DTO
+            // Incluir las validaciones del UpdateProposalDtoValidator para el DTO
             RuleFor(cmd => cmd.Dto)
-                .SetValidator(new ProposalValidator());
+                .SetValidator(new UpdateProposalDtoValidator());
         }
     }
 }

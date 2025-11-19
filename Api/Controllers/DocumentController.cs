@@ -93,38 +93,25 @@ namespace Api.Controllers
             [FromQuery] int? idStageModality = null,
             [FromQuery] int? idDocumentClass = null)
         {
-            try
+            var query = new GetDocumentsByInscriptionModalityQuery(
+                id,
+                request.PageNumber,
+                request.PageSize,
+                request.SortBy,
+                request.IsDescending,
+                request.Filters,
+                idStageModality,
+                idDocumentClass
+            );
+            
+            var result = await _mediator.Send(query);
+            return Ok(new Responses.ApiResponse<PaginatedResult<DocumentDto>>
             {
-                var query = new GetDocumentsByInscriptionModalityQuery(
-                    id,
-                    request.PageNumber,
-                    request.PageSize,
-                    request.SortBy,
-                    request.IsDescending,
-                    request.Filters,
-                    idStageModality,
-                    idDocumentClass
-                );
-                
-                var result = await _mediator.Send(query);
-                return Ok(new Responses.ApiResponse<PaginatedResult<DocumentDto>>
-                {
-                    Success = true,
-                    Data = result,
-                    Errors = new List<string>(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { $"Error al obtener los documentos: {ex.Message}" },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -135,39 +122,16 @@ namespace Api.Controllers
         [HttpGet("RequiredByCurrentState/{inscriptionModalityId}")]
         public async Task<IActionResult> GetRequiredDocumentsByCurrentState(int inscriptionModalityId)
         {
-            try
+            var query = new GetRequiredDocumentsByCurrentStateQuery(inscriptionModalityId);
+            var result = await _mediator.Send(query);
+            
+            return Ok(new Responses.ApiResponse<List<RequiredDocumentsByStateDto>>
             {
-                var query = new GetRequiredDocumentsByCurrentStateQuery(inscriptionModalityId);
-                var result = await _mediator.Send(query);
-                
-                return Ok(new Responses.ApiResponse<List<RequiredDocumentsByStateDto>>
-                {
-                    Success = true,
-                    Data = result,
-                    Errors = new List<string>(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { $"Error al obtener documentos requeridos: {ex.Message}" },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -177,38 +141,15 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Upload([FromForm] DocumentUploadDto dto)
         {
-            try
+            var command = new Application.Shared.Commands.CreateDocumentWithFileCommand(dto);
+            var result = await _mediator.Send(command);
+            return CreatedAtAction(nameof(DownloadFile), new { id = result.Id }, new Responses.ApiResponse<DocumentDto>
             {
-                var command = new Application.Shared.Commands.CreateDocumentWithFileCommand(dto);
-                var result = await _mediator.Send(command);
-                return CreatedAtAction(nameof(DownloadFile), new { id = result.Id }, new Responses.ApiResponse<DocumentDto>
-                {
-                    Success = true,
-                    Data = result,
-                    Errors = new List<string>(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (FluentValidation.ValidationException ex)
-            {
-                return BadRequest(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = ex.Errors.Select(e => e.ErrorMessage).ToList(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -218,48 +159,15 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int id, [FromForm] DocumentUpdateDto dto)
         {
-            try
+            var command = new Application.Shared.Commands.UpdateDocumentWithFileCommand(id, dto);
+            var result = await _mediator.Send(command);
+            return Ok(new Responses.ApiResponse<DocumentDto>
             {
-                var command = new Application.Shared.Commands.UpdateDocumentWithFileCommand(id, dto);
-                var result = await _mediator.Send(command);
-                return Ok(new Responses.ApiResponse<DocumentDto>
-                {
-                    Success = true,
-                    Data = result,
-                    Errors = new List<string>(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (FluentValidation.ValidationException ex)
-            {
-                 return BadRequest(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = ex.Errors.Select(e => e.ErrorMessage).ToList(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -268,50 +176,21 @@ namespace Api.Controllers
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
         {
-            try
+            var command = new Application.Shared.Commands.UpdateDocumentStatusCommand(id, dto.StatusRegister, dto.IdUserUpdateAt, dto.OperationRegister);
+            var result = await _mediator.Send(command);
+            
+            if (!result)
             {
-                var command = new Application.Shared.Commands.UpdateDocumentStatusCommand(id, dto.StatusRegister, dto.IdUserUpdateAt, dto.OperationRegister);
-                var result = await _mediator.Send(command);
-                
-                if (!result)
-                {
-                    return NotFound(new Responses.ApiResponse<object>
-                    {
-                        Success = false,
-                        Data = null,
-                        Errors = new List<string> { "Documento no encontrado" },
-                        Messages = new List<string>()
-                    });
-                }
+                throw new KeyNotFoundException("Documento no encontrado");
+            }
 
-                return Ok(new Responses.ApiResponse<bool>
-                {
-                    Success = true,
-                    Data = true,
-                    Errors = new List<string>(),
-                    Messages = new List<string> { "Estado actualizado correctamente" }
-                });
-            }
-            catch (FluentValidation.ValidationException ex)
+            return Ok(new Responses.ApiResponse<bool>
             {
-                return BadRequest(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = ex.Errors.Select(e => e.ErrorMessage).ToList(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = true,
+                Errors = new List<string>(),
+                Messages = new List<string> { "Estado actualizado correctamente" }
+            });
         }
     }
 }

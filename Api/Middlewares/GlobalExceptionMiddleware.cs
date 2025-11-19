@@ -48,6 +48,11 @@ namespace Api.Middlewares
                 context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
                 response.Errors.Add("No autorizado.");
             }
+            else if (exception is InvalidOperationException)
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                response.Errors.Add(exception.Message);
+            }
             else
             {
                 context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;

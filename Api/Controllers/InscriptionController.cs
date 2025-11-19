@@ -23,65 +23,32 @@ namespace Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
         {
-            try
+            var query = new GetAllInscriptionWithStudentsQuery
             {
-                var query = new GetAllInscriptionWithStudentsQuery
-                {
-                    PageNumber = request.PageNumber,
-                    PageSize = request.PageSize,
-                    SortBy = request.SortBy,
-                    IsDescending = request.IsDescending,
-                    Filters = request.Filters
-                };
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                SortBy = request.SortBy,
+                IsDescending = request.IsDescending,
+                Filters = request.Filters
+            };
 
-                var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<PaginatedResult<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"Error al obtener los registros de modalidad: {ex.Message}" }
-                });
-            }
+            var result = await _mediator.Send(query);
+            return Ok(new ApiResponse<PaginatedResult<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            try
-            {
-                var result = await _mediator.Send(new GetInscriptionWithStudentsQuery(id));
-                return Ok(new ApiResponse<InscriptionWithStudentsResponseDto> { Success = true, Data = result });
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound(new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"No se encontró el registro de modalidad con ID {id}" }
-                });
-            }
+            var result = await _mediator.Send(new GetInscriptionWithStudentsQuery(id));
+            return Ok(new ApiResponse<InscriptionWithStudentsResponseDto> { Success = true, Data = result });
         }
 
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
-            try
-            {
-                var query = new GetInscriptionWithStudentsByUserQuery(id, status);
-                var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<List<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"Error al obtener los registros de modalidad del usuario: {ex.Message}" }
-                });
-            }
+            var query = new GetInscriptionWithStudentsByUserQuery(id, status);
+            var result = await _mediator.Send(query);
+            return Ok(new ApiResponse<List<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
         }
 
         [HttpPost]
@@ -95,19 +62,8 @@ namespace Api.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] InscriptionWithStudentsUpdateDto dto)
         {
-            try
-            {
-                var result = await _mediator.Send(new UpdateInscriptionWithStudentsCommand(id, dto));
-                return Ok(new ApiResponse<InscriptionWithStudentsDto> { Success = true, Data = result });
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound(new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"No se encontró el registro de modalidad con ID {id}" }
-                });
-            }
+            var result = await _mediator.Send(new UpdateInscriptionWithStudentsCommand(id, dto));
+            return Ok(new ApiResponse<InscriptionWithStudentsDto> { Success = true, Data = result });
         }
     }
 }

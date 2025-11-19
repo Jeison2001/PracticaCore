@@ -1,3 +1,4 @@
+using Api.Responses;
 using Application.Shared.Commands.TeachingAssignment;
 using Application.Shared.DTOs.TeachingAssignment;
 using Application.Shared.Queries.TeachingAssignment;
@@ -18,39 +19,25 @@ namespace Api.Controllers
         }
 
         [HttpGet("ByInscription/{id}")]
-        [ProducesResponseType(typeof(List<TeachingAssignmentTeacherDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<List<TeachingAssignmentTeacherDto>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetByIdInscription(int id, bool? status = null)
         {
             var result = await _mediator.Send(new GetTeachingAssignmentsByProposalIdQuery(id, status));
-            return Ok(result);
+            return Ok(new ApiResponse<List<TeachingAssignmentTeacherDto>> { Success = true, Data = result });
         }
         
         [HttpPost]
         public override async Task<IActionResult> Create([FromBody] TeachingAssignmentDto dto)
         {
-            try
-            {
-                var result = await _mediator.Send(new CreateTeachingAssignmentCommand(dto));
-                return CreatedAtAction(nameof(GetByIdInscription), new { id = result.IdInscriptionModality }, result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var result = await _mediator.Send(new CreateTeachingAssignmentCommand(dto));
+            return CreatedAtAction(nameof(GetByIdInscription), new { id = result.IdInscriptionModality }, new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });
         }
 
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] TeachingAssignmentDto dto)
         {
-            try
-            {
-                var result = await _mediator.Send(new UpdateTeachingAssignmentCommand(id, dto));
-                return Ok(result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var result = await _mediator.Send(new UpdateTeachingAssignmentCommand(id, dto));
+            return Ok(new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });
         }
     }
 }
