@@ -35,7 +35,19 @@ namespace Application.Shared.Commands.TeacherResearchProfile
             if (entity == null)
                 throw new InvalidOperationException("Perfil de investigación no encontrado.");
 
+            // Preservar campos de auditoría inmutables
+            var originalCreatedAt = entity.CreatedAt;
+            var originalIdUserCreatedAt = entity.IdUserCreatedAt;
+
             _mapper.Map(dto, entity);
+
+            // Restaurar campos inmutables y asegurar UTC
+            entity.CreatedAt = originalCreatedAt.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(originalCreatedAt, DateTimeKind.Utc) 
+                : originalCreatedAt;
+            entity.IdUserCreatedAt = originalIdUserCreatedAt;
+            entity.UpdatedAt = DateTime.UtcNow;
+
             await _repository.UpdateAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
             return _mapper.Map<TeacherResearchProfileDto>(entity);

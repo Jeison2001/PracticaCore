@@ -50,9 +50,10 @@ namespace Application.Shared.Commands
             entity.IdUserUpdatedAt = request.Dto.IdUserUpdatedAt;
             
             // Asegurar que las fechas sean UTC
-            entity.CreatedAt = request.Dto.CreatedAt.Kind == DateTimeKind.Utc
-                ? request.Dto.CreatedAt
-                : DateTime.SpecifyKind(request.Dto.CreatedAt, DateTimeKind.Utc);
+            // No actualizamos CreatedAt ya que es inmutable, pero aseguramos su Kind
+            if (entity.CreatedAt.Kind == DateTimeKind.Unspecified)
+                entity.CreatedAt = DateTime.SpecifyKind(entity.CreatedAt, DateTimeKind.Utc);
+
             entity.UpdatedAt = (request.Dto.UpdatedAt ?? DateTime.UtcNow).Kind == DateTimeKind.Utc
                 ? (request.Dto.UpdatedAt ?? DateTime.UtcNow)
                 : DateTime.SpecifyKind(request.Dto.UpdatedAt ?? DateTime.UtcNow, DateTimeKind.Utc);

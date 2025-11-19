@@ -92,8 +92,9 @@ namespace Application.Shared.Commands.AcademicPractice.Handlers
             academicPractice.UpdatedAt = DateTime.UtcNow;
             academicPractice.IdUserUpdatedAt = dto.IdUserUpdatedAt;
             
-            if (dto.CreatedAt != default)
-                academicPractice.CreatedAt = EnsureUtc(dto.CreatedAt);
+            // Asegurar que CreatedAt sea UTC si es Unspecified
+            if (academicPractice.CreatedAt.Kind == DateTimeKind.Unspecified)
+                academicPractice.CreatedAt = DateTime.SpecifyKind(academicPractice.CreatedAt, DateTimeKind.Utc);
         }
 
         private static void NormalizeAllDatesToUtc(Domain.Entities.AcademicPractice academicPractice)

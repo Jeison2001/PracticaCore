@@ -63,8 +63,20 @@ namespace Application.Shared.Commands.TeachingAssignment
             var originalEntityJson = System.Text.Json.JsonSerializer.Serialize(entity);
             var originalEntity = System.Text.Json.JsonSerializer.Deserialize<Domain.Entities.TeachingAssignment>(originalEntityJson)!;
 
+            // Preservar campos de auditoría inmutables
+            var originalCreatedAt = entity.CreatedAt;
+            var originalIdUserCreatedAt = entity.IdUserCreatedAt;
+
             // Mapear cambios
             _mapper.Map(dto, entity);
+
+            // Restaurar campos inmutables y asegurar UTC
+            entity.CreatedAt = originalCreatedAt.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(originalCreatedAt, DateTimeKind.Utc) 
+                : originalCreatedAt;
+            entity.IdUserCreatedAt = originalIdUserCreatedAt;
+            entity.UpdatedAt = DateTime.UtcNow;
+
             await _repository.UpdateAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
 
