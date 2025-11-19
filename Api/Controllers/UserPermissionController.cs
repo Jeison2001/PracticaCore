@@ -1,3 +1,4 @@
+using Api.Responses;
 using Application.Shared.DTOs.Permission;
 using Application.Shared.DTOs.UserPermission;
 using Application.Shared.Queries.Permission;
@@ -15,15 +16,16 @@ namespace Api.Controllers
             _mediator = mediator;        }
 
         [HttpGet("ByUser/{id}")]
-        public async Task<ActionResult<List<UserPermissionInfoDto>>> GetUserPermissionsByUserId(int id)
+        public async Task<ActionResult<ApiResponse<List<UserPermissionInfoDto>>>> GetUserPermissionsByUserId(int id)
         {
             if (id <= 0)
-                return BadRequest("El ID de usuario debe ser válido.");
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El ID de usuario debe ser válido." } });
 
             var permissions = await _mediator.Send(new GetPermissionsByUserIdQuery { UserId = id });
             if (permissions == null || !permissions.Any())
-                return NotFound($"No se encontraron permisos para el usuario con ID {id}.");
-            return Ok(permissions);
+                return NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { $"No se encontraron permisos para el usuario con ID {id}." } });
+            
+            return Ok(new ApiResponse<List<UserPermissionInfoDto>> { Success = true, Data = permissions });
         }
     }
 }

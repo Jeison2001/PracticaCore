@@ -24,7 +24,7 @@ namespace Api.Controllers
         /// <param name="statusRegister">Estado del registro (true=activos, false=inactivos, null=todos)</param>
         /// <returns>Lista de permisos del rol con información del registro de relación</returns>
         [HttpGet("ByRole")]
-        public async Task<ActionResult<List<RolePermissionInfoDto>>> GetPermissionsByRole(
+        public async Task<ActionResult<ApiResponse<List<RolePermissionInfoDto>>>> GetPermissionsByRole(
             [FromQuery] int? id = null,
             [FromQuery] string? code = null,
             [FromQuery] bool? statusRegister = null)
@@ -39,42 +39,23 @@ namespace Api.Controllers
                 });
             }
 
-            try
+            var permissions = await _mediator.Send(new GetPermissionsByRoleQuery(id, code, statusRegister));
+            
+            if (permissions == null || !permissions.Any())
             {
-                var permissions = await _mediator.Send(new GetPermissionsByRoleQuery(id, code, statusRegister));
-                
-                if (permissions == null || !permissions.Any())
-                {
-                    var roleIdentifier = id.HasValue ? $"ID {id}" : $"código '{code}'";
-                    return NotFound(new ApiResponse<object>
-                    {
-                        Success = false,
-                        Errors = new List<string> { $"No se encontraron permisos para el rol con {roleIdentifier}." }
-                    });
-                }
-                
-                return Ok(new ApiResponse<List<RolePermissionInfoDto>> 
-                { 
-                    Success = true, 
-                    Data = permissions 
-                });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new ApiResponse<object>
+                var roleIdentifier = id.HasValue ? $"ID {id}" : $"código '{code}'";
+                return NotFound(new ApiResponse<object>
                 {
                     Success = false,
-                    Errors = new List<string> { ex.Message }
+                    Errors = new List<string> { $"No se encontraron permisos para el rol con {roleIdentifier}." }
                 });
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"Error interno del servidor: {ex.Message}" }
-                });
-            }
+            
+            return Ok(new ApiResponse<List<RolePermissionInfoDto>> 
+            { 
+                Success = true, 
+                Data = permissions 
+            });
         }
     }
 }

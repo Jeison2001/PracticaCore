@@ -181,7 +181,13 @@ namespace Api.Controllers
             
             if (!result)
             {
-                throw new KeyNotFoundException("Documento no encontrado");
+                return NotFound(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { "Documento no encontrado" },
+                    Messages = new List<string>()
+                });
             }
 
             return Ok(new Responses.ApiResponse<bool>

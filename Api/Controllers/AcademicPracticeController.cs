@@ -76,7 +76,7 @@ namespace Api.Controllers
             var result = await _mediator.Send(new Application.Shared.Commands.AcademicPractice.UpdateAcademicPracticeInstitutionCommand(request));
             
             if (!result)
-                throw new KeyNotFoundException($"No se encontró la práctica académica con ID {id}");
+                return NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { $"No se encontró la práctica académica con ID {id}" } });
 
             return Ok(new ApiResponse<object> { Success = true, Messages = new List<string> { "Información de institución actualizada correctamente" } });
         }
@@ -88,7 +88,7 @@ namespace Api.Controllers
             var result = await _mediator.Send(new Application.Shared.Commands.AcademicPractice.UpdateAcademicPracticePhaseCommand(request));
             
             if (!result)
-                throw new KeyNotFoundException($"No se encontró la práctica académica con ID {id} o el estado es inválido");
+                return NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { $"No se encontró la práctica académica con ID {id} o el estado es inválido" } });
 
             return Ok(new ApiResponse<object> { Success = true, Messages = new List<string> { "Aprobación de fase actualizada correctamente" } });
         }

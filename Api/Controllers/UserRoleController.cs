@@ -49,14 +49,15 @@ namespace Api.Controllers
         /// <param name="id">ID del usuario</param>
         /// <returns>Lista de roles del usuario con información del registro de relación</returns>
         [HttpGet("ByUser/{id}")]
-        public async Task<ActionResult<List<UserRoleInfoDto>>> GetUserRolesByUserId(int id)
+        public async Task<ActionResult<ApiResponse<List<UserRoleInfoDto>>>> GetUserRolesByUserId(int id)
         {
             if (id <= 0)
-                return BadRequest("El ID de usuario debe ser válido.");
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El ID de usuario debe ser válido." } });
 
             var userRoles = await _mediator.Send(new GetUserRolesByUserIdQuery { UserId = id });
             if (userRoles == null || !userRoles.Any())
-                return NotFound($"No se encontraron registros de UserRole para el usuario con ID {id}.");
+                return NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { $"No se encontraron registros de UserRole para el usuario con ID {id}." } });
+            
             return Ok(new ApiResponse<List<UserRoleInfoDto>> { Success = true, Data = userRoles });
         }
     }

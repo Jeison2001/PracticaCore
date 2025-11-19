@@ -54,7 +54,7 @@ namespace Api.Controllers
         public virtual async Task<IActionResult> CreateMultiple([FromBody] List<TDto> dtos)
         {
             if (dtos == null || !dtos.Any())
-                return BadRequest("Debe proporcionar al menos un elemento.");
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Debe proporcionar al menos un elemento." } });
 
             var result = await _mediator.Send(new CreateEntitiesCommand<T, TId, TDto>(dtos));
             return Ok(new ApiResponse<List<TDto>> { Success = true, Data = result });

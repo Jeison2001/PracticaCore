@@ -1,3 +1,4 @@
+using Api.Responses;
 using Application.Shared.Commands.TeacherResearchProfile;
 using Application.Shared.DTOs.TeacherResearchProfile;
 using MediatR;
@@ -22,29 +23,15 @@ namespace Api.Controllers
         [HttpPost]
         public override async Task<IActionResult> Create([FromBody] TeacherResearchProfileDto dto)
         {
-            try
-            {
-                var result = await _mediator.Send(new CreateTeacherResearchProfileCommand(dto));
-                return CreatedAtAction(nameof(GetAll), new { idUser = result.IdUser }, result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var result = await _mediator.Send(new CreateTeacherResearchProfileCommand(dto));
+            return CreatedAtAction(nameof(GetAll), new { idUser = result.IdUser }, new ApiResponse<TeacherResearchProfileDto> { Success = true, Data = result });
         }
 
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] TeacherResearchProfileDto dto)
         {
-            try
-            {
-                var result = await _mediator.Send(new UpdateTeacherResearchProfileCommand(id, dto));
-                return Ok(result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var result = await _mediator.Send(new UpdateTeacherResearchProfileCommand(id, dto));
+            return Ok(new ApiResponse<TeacherResearchProfileDto> { Success = true, Data = result });
         }
     }
 }
