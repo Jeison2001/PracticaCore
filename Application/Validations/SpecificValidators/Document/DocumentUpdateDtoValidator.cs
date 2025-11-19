@@ -1,5 +1,6 @@
 using Application.Shared.DTOs.Document;
 using FluentValidation;
+using Microsoft.AspNetCore.Http;
 
 namespace Application.Validations.SpecificValidators.Document
 {
@@ -7,13 +8,24 @@ namespace Application.Validations.SpecificValidators.Document
     {
         public DocumentUpdateDtoValidator()
         {
-            RuleFor(x => x.IdDocumentType)
-                .Must((dto, id) => id > 0 || !string.IsNullOrWhiteSpace(dto.CodeDocumentType))
-                .WithMessage("Debe especificar IdDocumentType o CodeDocumentType.");
+            RuleFor(x => x.File)
+                .Must(BeAValidExtension).WithMessage("Formato de archivo no permitido. Solo se aceptan: .pdf, .doc, .docx")
+                .Must(BeAValidSize).WithMessage("El archivo excede el tamaño máximo permitido (10MB).")
+                .When(x => x.File != null);
+        }
 
-            RuleFor(x => x.CodeDocumentType)
-                .Must((dto, code) => string.IsNullOrWhiteSpace(code) || dto.IdDocumentType == 0)
-                .WithMessage("No puede especificar ambos: IdDocumentType y CodeDocumentType. Use solo uno.");
+        private bool BeAValidExtension(IFormFile? file)
+        {
+            if (file == null) return true;
+            var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return allowedExtensions.Contains(extension);
+        }
+
+        private bool BeAValidSize(IFormFile? file)
+        {
+            if (file == null) return true;
+            return file.Length <= 10 * 1024 * 1024; // 10MB limit example
         }
     }
 }

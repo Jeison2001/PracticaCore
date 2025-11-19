@@ -149,34 +149,25 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Upload([FromForm] DocumentUploadDto dto)
         {
-            var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
-            var fileExt = System.IO.Path.GetExtension(dto.File.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(fileExt))
-            {
-                return BadRequest(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { $"Formato de archivo no permitido. Solo se aceptan: {string.Join(", ", allowedExtensions)}" },
-                    Messages = new List<string>()
-                });
-            }
             try
             {
-                var uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, HttpContext.RequestAborted);
-                var command = new Application.Shared.Commands.CreateDocumentWithFileCommand(
-                    dto,
-                    uniqueFileName,
-                    string.Empty, // StoragePath ya no se usa
-                    dto.File.ContentType,
-                    dto.File.Length
-                );
+                var command = new Application.Shared.Commands.CreateDocumentWithFileCommand(dto);
                 var result = await _mediator.Send(command);
                 return CreatedAtAction(nameof(DownloadFile), new { id = result.Id }, new Responses.ApiResponse<DocumentDto>
                 {
                     Success = true,
                     Data = result,
                     Errors = new List<string>(),
+                    Messages = new List<string>()
+                });
+            }
+            catch (FluentValidation.ValidationException ex)
+            {
+                return BadRequest(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = ex.Errors.Select(e => e.ErrorMessage).ToList(),
                     Messages = new List<string>()
                 });
             }
@@ -199,44 +190,25 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int id, [FromForm] DocumentUpdateDto dto)
         {
-            var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
-            string? uniqueFileName = null;
-            string? mimeType = null;
-            long? fileSize = null;
-            // Validar y guardar archivo solo si se envía uno nuevo
-            if (dto.File != null)
-            {
-                var fileExt = System.IO.Path.GetExtension(dto.File.FileName).ToLowerInvariant();
-                if (!allowedExtensions.Contains(fileExt))
-                {
-                    return BadRequest(new Responses.ApiResponse<object>
-                    {
-                        Success = false,
-                        Data = null,
-                        Errors = new List<string> { $"Formato de archivo no permitido. Solo se aceptan: {string.Join(", ", allowedExtensions)}" },
-                        Messages = new List<string>()
-                    });
-                }
-                uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, HttpContext.RequestAborted);
-                mimeType = dto.File.ContentType;
-                fileSize = dto.File.Length;
-            }
             try
             {
-                var command = new Application.Shared.Commands.UpdateDocumentWithFileCommand(
-                    id,
-                    dto,
-                    uniqueFileName,
-                    string.Empty, // StoragePath ya no se usa
-                    mimeType,
-                    fileSize
-                );
+                var command = new Application.Shared.Commands.UpdateDocumentWithFileCommand(id, dto);
                 var result = await _mediator.Send(command);
                 return Ok(new Responses.ApiResponse<DocumentDto>
                 {
                     Success = true,
                     Data = result,
                     Errors = new List<string>(),
+                    Messages = new List<string>()
+                });
+            }
+            catch (FluentValidation.ValidationException ex)
+            {
+                 return BadRequest(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = ex.Errors.Select(e => e.ErrorMessage).ToList(),
                     Messages = new List<string>()
                 });
             }

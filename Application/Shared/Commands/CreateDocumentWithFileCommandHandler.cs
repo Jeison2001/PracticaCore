@@ -2,9 +2,8 @@ using Application.Shared.DTOs.Document;
 using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Interfaces.Storage;
 using MediatR;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Application.Shared.Commands
 {
@@ -13,15 +12,18 @@ namespace Application.Shared.Commands
         private readonly IRepository<Document, int> _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IFileStorageService _fileStorageService;
 
         public CreateDocumentWithFileCommandHandler(
             IRepository<Document, int> repository,
             IUnitOfWork unitOfWork,
-            IMapper mapper)
+            IMapper mapper,
+            IFileStorageService fileStorageService)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _fileStorageService = fileStorageService;
         }
 
         public async Task<DocumentDto> Handle(CreateDocumentWithFileCommand request, CancellationToken cancellationToken)
@@ -36,14 +38,19 @@ namespace Application.Shared.Commands
                 if (docType == null)
                     throw new KeyNotFoundException($"No se encontró DocumentType con code '{dto.CodeDocumentType}'");
                 idDocumentType = docType.Id;
-            }            var entity = new Document
+            }
+
+            // Guardar el archivo usando el servicio de almacenamiento
+            var uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, cancellationToken);
+
+            var entity = new Document
             {
                 IdInscriptionModality = dto.IdInscriptionModality,
                 IdDocumentType = idDocumentType,
                 Name = dto.Name ?? dto.File.FileName,
                 OriginalFileName = dto.File.FileName,
-                StoredFileName = request.StoredFileName,
-                StoragePath = string.Empty, // Ya no se usa
+                StoredFileName = uniqueFileName,
+                StoragePath = string.Empty, 
                 MimeType = dto.File.ContentType,
                 FileSize = dto.File.Length,
                 Version = dto.Version,

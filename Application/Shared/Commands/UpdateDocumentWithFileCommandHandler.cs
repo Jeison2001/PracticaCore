@@ -2,6 +2,7 @@ using Application.Shared.DTOs.Document;
 using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Interfaces.Storage;
 using MediatR;
 
 namespace Application.Shared.Commands
@@ -11,12 +12,18 @@ namespace Application.Shared.Commands
         private readonly IRepository<Document, int> _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IFileStorageService _fileStorageService;
 
-        public UpdateDocumentWithFileCommandHandler(IRepository<Document, int> repository, IUnitOfWork unitOfWork, IMapper mapper)
+        public UpdateDocumentWithFileCommandHandler(
+            IRepository<Document, int> repository,
+            IUnitOfWork unitOfWork,
+            IMapper mapper,
+            IFileStorageService fileStorageService)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _fileStorageService = fileStorageService;
         }
 
         public async Task<DocumentDto> Handle(UpdateDocumentWithFileCommand request, CancellationToken cancellationToken)
@@ -33,7 +40,9 @@ namespace Application.Shared.Commands
                 if (docType == null)
                     throw new KeyNotFoundException($"No se encontró DocumentType con code '{request.Dto.CodeDocumentType}'");
                 idDocumentType = docType.Id;
-            }            // Actualizar metadatos
+            }
+
+            // Actualizar metadatos
             entity.IdInscriptionModality = request.Dto.IdInscriptionModality;
             entity.IdDocumentType = idDocumentType;
             entity.Name = request.Dto.Name ?? entity.Name;
@@ -53,13 +62,15 @@ namespace Application.Shared.Commands
             entity.IdDocumentOld = request.Dto.IdDocumentOld;
 
             // Si hay archivo nuevo, actualizar info de archivo
-            if (request.StoredFileName != null && request.StoragePath != null && request.MimeType != null && request.FileSize != null)
+            if (request.Dto.File != null)
             {
-                entity.OriginalFileName = request.Dto.File?.FileName ?? entity.OriginalFileName;
-                entity.StoredFileName = request.StoredFileName;
-                entity.StoragePath = request.StoragePath;
-                entity.MimeType = request.MimeType;
-                entity.FileSize = request.FileSize.Value;
+                var uniqueFileName = await _fileStorageService.SaveFileAsync(request.Dto.File.OpenReadStream(), request.Dto.File.FileName, cancellationToken);
+                
+                entity.OriginalFileName = request.Dto.File.FileName;
+                entity.StoredFileName = uniqueFileName;
+                entity.StoragePath = string.Empty;
+                entity.MimeType = request.Dto.File.ContentType;
+                entity.FileSize = request.Dto.File.Length;
             }
 
             await _repository.UpdateAsync(entity);
