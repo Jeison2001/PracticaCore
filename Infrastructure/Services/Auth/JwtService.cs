@@ -55,10 +55,10 @@ namespace Infrastructure.Services.Auth
             string userId, 
             string email, 
             IEnumerable<string> roles, 
-            IEnumerable<string> permissions = null,
-            string firstName = null,
-            string lastName = null,
-            string identification = null)
+            IEnumerable<string>? permissions = null,
+            string? firstName = null,
+            string? lastName = null,
+            string? identification = null)
         {
             // Usar las credenciales de seguridad ya creadas en el constructor
             var claims = new List<Claim>
@@ -140,7 +140,7 @@ namespace Infrastructure.Services.Auth
                         string parentPrefix = $"N{level-1}";
                         
                         // Para N3 buscar en N2, para N2 buscar en N1
-                        string potentialParent = FindPotentialParent(permissionsList, parentPrefix, permCode);
+                        string? potentialParent = FindPotentialParent(permissionsList, parentPrefix, permCode);
                         
                         if (!string.IsNullOrEmpty(potentialParent))
                         {
@@ -195,7 +195,7 @@ namespace Infrastructure.Services.Auth
             return result;
         }
 
-        private static string FindPotentialParent(List<string> permissions, string parentPrefix, string childCode)
+        private static string? FindPotentialParent(List<string> permissions, string parentPrefix, string childCode)
         {
             // Para un código como N2PGP, buscamos un padre como N1PG
             return permissions.FirstOrDefault(perm => 

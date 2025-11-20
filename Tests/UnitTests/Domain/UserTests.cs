@@ -13,10 +13,10 @@ namespace Tests.UnitTests.Domain
 
             // Assert
             Assert.Equal(0, user.IdIdentificationType);
-            Assert.Null(user.Identification);
-            Assert.Null(user.Email);
-            Assert.Null(user.FirstName);
-            Assert.Null(user.LastName);
+            Assert.Equal(string.Empty, user.Identification);
+            Assert.Equal(string.Empty, user.Email);
+            Assert.Equal(string.Empty, user.FirstName);
+            Assert.Equal(string.Empty, user.LastName);
             Assert.Equal(0, user.IdAcademicProgram);
             Assert.Null(user.PhoneNumber);
             Assert.Null(user.CurrentAcademicPeriod);

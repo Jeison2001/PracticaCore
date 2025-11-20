@@ -12,9 +12,9 @@ namespace Domain.Interfaces.Auth
             string userId, 
             string email, 
             IEnumerable<string> roles, 
-            IEnumerable<string> permissions = null,
-            string firstName = null,
-            string lastName  = null,
-            string identification = null);
+            IEnumerable<string>? permissions = null,
+            string? firstName = null,
+            string? lastName  = null,
+            string? identification = null);
     }
 }

@@ -178,7 +178,7 @@ namespace Infrastructure.Repositories.Cache
             }
         }
 
-        public async Task UpdatePartialAsync(T entity, Expression<Func<T, object>>[] updatedProperties)
+        public async Task UpdatePartialAsync(T entity, Expression<Func<T, object?>>[] updatedProperties)
         {
             await _decoratedRepository.UpdatePartialAsync(entity, updatedProperties);
             try

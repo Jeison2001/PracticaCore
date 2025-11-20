@@ -131,7 +131,7 @@ namespace Tests.Integration.AcademicPractice
             result.Should().NotBeNull();
             result!.Success.Should().BeTrue();
             result.Data.Should().NotBeNull();
-            result.Data!.AcademicPractice.Id.Should().Be(entity.Id);
+            result.Data!.AcademicPractice!.Id.Should().Be(entity.Id);
         }
 
         public override async Task Create_ReturnsCreated()
@@ -310,7 +310,7 @@ namespace Tests.Integration.AcademicPractice
             result.Should().NotBeNull();
             result!.Success.Should().BeTrue();
             result.Data.Should().NotBeEmpty();
-            result.Data!.First().AcademicPractice.Id.Should().Be(entity.Id);
+            result.Data!.First().AcademicPractice!.Id.Should().Be(entity.Id);
         }
 
         [Fact]
@@ -366,7 +366,7 @@ namespace Tests.Integration.AcademicPractice
             result!.Success.Should().BeTrue();
             result.Data.Should().NotBeNull();
             result.Data!.Items.Should().NotBeEmpty();
-            result.Data!.Items.First().AcademicPractice.Id.Should().Be(entity.Id);
+            result.Data!.Items.First().AcademicPractice!.Id.Should().Be(entity.Id);
         }
     }
 }

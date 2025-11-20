@@ -28,7 +28,7 @@ namespace Application.Shared.Commands
             existingEntity.IdUserUpdatedAt = request.IdUserUpdateAt;
             existingEntity.OperationRegister = request.OperationRegister;
 
-            await _repository.UpdatePartialAsync(existingEntity, new Expression<Func<T, object>>[] {
+            await _repository.UpdatePartialAsync(existingEntity, new Expression<Func<T, object?>>[] {
                 e => e.StatusRegister,
                 e => e.UpdatedAt,
                 e => e.IdUserUpdatedAt,

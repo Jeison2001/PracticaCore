@@ -12,7 +12,10 @@ namespace Infrastructure.Data.Configurations
         public void Configure(EntityTypeBuilder<EmailRecipientRule> builder)
         {
             // Tabla
-            builder.ToTable("EmailRecipientRule");
+            builder.ToTable("EmailRecipientRule", t => {
+                t.HasCheckConstraint("CK_EmailRecipientRule_RecipientType", "recipienttype IN ('TO', 'CC', 'BCC')");
+                t.HasCheckConstraint("CK_EmailRecipientRule_RuleType", "ruletype IN ('BY_ROLE', 'BY_ENTITY_RELATION', 'FIXED_EMAIL', 'EVENT_PARTICIPANT')");
+            });
             
             // Clave primaria
             builder.HasKey(e => e.Id);
@@ -88,13 +91,6 @@ namespace Infrastructure.Data.Configurations
                 .WithMany(c => c.RecipientRules)
                 .HasForeignKey(e => e.EmailNotificationConfigId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            // Validaciones a nivel de base de datos
-            builder.HasCheckConstraint("CK_EmailRecipientRule_RecipientType", 
-                "recipienttype IN ('TO', 'CC', 'BCC')");
-                
-            builder.HasCheckConstraint("CK_EmailRecipientRule_RuleType", 
-                "ruletype IN ('BY_ROLE', 'BY_ENTITY_RELATION', 'FIXED_EMAIL', 'EVENT_PARTICIPANT')");
         }
     }
 }

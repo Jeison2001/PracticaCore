@@ -27,17 +27,17 @@ namespace Infrastructure.Repositories
         {
             IQueryable<Document> query = _context.Documents
                 .Include(d => d.DocumentType)
-                .ThenInclude(dt => dt.DocumentClass)
+                .ThenInclude(dt => dt!.DocumentClass)
                 .AsNoTracking()
                 .Where(d => d.IdInscriptionModality == idInscriptionModality);
 
             if (idStageModality.HasValue)
             {
-                query = query.Where(d => d.DocumentType != null && d.DocumentType.IdStageModality == idStageModality.Value);
+                query = query.Where(d => d.DocumentType != null && d.DocumentType!.IdStageModality == idStageModality.Value);
             }
             if (idDocumentClass.HasValue)
             {
-                query = query.Where(d => d.DocumentType != null && d.DocumentType.IdDocumentClass == idDocumentClass.Value);
+                query = query.Where(d => d.DocumentType != null && d.DocumentType!.IdDocumentClass == idDocumentClass.Value);
             }
 
             if (!string.IsNullOrEmpty(sortBy))

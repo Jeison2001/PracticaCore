@@ -24,10 +24,10 @@ namespace Application.Shared.Commands
 
             entity.StatusRegister = request.StatusRegister;
             entity.IdUserUpdatedAt = request.IdUserUpdateAt;
-            entity.OperationRegister = request.OperationRegister;
+            entity.OperationRegister = request.OperationRegister ?? string.Empty;
             entity.UpdatedAt = DateTime.UtcNow;
 
-            await _repository.UpdatePartialAsync(entity, new Expression<Func<Document, object>>[] {
+            await _repository.UpdatePartialAsync(entity, new Expression<Func<Document, object?>>[] {
                 e => e.StatusRegister,
                 e => e.IdUserUpdatedAt,
                 e => e.OperationRegister,

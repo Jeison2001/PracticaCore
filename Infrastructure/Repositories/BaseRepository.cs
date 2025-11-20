@@ -92,7 +92,7 @@ namespace Infrastructure.Repositories
             return Task.CompletedTask;
         }
 
-        public Task UpdatePartialAsync(T entity, Expression<Func<T, object>>[] updatedProperties)
+        public Task UpdatePartialAsync(T entity, Expression<Func<T, object?>>[] updatedProperties)
         {
             _context.Attach(entity);
             foreach (var property in updatedProperties)

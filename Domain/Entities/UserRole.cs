@@ -7,7 +7,7 @@ namespace Domain.Entities
         public new int? IdUserCreatedAt { get; set; }
 
         // Relaciones
-        public virtual User User { get; set; }
-        public virtual Role Role { get; set; }
+        public virtual User User { get; set; } = null!;
+        public virtual Role Role { get; set; } = null!;
     }
 }

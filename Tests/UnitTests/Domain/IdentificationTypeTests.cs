@@ -12,9 +12,9 @@ namespace Tests.UnitTests.Domain
             var idType = new IdentificationType();
 
             // Assert
-            Assert.Null(idType.Code);
-            Assert.Null(idType.Name);
-            Assert.Null(idType.Description);
+            Assert.Equal(string.Empty, idType.Code);
+            Assert.Equal(string.Empty, idType.Name);
+            Assert.Equal(string.Empty, idType.Description);
         }
 
         [Fact]

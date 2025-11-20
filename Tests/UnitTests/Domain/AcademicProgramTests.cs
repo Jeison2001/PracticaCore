@@ -12,8 +12,8 @@ namespace Tests.UnitTests.Domain
             var program = new AcademicProgram();
 
             // Assert
-            Assert.Null(program.Name);
-            Assert.Null(program.Code);
+            Assert.Equal(string.Empty, program.Name);
+            Assert.Equal(string.Empty, program.Code);
             Assert.Equal(0, program.IdFaculty);
         }
 

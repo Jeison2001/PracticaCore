@@ -7,6 +7,6 @@ namespace Domain.Entities
         public string? Description { get; set; }
         public new int? IdUserCreatedAt { get; set; }
         public int IdResearchSubLine { get; set; }
-        public virtual ResearchSubLine ResearchSubLine { get; set; }
+        public virtual ResearchSubLine ResearchSubLine { get; set; } = null!;
     }
 }

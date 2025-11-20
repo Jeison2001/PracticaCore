@@ -144,3 +144,63 @@ Para funcionalidades que no se ajustan al patrón CRUD genérico (como subida de
 4.  **Controller**: Crear un endpoint específico en el controlador que envíe el comando a través de `_mediator.Send()`.
 
 Ejemplo detallado: **[Módulo de Documentos](MODULOS/DOCUMENTOS.md)**.
+
+---
+
+## 8. Patrones para Nullable Reference Types
+
+Este proyecto tiene habilitado `<Nullable>enable</Nullable>`. Sigue estos patrones para evitar warnings CS8618:
+
+### DTOs
+```csharp
+public class UserDto : BaseDto<int>
+{
+    // Strings obligatorios
+    public string Name { get; set; } = string.Empty;
+    
+    // Strings opcionales
+    public string? Observations { get; set; }
+    
+    // Colecciones
+    public List<RoleDto> Roles { get; set; } = new();
+    
+    // Referencias obligatorias (se asignarán antes de usar)
+    public AcademicProgramDto AcademicProgram { get; set; } = null!;
+}
+```
+
+### Entidades
+```csharp
+public class User : BaseEntity<int>
+{
+    // Propiedades de valor
+    public string Email { get; set; } = string.Empty;
+    
+    // Navegación obligatoria (patrón EF Core)
+    public int IdAcademicProgram { get; set; }
+    public virtual AcademicProgram AcademicProgram { get; set; } = null!;
+    
+    // Colecciones de navegación
+    public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+}
+```
+
+### Controladores
+```csharp
+// Usar null-coalescing para parámetros opcionales
+var query = new GetAllQuery
+{
+    SortBy = request.SortBy ?? string.Empty,
+    Filters = request.Filters ?? new Dictionary<string, string>()
+};
+```
+
+### AutoMapper
+```csharp
+// Null-checks para propiedades opcionales
+CreateMap<Source, Destination>()
+    .ForMember(dest => dest.Name, 
+        opt => opt.MapFrom(src => src.Entity != null ? src.Entity.Name : string.Empty));
+```
+
+**Referencia completa:** Ver análisis de warnings resueltos en commits recientes.

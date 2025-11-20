@@ -3,10 +3,10 @@ namespace Domain.Entities
     public class User : BaseEntity<int>
     {
         public int IdIdentificationType { get; set; }
-        public string Identification { get; set; }
-        public string Email { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
+        public string Identification { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
         public int IdAcademicProgram { get; set; }
         public string? PhoneNumber { get; set; }
         public string? CurrentAcademicPeriod { get; set; }
@@ -17,8 +17,8 @@ namespace Domain.Entities
         public new int? IdUserCreatedAt { get; set; }
 
         // Relaciones
-        public virtual IdentificationType IdentificationType { get; set; }
-        public virtual AcademicProgram AcademicProgram { get; set; }
+        public virtual IdentificationType IdentificationType { get; set; } = null!;
+        public virtual AcademicProgram AcademicProgram { get; set; } = null!;
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
         public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
         public virtual ICollection<TeachingAssignment> TeachingAssignments { get; set; } = new List<TeachingAssignment>();

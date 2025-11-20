@@ -51,7 +51,10 @@ namespace Infrastructure.Services.Cache
                     .RegisterPostEvictionCallback((key, value, reason, state) =>
                     {
                         _logger.LogDebug("Elemento con clave {key} eliminado de caché. Razón: {reason}", key, reason);
-                        _keys.TryRemove(key.ToString(), out _);
+                        if (key != null)
+                        {
+                            _keys.TryRemove(key.ToString()!, out _);
+                        }
                     });
 
                 _memoryCache.Set(key, item, cacheEntryOptions);

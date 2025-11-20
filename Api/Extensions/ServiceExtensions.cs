@@ -146,11 +146,14 @@ namespace Api.Extensions
 
             foreach (var entityType in entityTypes)
             {
+                if (entityType == null || entityType.BaseType == null) continue;
                 var idType = entityType.BaseType!.GetGenericArguments()[0];
                 var dtoName = entityType.Name + "Dto";
                 var dtoType = dtoTypes.FirstOrDefault(dto =>
+                    dto != null &&
                     dto.Name == dtoName &&
-                    dto.BaseType!.GetGenericArguments()[0] == idType);
+                    dto.BaseType != null &&
+                    dto.BaseType.GetGenericArguments()[0] == idType);
 
                 if (dtoType == null) continue;
 
@@ -240,11 +243,14 @@ namespace Api.Extensions
 
             foreach (var entityType in entityTypes)
             {
+                if (entityType == null || entityType.BaseType == null) continue;
                 var idType = entityType.BaseType!.GetGenericArguments()[0];
                 var dtoName = entityType.Name + "Dto";
                 var dtoType = dtoTypes.FirstOrDefault(dto =>
+                    dto != null &&
                     dto.Name == dtoName &&
-                    dto.BaseType!.GetGenericArguments()[0] == idType);
+                    dto.BaseType != null &&
+                    dto.BaseType.GetGenericArguments()[0] == idType);
 
                 if (dtoType == null) continue;
 

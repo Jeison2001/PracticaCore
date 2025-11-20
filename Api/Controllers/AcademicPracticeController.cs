@@ -25,9 +25,9 @@ namespace Api.Controllers
             {
                 PageNumber = request.PageNumber,
                 PageSize = request.PageSize,
-                SortBy = request.SortBy,
+                SortBy = request.SortBy ?? string.Empty,
                 IsDescending = request.IsDescending,
-                Filters = request.Filters
+                Filters = request.Filters ?? new Dictionary<string, string>()
             };
 
             var result = await _mediator.Send(query);
