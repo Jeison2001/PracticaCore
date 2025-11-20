@@ -1,6 +1,6 @@
 using Api.Responses;
-using Application.Shared.DTOs.UserPermission;
-using Application.Shared.Queries.Permission;
+using Application.Shared.DTOs.UserPermissions;
+using Application.Shared.Queries.Permissions;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;

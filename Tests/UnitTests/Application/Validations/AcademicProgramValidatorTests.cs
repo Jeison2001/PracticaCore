@@ -1,5 +1,5 @@
-using Application.Shared.DTOs.AcademicProgram;
-using Application.Validations.SpecificValidators.AcademicProgram;
+using Application.Shared.DTOs.AcademicPrograms;
+using Application.Validations.SpecificValidators.AcademicPrograms;
 using Xunit;
 
 namespace Tests.UnitTests.Application.Validations

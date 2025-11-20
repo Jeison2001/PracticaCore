@@ -1,5 +1,5 @@
-using Application.Shared.DTOs.UserPermission;
-using Application.Validations.SpecificValidators.UserPermission;
+using Application.Shared.DTOs.UserPermissions;
+using Application.Validations.SpecificValidators.UserPermissions;
 using Xunit;
 
 namespace Tests.UnitTests.Application.Validations

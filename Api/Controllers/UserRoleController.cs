@@ -1,7 +1,7 @@
 using Api.Responses;
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.UserRole;
-using Application.Shared.Queries.UserRole;
+using Application.Shared.DTOs.UserRoles;
+using Application.Shared.Queries.UserRoles;
 using Domain.Common;
 using Domain.Entities;
 using MediatR;

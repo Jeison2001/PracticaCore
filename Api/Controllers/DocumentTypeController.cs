@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.DocumentType;
+using Application.Shared.DTOs.DocumentsTypes;
 using Domain.Entities;
 using MediatR;
 

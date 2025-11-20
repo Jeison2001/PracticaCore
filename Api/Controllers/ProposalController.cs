@@ -1,7 +1,7 @@
 using Api.Responses;
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.Proposal;
-using Application.Shared.Queries.Proposal;
+using Application.Shared.DTOs.Proposals;
+using Application.Shared.Queries.Proposals;
 using Domain.Common;
 using Domain.Entities;
 using MediatR;

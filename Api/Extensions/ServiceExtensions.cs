@@ -6,7 +6,7 @@ using Application.Shared.Mappings;
 using Application.Shared.Queries;
 using Application.Shared.Queries.Handlers;
 using Application.Validations.BaseValidators;
-using Application.Validations.SpecificValidators.InscriptionModality;
+using Application.Validations.SpecificValidators.InscriptionModalities;
 using Domain.Configuration;
 using Domain.Entities;
 using Domain.Interfaces;

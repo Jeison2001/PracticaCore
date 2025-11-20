@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.ResearchGroup;
+using Application.Shared.DTOs.ResearchGroups;
 using Domain.Entities;
 using MediatR;
 

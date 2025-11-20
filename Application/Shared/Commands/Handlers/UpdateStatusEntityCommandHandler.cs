@@ -2,6 +2,7 @@
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
+using Application.Shared.Commands;
 
 namespace Application.Shared.Commands.Handlers
 {

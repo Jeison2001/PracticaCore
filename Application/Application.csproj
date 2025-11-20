@@ -7,10 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Features\**" />
+    <EmbeddedResource Remove="Features\**" />
+    <None Remove="Features\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Common\Interfaces\" />
-    <Folder Include="Features\Example\Commands\" />
-    <Folder Include="Features\Example\DTOs\" />
-    <Folder Include="Features\Example\Queries\" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,6 +2,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using Microsoft.Extensions.Logging;
+using Application.Common.Services.Notifications;
 
 namespace Application.Common.Services.Notifications.Handlers
 {

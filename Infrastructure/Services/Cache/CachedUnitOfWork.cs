@@ -2,6 +2,7 @@ using Domain.Interfaces;
 using Domain.Interfaces.Cache;
 using Infrastructure.Repositories.Cache;
 using Microsoft.Extensions.Logging;
+using Domain.Entities;
 
 namespace Infrastructure.Services.Cache
 {
@@ -23,7 +24,7 @@ namespace Infrastructure.Services.Cache
         }
 
         public IRepository<T, TId> GetRepository<T, TId>() 
-            where T : Domain.Entities.BaseEntity<TId> 
+            where T : BaseEntity<TId> 
             where TId : struct
         {
             // Utilizamos la fábrica para determinar si necesitamos un repositorio con caché

@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.AcademicPeriod;
+using Application.Shared.DTOs.AcademicPeriods;
 using Domain.Entities;
 using MediatR;
 

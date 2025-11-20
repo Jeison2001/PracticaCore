@@ -1,5 +1,5 @@
 // filepath: c:\Users\LENOVO\source\repos\PracticaCore\Api\Controllers\StateInscriptionController.cs
-using Application.Shared.DTOs.StateInscription;
+using Application.Shared.DTOs.StateInscriptions;
 using Domain.Entities;
 using MediatR;
 

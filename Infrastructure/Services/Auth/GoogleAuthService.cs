@@ -13,7 +13,7 @@ namespace Infrastructure.Services.Auth
         private readonly IGoogleTokenValidator _googleTokenValidator;
         private const string InstitutionalDomain = "@unicesar.edu.co";
 
-        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, Domain.Interfaces.IRepository<Domain.Entities.Role, int> roleRepository, IGoogleTokenValidator googleTokenValidator)
+        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, Domain.Interfaces.IRepository<Role, int> roleRepository, IGoogleTokenValidator googleTokenValidator)
         {
             _jwtService = jwtService;
             _userInfoRepository = userInfoRepository;

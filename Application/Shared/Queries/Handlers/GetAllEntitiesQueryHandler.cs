@@ -6,6 +6,7 @@ using Domain.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
+using Application.Shared.Queries;
 
 namespace Application.Shared.Queries.Handlers
 {

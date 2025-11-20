@@ -1,8 +1,8 @@
 using Api.Controllers;
 using Api.Responses;
-using Application.Shared.DTOs.Role;
-using Application.Shared.DTOs.UserRole;
-using Application.Shared.Queries.UserRole;
+using Application.Shared.DTOs.Roles;
+using Application.Shared.DTOs.UserRoles;
+using Application.Shared.Queries.UserRoles;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Moq;

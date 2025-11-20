@@ -64,7 +64,7 @@ namespace Tests.Integration.Auth
             await _context.SaveChangesAsync();
 
             // Seed user
-            var user = new Domain.Entities.User
+            var user = new User
             {
                 Email = email,
                 FirstName = "Test",

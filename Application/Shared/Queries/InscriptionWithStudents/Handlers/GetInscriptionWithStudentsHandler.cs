@@ -1,10 +1,11 @@
-using Application.Shared.DTOs.InscriptionModality;
-using Application.Shared.DTOs.UserInscriptionModality;
+using Application.Shared.DTOs.InscriptionModalities;
+using Application.Shared.DTOs.UserInscriptionModalities;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Domain.Interfaces;
+using Application.Shared.Queries.InscriptionWithStudents;
 
 namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
 {

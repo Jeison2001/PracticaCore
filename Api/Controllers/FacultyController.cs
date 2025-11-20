@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.Faculty;
+using Application.Shared.DTOs.Faculties;
 using Domain.Entities;
 using MediatR;
 

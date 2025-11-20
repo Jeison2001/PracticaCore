@@ -1,0 +1,113 @@
+using Application.Shared.DTOs.Permissions;
+using Application.Shared.DTOs.RolePermissions;
+using Domain.Interfaces;
+using MediatR;
+using Application.Shared.Queries.RolePermissions;
+using Domain.Entities;
+
+namespace Application.Shared.Queries.RolePermissions.Handlers
+{
+    public class GetPermissionsByRoleQueryHandler : IRequestHandler<GetPermissionsByRoleQuery, List<RolePermissionInfoDto>>
+    {
+        private readonly IRepository<Role, int> _roleRepository;
+        private readonly IRepository<RolePermission, int> _rolePermissionRepository;
+        private readonly IRepository<Permission, int> _permissionRepository;
+
+        public GetPermissionsByRoleQueryHandler(
+            IRepository<Role, int> roleRepository,
+            IRepository<RolePermission, int> rolePermissionRepository,
+            IRepository<Permission, int> permissionRepository)
+        {
+            _roleRepository = roleRepository;
+            _rolePermissionRepository = rolePermissionRepository;
+            _permissionRepository = permissionRepository;
+        }        public async Task<List<RolePermissionInfoDto>> Handle(GetPermissionsByRoleQuery request, CancellationToken cancellationToken)
+        {
+            // Validar que al menos uno de los parámetros esté presente
+            if (!request.RoleId.HasValue && string.IsNullOrEmpty(request.RoleCode))
+            {
+                throw new ArgumentException("Debe proporcionar al menos el ID o el código del rol.");
+            }
+
+            Role? role = null;
+
+            // Si ambos parámetros están presentes, validar que correspondan al mismo rol
+            if (request.RoleId.HasValue && !string.IsNullOrEmpty(request.RoleCode))
+            {
+                var roleById = await _roleRepository.GetByIdAsync(request.RoleId.Value);
+                var roleByCode = await _roleRepository.GetFirstOrDefaultAsync(
+                    r => r.Code.ToLower() == request.RoleCode.ToLower(), 
+                    cancellationToken);
+
+                if (roleById != null && roleByCode != null && roleById.Id != roleByCode.Id)
+                {
+                    throw new ArgumentException($"Conflicto: El ID {request.RoleId} corresponde al rol '{roleById.Code}' pero el código proporcionado es '{request.RoleCode}'. Los parámetros deben referirse al mismo rol.");
+                }
+
+                // Usar el rol encontrado por ID (tiene precedencia si ambos existen)
+                role = roleById ?? roleByCode;
+            }
+            // Buscar el rol por ID o por código
+            else if (request.RoleId.HasValue)
+            {
+                role = await _roleRepository.GetByIdAsync(request.RoleId.Value);
+            }
+            else if (!string.IsNullOrEmpty(request.RoleCode))
+            {
+                role = await _roleRepository.GetFirstOrDefaultAsync(
+                    r => r.Code.ToLower() == request.RoleCode.ToLower(), 
+                    cancellationToken);
+            }
+
+            if (role == null)
+            {
+                return new List<RolePermissionInfoDto>();
+            }
+            
+            // Obtener los RolePermissions para el rol encontrado, con filtro opcional por StatusRegister
+            var rolePermissions = await _rolePermissionRepository.GetAllAsync(
+                rp => rp.IdRole == role.Id &&
+                      (request.StatusRegister == null || rp.StatusRegister == request.StatusRegister.Value));
+
+            var result = new List<RolePermissionInfoDto>();
+
+            foreach (var rolePermission in rolePermissions)
+            {
+                // Obtener la información del permiso
+                var permission = await _permissionRepository.GetByIdAsync(rolePermission.IdPermission);
+                
+                if (permission != null)
+                {
+                    result.Add(new RolePermissionInfoDto
+                    {
+                        Permission = new PermissionDto
+                        {
+                            Id = permission.Id,
+                            Code = permission.Code,
+                            ParentCode = permission.ParentCode,
+                            Description = permission.Description,
+                            IdUserCreatedAt = permission.IdUserCreatedAt,
+                            IdUserUpdatedAt = permission.IdUserUpdatedAt,
+                            UpdatedAt = permission.UpdatedAt,
+                            StatusRegister = permission.StatusRegister,
+                            OperationRegister = permission.OperationRegister
+                        },
+                        RolePermission = new RolePermissionDto
+                        {
+                            Id = rolePermission.Id,
+                            IdRole = rolePermission.IdRole,
+                            IdPermission = rolePermission.IdPermission,
+                            IdUserCreatedAt = rolePermission.IdUserCreatedAt,
+                            IdUserUpdatedAt = rolePermission.IdUserUpdatedAt,
+                            UpdatedAt = rolePermission.UpdatedAt,
+                            StatusRegister = rolePermission.StatusRegister,
+                            OperationRegister = rolePermission.OperationRegister
+                        }
+                    });
+                }
+            }
+
+            return result;
+        }
+    }
+}

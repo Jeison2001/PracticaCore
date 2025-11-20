@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.ResearchSubLine;
+using Application.Shared.DTOs.ResearchSubLines;
 using Domain.Entities;
 using MediatR;
 

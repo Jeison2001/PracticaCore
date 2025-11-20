@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.IdentificationType;
+using Application.Shared.DTOs.IdentificationTypes;
 using Domain.Entities;
 using MediatR;
 

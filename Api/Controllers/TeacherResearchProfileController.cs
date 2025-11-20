@@ -1,6 +1,6 @@
 using Api.Responses;
-using Application.Shared.Commands.TeacherResearchProfile;
-using Application.Shared.DTOs.TeacherResearchProfile;
+using Application.Shared.Commands.TeacherResearchProfiles;
+using Application.Shared.DTOs.TeacherResearchProfiles;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Domain.Entities;

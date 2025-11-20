@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.TypeTeachingAssignment;
+using Application.Shared.DTOs.TypeTeachingAssignments;
 using Domain.Entities;
 using MediatR;
 

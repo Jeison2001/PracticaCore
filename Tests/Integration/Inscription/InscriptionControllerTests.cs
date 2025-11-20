@@ -130,14 +130,14 @@ namespace Tests.Integration.Inscription
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var inscription = new Domain.Entities.InscriptionModality
+                var inscription = new InscriptionModality
                 {
                     IdModality = modality.Id,
                     IdStateInscription = state.Id,
                     IdAcademicPeriod = period.Id,
                     Observations = "Seeded Inscription"
                 };
-                context.Set<Domain.Entities.InscriptionModality>().Add(inscription);
+                context.Set<InscriptionModality>().Add(inscription);
                 await context.SaveChangesAsync();
             }
 
@@ -162,14 +162,14 @@ namespace Tests.Integration.Inscription
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var inscription = new Domain.Entities.InscriptionModality
+                var inscription = new InscriptionModality
                 {
                     IdModality = modality.Id,
                     IdStateInscription = state.Id,
                     IdAcademicPeriod = period.Id,
                     Observations = "Seeded Inscription"
                 };
-                context.Set<Domain.Entities.InscriptionModality>().Add(inscription);
+                context.Set<InscriptionModality>().Add(inscription);
                 await context.SaveChangesAsync();
                 inscriptionId = inscription.Id;
             }
@@ -208,13 +208,13 @@ namespace Tests.Integration.Inscription
                 await context.SaveChangesAsync();
                 userId = user.Id;
 
-                var inscription = new Domain.Entities.InscriptionModality
+                var inscription = new InscriptionModality
                 {
                     IdModality = modality.Id,
                     IdStateInscription = state.Id,
                     IdAcademicPeriod = period.Id
                 };
-                context.Set<Domain.Entities.InscriptionModality>().Add(inscription);
+                context.Set<InscriptionModality>().Add(inscription);
                 
                 var userInscription = new UserInscriptionModality
                 {
@@ -262,14 +262,14 @@ namespace Tests.Integration.Inscription
                 await context.SaveChangesAsync();
                 userId = user.Id;
 
-                var inscription = new Domain.Entities.InscriptionModality
+                var inscription = new InscriptionModality
                 {
                     IdModality = modality.Id,
                     IdStateInscription = state.Id,
                     IdAcademicPeriod = period.Id,
                     Observations = "Original"
                 };
-                context.Set<Domain.Entities.InscriptionModality>().Add(inscription);
+                context.Set<InscriptionModality>().Add(inscription);
                 await context.SaveChangesAsync();
                 inscriptionId = inscription.Id;
 

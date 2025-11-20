@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.StateStage;
+using Application.Shared.DTOs.StateStages;
 using Domain.Entities;
 using MediatR;
 

@@ -1,5 +1,5 @@
-using Application.Shared.DTOs.AcademicPractice;
-using Application.Shared.DTOs.TeachingAssignment;
+using Application.Shared.DTOs.AcademicPractices;
+using Application.Shared.DTOs.TeachingAssignments;
 using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;

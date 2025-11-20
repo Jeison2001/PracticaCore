@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.UserInscriptionModality;
+using Application.Shared.DTOs.UserInscriptionModalities;
 using Domain.Entities;
 using MediatR;
 

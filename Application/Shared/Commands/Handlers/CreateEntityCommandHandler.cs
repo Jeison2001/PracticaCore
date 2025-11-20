@@ -7,6 +7,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
+using Application.Shared.Commands;
 
 namespace Application.Shared.Commands.Handlers
 {

@@ -6,6 +6,7 @@ using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using Application.Shared.Commands;
 
 namespace Application.Shared.Commands.Handlers
 {

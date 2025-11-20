@@ -3,6 +3,7 @@ using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
+using Application.Shared.Queries;
 
 namespace Application.Shared.Queries.Handlers
 {

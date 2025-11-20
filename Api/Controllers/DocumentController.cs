@@ -1,7 +1,7 @@
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.Document;
+using Application.Shared.DTOs.Documents;
 using Application.Shared.DTOs.RequiredDocumentsByState;
-using Application.Shared.Queries.Document;
+using Application.Shared.Queries.Documents;
 using Application.Shared.Queries.RequiredDocuments;
 using Domain.Common;
 using Domain.Interfaces.Storage;
@@ -141,7 +141,7 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Upload([FromForm] DocumentUploadDto dto)
         {
-            var command = new Application.Shared.Commands.Document.CreateDocumentWithFileCommand(dto);
+            var command = new Application.Shared.Commands.Documents.CreateDocumentWithFileCommand(dto);
             var result = await _mediator.Send(command);
             return CreatedAtAction(nameof(DownloadFile), new { id = result.Id }, new Responses.ApiResponse<DocumentDto>
             {
@@ -159,7 +159,7 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int id, [FromForm] DocumentUpdateDto dto)
         {
-            var command = new Application.Shared.Commands.Document.UpdateDocumentWithFileCommand(id, dto);
+            var command = new Application.Shared.Commands.Documents.UpdateDocumentWithFileCommand(id, dto);
             var result = await _mediator.Send(command);
             return Ok(new Responses.ApiResponse<DocumentDto>
             {
@@ -176,7 +176,7 @@ namespace Api.Controllers
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
         {
-            var command = new Application.Shared.Commands.Document.UpdateDocumentStatusCommand(id, dto.StatusRegister, dto.IdUserUpdateAt, dto.OperationRegister);
+            var command = new Application.Shared.Commands.Documents.UpdateDocumentStatusCommand(id, dto.StatusRegister, dto.IdUserUpdateAt, dto.OperationRegister);
             var result = await _mediator.Send(command);
             
             if (!result)

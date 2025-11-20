@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.Role;
+using Application.Shared.DTOs.Roles;
 using Domain.Entities;
 using MediatR;
 

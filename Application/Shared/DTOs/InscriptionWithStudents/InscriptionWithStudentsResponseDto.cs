@@ -1,5 +1,5 @@
-using Application.Shared.DTOs.InscriptionModality;
-using Application.Shared.DTOs.UserInscriptionModality;
+using Application.Shared.DTOs.InscriptionModalities;
+using Application.Shared.DTOs.UserInscriptionModalities;
 
 namespace Application.Shared.DTOs.InscriptionWithStudents
 {

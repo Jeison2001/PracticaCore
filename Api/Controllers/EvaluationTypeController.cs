@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.EvaluationType;
+using Application.Shared.DTOs.EvaluationsTypes;
 using Domain.Entities;
 using MediatR;
 

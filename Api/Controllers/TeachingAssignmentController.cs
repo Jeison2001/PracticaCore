@@ -1,7 +1,7 @@
 using Api.Responses;
-using Application.Shared.Commands.TeachingAssignment;
-using Application.Shared.DTOs.TeachingAssignment;
-using Application.Shared.Queries.TeachingAssignment;
+using Application.Shared.Commands.TeachingAssignments;
+using Application.Shared.DTOs.TeachingAssignments;
+using Application.Shared.Queries.TeachingAssignments;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;

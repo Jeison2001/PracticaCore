@@ -1,6 +1,6 @@
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.ProjectFinal;
-using Application.Shared.Queries.ProjectFinal;
+using Application.Shared.DTOs.ProjectFinals;
+using Application.Shared.Queries.ProjectFinals;
 using Microsoft.AspNetCore.Mvc;
 using Api.Responses;
 using Domain.Common;

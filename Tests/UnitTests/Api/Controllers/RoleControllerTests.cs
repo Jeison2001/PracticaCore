@@ -2,7 +2,7 @@ using Api.Controllers;
 using Api.Responses;
 using Application.Shared.Commands;
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.Role;
+using Application.Shared.DTOs.Roles;
 using Application.Shared.Queries;
 using Domain.Common;
 using Domain.Entities;
