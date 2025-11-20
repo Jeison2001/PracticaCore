@@ -1,7 +1,6 @@
 using Application.Shared.DTOs.StageModality;
 using Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
-using Tests.Integration;
 using Xunit;
 
 namespace Tests.Integration.StageModalities

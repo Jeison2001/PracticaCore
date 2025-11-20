@@ -1,6 +1,4 @@
 using Application.Shared.DTOs.TypeTeachingAssignment;
-using Domain.Entities;
-using Tests.Integration;
 
 namespace Tests.Integration.TypeTeachingAssignments
 {

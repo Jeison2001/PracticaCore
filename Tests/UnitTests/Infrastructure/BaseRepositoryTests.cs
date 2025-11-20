@@ -1,9 +1,6 @@
-﻿using Domain.Entities;
-using Infrastructure.Data;
-using Infrastructure.Repositories;
+﻿using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using Xunit;
 
 namespace Tests.UnitTests.Infrastructure
 {

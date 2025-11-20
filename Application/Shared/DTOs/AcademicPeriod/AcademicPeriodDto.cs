@@ -1,5 +1,3 @@
-using System;
-
 namespace Application.Shared.DTOs.AcademicPeriod
 {
     public class AcademicPeriodDto : BaseDto<int>

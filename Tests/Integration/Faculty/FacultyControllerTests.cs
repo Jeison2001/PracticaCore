@@ -1,6 +1,4 @@
 using Application.Shared.DTOs.Faculty;
-using Domain.Entities;
-using Tests.Integration;
 
 namespace Tests.Integration.Faculties
 {

@@ -1,10 +1,7 @@
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
-using System;
 using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Application.Shared.Commands
 {

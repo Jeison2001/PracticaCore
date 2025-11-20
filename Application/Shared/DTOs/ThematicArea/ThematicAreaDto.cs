@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.ThematicArea
 {
     public class ThematicAreaDto : BaseDto<int>

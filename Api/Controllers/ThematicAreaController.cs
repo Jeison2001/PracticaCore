@@ -1,4 +1,3 @@
-using Api.Controllers;
 using Application.Shared.DTOs.ThematicArea;
 using Domain.Entities;
 using MediatR;

@@ -3,7 +3,6 @@ using Application.Shared.DTOs.UserInscriptionModality;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Entities;
 using Domain.Interfaces;
-using Domain.Interfaces.Registration;
 using Domain.Interfaces.Notifications;
 using MediatR;
 using Microsoft.Extensions.Logging;

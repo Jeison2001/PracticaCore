@@ -1,5 +1,4 @@
 using Domain.Interfaces.Registration;
-using System.Threading.Tasks;
 
 namespace Domain.Interfaces.Auth
 {

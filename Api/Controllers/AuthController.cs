@@ -3,8 +3,6 @@ using Application.Shared.DTOs.Auth;
 using Domain.Interfaces.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Threading.Tasks;
 
 namespace Api.Controllers
 {

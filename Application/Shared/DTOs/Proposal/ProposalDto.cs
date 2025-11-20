@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.Proposal
 {
     public class ProposalDto : BaseDto<int>

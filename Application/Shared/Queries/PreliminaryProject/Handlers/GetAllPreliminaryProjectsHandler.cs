@@ -1,12 +1,10 @@
 using Application.Shared.DTOs.PreliminaryProject;
-using Application.Shared.Queries.PreliminaryProject;
 using Domain.Common;
 using MediatR;
 using Domain.Interfaces;
 using Application.Shared.DTOs.Proposal;
 using Application.Shared.DTOs.StateStage;
 using Application.Shared.DTOs.UserInscriptionModality;
-using System.Linq;
 
 namespace Application.Shared.Queries.PreliminaryProject.Handlers
 {

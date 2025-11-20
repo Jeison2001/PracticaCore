@@ -1,16 +1,8 @@
 using Application.Shared.DTOs.Document;
 using AutoMapper;
 using Domain.Common;
-using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Application.Shared.Queries.Document.Handlers
 {

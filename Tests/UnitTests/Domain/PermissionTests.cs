@@ -1,6 +1,5 @@
 using Domain.Entities;
 using Xunit;
-using System.Collections.Generic;
 
 namespace Tests.UnitTests.Domain
 {

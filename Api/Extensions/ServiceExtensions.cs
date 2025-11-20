@@ -15,7 +15,6 @@ using Infrastructure.Data;
 using Infrastructure.Extensions;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
-using Infrastructure.Services.Background;
 using Infrastructure.Services.Storage;
 using MediatR;
 using Microsoft.EntityFrameworkCore;

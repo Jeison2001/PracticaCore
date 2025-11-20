@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.ResearchLine
 {
     public class ResearchLineDto : BaseDto<int>

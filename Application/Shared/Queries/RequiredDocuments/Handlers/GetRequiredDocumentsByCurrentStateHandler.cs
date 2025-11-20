@@ -1,5 +1,4 @@
 using Application.Shared.DTOs.RequiredDocumentsByState;
-using Application.Shared.Queries.RequiredDocuments;
 using Domain.Interfaces;
 using MediatR;
 

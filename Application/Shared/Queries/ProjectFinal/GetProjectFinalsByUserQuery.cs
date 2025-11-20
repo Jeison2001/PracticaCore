@@ -1,6 +1,5 @@
 using Application.Shared.DTOs.ProjectFinal;
 using MediatR;
-using System.Collections.Generic;
 
 namespace Application.Shared.Queries.ProjectFinal
 {

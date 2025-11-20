@@ -1,4 +1,3 @@
-using Api.Controllers;
 using Application.Shared.DTOs.ResearchLine;
 using Domain.Entities;
 using MediatR;

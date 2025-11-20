@@ -10,7 +10,6 @@ using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
-using Tests.Integration;
 using Xunit;
 
 namespace Tests.Integration.Document

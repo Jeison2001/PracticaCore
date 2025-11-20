@@ -1,5 +1,4 @@
 using Api.Responses;
-using Application.Shared.DTOs.Permission;
 using Application.Shared.DTOs.UserPermission;
 using Application.Shared.Queries.Permission;
 using Domain.Entities;

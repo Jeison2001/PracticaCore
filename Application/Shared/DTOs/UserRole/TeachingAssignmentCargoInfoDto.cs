@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using Application.Shared.DTOs.TeachingAssignment;
-using Application.Shared.DTOs.TypeTeachingAssignment;
 
 namespace Application.Shared.DTOs.UserRole
 {

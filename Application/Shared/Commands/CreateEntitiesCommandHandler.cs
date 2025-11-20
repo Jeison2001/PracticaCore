@@ -3,11 +3,6 @@ using AutoMapper;
 using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Application.Shared.Commands
 {

@@ -1,6 +1,4 @@
 // filepath: c:\Users\LENOVO\source\repos\PracticaCore\Application\Shared\DTOs\StateInscription\StateInscriptionDto.cs
-using System;
-
 namespace Application.Shared.DTOs.StateInscription
 {
     public class StateInscriptionDto : BaseDto<int>

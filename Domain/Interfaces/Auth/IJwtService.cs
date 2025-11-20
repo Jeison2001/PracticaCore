@@ -1,5 +1,4 @@
 using Domain.Interfaces.Registration;
-using System.Collections.Generic;
 using System.Security.Claims;
 
 namespace Domain.Interfaces.Auth

@@ -1,6 +1,4 @@
 using Application.Shared.DTOs.Modality;
-using Domain.Entities;
-using Tests.Integration;
 
 namespace Tests.Integration.Modalities
 {

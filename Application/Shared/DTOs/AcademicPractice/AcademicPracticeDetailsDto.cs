@@ -1,5 +1,3 @@
-using System;
-
 namespace Application.Shared.DTOs.AcademicPractice
 {
     public class AcademicPracticeDetailsDto

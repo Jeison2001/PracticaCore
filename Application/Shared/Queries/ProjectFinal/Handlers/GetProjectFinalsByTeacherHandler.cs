@@ -1,5 +1,4 @@
 using Application.Shared.DTOs.ProjectFinal;
-using Application.Shared.Queries.ProjectFinal;
 using Domain.Common;
 using MediatR;
 using Domain.Interfaces;

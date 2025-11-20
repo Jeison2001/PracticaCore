@@ -1,5 +1,3 @@
-using System;
-
 namespace Application.Shared.DTOs.PreliminaryProject
 {    public class PreliminaryProjectDto : BaseDto<int>
     {

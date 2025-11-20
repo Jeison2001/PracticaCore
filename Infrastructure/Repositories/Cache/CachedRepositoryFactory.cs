@@ -2,8 +2,6 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Domain.Interfaces.Cache;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
 
 namespace Infrastructure.Repositories.Cache
 {

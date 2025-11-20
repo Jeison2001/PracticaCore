@@ -1,4 +1,3 @@
-using Api.Controllers;
 using Application.Shared.DTOs.IdentificationType;
 using Domain.Entities;
 using MediatR;

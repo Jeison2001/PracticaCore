@@ -1,5 +1,4 @@
 using Application.Shared.DTOs.AcademicPractice;
-using Domain.Entities;
 using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using MediatR;

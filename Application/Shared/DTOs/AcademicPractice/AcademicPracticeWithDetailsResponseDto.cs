@@ -1,4 +1,3 @@
-using Application.Shared.DTOs.AcademicPractice;
 using Application.Shared.DTOs.TeachingAssignment;
 using Application.Shared.DTOs.User;
 using Application.Shared.DTOs.Document;

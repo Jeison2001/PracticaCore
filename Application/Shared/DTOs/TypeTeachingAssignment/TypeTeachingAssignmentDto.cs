@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.TypeTeachingAssignment
 {    public class TypeTeachingAssignmentDto : BaseDto<int>
     {

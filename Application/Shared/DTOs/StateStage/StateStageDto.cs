@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.StateStage
 {
     public class StateStageDto : BaseDto<int>

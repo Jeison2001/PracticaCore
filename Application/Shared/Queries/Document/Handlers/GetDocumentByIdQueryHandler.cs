@@ -1,10 +1,7 @@
 using Application.Shared.DTOs.Document;
 using AutoMapper;
-using Domain.Entities;
 using Domain.Interfaces;
 using MediatR;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Application.Shared.Queries.Document.Handlers
 {

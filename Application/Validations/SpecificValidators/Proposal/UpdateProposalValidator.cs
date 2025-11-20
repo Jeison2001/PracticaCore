@@ -1,7 +1,5 @@
-using Application.Shared.Commands;
 using Application.Shared.DTOs.Proposal;
 using Application.Validations.BaseValidators;
-using Domain.Entities;
 using FluentValidation;
 
 namespace Application.Validations.SpecificValidators.Proposal

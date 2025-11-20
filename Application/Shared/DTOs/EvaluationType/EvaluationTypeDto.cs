@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.EvaluationType
 {
     public class EvaluationTypeDto : BaseDto<int>

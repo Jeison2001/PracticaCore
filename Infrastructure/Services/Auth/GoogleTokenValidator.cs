@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Google.Apis.Auth;
 
 namespace Infrastructure.Services.Auth

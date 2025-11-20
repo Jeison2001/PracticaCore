@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.ResearchGroup
 {
     public class ResearchGroupDto : BaseDto<int>

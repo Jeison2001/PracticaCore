@@ -1,7 +1,5 @@
 using Application.Shared.DTOs.AcademicProgram;
-using Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
-using Tests.Integration;
 using Xunit;
 
 namespace Tests.Integration.AcademicPrograms

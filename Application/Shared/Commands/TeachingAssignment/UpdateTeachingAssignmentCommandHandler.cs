@@ -1,6 +1,5 @@
 using Application.Shared.DTOs.TeachingAssignment;
 using AutoMapper;
-using Domain.Entities;
 using Domain.Interfaces;
 using Domain.Interfaces.Notifications;
 using MediatR;

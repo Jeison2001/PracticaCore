@@ -2,7 +2,6 @@ using Api.Responses;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.AcademicPractice;
 using Application.Shared.Queries.AcademicPractice;
-using Application.Shared.Queries.AcademicPractice.Handlers;
 using Domain.Common;
 using Domain.Entities;
 using MediatR;

@@ -2,7 +2,6 @@ using Application.Shared.DTOs.ProjectFinal;
 using Application.Shared.DTOs.Proposal;
 using Application.Shared.DTOs.UserInscriptionModality;
 using Application.Shared.DTOs.StateStage;
-using Application.Shared.Queries.ProjectFinal;
 using Domain.Common;
 using Domain.Interfaces;
 using MediatR;

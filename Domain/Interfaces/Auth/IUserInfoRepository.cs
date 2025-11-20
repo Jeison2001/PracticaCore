@@ -1,7 +1,5 @@
 using Domain.Entities;
 using Domain.Interfaces.Registration;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Domain.Interfaces.Auth
 {

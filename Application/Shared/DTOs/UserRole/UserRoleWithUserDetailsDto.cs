@@ -1,6 +1,4 @@
-using Application.Shared.DTOs;
 using Application.Shared.DTOs.TeacherResearchProfile;
-using Application.Shared.DTOs.TeachingAssignment;
 
 namespace Application.Shared.DTOs.UserRole
 {

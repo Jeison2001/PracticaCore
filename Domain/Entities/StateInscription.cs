@@ -1,7 +1,4 @@
 // filepath: c:\Users\LENOVO\source\repos\PracticaCore\Domain\Entities\StateInscription.cs
-using System;
-using System.Collections.Generic;
-
 namespace Domain.Entities
 {
     public class StateInscription : BaseEntity<int>

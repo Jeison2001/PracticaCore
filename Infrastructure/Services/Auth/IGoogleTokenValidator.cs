@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Domain.Interfaces.Registration;
 using Google.Apis.Auth;
 

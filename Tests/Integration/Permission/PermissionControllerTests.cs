@@ -1,6 +1,4 @@
 using Application.Shared.DTOs.Permission;
-using Domain.Entities;
-using Tests.Integration;
 using Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;

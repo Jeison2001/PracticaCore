@@ -1,4 +1,3 @@
-using Application.Shared.DTOs;
 using Application.Shared.DTOs.AcademicPractice;
 using Domain.Common;
 using MediatR;

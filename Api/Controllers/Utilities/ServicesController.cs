@@ -1,6 +1,5 @@
 using Api.Responses;
 using Application.Common.Services;
-using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers.Example

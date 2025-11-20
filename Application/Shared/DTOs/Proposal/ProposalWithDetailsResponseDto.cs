@@ -1,5 +1,4 @@
 using Application.Shared.DTOs.UserInscriptionModality;
-using Application.Shared.DTOs.Proposal;
 
 namespace Application.Shared.DTOs.Proposal
 {

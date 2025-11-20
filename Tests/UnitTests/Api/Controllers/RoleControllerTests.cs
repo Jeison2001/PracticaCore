@@ -9,9 +9,6 @@ using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Tests.UnitTests.Api.Controllers

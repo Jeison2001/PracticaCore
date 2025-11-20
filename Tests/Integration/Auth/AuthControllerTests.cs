@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using Api.Responses;
 using Application.Shared.DTOs.Auth;
 using Domain.Entities;
-using Domain.Interfaces.Auth;
 using FluentAssertions;
 using Google.Apis.Auth;
 using Infrastructure.Services.Auth;

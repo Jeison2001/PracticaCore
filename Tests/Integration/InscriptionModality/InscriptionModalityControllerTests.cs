@@ -1,7 +1,6 @@
 using Application.Shared.DTOs.InscriptionModality;
 using Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
-using Tests.Integration;
 
 namespace Tests.Integration.InscriptionModalities
 {

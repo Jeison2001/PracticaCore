@@ -1,8 +1,6 @@
 using Application.Shared.DTOs.Document;
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
-using System.IO;
-using System.Linq;
 
 namespace Application.Validations.SpecificValidators.Document
 {

@@ -1,5 +1,3 @@
-using Application.Shared.DTOs.Faculty;
-
 namespace Application.Shared.DTOs.AcademicProgram
 {
     public class AcademicProgramDto : BaseDto<int>

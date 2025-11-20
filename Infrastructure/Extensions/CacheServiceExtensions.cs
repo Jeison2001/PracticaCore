@@ -3,8 +3,6 @@ using Domain.Interfaces.Cache;
 using Infrastructure.Services.Cache;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Linq;
 
 namespace Infrastructure.Extensions
 {

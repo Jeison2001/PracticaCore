@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.AcademicPractice
 {
     public class UpdatePhaseApprovalDto : BaseDto<int>

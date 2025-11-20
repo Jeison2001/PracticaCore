@@ -1,7 +1,6 @@
 using Domain.Common;
 using Domain.Entities;
 using Domain.Interfaces.Auth;
-using System.Linq.Expressions;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Extensions; // required for ToPaginatedResultAsync extension

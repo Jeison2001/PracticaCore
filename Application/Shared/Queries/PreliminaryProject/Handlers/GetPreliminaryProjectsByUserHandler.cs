@@ -1,5 +1,4 @@
 using Application.Shared.DTOs.PreliminaryProject;
-using Application.Shared.Queries.PreliminaryProject;
 using MediatR;
 using Domain.Interfaces;
 using Application.Shared.DTOs.Proposal;

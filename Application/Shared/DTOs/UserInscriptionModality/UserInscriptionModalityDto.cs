@@ -1,5 +1,3 @@
-using System;
-
 namespace Application.Shared.DTOs.UserInscriptionModality
 {
     public class UserInscriptionModalityDto : BaseDto<int>

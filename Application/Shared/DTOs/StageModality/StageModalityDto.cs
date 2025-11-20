@@ -1,5 +1,3 @@
-using Application.Shared.DTOs;
-
 namespace Application.Shared.DTOs.StageModality
 {
     public class StageModalityDto : BaseDto<int>

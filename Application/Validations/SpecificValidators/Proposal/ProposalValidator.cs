@@ -1,4 +1,3 @@
-using Application.Shared.DTOs.Proposal;
 using FluentValidation;
 
 namespace Application.Validations.SpecificValidators.Proposal

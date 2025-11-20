@@ -1,4 +1,3 @@
-using System;
 using Application.Shared.DTOs.StateStage;
 
 namespace Application.Shared.DTOs.ProjectFinal

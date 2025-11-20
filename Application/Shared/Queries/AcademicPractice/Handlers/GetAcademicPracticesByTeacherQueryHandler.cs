@@ -1,5 +1,4 @@
 using Application.Shared.DTOs.AcademicPractice;
-using Application.Shared.Queries.AcademicPractice;
 using AutoMapper;
 using Domain.Common;
 using Domain.Interfaces;

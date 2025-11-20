@@ -1,5 +1,3 @@
-using System;
-
 namespace Application.Shared.DTOs.ProjectFinal
 {    public class ProjectFinalDto : BaseDto<int>
     {

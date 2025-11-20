@@ -1,6 +1,5 @@
 using Application.Shared.DTOs.TeacherResearchProfile;
 using Application.Shared.DTOs.TeachingAssignment;
-using Application.Shared.DTOs.TypeTeachingAssignment;
 using Application.Shared.DTOs.UserRole;
 using AutoMapper;
 using Domain.Common;
