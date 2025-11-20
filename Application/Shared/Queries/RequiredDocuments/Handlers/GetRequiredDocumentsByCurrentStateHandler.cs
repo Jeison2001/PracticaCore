@@ -36,9 +36,9 @@ namespace Application.Shared.Queries.RequiredDocuments.Handlers
                 Description = rds.DocumentType.Description,
                 IsRequired = rds.IsRequired,
                 OrderDisplay = rds.OrderDisplay,
-                DocumentClassName = rds.DocumentType.DocumentClass.Name,
-                RequiredForState = rds.StateStage.Code,
-                StateName = rds.StateStage.Name
+                DocumentClassName = rds.DocumentType.DocumentClass?.Name ?? string.Empty,
+                RequiredForState = rds.StateStage?.Code ?? string.Empty,
+                StateName = rds.StateStage?.Name ?? string.Empty
             }).ToList();
 
             return requiredDocuments;

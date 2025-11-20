@@ -1,8 +1,10 @@
 ﻿using Application.Common.Behaviors;
 using Application.Shared.Commands;
+using Application.Shared.Commands.Handlers;
 using Application.Shared.DTOs;
 using Application.Shared.Mappings;
 using Application.Shared.Queries;
+using Application.Shared.Queries.Handlers;
 using Application.Validations.BaseValidators;
 using Application.Validations.SpecificValidators.InscriptionModality;
 using Domain.Configuration;

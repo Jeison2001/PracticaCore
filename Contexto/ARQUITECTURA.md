@@ -2,34 +2,70 @@
 
 Este proyecto sigue los principios de **Clean Architecture** para garantizar la escalabilidad, mantenibilidad y testabilidad. El diseño se centra en la independencia de frameworks, UI y bases de datos.
 
-## 🏗️ Estructura de Capas
+## 🏗️ Estructura de Capas y Estándares de Implementación
 
 ### 1. Domain (Núcleo)
 Contiene la lógica de negocio empresarial y las definiciones de entidades. No tiene dependencias de otras capas.
-- **Entities**: Objetos de negocio (`BaseEntity<T>`).
-- **Interfaces**: Contratos para repositorios y servicios (`IGenericRepository`, `INotificationDispatcher`).
-- **Enums**: Enumeraciones del dominio.
+
+- **Entities**
+    *   **Ubicación**: `Domain/Entities/`
+    *   **Implementación**: Deben heredar de `BaseEntity<TId>`.
+- **Interfaces**
+    *   **Ubicación**: `Domain/Interfaces/`
+    *   **Descripción**: Contratos para repositorios (`IGenericRepository`) y servicios.
+- **Enums**
+    *   **Ubicación**: `Domain/Enums/`
 
 ### 2. Application (Casos de Uso)
 Orquesta el flujo de datos hacia y desde las entidades del dominio.
-- **DTOs**: Objetos de Transferencia de Datos (`BaseDto<T>`).
-- **Validators**: Reglas de validación con FluentValidation.
-  - **Validación Genérica**: `BaseCreateCommandValidator` y `BaseUpdateCommandValidator` validan propiedades comunes.
-  - **Validación Específica**: Para comandos personalizados (no genéricos), se debe crear un validador que implemente `AbstractValidator<TCommand>` y delegue la validación del DTO usando `RuleFor(x => x.Dto).SetValidator(new MiDtoValidator())`.
-- **Services**: Lógica de aplicación y orquestación (`NotificationDispatcher`).
-- **Mappings**: Configuraciones de AutoMapper.
+
+- **DTOs**
+    *   **Ubicación**: `Application/Shared/DTOs/[NombreModulo]/`
+    *   **Implementación**: Deben heredar de `BaseDto<TId>`.
+- **Validators**
+    *   **Ubicación**: `Application/Validations/SpecificValidators/[NombreModulo]/`
+    *   **Implementación**: Heredar de `AbstractValidator<TDto>`.
+    *   **Tipos**:
+        *   **Genérica**: `BaseCreateCommandValidator` y `BaseUpdateCommandValidator` (automáticos).
+        *   **Específica**: Para lógica personalizada, usar `RuleFor(x => x.Dto).SetValidator(new MiDtoValidator())`.
+- **Commands (CQRS)**
+    *   **Ubicación**: `Application/Shared/Commands/[NombreModulo]/`
+    *   **Estructura Obligatoria**:
+        ```text
+        [NombreModulo]/
+        ├── [NombreAccion]Command.cs          # Implementa IRequest<TResponse>
+        └── Handlers/                         # Subcarpeta para la lógica
+            └── [NombreAccion]CommandHandler.cs # Implementa IRequestHandler<TRequest, TResponse>
+        ```
+- **Mappings**
+    *   **Ubicación**: `Application/Shared/Mappings/`
+    *   **Implementación**: Configuraciones de AutoMapper.
+- **Services**
+    *   **Ubicación**: `Application/Common/Services/`
+    *   **Ejemplo**: `NotificationDispatcher`.
 
 ### 3. Infrastructure (Persistencia y Servicios Externos)
 Implementa las interfaces definidas en el dominio.
-- **Data**: Contexto de base de datos (EF Core) y configuraciones de entidades.
-- **Repositories**: Implementación de repositorios genéricos y específicos.
-- **Services**: Implementaciones de servicios externos (Email, Storage).
+
+- **Configurations (EF Core)**
+    *   **Ubicación**: `Infrastructure/Data/Configurations/`
+    *   **Implementación**: Heredar de `BaseEntityConfiguration<TEntity, TId>` para auditoría automática.
+- **Repositories**
+    *   **Ubicación**: `Infrastructure/Repositories/`
+    *   **Implementación**: Heredar de `GenericRepository<TEntity>` o implementar interfaz específica.
+- **Services**
+    *   **Ubicación**: `Infrastructure/Services/`
+    *   **Descripción**: Implementaciones de servicios externos (Email, Storage).
 
 ### 4. Api (Presentación)
 Punto de entrada de la aplicación.
-- **Controllers**: Controladores REST (`GenericController<T>`).
-- **Middleware**: Manejo global de excepciones.
-- **Extensions**: Configuración de inyección de dependencias.
+
+- **Controllers**
+    *   **Ubicación**: `Api/Controllers/`
+    *   **Implementación**: Heredar de `GenericController<TEntity, TId, TDto>` para CRUD automático.
+- **Extensions**
+    *   **Ubicación**: `Api/Extensions/`
+    *   **Descripción**: Configuración de inyección de dependencias.
 
 ---
 

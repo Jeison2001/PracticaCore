@@ -136,7 +136,11 @@ Gracias a la arquitectura del proyecto, **no es necesario registrar manualmente*
 
 ## 7. Casos Especiales y Módulos Personalizados
 
-Para funcionalidades que no se ajustan al patrón CRUD genérico (como subida de archivos, procesos complejos, o reportes), se recomienda seguir el patrón **CQRS** manualmente:
+Para funcionalidades que no se ajustan al patrón CRUD genérico (como subida de archivos, procesos complejos, o reportes), se recomienda seguir el patrón **CQRS** manualmente.
+
+> **Nota sobre Estructura**: Consulte `Contexto/ARQUITECTURA.md` para ver la estructura de carpetas obligatoria (separación de Commands y Handlers).
+
+### Pasos de Implementación
 
 1.  **Definir Command/Query**: Crear la clase que implemente `IRequest<TResponse>`.
 2.  **Crear Handler**: Implementar `IRequestHandler<TRequest, TResponse>`.

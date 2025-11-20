@@ -1,4 +1,4 @@
-using Application.Shared.Commands;
+using Application.Shared.Commands.Document;
 using FluentValidation;
 
 namespace Application.Validations.SpecificValidators.Document
