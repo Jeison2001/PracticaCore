@@ -33,9 +33,11 @@ namespace Tests.Integration
             builder.ConfigureServices(services =>
             {
                 // Add AppDbContext using an in-memory database for testing
+                // Use a unique name for each factory instance to isolate tests
+                var dbName = Guid.NewGuid().ToString();
                 services.AddDbContext<AppDbContext>(options =>
                 {
-                    options.UseInMemoryDatabase("InMemoryDbForTesting");
+                    options.UseInMemoryDatabase(dbName);
                     options.ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
                 });
             });

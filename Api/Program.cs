@@ -18,8 +18,11 @@ builder.Services.AddApplicationLayer();
 builder.Services.AddCacheServices();
 
 // Configurar Hangfire
-builder.Services.AddHangfireDefault(builder.Configuration);
-builder.Services.AddHangfireServer();
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHangfireDefault(builder.Configuration);
+    builder.Services.AddHangfireServer();
+}
 
 // Add CORS configuration
 builder.Services.AddCors(options =>
@@ -113,7 +116,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Configurar Hangfire Dashboard con manejo de errores mejorado
-app.UseHangfireConfiguration(app.Environment);
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHangfireConfiguration(app.Environment);
+}
 
 
 

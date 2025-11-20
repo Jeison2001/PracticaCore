@@ -17,7 +17,7 @@ namespace Tests.Integration.TeachingAssignment
         {
         }
 
-        private async Task<(User Teacher, InscriptionModality InscriptionModality, TypeTeachingAssignment TypeTeaching)> SeedDataAsync()
+        private async Task<(Domain.Entities.User Teacher, InscriptionModality InscriptionModality, TypeTeachingAssignment TypeTeaching)> SeedDataAsync()
         {
             using var scope = _factory.Services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -31,7 +31,7 @@ namespace Tests.Integration.TeachingAssignment
             context.Set<AcademicProgram>().Add(program);
             await context.SaveChangesAsync();
 
-            var teacher = new User 
+            var teacher = new Domain.Entities.User 
             { 
                 FirstName = "Test", 
                 LastName = "Teacher", 
@@ -51,7 +51,7 @@ namespace Tests.Integration.TeachingAssignment
             context.Set<Modality>().Add(modality);
             context.Set<StateInscription>().Add(state);
             context.Set<AcademicPeriod>().Add(period);
-            context.Set<User>().Add(teacher);
+            context.Set<Domain.Entities.User>().Add(teacher);
             context.Set<TypeTeachingAssignment>().Add(typeTeaching);
             await context.SaveChangesAsync();
 

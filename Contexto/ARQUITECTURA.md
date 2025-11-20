@@ -64,6 +64,13 @@ Implementa un patrón Dispatcher/Handler para desacoplar los eventos de dominio 
 
 ## 🚀 Patrones Utilizados
 - **Repository & Unit of Work**: Abstracción de la capa de datos.
-- **CQRS (Parcial)**: Separación conceptual en handlers de notificaciones.
+- **CQRS**: Implementado completamente con **MediatR** para separar Comandos (Escritura) y Consultas (Lectura).
+- **Mediator**: Desacoplamiento entre controladores y lógica de aplicación.
 - **Strategy**: Para el despacho de notificaciones.
 - **Builder**: Para la construcción de datos de eventos.
+
+## 🧪 Testing
+La estrategia de pruebas se detalla en `Contexto/TESTING.md`.
+- **Unitarias**: `Tests/UnitTests`
+- **Integración**: `Tests/Integration` (incluye soporte para controladores genéricos).
+

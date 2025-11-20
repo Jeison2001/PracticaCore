@@ -4,7 +4,6 @@ namespace Application.Shared.DTOs.AcademicPractice
 {
     public class AcademicPracticeDto : BaseDto<int>
     {
-        public new int Id { get; set; }
         public int IdStateStage { get; set; }
         public string? Title { get; set; }                   // ✅ AÑADIDO
         public string? InstitutionName { get; set; }

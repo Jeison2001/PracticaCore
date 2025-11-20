@@ -4,7 +4,6 @@ namespace Application.Shared.DTOs.Proposal
 {
     public class ProposalDto : BaseDto<int>
     {
-        public new int Id { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? Observation { get; set; }

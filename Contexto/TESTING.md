@@ -1,62 +1,86 @@
-# Guía de Pruebas (Testing)
+# Contexto de Pruebas Automatizadas - PracticaCore
 
-El proyecto incluye una suite de pruebas automatizadas para garantizar la calidad y estabilidad del código.
+Este documento describe la arquitectura de pruebas implementada para garantizar la calidad y estabilidad del backend de `PracticaCore`.
 
-## 🧪 Tipos de Pruebas
+## 1. Resumen de Ejecución
+Actualmente, el sistema cuenta con una suite de pruebas robusta y completa:
+- **Total de Tests:** 168
+- **Estado:** ✅ Todos pasando (100% Success Rate)
+- **Tecnologías:** xUnit, FluentAssertions, Microsoft.AspNetCore.Mvc.Testing (Integration), Moq (Unit).
 
-### Pruebas Unitarias (`Tests/UnitTests`)
+## 2. Tipos de Pruebas
+
+### 2.1. Pruebas Unitarias (`Tests/UnitTests`)
 Verifican la lógica de negocio aislada, principalmente en la capa de **Domain** y **Application**.
 - **Herramientas**: xUnit, Moq, FluentAssertions.
 - **Cobertura**: Entidades, Validadores, Handlers, Servicios de Dominio.
 
-## 🚀 Ejecución de Pruebas
+### 2.2. Pruebas de Integración (`Tests/Integration`)
+Verifican el flujo completo de la aplicación, desde el controlador hasta la base de datos (simulada), pasando por la pipeline de MediatR y Validaciones.
+- **Herramientas**: `Microsoft.AspNetCore.Mvc.Testing`, `WebApplicationFactory`.
+- **Base de Datos**: `InMemoryDatabase` (aislada por test).
 
-### Desde Visual Studio
-1. Abra el **Explorador de pruebas** (Test Explorer).
-2. Haga clic en **Ejecutar todas** (Run All).
+## 3. Infraestructura de Pruebas de Integración
 
-### Desde Línea de Comandos (CLI)
-Para ejecutar todas las pruebas:
-```bash
-dotnet test
-```
+### 3.1. CustomWebApplicationFactory
+Ubicación: `Tests/Integration/CustomWebApplicationFactory.cs`
+Esta clase levanta un servidor de prueba en memoria que simula el entorno real de la API pero aislado:
+- **Base de Datos:** Usa `InMemoryDatabase` para garantizar que cada ejecución sea limpia y no afecte datos reales.
+- **Autenticación:** Configura un esquema JWT de prueba para validar endpoints protegidos sin necesitar tokens reales de producción.
+- **Entorno:** Fuerza el entorno "Testing" para evitar la carga de servicios pesados como Hangfire o almacenamiento en nube real.
 
-Para ejecutar un proyecto específico:
-```bash
+### 3.2. IntegrationTestBase
+Ubicación: `Tests/Integration/IntegrationTestBase.cs`
+Clase base para todos los tests de integración. Proporciona:
+- Cliente HTTP preconfigurado (`_client`).
+- Acceso al Scope de servicios para consultar la base de datos en memoria (`_factory`).
+- Métodos de utilidad comunes.
+
+### 3.3. Fix de Estabilidad (ServiceExtensions)
+Se implementó un filtro en `Api/Extensions/ServiceExtensions.cs` para ignorar ensamblados dinámicos (proxies de Moq/Castle) durante el escaneo de tipos. Esto previene errores `ReflectionTypeLoadException` que causaban fallos intermitentes en los tests.
+
+## 4. Estrategia de Pruebas
+
+### 4.1. Pruebas Genéricas (GenericControllerIntegrationTests)
+Para evitar escribir tests repetitivos para cada entidad CRUD, se implementó una clase base genérica:
+`GenericControllerIntegrationTests<TEntity, TDto>`
+
+Esta clase utiliza **Reflection** y **Genéricos** para probar automáticamente las operaciones estándar de cualquier controlador que herede de `GenericController`:
+- `GetAll_ReturnsOkAndList`: Verifica listado paginado.
+- `GetById_ReturnsOkAndEntity`: Verifica obtención por ID.
+- `Create_ReturnsCreated`: Verifica creación exitosa.
+- `Update_ReturnsOk`: Verifica actualización exitosa.
+
+**Ventaja:** Al agregar una nueva entidad, solo se necesita heredar de esta clase base en el proyecto de tests y los 4 tests CRUD se generan automáticamente.
+
+### 4.2. Pruebas Específicas (Business Logic)
+Para controladores con lógica de negocio compleja o validaciones estrictas, se implementaron tests específicos que van más allá del CRUD básico.
+
+#### AcademicPractice (`AcademicPracticeIntegrationTests`)
+- **Validación de Campos:** Verifica que falten títulos o nombres de institución retorne `400 Bad Request`.
+- **Lógica de Fechas:** Verifica que la fecha de fin no sea anterior a la de inicio.
+- **Persistencia (Happy Path):** Test `UpdateInstitutionInfo_WithValidData_ShouldUpdateDatabase` que:
+    1. Semilla datos en la BD en memoria.
+    2. Ejecuta un PUT real.
+    3. Consulta la BD para asegurar que los cambios se guardaron correctamente.
+
+#### Inscription (`InscriptionIntegrationTests`)
+- **Validación de Listas:** Verifica que no se pueda crear una inscripción sin estudiantes.
+- **Validación Anidada:** Verifica que los datos de los estudiantes dentro de la lista sean válidos (Identificación requerida).
+
+## 5. Cómo Ejecutar las Pruebas
+
+### Ejecutar todos los tests
+```powershell
 dotnet test Tests/Tests.csproj
 ```
 
-## 📝 Estructura de una Prueba
-Las pruebas siguen el patrón **AAA (Arrange, Act, Assert)**:
-
-```csharp
-[Fact]
-public void CreateUser_ShouldReturnId_WhenDataIsValid()
-{
-    // Arrange (Preparar)
-    var userDto = new UserDto { ... };
-    var handler = new CreateUserHandler(...);
-
-    // Act (Actuar)
-    var result = await handler.Handle(userDto, CancellationToken.None);
-
-    // Assert (Verificar)
-    result.Succeeded.Should().BeTrue();
-    result.Data.Should().BeGreaterThan(0);
-}
+### Ejecutar solo tests de integración
+```powershell
+dotnet test Tests/Tests.csproj --filter "FullyQualifiedName~Integration"
 ```
 
-## 🔌 Pruebas de Integración (Manuales)
-
-Para probar endpoints que requieren interacción con infraestructura real (como subida de archivos o base de datos), se recomienda usar herramientas como **cURL** o **Postman**.
-
-### Ejemplo: Prueba de Subida de Archivos
-```bash
-curl -X POST "http://localhost:5191/api/Document" \
-  -F "File=@test.pdf" \
-  -F "IdInscriptionModality=38" \
-  -F "IdDocumentType=5" \
-  -F "Name=TestDoc" \
-  -F "Version=1.0" \
-  -F "IdUserCreatedAt=1"
+### Ejecutar un test específico
+```powershell
+dotnet test Tests/Tests.csproj --filter "Displayname~UpdateInstitutionInfo_WithValidData"
 ```

@@ -110,15 +110,37 @@ namespace Api.Extensions
         private static void RegisterGenericValidators(IServiceCollection services)
         {
             var entityTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
+                .Where(a => !a.IsDynamic)
+                .SelectMany(a => 
+                {
+                    try
+                    {
+                        return a.GetTypes();
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        return ex.Types.Where(t => t != null);
+                    }
+                })
+                .Where(t => t != null && t.IsClass && !t.IsAbstract &&
                             t.BaseType?.IsGenericType == true &&
                             t.BaseType.GetGenericTypeDefinition() == typeof(BaseEntity<>))
                 .ToList();
 
             var dtoTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
+                .Where(a => !a.IsDynamic)
+                .SelectMany(a => 
+                {
+                    try
+                    {
+                        return a.GetTypes();
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        return ex.Types.Where(t => t != null);
+                    }
+                })
+                .Where(t => t != null && t.IsClass && !t.IsAbstract &&
                             t.BaseType?.IsGenericType == true &&
                             t.BaseType.GetGenericTypeDefinition() == typeof(BaseDto<>))
                 .ToList();
@@ -182,15 +204,37 @@ namespace Api.Extensions
         private static void RegisterGenericHandlers(IServiceCollection services)
         {
             var entityTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
+                .Where(a => !a.IsDynamic)
+                .SelectMany(a => 
+                {
+                    try
+                    {
+                        return a.GetTypes();
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        return ex.Types.Where(t => t != null);
+                    }
+                })
+                .Where(t => t != null && t.IsClass && !t.IsAbstract &&
                             t.BaseType?.IsGenericType == true &&
                             t.BaseType.GetGenericTypeDefinition() == typeof(BaseEntity<>))
                 .ToList();
 
             var dtoTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
+                .Where(a => !a.IsDynamic)
+                .SelectMany(a => 
+                {
+                    try
+                    {
+                        return a.GetTypes();
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        return ex.Types.Where(t => t != null);
+                    }
+                })
+                .Where(t => t != null && t.IsClass && !t.IsAbstract &&
                             t.BaseType?.IsGenericType == true &&
                             t.BaseType.GetGenericTypeDefinition() == typeof(BaseDto<>))
                 .ToList();

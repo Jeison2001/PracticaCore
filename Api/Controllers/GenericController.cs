@@ -47,7 +47,7 @@ namespace Api.Controllers
         public virtual async Task<IActionResult> Create([FromBody] TDto dto)
         {
             var result = await _mediator.Send(new CreateEntityCommand<T, TId, TDto>(dto));
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, new ApiResponse<TDto> { Success = true, Data = result });
+            return StatusCode(StatusCodes.Status201Created, new ApiResponse<TDto> { Success = true, Data = result });
         }
 
         [HttpPost("multiple")]

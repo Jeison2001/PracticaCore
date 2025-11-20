@@ -80,12 +80,11 @@ namespace Tests.UnitTests.Api
             var result = await _controller.Create(dto);
 
             // Assert
-            var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result);
-            var apiResponse = Assert.IsType<ApiResponse<BaseDto<int>>>(createdAtActionResult.Value);
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(201, objectResult.StatusCode);
+            var apiResponse = Assert.IsType<ApiResponse<BaseDto<int>>>(objectResult.Value);
             Assert.True(apiResponse.Success);
             Assert.Equal(dto, apiResponse.Data);
-            Assert.Equal(nameof(_controller.GetById), createdAtActionResult.ActionName);
-            Assert.Equal(dto.Id, createdAtActionResult.RouteValues!["id"]);
         }
 
         [Fact]

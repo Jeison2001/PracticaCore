@@ -11,13 +11,15 @@ namespace Infrastructure.Services.Auth
         private readonly IJwtService _jwtService;
         private readonly IUserInfoRepository _userInfoRepository;
         private readonly IRepository<Role, int> _roleRepository;
+        private readonly IGoogleTokenValidator _googleTokenValidator;
         private const string InstitutionalDomain = "@unicesar.edu.co";
 
-        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, Domain.Interfaces.IRepository<Domain.Entities.Role, int> roleRepository)
+        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, Domain.Interfaces.IRepository<Domain.Entities.Role, int> roleRepository, IGoogleTokenValidator googleTokenValidator)
         {
             _jwtService = jwtService;
             _userInfoRepository = userInfoRepository;
             _roleRepository = roleRepository;
+            _googleTokenValidator = googleTokenValidator;
         }
 
         public async Task<dynamic> AuthenticateWithGoogleAsync(string idToken)
@@ -25,7 +27,7 @@ namespace Infrastructure.Services.Auth
             try
             {
                 // Validar el token de Google
-                var payload = await GoogleJsonWebSignature.ValidateAsync(idToken);
+                var payload = await _googleTokenValidator.ValidateAsync(idToken);
                 
                 /*
                 // Verificar que el correo tenga el dominio institucional
