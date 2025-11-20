@@ -11,9 +11,9 @@ using Xunit;
 
 namespace Tests.Integration.Evaluation
 {
-    public class EvaluationIntegrationTests : GenericControllerIntegrationTests<Domain.Entities.Evaluation, EvaluationDto>
+    public class EvaluationControllerTests : GenericControllerIntegrationTests<Domain.Entities.Evaluation, EvaluationDto>
     {
-        public EvaluationIntegrationTests(CustomWebApplicationFactory factory) : base(factory)
+        public EvaluationControllerTests(CustomWebApplicationFactory factory) : base(factory)
         {
         }
 

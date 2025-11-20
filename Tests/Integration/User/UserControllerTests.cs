@@ -11,9 +11,9 @@ using Xunit;
 
 namespace Tests.Integration.Users
 {
-    public class UserIntegrationTests : GenericControllerIntegrationTests<Domain.Entities.User, UserDto>
+    public class UserControllerTests : GenericControllerIntegrationTests<Domain.Entities.User, UserDto>
     {
-        public UserIntegrationTests(CustomWebApplicationFactory factory) : base(factory)
+        public UserControllerTests(CustomWebApplicationFactory factory) : base(factory)
         {
         }
 

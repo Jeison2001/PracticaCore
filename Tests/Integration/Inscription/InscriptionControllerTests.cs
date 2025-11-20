@@ -12,9 +12,9 @@ using Xunit;
 
 namespace Tests.Integration.Inscription
 {
-    public class InscriptionIntegrationTests : IntegrationTestBase
+    public class InscriptionControllerTests : IntegrationTestBase
     {
-        public InscriptionIntegrationTests(CustomWebApplicationFactory factory) : base(factory)
+        public InscriptionControllerTests(CustomWebApplicationFactory factory) : base(factory)
         {
         }
 
