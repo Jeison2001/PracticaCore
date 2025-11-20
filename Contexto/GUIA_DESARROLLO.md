@@ -100,10 +100,41 @@ namespace Api.Controllers
 }
 ```
 
-## 5. Registro Automático
+## 5. Pruebas de Integración (Tests)
+Crear la clase de prueba en `Tests/Integration/[NuevaEntidad]`. Heredar de `GenericControllerIntegrationTests`.
+
+```csharp
+using Tests.Integration;
+using Domain.Entities;
+using Application.Shared.DTOs.NuevaEntidad;
+
+namespace Tests.Integration.NuevaEntidad
+{
+    public class NuevaEntidadControllerTests : GenericControllerIntegrationTests<Domain.Entities.NuevaEntidad, NuevaEntidadDto>
+    {
+        public NuevaEntidadControllerTests(CustomWebApplicationFactory factory) : base(factory)
+        {
+        }
+
+        protected override string BaseUrl => "/api/NuevaEntidad";
+
+        protected override NuevaEntidadDto CreateValidDto()
+        {
+            return new NuevaEntidadDto { Nombre = "Test" };
+        }
+
+        protected override Domain.Entities.NuevaEntidad CreateValidEntity()
+        {
+            return new Domain.Entities.NuevaEntidad { Nombre = "Test", StatusRegister = true };
+        }
+    }
+}
+```
+
+## 6. Registro Automático
 Gracias a la arquitectura del proyecto, **no es necesario registrar manualmente** los repositorios, validadores o mapeos, siempre que sigan las convenciones de nombres y herencia descritas anteriormente.
 
-## 6. Casos Especiales y Módulos Personalizados
+## 7. Casos Especiales y Módulos Personalizados
 
 Para funcionalidades que no se ajustan al patrón CRUD genérico (como subida de archivos, procesos complejos, o reportes), se recomienda seguir el patrón **CQRS** manualmente:
 

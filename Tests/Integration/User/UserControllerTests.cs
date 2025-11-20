@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Api.Responses;
+using Application.Shared.DTOs;
 using Application.Shared.DTOs.User;
 using Domain.Common;
 using Domain.Entities;
@@ -197,6 +198,48 @@ namespace Tests.Integration.Users
             result.Should().NotBeNull();
             result!.Success.Should().BeTrue();
             result.Data!.FirstName.Should().Be("Updated");
+        }
+
+        [Fact]
+        public override async Task UpdateStatus_ReturnsOk()
+        {
+            // Arrange
+            var (idType, program) = await SeedDependenciesAsync();
+            int userId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = new Domain.Entities.User
+                {
+                    FirstName = "Status",
+                    LastName = "User",
+                    Email = "status.user@test.com",
+                    Identification = "999000111",
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = true
+                };
+                context.Set<Domain.Entities.User>().Add(user);
+                await context.SaveChangesAsync();
+                userId = user.Id;
+            }
+
+            var updateStatusDto = new UpdateStatusRequestDto 
+            { 
+                StatusRegister = false, 
+                IdUserUpdateAt = 1,
+                OperationRegister = "TEST_UPDATE"
+            };
+
+            // Act
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/{userId}/status", updateStatusDto);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
         }
     }
 }

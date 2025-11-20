@@ -4,7 +4,7 @@ Este documento describe la arquitectura de pruebas implementada para garantizar 
 
 ## 1. Resumen de Ejecución
 Actualmente, el sistema cuenta con una suite de pruebas robusta y completa:
-- **Total de Tests:** 168
+- **Total de Tests:** 240+
 - **Estado:** ✅ Todos pasando (100% Success Rate)
 - **Tecnologías:** xUnit, FluentAssertions, Microsoft.AspNetCore.Mvc.Testing (Integration), Moq (Unit).
 
@@ -19,6 +19,7 @@ Verifican la lógica de negocio aislada, principalmente en la capa de **Domain**
 Verifican el flujo completo de la aplicación, desde el controlador hasta la base de datos (simulada), pasando por la pipeline de MediatR y Validaciones.
 - **Herramientas**: `Microsoft.AspNetCore.Mvc.Testing`, `WebApplicationFactory`.
 - **Base de Datos**: `InMemoryDatabase` (aislada por test).
+- **Convención de Nombres**: `[Entidad]ControllerTests.cs` (ej. `UserControllerTests.cs`).
 
 ## 3. Infraestructura de Pruebas de Integración
 
@@ -50,13 +51,14 @@ Esta clase utiliza **Reflection** y **Genéricos** para probar automáticamente 
 - `GetById_ReturnsOkAndEntity`: Verifica obtención por ID.
 - `Create_ReturnsCreated`: Verifica creación exitosa.
 - `Update_ReturnsOk`: Verifica actualización exitosa.
+- `UpdateStatus_ReturnsOk`: Verifica el borrado lógico (Soft Delete).
 
-**Ventaja:** Al agregar una nueva entidad, solo se necesita heredar de esta clase base en el proyecto de tests y los 4 tests CRUD se generan automáticamente.
+**Ventaja:** Al agregar una nueva entidad, solo se necesita heredar de esta clase base en el proyecto de tests y los 5 tests CRUD se generan automáticamente.
 
 ### 4.2. Pruebas Específicas (Business Logic)
 Para controladores con lógica de negocio compleja o validaciones estrictas, se implementaron tests específicos que van más allá del CRUD básico.
 
-#### AcademicPractice (`AcademicPracticeIntegrationTests`)
+#### AcademicPractice (`AcademicPracticeControllerTests`)
 - **Validación de Campos:** Verifica que falten títulos o nombres de institución retorne `400 Bad Request`.
 - **Lógica de Fechas:** Verifica que la fecha de fin no sea anterior a la de inicio.
 - **Persistencia (Happy Path):** Test `UpdateInstitutionInfo_WithValidData_ShouldUpdateDatabase` que:
@@ -64,7 +66,7 @@ Para controladores con lógica de negocio compleja o validaciones estrictas, se 
     2. Ejecuta un PUT real.
     3. Consulta la BD para asegurar que los cambios se guardaron correctamente.
 
-#### Inscription (`InscriptionIntegrationTests`)
+#### Inscription (`InscriptionControllerTests`)
 - **Validación de Listas:** Verifica que no se pueda crear una inscripción sin estudiantes.
 - **Validación Anidada:** Verifica que los datos de los estudiantes dentro de la lista sean válidos (Identificación requerida).
 

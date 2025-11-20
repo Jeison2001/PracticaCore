@@ -137,5 +137,36 @@ namespace Tests.Integration
             result.Data.Should().NotBeNull();
             result.Data!.Id.Should().Be(entity.Id);
         }
+
+        [Fact]
+        public virtual async Task UpdateStatus_ReturnsOk()
+        {
+            // Arrange
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+            
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<Infrastructure.Data.AppDbContext>();
+                context.Set<TEntity>().Add(entity);
+                await context.SaveChangesAsync();
+            }
+
+            var updateStatusDto = new UpdateStatusRequestDto 
+            { 
+                StatusRegister = false, 
+                IdUserUpdateAt = 1,
+                OperationRegister = "TEST_UPDATE"
+            };
+
+            // Act
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/{entity.Id}/status", updateStatusDto);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+        }
     }
 }
