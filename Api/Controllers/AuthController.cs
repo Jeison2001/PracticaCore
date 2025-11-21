@@ -1,6 +1,6 @@
 using Api.Responses;
 using Application.Shared.DTOs.Auth;
-using Domain.Interfaces.Auth;
+using Domain.Interfaces.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

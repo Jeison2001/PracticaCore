@@ -1,8 +1,8 @@
-using Domain.Interfaces;
-using Domain.Interfaces.Cache;
 using Infrastructure.Repositories.Cache;
 using Microsoft.Extensions.Logging;
 using Domain.Entities;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Cache;
 
 namespace Infrastructure.Services.Cache
 {

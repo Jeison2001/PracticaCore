@@ -1,8 +1,7 @@
-using Domain.Interfaces;
 using MediatR;
 using System.Linq.Expressions;
-using Application.Shared.Commands.Documents;
 using Domain.Entities;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.Documents.Handlers
 {

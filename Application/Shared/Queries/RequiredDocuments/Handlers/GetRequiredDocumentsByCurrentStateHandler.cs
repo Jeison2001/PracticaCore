@@ -1,7 +1,6 @@
 using Application.Shared.DTOs.RequiredDocumentsByState;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Queries.RequiredDocuments;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.RequiredDocuments.Handlers
 {

@@ -1,4 +1,4 @@
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications;
 using Domain.Common;
 using Hangfire;
 using Microsoft.Extensions.Logging;

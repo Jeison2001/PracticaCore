@@ -1,4 +1,4 @@
-using Domain.Interfaces.Cache;
+using Domain.Interfaces.Services.Cache;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;

@@ -1,7 +1,7 @@
 using FluentValidation;
-using Application.Shared.DTOs.DocumentsTypes;
+using Application.Shared.DTOs.DocumentTypes;
 
-namespace Application.Validations.SpecificValidators.DocumentsTypes
+namespace Application.Validations.SpecificValidators.DocumentTypes
 {
     public class DocumentTypeValidator : AbstractValidator<DocumentTypeDto>
     {

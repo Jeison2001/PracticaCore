@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.EvaluationsTypes
+namespace Application.Shared.DTOs.EvaluationTypes
 {
     public class EvaluationTypeDto : BaseDto<int>
     {

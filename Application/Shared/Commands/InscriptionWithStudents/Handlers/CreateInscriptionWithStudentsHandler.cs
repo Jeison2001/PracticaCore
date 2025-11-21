@@ -2,11 +2,11 @@ using Application.Shared.DTOs.InscriptionModalities;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Application.Shared.Commands.InscriptionWithStudents;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {

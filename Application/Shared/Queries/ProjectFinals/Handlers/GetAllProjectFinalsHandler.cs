@@ -3,9 +3,8 @@ using Application.Shared.DTOs.Proposals;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using Application.Shared.DTOs.StateStages;
 using Domain.Common;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Queries.ProjectFinals;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.ProjectFinals.Handlers
 {

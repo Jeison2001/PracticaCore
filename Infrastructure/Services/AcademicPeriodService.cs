@@ -1,9 +1,9 @@
 using Domain.Entities;
-using Domain.Interfaces;
+using Domain.Interfaces.Services;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Services.Background
+namespace Infrastructure.Services
 {
     public class AcademicPeriodService : IAcademicPeriodService
     {

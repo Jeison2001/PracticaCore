@@ -1,9 +1,7 @@
 using Application.Shared.DTOs.Roles;
-using Domain.Interfaces.Auth;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Queries.Roles;
 using Domain.Entities;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.Roles.Handlers
 {

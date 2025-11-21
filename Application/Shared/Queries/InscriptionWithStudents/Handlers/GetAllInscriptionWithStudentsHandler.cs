@@ -5,8 +5,7 @@ using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Domain.Common;
-using Domain.Interfaces;
-using Application.Shared.Queries.InscriptionWithStudents;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
 {

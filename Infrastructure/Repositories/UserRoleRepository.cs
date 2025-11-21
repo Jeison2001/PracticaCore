@@ -1,9 +1,9 @@
 using Domain.Common;
 using Domain.Entities;
-using Domain.Interfaces.Auth;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Infrastructure.Extensions; // required for ToPaginatedResultAsync extension
+using Infrastructure.Extensions;
+using Domain.Interfaces.Repositories; // required for ToPaginatedResultAsync extension
 
 namespace Infrastructure.Repositories
 {

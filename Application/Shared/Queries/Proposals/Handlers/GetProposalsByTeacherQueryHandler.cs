@@ -1,11 +1,10 @@
 using Application.Shared.DTOs.Proposals;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using Domain.Common;
-using Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using AutoMapper;
-using Application.Shared.Queries.Proposals;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.Proposals.Handlers
 {

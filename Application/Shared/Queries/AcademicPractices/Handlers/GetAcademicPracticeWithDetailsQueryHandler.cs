@@ -2,10 +2,9 @@ using Application.Shared.DTOs.AcademicPractices;
 using Application.Shared.DTOs.TeachingAssignments;
 using Application.Shared.DTOs.Users;
 using AutoMapper;
-using Domain.Interfaces;
 using MediatR;
 using Application.Shared.DTOs.Documents;
-using Application.Shared.Queries.AcademicPractices;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.AcademicPractices.Handlers
 {

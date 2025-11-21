@@ -1,6 +1,6 @@
 using Domain.Configuration;
-using Domain.Interfaces.Registration;
-using Domain.Interfaces.Storage;
+using Domain.Interfaces.Common;
+using Domain.Interfaces.Services.Storage;
 using Google.Cloud.Storage.V1;
 using Microsoft.Extensions.Options;
 

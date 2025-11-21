@@ -4,11 +4,9 @@ using Application.Shared.DTOs.UserRoles;
 using AutoMapper;
 using Domain.Common;
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Auth;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Application.Shared.Queries.UserRoles;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.UserRoles.Handlers
 {

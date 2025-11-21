@@ -1,5 +1,5 @@
 using Domain.Common;
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Net;

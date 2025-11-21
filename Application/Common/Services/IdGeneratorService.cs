@@ -1,4 +1,4 @@
-using Domain.Interfaces.Registration;
+using Domain.Interfaces.Common;
 
 namespace Application.Common.Services
 {

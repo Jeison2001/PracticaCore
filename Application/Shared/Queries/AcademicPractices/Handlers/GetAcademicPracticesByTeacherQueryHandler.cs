@@ -1,9 +1,8 @@
 using Application.Shared.DTOs.AcademicPractices;
 using AutoMapper;
 using Domain.Common;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Queries.AcademicPractices;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.AcademicPractices.Handlers
 {

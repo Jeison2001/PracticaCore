@@ -1,10 +1,9 @@
 using Application.Shared.DTOs.PreliminaryProjects;
 using MediatR;
-using Domain.Interfaces;
 using Application.Shared.DTOs.Proposals;
 using Application.Shared.DTOs.StateStages;
 using Application.Shared.DTOs.UserInscriptionModalities;
-using Application.Shared.Queries.PreliminaryProjects;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.PreliminaryProjects.Handlers
 {

@@ -2,8 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
-using Domain.Interfaces.Auth;
-using Domain.Interfaces.Registration;
+using Domain.Interfaces.Common;
+using Domain.Interfaces.Services.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 

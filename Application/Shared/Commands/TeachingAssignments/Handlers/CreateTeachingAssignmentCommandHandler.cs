@@ -1,11 +1,10 @@
 using Application.Shared.DTOs.TeachingAssignments;
 using AutoMapper;
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications.Dispatcher;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Application.Shared.Commands.TeachingAssignments;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.TeachingAssignments.Handlers
 {

@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.EvaluationsTypes;
+using Application.Shared.DTOs.EvaluationTypes;
 using Domain.Entities;
 
 namespace Tests.Integration.EvaluationTypes

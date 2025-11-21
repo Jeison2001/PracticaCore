@@ -2,7 +2,7 @@ using Application.Shared.DTOs.AcademicPractices;
 using Application.Shared.DTOs.TeachingAssignments;
 using AutoMapper;
 using Domain.Entities;
-using Domain.Interfaces;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Mappings
 {

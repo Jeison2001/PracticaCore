@@ -1,9 +1,8 @@
 using Application.Shared.DTOs.ProjectFinals;
 using Domain.Common;
 using MediatR;
-using Domain.Interfaces;
 using Application.Shared.DTOs.Proposals;
-using Application.Shared.Queries.ProjectFinals;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.ProjectFinals.Handlers
 {

@@ -1,9 +1,9 @@
 ﻿using Domain.Entities;
-using Domain.Interfaces;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using Domain.Common;
+using Domain.Interfaces.Repositories;
 
 namespace Infrastructure.Repositories
 {

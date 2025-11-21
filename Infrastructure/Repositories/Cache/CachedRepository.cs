@@ -1,12 +1,12 @@
 using Domain.Common;
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Cache;
 using Microsoft.Extensions.Logging;
 using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using System.Reflection;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Cache;
 
 namespace Infrastructure.Repositories.Cache
 {

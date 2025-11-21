@@ -1,7 +1,6 @@
 using Application.Shared.DTOs.TeachingAssignments;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Queries.TeachingAssignments;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.TeachingAssignments.Handlers
 {

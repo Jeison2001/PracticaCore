@@ -1,10 +1,10 @@
 using Domain.Entities;
-using Domain.Interfaces;
 using Domain.Common;
 using Infrastructure.Data;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Domain.Enums;
+using Domain.Interfaces.Repositories;
 
 namespace Infrastructure.Repositories;
 

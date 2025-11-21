@@ -1,9 +1,8 @@
 using Application.Shared.DTOs.TeacherResearchProfiles;
 using AutoMapper;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Commands.TeacherResearchProfiles;
 using Domain.Entities;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.TeacherResearchProfiles.Handlers
 {

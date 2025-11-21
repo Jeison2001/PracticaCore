@@ -1,12 +1,11 @@
-ï»¿using Application.Shared.DTOs;
+using Application.Shared.DTOs;
 using AutoMapper;
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications.Dispatcher;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
-using Application.Shared.Commands;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.Handlers
 {
@@ -39,8 +38,8 @@ namespace Application.Shared.Commands.Handlers
         {
             var existingEntity = await _repository.GetByIdAsync(request.Id) ?? throw new KeyNotFoundException($"Entity with ID {request.Id} not found.");
             
-            // Crear copia profunda del estado original ANTES de cualquier modificaciÃ³n
-            // Usar serializaciÃ³n JSON para evitar referencias compartidas
+            // Crear copia profunda del estado original ANTES de cualquier modificación
+            // Usar serialización JSON para evitar referencias compartidas
             var originalEntityJson = JsonSerializer.Serialize(existingEntity);
             var originalEntity = JsonSerializer.Deserialize<T>(originalEntityJson)!;
             
@@ -48,7 +47,7 @@ namespace Application.Shared.Commands.Handlers
             var originalCreatedAt = existingEntity.CreatedAt;
             var originalIdUserCreatedAt = existingEntity.IdUserCreatedAt;
 
-            // Mapear el DTO a la entidad existente (DESPUÃ‰S de crear la copia)
+            // Mapear el DTO a la entidad existente (DESPUÉS de crear la copia)
             _mapper.Map(request.Dto, existingEntity);
 
             // Restaurar campos inmutables
@@ -71,7 +70,7 @@ namespace Application.Shared.Commands.Handlers
         {
             if (_notificationDispatcher != null)
             {
-                // âœ… MEJORADO: Fire-and-forget seguro con manejo de scope
+                // ? MEJORADO: Fire-and-forget seguro con manejo de scope
                 _ = Task.Run(async () =>
                 {
                     try

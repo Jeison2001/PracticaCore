@@ -1,9 +1,10 @@
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications;
 using Infrastructure.Services.Notifications;
 using Application.Common.Services.Notifications.Builders;
-using Application.Common.Services.Notifications.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Domain.Interfaces.Services.Notifications.Builders;
+using Application.Common.Services.Notifications;
 
 namespace Infrastructure.Extensions
 {

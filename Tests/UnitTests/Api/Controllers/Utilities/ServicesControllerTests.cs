@@ -1,4 +1,4 @@
-using Api.Controllers.Example;
+using Api.Controllers.Utilities;
 using Api.Responses;
 using Application.Common.Services;
 using Microsoft.AspNetCore.Mvc;

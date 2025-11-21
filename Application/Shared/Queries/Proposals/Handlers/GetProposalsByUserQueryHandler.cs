@@ -1,9 +1,8 @@
 using Application.Shared.DTOs.Proposals;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using AutoMapper;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Queries.Proposals;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.Proposals.Handlers
 {

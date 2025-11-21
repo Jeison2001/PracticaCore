@@ -1,9 +1,8 @@
 using Application.Shared.DTOs.Documents;
 using AutoMapper;
 using Domain.Common;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Queries.Documents;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.Documents.Handlers
 {

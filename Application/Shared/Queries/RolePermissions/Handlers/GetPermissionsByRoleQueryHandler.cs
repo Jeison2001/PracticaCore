@@ -1,9 +1,8 @@
 using Application.Shared.DTOs.Permissions;
 using Application.Shared.DTOs.RolePermissions;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Queries.RolePermissions;
 using Domain.Entities;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Queries.RolePermissions.Handlers
 {

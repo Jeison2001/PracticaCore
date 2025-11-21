@@ -9,20 +9,19 @@ using Application.Validations.BaseValidators;
 using Application.Validations.SpecificValidators.InscriptionModalities;
 using Domain.Configuration;
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Registration;
-using Domain.Interfaces.Storage;
+using Domain.Interfaces.Common;
 using FluentValidation;
 using Infrastructure.Data;
 using Infrastructure.Extensions;
 using Infrastructure.Repositories;
-using Infrastructure.Services;
 using Infrastructure.Services.Storage;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Scrutor;
 using System.Data;
 using System.Reflection;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Storage;
 
 namespace Api.Extensions
 {

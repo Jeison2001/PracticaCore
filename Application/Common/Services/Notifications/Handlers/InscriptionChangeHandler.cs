@@ -1,8 +1,9 @@
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications.Handlers;
 using Microsoft.Extensions.Logging;
-using Application.Common.Services.Notifications;
+using Domain.Interfaces.Services.Notifications;
+using Domain.Interfaces.Services.Notifications.Builders;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Common.Services.Notifications.Handlers
 {

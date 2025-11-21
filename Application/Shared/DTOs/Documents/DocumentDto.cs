@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.DocumentsTypes;
+using Application.Shared.DTOs.DocumentTypes;
 
 namespace Application.Shared.DTOs.Documents
 {    public class DocumentDto : BaseDto<int>

@@ -1,5 +1,5 @@
-using Domain.Interfaces.Registration;
-using Domain.Interfaces.Storage;
+using Domain.Interfaces.Common;
+using Domain.Interfaces.Services.Storage;
 
 namespace Infrastructure.Services.Storage
 {

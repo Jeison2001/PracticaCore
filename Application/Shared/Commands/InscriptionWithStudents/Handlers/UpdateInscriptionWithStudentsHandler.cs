@@ -3,10 +3,9 @@ using Application.Shared.DTOs.UserInscriptionModalities;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Application.Shared.Queries;
 using Domain.Entities;
-using Domain.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Application.Shared.Commands.InscriptionWithStudents;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {

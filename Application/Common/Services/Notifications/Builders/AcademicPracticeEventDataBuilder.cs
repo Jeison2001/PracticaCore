@@ -1,7 +1,8 @@
 using Domain.Entities;
 using Domain.Enums;
-using Domain.Interfaces;
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Notifications;
+using Domain.Interfaces.Services.Notifications.Builders;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Common.Services.Notifications.Builders

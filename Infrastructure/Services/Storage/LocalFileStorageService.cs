@@ -1,6 +1,6 @@
 using Domain.Configuration;
-using Domain.Interfaces.Registration;
-using Domain.Interfaces.Storage;
+using Domain.Interfaces.Common;
+using Domain.Interfaces.Services.Storage;
 using Microsoft.Extensions.Options;
 
 namespace Infrastructure.Services.Storage

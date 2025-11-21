@@ -1,8 +1,7 @@
 ﻿using System.Linq.Expressions;
 using Domain.Entities;
-using Domain.Interfaces;
 using MediatR;
-using Application.Shared.Commands;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.Handlers
 {

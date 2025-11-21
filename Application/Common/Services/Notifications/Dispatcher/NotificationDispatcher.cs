@@ -1,5 +1,6 @@
 using Domain.Entities;
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications.Dispatcher;
+using Domain.Interfaces.Services.Notifications.Handlers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

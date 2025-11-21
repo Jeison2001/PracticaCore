@@ -1,6 +1,5 @@
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Auth;
+using Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories

@@ -1,9 +1,8 @@
 using Application.Shared.DTOs.AcademicPractices;
-using Domain.Interfaces;
-using Domain.Interfaces.Notifications;
+using Domain.Interfaces.Services.Notifications.Dispatcher;
 using MediatR;
-using Application.Shared.Commands.AcademicPractices;
 using Domain.Entities;
+using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.AcademicPractices.Handlers
 {

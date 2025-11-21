@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.DocumentsTypes
+namespace Application.Shared.DTOs.DocumentTypes
 {    public class DocumentTypeDto : BaseDto<int>
     {
         public int IdDocumentClass { get; set; }

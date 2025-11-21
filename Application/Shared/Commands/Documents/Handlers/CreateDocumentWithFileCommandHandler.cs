@@ -1,10 +1,9 @@
 using Application.Shared.DTOs.Documents;
 using AutoMapper;
-using Domain.Interfaces;
-using Domain.Interfaces.Storage;
 using MediatR;
-using Application.Shared.Commands.Documents;
 using Domain.Entities;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Storage;
 
 namespace Application.Shared.Commands.Documents.Handlers
 {
