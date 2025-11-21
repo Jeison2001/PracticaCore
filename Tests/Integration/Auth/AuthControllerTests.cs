@@ -2,10 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using Api.Responses;
 using Application.Shared.DTOs.Auth;
+using Domain.Common.Auth;
 using Domain.Entities;
+using Domain.Interfaces.Services.Auth;
 using FluentAssertions;
 using Google.Apis.Auth;
-using Infrastructure.Services.Auth;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -15,11 +16,11 @@ namespace Tests.Integration.Auth
 {
     public class AuthControllerTests : IntegrationTestBase
     {
-        private readonly Mock<IGoogleTokenValidator> _googleTokenValidatorMock;
+        private readonly Mock<ITokenValidator> _tokenValidatorMock;
 
         public AuthControllerTests(CustomWebApplicationFactory factory) : base(factory)
         {
-            _googleTokenValidatorMock = new Mock<IGoogleTokenValidator>();
+            _tokenValidatorMock = new Mock<ITokenValidator>();
         }
 
         [Fact]
@@ -80,23 +81,22 @@ namespace Tests.Integration.Auth
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Mock Google Validator
-            var payload = new GoogleJsonWebSignature.Payload
+            // Mock Token Validator
+            var payload = new TokenPayload
             {
                 Email = email,
                 GivenName = "Test",
-                FamilyName = "User",
-                EmailVerified = true
+                FamilyName = "User"
             };
 
-            _googleTokenValidatorMock.Setup(x => x.ValidateAsync(validToken))
+            _tokenValidatorMock.Setup(x => x.ValidateAsync(validToken))
                 .ReturnsAsync(payload);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => _googleTokenValidatorMock.Object);
+                    services.AddScoped(_ => _tokenValidatorMock.Object);
                 });
             }).CreateClient();
 
@@ -133,14 +133,14 @@ namespace Tests.Integration.Auth
         {
             // Arrange
             var invalidToken = "invalid-token";
-            _googleTokenValidatorMock.Setup(x => x.ValidateAsync(invalidToken))
+            _tokenValidatorMock.Setup(x => x.ValidateAsync(invalidToken))
                 .ThrowsAsync(new InvalidJwtException("Invalid token"));
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => _googleTokenValidatorMock.Object);
+                    services.AddScoped(_ => _tokenValidatorMock.Object);
                 });
             }).CreateClient();
 

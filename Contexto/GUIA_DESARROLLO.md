@@ -2,58 +2,87 @@
 
 Este documento detalla el flujo de trabajo para agregar una nueva entidad al sistema `PracticaCore`, asegurando el cumplimiento de la arquitectura.
 
-## 1. Capa de Dominio (Domain)
-Crear la entidad en `Domain/Entities`. Debe heredar de `BaseEntity<TId>`.
+> 📖 **Antes de empezar:** Familiarízate con:
+> - [ORGANIZACION_CARPETAS.md](ORGANIZACION_CARPETAS.md) - ¿Dónde va cada archivo?
+> - [CONVENCIONES_NAMESPACES.md](CONVENCIONES_NAMESPACES.md) - ¿Qué namespace usar?
+> - [ARQUITECTURA.md](ARQUITECTURA.md) - Entender las capas
+
+---
+
+## Flujo Completo: Agregar Nueva Entidad
+
+### 1. Capa de Dominio (Domain)
+
+**Crear entidad** en `Domain/Entities/`
 
 ```csharp
 namespace Domain.Entities
 {
-    public class NuevaEntidad : BaseEntity<int>
+    public class Course : BaseEntity<int>
     {
-        public string Nombre { get; set; } = string.Empty;
-        // Otras propiedades...
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public int Credits { get; set; }
     }
 }
 ```
 
-## 2. Capa de Aplicación (Application)
+> ✅ **Regla:** Siempre heredar de `BaseEntity<TId>`
 
-### 2.1 DTOs
-Crear el DTO en `Application/Shared/DTOs/[NombreEntidad]`.
+---
+
+### 2. Capa de Aplicación (Application)
+
+#### 2.1 Crear DTO en `Application/Shared/DTOs/Course/`
 
 ```csharp
-namespace Application.Shared.DTOs.NuevaEntidad
+namespace Application.Shared.DTOs.Course
 {
-    public class NuevaEntidadDto : BaseDto<int>
+    public class CourseDto : BaseDto<int>
     {
-        public string Nombre { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public int Credits { get; set; }
     }
 }
 ```
 
-### 2.2 Validaciones
-Crear el validador en `Application/Validations/SpecificValidators/[NombreEntidad]`.
+> ✅ **Regla:** Heredar de `BaseDto<TId>` y agrupar por entidad
+
+#### 2.2 Crear Validador en `Application/Validations/SpecificValidators/Course/`
 
 ```csharp
 using FluentValidation;
+using Application.Shared.DTOs.Course;
 
-namespace Application.Validations.SpecificValidators.NuevaEntidad
+namespace Application.Validations.SpecificValidators.Course
 {
-    public class NuevaEntidadValidator : AbstractValidator<NuevaEntidadDto>
+    public class CourseValidator : AbstractValidator<CourseDto>
     {
-        public NuevaEntidadValidator()
+        public CourseValidator()
         {
-            RuleFor(x => x.Nombre).NotEmpty().WithMessage("El nombre es requerido.");
+            RuleFor(x => x.Name)
+                .NotEmpty().WithMessage("El nombre es requerido")
+                .MaximumLength(100).WithMessage("Máximo 100 caracteres");
+                
+            RuleFor(x => x.Code)
+                .NotEmpty().WithMessage("El código es requerido")
+                .MaximumLength(20).WithMessage("Máximo 20 caracteres");
+                
+            RuleFor(x => x.Credits)
+                .GreaterThan(0).WithMessage("Los créditos deben ser mayor a 0");
         }
     }
 }
 ```
-> **Nota**: Para las operaciones CRUD estándar (GenericController), este validador se invoca automáticamente gracias a los validadores genéricos (`BaseCreateCommandValidator`). No es necesario crear validadores de comandos adicionales.
 
+> ℹ️ **Nota:** Para CRUD genérico, este validador se invoca automáticamente. No necesitas crear validadores de comandos adicionales.
 
-## 3. Capa de Infraestructura (Infrastructure)
-Crear la configuración de Entity Framework en `Infrastructure/Data/Configurations`.
-**Importante**: Heredar de `BaseEntityConfiguration<TEntity, TId>` para incluir automáticamente la configuración de auditoría.
+---
+
+### 3. Capa de Infraestructura (Infrastructure)
+
+**Crear configuración EF Core** en `Infrastructure/Data/Configurations/`
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -62,92 +91,189 @@ using Domain.Entities;
 
 namespace Infrastructure.Data.Configurations
 {
-    public class NuevaEntidadConfiguration : BaseEntityConfiguration<NuevaEntidad, int>
+    public class CourseConfiguration : BaseEntityConfiguration<Course, int>
     {
-        public override void Configure(EntityTypeBuilder<NuevaEntidad> builder)
+        public override void Configure(EntityTypeBuilder<Course> builder)
         {
-            base.Configure(builder); // Configura ID y auditoría
-
-            builder.ToTable("NuevaEntidad"); // PascalCase
+            base.Configure(builder); // ⚠️ IMPORTANTE: Configura ID y auditoría
             
-            // Las columnas deben ser minúsculas para PostgreSQL
-            builder.Property(e => e.Nombre)
+            builder.ToTable("Course"); // PascalCase para tabla
+            
+            // Columnas en minúsculas para PostgreSQL
+            builder.Property(e => e.Name)
                 .IsRequired()
                 .HasMaxLength(100)
-                .HasColumnName("nombre");
+                .HasColumnName("name");
+                
+            builder.Property(e => e.Code)
+                .IsRequired()
+                .HasMaxLength(20)
+                .HasColumnName("code");
+                
+            builder.Property(e => e.Credits)
+                .IsRequired()
+                .HasColumnName("credits");
         }
     }
 }
 ```
 
-## 4. Capa de API (Api)
-Crear el controlador en `Api/Controllers`. Heredar de `GenericController` para obtener CRUD automático.
+> ✅ **Regla:** Siempre heredar de `BaseEntityConfiguration<TEntity, TId>` y llamar `base.Configure(builder)`
+
+---
+
+### 4. Capa de API (Api)
+
+**Crear controlador** en `Api/Controllers/`
 
 ```csharp
 using Api.Controllers;
-using Application.Shared.DTOs.NuevaEntidad;
+using Application.Shared.DTOs.Course;
 using Domain.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
-    public class NuevaEntidadController : GenericController<NuevaEntidad, int, NuevaEntidadDto>
+    [ApiController]
+    [Route("api/[controller]")]
+    public class CourseController : GenericController<Course, CourseDto, int>
     {
-        public NuevaEntidadController(IMediator mediator) : base(mediator)
+        public CourseController(IMediator mediator) : base(mediator)
         {
         }
     }
 }
 ```
 
-## 5. Pruebas de Integración (Tests)
-Crear la clase de prueba en `Tests/Integration/[NuevaEntidad]`. Heredar de `GenericControllerIntegrationTests`.
+> ✅ **Listo!** Heredando de `GenericController` obtienes automáticamente:
+> - `GET /api/course` - Listar con paginación
+> - `GET /api/course/{id}` - Obtener por ID
+> - `POST /api/course` - Crear
+> - `PUT /api/course/{id}` - Actualizar
+> - `DELETE /api/course/{id}` - Eliminar (soft delete)
+
+---
+
+### 5. Pruebas de Integración (Tests)
+
+**Crear clase de prueba** en `Tests/Integration/Course/`
 
 ```csharp
 using Tests.Integration;
 using Domain.Entities;
-using Application.Shared.DTOs.NuevaEntidad;
+using Application.Shared.DTOs.Course;
 
-namespace Tests.Integration.NuevaEntidad
+namespace Tests.Integration.Course
 {
-    public class NuevaEntidadControllerTests : GenericControllerIntegrationTests<Domain.Entities.NuevaEntidad, NuevaEntidadDto>
+    public class CourseControllerTests : GenericControllerIntegrationTests<Domain.Entities.Course, CourseDto>
     {
-        public NuevaEntidadControllerTests(CustomWebApplicationFactory factory) : base(factory)
+        public CourseControllerTests(CustomWebApplicationFactory factory) : base(factory)
         {
         }
 
-        protected override string BaseUrl => "/api/NuevaEntidad";
+        protected override string BaseUrl => "/api/Course";
 
-        protected override NuevaEntidadDto CreateValidDto()
+        protected override CourseDto CreateValidDto()
         {
-            return new NuevaEntidadDto { Nombre = "Test" };
+            return new CourseDto 
+            { 
+                Name = "Test Course",
+                Code = "TST101",
+                Credits = 3
+            };
         }
 
-        protected override Domain.Entities.NuevaEntidad CreateValidEntity()
+        protected override Domain.Entities.Course CreateValidEntity()
         {
-            return new Domain.Entities.NuevaEntidad { Nombre = "Test", StatusRegister = true };
+            return new Domain.Entities.Course 
+            { 
+                Name = "Test Course",
+                Code = "TST101",
+                Credits = 3,
+                StatusRegister = true 
+            };
         }
     }
 }
 ```
 
+---
+
 ## 6. Registro Automático
-Gracias a la arquitectura del proyecto, **no es necesario registrar manualmente** los repositorios, validadores o mapeos, siempre que sigan las convenciones de nombres y herencia descritas anteriormente.
 
-## 7. Casos Especiales y Módulos Personalizados
+✅ **No es necesario registrar manualmente:**
+- Repositorios
+- Validadores
+- Mapeos (AutoMapper)
 
-Para funcionalidades que no se ajustan al patrón CRUD genérico (como subida de archivos, procesos complejos, o reportes), se recomienda seguir el patrón **CQRS** manualmente.
+El proyecto usa **Scrutor** para registro automático basado en convenciones.
 
-> **Nota sobre Estructura**: Consulte `Contexto/ARQUITECTURA.md` para ver la estructura de carpetas obligatoria (separación de Commands y Handlers).
+---
 
-### Pasos de Implementación
+## 7. Casos Especiales: CQRS Manual
 
-1.  **Definir Command/Query**: Crear la clase que implemente `IRequest<TResponse>`.
-2.  **Crear Handler**: Implementar `IRequestHandler<TRequest, TResponse>`.
-3.  **Validación**: Crear un validador para el Command (`AbstractValidator<TCommand>`).
-4.  **Controller**: Crear un endpoint específico en el controlador que envíe el comando a través de `_mediator.Send()`.
+Para funcionalidades que **NO** se ajustan al patrón CRUD genérico (ej: subida de archivos, reportes, procesos complejos), usa CQRS manualmente.
 
-Ejemplo detallado: **[Módulo de Documentos](MODULOS/DOCUMENTOS.md)**.
+### Ejemplo: Comando Personalizado
+
+**1. Crear Command** en `Application/Shared/Commands/Course/`
+
+```csharp
+namespace Application.Shared.Commands.Course
+{
+    public record EnrollStudentCommand(int CourseId, int StudentId) : IRequest<bool>;
+}
+```
+
+**2. Crear Handler** en `Application/Shared/Commands/Course/Handlers/`
+
+```csharp
+namespace Application.Shared.Commands.Course.Handlers
+{
+    public class EnrollStudentCommandHandler : IRequestHandler<EnrollStudentCommand, bool>
+    {
+        private readonly IRepository<Domain.Entities.Course, int> _repository;
+        private readonly IUnitOfWork _unitOfWork;
+        
+        public async Task<bool> Handle(EnrollStudentCommand request, CancellationToken ct)
+        {
+            // Lógica personalizada
+            return true;
+        }
+    }
+}
+```
+
+**3. Crear Validador** en `Application/Validations/SpecificValidators/Course/`
+
+```csharp
+namespace Application.Validations.SpecificValidators.Course
+{
+    public class EnrollStudentCommandValidator : AbstractValidator<EnrollStudentCommand>
+    {
+        public EnrollStudentCommandValidator()
+        {
+            RuleFor(x => x.CourseId).GreaterThan(0);
+            RuleFor(x => x.StudentId).GreaterThan(0);
+        }
+    }
+}
+```
+
+**4. Usar en Controller**
+
+```csharp
+[HttpPost("{id}/enroll")]
+public async Task<IActionResult> EnrollStudent(int id, [FromBody] int studentId)
+{
+    var command = new EnrollStudentCommand(id, studentId);
+    var result = await _mediator.Send(command);
+    return Ok(new ApiResponse<bool> { Data = result });
+}
+```
+
+> 📖 **Ejemplo completo:** Ver [MODULOS/DOCUMENTOS.md](MODULOS/DOCUMENTOS.md)
 
 ---
 
@@ -189,22 +315,13 @@ public class User : BaseEntity<int>
 }
 ```
 
-### Controladores
-```csharp
-// Usar null-coalescing para parámetros opcionales
-var query = new GetAllQuery
-{
-    SortBy = request.SortBy ?? string.Empty,
-    Filters = request.Filters ?? new Dictionary<string, string>()
-};
-```
+---
 
-### AutoMapper
-```csharp
-// Null-checks para propiedades opcionales
-CreateMap<Source, Destination>()
-    .ForMember(dest => dest.Name, 
-        opt => opt.MapFrom(src => src.Entity != null ? src.Entity.Name : string.Empty));
-```
+## Resumen del Flujo
 
-**Referencia completa:** Ver análisis de warnings resueltos en commits recientes.
+1. ✅ **Domain** → Crear entidad
+2. ✅ **Application** → Crear DTO y validador
+3. ✅ **Infrastructure** → Crear configuración EF Core
+4. ✅ **API** → Crear controlador
+5. ✅ **Tests** → Crear pruebas de integración
+6. ✅ **Ejecutar** → `dotnet build` y `dotnet test`

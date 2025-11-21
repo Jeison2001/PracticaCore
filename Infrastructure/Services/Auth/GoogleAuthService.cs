@@ -1,4 +1,4 @@
-using Application.Shared.DTOs.Auth;
+using Domain.Common.Auth;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Auth;
@@ -10,23 +10,23 @@ namespace Infrastructure.Services.Auth
         private readonly IJwtService _jwtService;
         private readonly IUserInfoRepository _userInfoRepository;
         private readonly IRepository<Role, int> _roleRepository;
-        private readonly IGoogleTokenValidator _googleTokenValidator;
+        private readonly ITokenValidator _tokenValidator;
         private const string InstitutionalDomain = "@unicesar.edu.co";
 
-        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, IRepository<Role, int> roleRepository, IGoogleTokenValidator googleTokenValidator)
+        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, IRepository<Role, int> roleRepository, ITokenValidator tokenValidator)
         {
             _jwtService = jwtService;
             _userInfoRepository = userInfoRepository;
             _roleRepository = roleRepository;
-            _googleTokenValidator = googleTokenValidator;
+            _tokenValidator = tokenValidator;
         }
 
-        public async Task<dynamic> AuthenticateWithGoogleAsync(string idToken)
+        public async Task<AuthenticationResult> AuthenticateWithGoogleAsync(string idToken)
         {
             try
             {
                 // Validar el token de Google
-                var payload = await _googleTokenValidator.ValidateAsync(idToken);
+                var payload = await _tokenValidator.ValidateAsync(idToken);
                 
                 /*
                 // Verificar que el correo tenga el dominio institucional
@@ -60,7 +60,7 @@ namespace Infrastructure.Services.Auth
 
                 var roleNames = await _userInfoRepository.GetUserRolesAsync(user.Id);
                 var allRoles = await _roleRepository.GetAllAsync(r => roleNames.Contains(r.Name));
-                var rolesDto = allRoles.Select(r => new AuthRoleDto
+                var rolesResult = allRoles.Select(r => new RoleInfoResult
                 {
                     Name = r.Name,
                     Code = r.Code
@@ -79,7 +79,7 @@ namespace Infrastructure.Services.Auth
                 string token = _jwtService.GenerateTokenWithClaims(
                     user.Id.ToString(), 
                     user.Email, 
-                    rolesDto.Select(r => r.Name).ToList(), // solo nombres para el token
+                    rolesResult.Select(r => r.Name).ToList(), // solo nombres para el token
                     permissionCodes,
                     user.FirstName,
                     user.LastName,
@@ -87,10 +87,10 @@ namespace Infrastructure.Services.Auth
                 );
 
                 // Crear respuesta de autenticación con la estructura jerárquica
-                return new AuthResponse
+                return new AuthenticationResult
                 {
                     Token = token,
-                    User = new UserInfoDto
+                    User = new UserInfoResult
                     {
                         Id = user.Id,
                         Email = user.Email,
@@ -99,7 +99,7 @@ namespace Infrastructure.Services.Auth
                         Identification = user.Identification,
                         IdIdentificationType = user.IdIdentificationType
                     },
-                    Roles = rolesDto,
+                    Roles = rolesResult,
                     Permissions = hierarchicalPermissions
                 };
             }
