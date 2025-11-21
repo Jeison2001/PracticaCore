@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.InscriptionModalities
 {
-    public class InscriptionModalityDto : BaseDto<int>
+    public record InscriptionModalityDto : BaseDto<int>
     {
         public int IdModality { get; set; }
         public int IdStateInscription { get; set; }

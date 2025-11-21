@@ -12,7 +12,6 @@ using Domain.Entities;
 using Domain.Interfaces.Common;
 using FluentValidation;
 using Infrastructure.Data;
-using Infrastructure.Extensions;
 using Infrastructure.Repositories;
 using Infrastructure.Services.Storage;
 using MediatR;
@@ -70,6 +69,7 @@ namespace Api.Extensions
             services.AddValidatorsFromAssembly(typeof(InscriptionModalityValidator).Assembly);
 
             // Auto-registro basado en interfaces marcadoras para servicios de aplicación
+            // Esto registra automáticamente IEmailNotificationEventService y los Builders
             RegisterByLifetime(services, typeof(InscriptionModalityValidator).Assembly);
 
             // Luego registrar los validadores genéricos solo donde no existan específicos
@@ -342,8 +342,18 @@ namespace Api.Extensions
         /// </summary>
         private static void ConfigureNotificationService(IServiceCollection services, IConfiguration config)
         {
-            // Usar la nueva extensión centralizada para notificaciones
-            services.AddEmailNotificationServices(config);
+            var provider = config["EmailNotification:Provider"]?.ToLower() ?? "smtp";
+
+            switch (provider)
+            {
+                case "smtp":
+                    // SmtpNotificationService se auto-registra con IScopedService
+                    break;
+                default:
+                    throw new NotSupportedException(
+                        $"Proveedor de notificaciones '{provider}' no soportado. " +
+                        $"Proveedores disponibles: smtp");
+            }
         }
     }
 }

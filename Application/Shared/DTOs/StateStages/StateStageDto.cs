@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.StateStages
 {
-    public class StateStageDto : BaseDto<int>
+    public record StateStageDto : BaseDto<int>
     {
         public int IdStageModality { get; set; }
         public string Code { get; set; } = string.Empty;

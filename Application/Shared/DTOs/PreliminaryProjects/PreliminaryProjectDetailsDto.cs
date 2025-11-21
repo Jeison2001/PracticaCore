@@ -2,7 +2,7 @@ using Application.Shared.DTOs.StateStages;
 
 namespace Application.Shared.DTOs.PreliminaryProjects
 {
-    public class PreliminaryProjectDetailsDto : BaseDto<int>
+    public record PreliminaryProjectDetailsDto : BaseDto<int>
     {
         public int IdStateStage { get; set; }
         public DateTime? ApprovalDate { get; set; }

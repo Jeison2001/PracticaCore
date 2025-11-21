@@ -3,7 +3,7 @@ using Application.Shared.DTOs.UserInscriptionModalities;
 
 namespace Application.Shared.DTOs.InscriptionWithStudents
 {
-    public class InscriptionWithStudentsResponseDto
+    public record InscriptionWithStudentsResponseDto
     {
         public InscriptionModalityDto InscriptionModality { get; set; } = null!;
         public string AcademicPeriodCode { get; set; } = string.Empty;

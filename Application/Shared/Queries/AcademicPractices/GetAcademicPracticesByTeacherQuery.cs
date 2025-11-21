@@ -4,7 +4,7 @@ using MediatR;
 
 namespace Application.Shared.Queries.AcademicPractices
 {
-    public class GetAcademicPracticesByTeacherQuery : IRequest<PaginatedResult<AcademicPracticeWithDetailsResponseDto>>
+    public record GetAcademicPracticesByTeacherQuery : IRequest<PaginatedResult<AcademicPracticeWithDetailsResponseDto>>
     {
         public int TeacherId { get; set; }
         public int PageNumber { get; set; } = 1;

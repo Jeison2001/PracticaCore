@@ -1,4 +1,4 @@
-using Domain.Common;
+using Domain.Common.Notifications;
 using Domain.Interfaces.Common;
 
 namespace Domain.Interfaces.Services.Notifications;

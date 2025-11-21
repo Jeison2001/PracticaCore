@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Data;
 using Domain.Interfaces.Services;
+using Domain.Common.Users;
 
 namespace Infrastructure.Services
 {

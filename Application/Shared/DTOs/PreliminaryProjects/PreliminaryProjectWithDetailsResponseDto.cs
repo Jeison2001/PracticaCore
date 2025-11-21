@@ -2,7 +2,7 @@ using Application.Shared.DTOs.Proposals;
 
 namespace Application.Shared.DTOs.PreliminaryProjects
 {
-    public class PreliminaryProjectWithDetailsResponseDto
+    public record PreliminaryProjectWithDetailsResponseDto
     {
         public required PreliminaryProjectDetailsDto PreliminaryProject { get; set; }
         public required ProposalWithDetailsResponseDto Proposal { get; set; }

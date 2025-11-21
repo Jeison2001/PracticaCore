@@ -1,6 +1,6 @@
 using Api.Controllers.Utilities;
 using Api.Responses;
-using Application.Common.Services;
+using Domain.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;

@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.Modalities
 {
-    public class ModalityDto : BaseDto<int>
+    public record ModalityDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

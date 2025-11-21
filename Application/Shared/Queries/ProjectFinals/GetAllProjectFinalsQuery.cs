@@ -4,7 +4,7 @@ using MediatR;
 
 namespace Application.Shared.Queries.ProjectFinals
 {
-    public class GetAllProjectFinalsQuery : IRequest<PaginatedResult<ProjectFinalWithDetailsResponseDto>>
+    public record GetAllProjectFinalsQuery : IRequest<PaginatedResult<ProjectFinalWithDetailsResponseDto>>
     {
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;

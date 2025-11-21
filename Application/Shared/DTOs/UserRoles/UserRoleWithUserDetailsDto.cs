@@ -2,7 +2,7 @@ using Application.Shared.DTOs.TeacherResearchProfiles;
 
 namespace Application.Shared.DTOs.UserRoles
 {
-    public class UserRoleWithUserDetailsDto : BaseDto<int>
+    public record UserRoleWithUserDetailsDto : BaseDto<int>
     {
         public int IdUser { get; set; }
         public int IdRole { get; set; }

@@ -4,7 +4,7 @@ using MediatR;
 
 namespace Application.Shared.Queries.PreliminaryProjects
 {
-    public class GetPreliminaryProjectsByTeacherQuery : IRequest<PaginatedResult<PreliminaryProjectWithDetailsResponseDto>>
+    public record GetPreliminaryProjectsByTeacherQuery : IRequest<PaginatedResult<PreliminaryProjectWithDetailsResponseDto>>
     {
         public int TeacherId { get; set; }
         public int PageNumber { get; set; } = 1;

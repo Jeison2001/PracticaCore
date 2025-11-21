@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.ResearchSubLines
 {
-    public class ResearchSubLineDto : BaseDto<int>
+    public record ResearchSubLineDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

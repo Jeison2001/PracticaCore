@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Commands.Documents
 {
-    public class CreateDocumentWithFileCommand : IRequest<DocumentDto>
+    public record CreateDocumentWithFileCommand : IRequest<DocumentDto>
     {
         public DocumentUploadDto Dto { get; }
 

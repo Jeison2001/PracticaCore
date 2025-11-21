@@ -5,7 +5,7 @@ namespace Application.Shared.DTOs.UserRoles
     /// <summary>
     /// DTO para agrupar asignaciones activas de un docente por cargo (tipo de asignación) y su límite.
     /// </summary>
-    public class TeachingAssignmentCargoInfoDto
+    public record TeachingAssignmentCargoInfoDto
     {
         public int IdTypeTeachingAssignment { get; set; }
         public string CargoName { get; set; } = string.Empty;

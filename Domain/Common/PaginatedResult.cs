@@ -1,6 +1,6 @@
 namespace Domain.Common
 {
-    public class PaginatedResult<T>
+    public record PaginatedResult<T>
     {
         public IEnumerable<T> Items { get; set; } = new List<T>();
         public int TotalRecords { get; set; }

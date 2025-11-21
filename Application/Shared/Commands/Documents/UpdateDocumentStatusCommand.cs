@@ -2,7 +2,7 @@ using MediatR;
 
 namespace Application.Shared.Commands.Documents
 {
-    public class UpdateDocumentStatusCommand : IRequest<bool>
+    public record UpdateDocumentStatusCommand : IRequest<bool>
     {
         public int Id { get; }
         public bool StatusRegister { get; }

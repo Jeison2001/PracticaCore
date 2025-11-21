@@ -5,7 +5,7 @@ namespace Application.Shared.DTOs.UserPermissions
     /// <summary>
     /// DTO que representa la información de permisos de un usuario con los datos de la relación UserPermission
     /// </summary>
-    public class UserPermissionInfoDto
+    public record UserPermissionInfoDto
     {
         /// <summary>
         /// Información completa del permiso

@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 
 namespace Application.Shared.DTOs.Documents
-{    public class DocumentUploadDto : BaseDto<int>
+{    public record DocumentUploadDto : BaseDto<int>
     {
         public int? IdInscriptionModality { get; set; }
         public int IdDocumentType { get; set; }

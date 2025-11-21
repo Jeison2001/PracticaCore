@@ -2,7 +2,7 @@ using Application.Shared.DTOs.UserInscriptionModalities;
 
 namespace Application.Shared.DTOs.Proposals
 {
-    public class ProposalWithDetailsResponseDto
+    public record ProposalWithDetailsResponseDto
     {
         public required ProposalDto Proposal { get; set; }
         public required string StateStageName { get; set; }

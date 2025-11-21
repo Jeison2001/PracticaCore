@@ -5,7 +5,7 @@ namespace Application.Shared.DTOs.RolePermissions
     /// <summary>
     /// DTO que representa la información de permisos de un rol con los datos de la relación RolePermission
     /// </summary>
-    public class RolePermissionInfoDto
+    public record RolePermissionInfoDto
     {
         /// <summary>
         /// Información completa del permiso

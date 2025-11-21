@@ -1,4 +1,5 @@
 using Domain.Common;
+using Domain.Common.AcademicPractice;
 using Domain.Entities;
 using Domain.Interfaces.Common;
 
@@ -68,52 +69,5 @@ namespace Domain.Interfaces.Repositories
         Task<AcademicPracticePhaseProgress> GetPhaseProgressAsync(
             int id, 
             CancellationToken cancellationToken = default);
-    }
-
-    // Clases auxiliares para los métodos del repositorio
-    public class AcademicPracticeWithDetails
-    {
-        public AcademicPractice AcademicPractice { get; set; } = null!;
-        public InscriptionModality? InscriptionModality { get; set; }
-        public StateStage? StateStage { get; set; }
-        public StageModality? StageModality { get; set; }
-        public Modality? Modality { get; set; }
-        public StateInscription? StateInscription { get; set; }
-        public AcademicPeriod? AcademicPeriod { get; set; }
-        public List<UserInscriptionModality> UserInscriptionModalities { get; set; } = new();
-        public List<TeachingAssignment> TeachingAssignments { get; set; } = new();
-        public List<Document> Documents { get; set; } = new();
-    }
-
-    public class AcademicPracticePhaseProgress
-    {
-        public string CurrentPhase { get; set; } = string.Empty;
-        public string CurrentState { get; set; } = string.Empty;
-        public bool Phase1Completed { get; set; }
-        public bool Phase2Completed { get; set; }
-        public bool Phase3Completed { get; set; }
-        public DateTime? Phase1CompletionDate { get; set; }
-        public DateTime? Phase2CompletionDate { get; set; }
-        public DateTime? Phase3CompletionDate { get; set; }
-        public List<PhaseDetail> PhaseDetails { get; set; } = new();
-    }
-
-    public class PhaseDetail
-    {
-        public int PhaseNumber { get; set; }
-        public string PhaseName { get; set; } = string.Empty;
-        public string PhaseCode { get; set; } = string.Empty;
-        public bool IsCompleted { get; set; }
-        public DateTime? CompletionDate { get; set; }
-        public string CurrentState { get; set; } = string.Empty;
-        public List<StateDetail> States { get; set; } = new();
-    }
-
-    public class StateDetail
-    {
-        public string StateCode { get; set; } = string.Empty;
-        public string StateName { get; set; } = string.Empty;
-        public bool IsCompleted { get; set; }
-        public DateTime? CompletionDate { get; set; }
     }
 }

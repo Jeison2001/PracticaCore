@@ -1,8 +1,8 @@
 using Application.Shared.DTOs.AcademicPractices;
 using Application.Shared.DTOs.TeachingAssignments;
 using AutoMapper;
+using Domain.Common.AcademicPractice;
 using Domain.Entities;
-using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Mappings
 {

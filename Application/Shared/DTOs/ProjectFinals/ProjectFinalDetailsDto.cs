@@ -2,7 +2,7 @@ using Application.Shared.DTOs.StateStages;
 
 namespace Application.Shared.DTOs.ProjectFinals
 {
-    public class ProjectFinalDetailsDto : BaseDto<int>
+    public record ProjectFinalDetailsDto : BaseDto<int>
     {
         public int IdStateStage { get; set; }
         public DateTime? ReportApprovalDate { get; set; }

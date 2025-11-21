@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Commands.TeacherResearchProfiles
 {
-    public class UpdateTeacherResearchProfileCommand : IRequest<TeacherResearchProfileDto>
+    public record UpdateTeacherResearchProfileCommand : IRequest<TeacherResearchProfileDto>
     {
         public int Id { get; }
         public TeacherResearchProfileDto Dto { get; }

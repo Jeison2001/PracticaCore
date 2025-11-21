@@ -5,7 +5,7 @@ namespace Application.Shared.DTOs.UserRoles
     /// <summary>
     /// DTO que representa la información de rol de un usuario con los datos de la relación UserRole
     /// </summary>
-    public class UserRoleInfoDto
+    public record UserRoleInfoDto
     {
         /// <summary>
         /// Información completa del rol

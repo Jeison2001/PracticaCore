@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.AcademicPractices
 {
-    public class AcademicPracticePhaseDetailDto
+    public record AcademicPracticePhaseDetailDto
     {
         public int PhaseNumber { get; set; }
         public string PhaseName { get; set; } = string.Empty;

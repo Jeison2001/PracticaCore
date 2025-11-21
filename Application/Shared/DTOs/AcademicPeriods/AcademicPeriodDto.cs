@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.AcademicPeriods
 {
-    public class AcademicPeriodDto : BaseDto<int>
+    public record AcademicPeriodDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public DateTime StartDate { get; set; }

@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Commands.TeacherResearchProfiles
 {
-    public class CreateTeacherResearchProfileCommand : IRequest<TeacherResearchProfileDto>
+    public record CreateTeacherResearchProfileCommand : IRequest<TeacherResearchProfileDto>
     {
         public TeacherResearchProfileDto Dto { get; }
         public CreateTeacherResearchProfileCommand(TeacherResearchProfileDto dto)

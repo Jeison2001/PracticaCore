@@ -4,7 +4,7 @@ using MediatR;
 
 namespace Application.Shared.Queries.Proposals
 {
-    public class GetProposalsByTeacherQuery : IRequest<PaginatedResult<ProposalWithDetailsResponseDto>>
+    public record GetProposalsByTeacherQuery : IRequest<PaginatedResult<ProposalWithDetailsResponseDto>>
     {
         public int TeacherId { get; init; }
         public int PageNumber { get; init; } = 1;

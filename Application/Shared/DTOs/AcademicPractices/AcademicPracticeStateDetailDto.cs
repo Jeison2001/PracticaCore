@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.AcademicPractices
 {
-    public class AcademicPracticeStateDetailDto
+    public record AcademicPracticeStateDetailDto
     {
         public string StateCode { get; set; } = string.Empty;
         public string StateName { get; set; } = string.Empty;

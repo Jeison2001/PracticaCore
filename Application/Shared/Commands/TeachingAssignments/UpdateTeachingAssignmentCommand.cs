@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Commands.TeachingAssignments
 {
-    public class UpdateTeachingAssignmentCommand : IRequest<TeachingAssignmentDto>
+    public record UpdateTeachingAssignmentCommand : IRequest<TeachingAssignmentDto>
     {
         public int Id { get; }
         public TeachingAssignmentDto Dto { get; }

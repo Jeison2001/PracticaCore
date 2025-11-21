@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.AcademicPractices
 {
-    public class AcademicPracticePhaseProgressDto
+    public record AcademicPracticePhaseProgressDto
     {
         public string CurrentPhase { get; set; } = string.Empty;
         public string CurrentState { get; set; } = string.Empty;

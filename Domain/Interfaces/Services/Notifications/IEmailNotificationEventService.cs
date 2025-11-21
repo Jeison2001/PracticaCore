@@ -1,5 +1,4 @@
 using Domain.Interfaces.Common;
-using Domain.Entities;
 
 namespace Domain.Interfaces.Services.Notifications;
 
@@ -22,26 +21,3 @@ public interface IEmailNotificationEventService : IScopedService
     Task<bool> HasActiveConfigurationAsync(string eventName);
 }
 
-/// <summary>
-/// Servicio para resolver destinatarios basado en reglas
-/// </summary>
-public interface IEmailRecipientResolverService : IScopedService
-{
-    /// <summary>
-    /// Resuelve los destinatarios según las reglas configuradas
-    /// </summary>
-    Task<EmailRecipientsResult> ResolveRecipientsAsync(
-        List<EmailRecipientRule> rules, 
-        Dictionary<string, object> eventData, 
-        object? entityContext = null);
-}
-
-/// <summary>
-/// Resultado de la resolución de destinatarios
-/// </summary>
-public class EmailRecipientsResult
-{
-    public List<string> To { get; set; } = new();
-    public List<string> Cc { get; set; } = new();
-    public List<string> Bcc { get; set; } = new();
-}

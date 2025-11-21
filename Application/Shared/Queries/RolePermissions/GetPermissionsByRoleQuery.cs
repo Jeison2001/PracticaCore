@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Queries.RolePermissions
 {
-    public class GetPermissionsByRoleQuery : IRequest<List<RolePermissionInfoDto>>
+    public record GetPermissionsByRoleQuery : IRequest<List<RolePermissionInfoDto>>
     {
         public int? RoleId { get; set; }
         public string? RoleCode { get; set; }

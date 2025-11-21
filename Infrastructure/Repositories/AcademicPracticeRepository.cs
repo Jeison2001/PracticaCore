@@ -5,6 +5,7 @@ using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Domain.Enums;
 using Domain.Interfaces.Repositories;
+using Domain.Common.AcademicPractice;
 
 namespace Infrastructure.Repositories;
 

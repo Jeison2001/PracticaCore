@@ -1,4 +1,5 @@
-using Domain.Common;
+using Domain.Common.Notifications;
+using Domain.Enums;
 using Domain.Interfaces.Services.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;

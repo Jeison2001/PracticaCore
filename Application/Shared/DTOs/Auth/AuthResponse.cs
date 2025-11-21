@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.Auth
 {
-    public class AuthResponse
+    public record AuthResponse
     {
         public string Token { get; set; } = string.Empty;
         public UserInfoDto User { get; set; } = new UserInfoDto();

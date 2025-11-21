@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.IdentificationTypes
 {
-    public class IdentificationTypeDto : BaseDto<int>
+    public record IdentificationTypeDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

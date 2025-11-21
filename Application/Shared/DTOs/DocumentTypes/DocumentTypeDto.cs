@@ -1,5 +1,5 @@
 namespace Application.Shared.DTOs.DocumentTypes
-{    public class DocumentTypeDto : BaseDto<int>
+{    public record DocumentTypeDto : BaseDto<int>
     {
         public int IdDocumentClass { get; set; }
         public int? IdStageModality { get; set; }

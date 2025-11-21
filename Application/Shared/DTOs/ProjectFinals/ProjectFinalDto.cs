@@ -1,5 +1,5 @@
 namespace Application.Shared.DTOs.ProjectFinals
-{    public class ProjectFinalDto : BaseDto<int>
+{    public record ProjectFinalDto : BaseDto<int>
     {
         public int IdStateStage { get; set; }
         public DateTime? ReportApprovalDate { get; set; }

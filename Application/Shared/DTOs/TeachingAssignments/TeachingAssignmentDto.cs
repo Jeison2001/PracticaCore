@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.TeachingAssignments
 {
-    public class TeachingAssignmentDto : BaseDto<int>
+    public record TeachingAssignmentDto : BaseDto<int>
     {
         public int IdInscriptionModality { get; set; }
         public int IdTeacher { get; set; }

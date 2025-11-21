@@ -1,5 +1,5 @@
 namespace Application.Shared.DTOs.TypeTeachingAssignments
-{    public class TypeTeachingAssignmentDto : BaseDto<int>
+{    public record TypeTeachingAssignmentDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

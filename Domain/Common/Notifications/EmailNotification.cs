@@ -1,9 +1,11 @@
-namespace Domain.Common
+using Domain.Enums;
+
+namespace Domain.Common.Notifications
 {
     /// <summary>
     /// Representa una notificación por correo electrónico
     /// </summary>
-    public class EmailNotification
+    public record EmailNotification
     {
         /// <summary>
         /// Dirección de correo del destinatario principal
@@ -64,36 +66,5 @@ namespace Domain.Common
         /// Prioridad del mensaje
         /// </summary>
         public EmailPriority Priority { get; set; } = EmailPriority.Normal;
-    }
-
-    /// <summary>
-    /// Representa un archivo adjunto de email
-    /// </summary>
-    public class EmailAttachment
-    {
-        /// <summary>
-        /// Nombre del archivo
-        /// </summary>
-        public string FileName { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Contenido del archivo en bytes
-        /// </summary>
-        public byte[] Content { get; set; } = Array.Empty<byte>();
-
-        /// <summary>
-        /// Tipo de contenido MIME
-        /// </summary>
-        public string ContentType { get; set; } = "application/octet-stream";
-    }
-
-    /// <summary>
-    /// Prioridad del email
-    /// </summary>
-    public enum EmailPriority
-    {
-        Low = 0,
-        Normal = 1,
-        High = 2
     }
 }

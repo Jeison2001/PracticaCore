@@ -1,7 +1,7 @@
 using Application.Shared.DTOs.DocumentTypes;
 
 namespace Application.Shared.DTOs.Documents
-{    public class DocumentDto : BaseDto<int>
+{    public record DocumentDto : BaseDto<int>
     {
         public int? IdInscriptionModality { get; set; }
         public int IdDocumentType { get; set; }

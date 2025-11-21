@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.Users
 {
-    public class UserDto : BaseDto<int>
+    public record UserDto : BaseDto<int>
     {
         public int IdIdentificationType { get; set; }
         public string Identification { get; set; } = string.Empty;

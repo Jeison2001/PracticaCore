@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.StageModalities
 {
-    public class StageModalityDto : BaseDto<int>
+    public record StageModalityDto : BaseDto<int>
     {
         public int IdModality { get; set; }
         public string Code { get; set; } = string.Empty;

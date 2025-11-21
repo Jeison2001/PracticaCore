@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Queries.AcademicPractices
 {
-    public class GetAcademicPracticeWithDetailsQuery : IRequest<AcademicPracticeWithDetailsResponseDto>
+    public record GetAcademicPracticeWithDetailsQuery : IRequest<AcademicPracticeWithDetailsResponseDto>
     {
         public int Id { get; set; }
 

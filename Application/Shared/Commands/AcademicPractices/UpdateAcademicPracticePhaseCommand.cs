@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Commands.AcademicPractices
 {
-    public class UpdateAcademicPracticePhaseCommand : IRequest<bool>
+    public record UpdateAcademicPracticePhaseCommand : IRequest<bool>
     {
         public UpdatePhaseApprovalDto Dto { get; }
 

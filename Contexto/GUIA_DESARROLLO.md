@@ -38,7 +38,7 @@ namespace Domain.Entities
 ```csharp
 namespace Application.Shared.DTOs.Course
 {
-    public class CourseDto : BaseDto<int>
+    public record CourseDto : BaseDto<int>
     {
         public string Name { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
@@ -47,7 +47,7 @@ namespace Application.Shared.DTOs.Course
 }
 ```
 
-> ✅ **Regla:** Heredar de `BaseDto<TId>` y agrupar por entidad
+> ✅ **Regla:** Heredar de `BaseDto<TId>`, usar `record` y agrupar por entidad
 
 #### 2.2 Crear Validador en `Application/Validations/SpecificValidators/Course/`
 

@@ -1,7 +1,7 @@
 using Domain.Interfaces.Services.Notifications;
-using Domain.Common;
 using Hangfire;
 using Microsoft.Extensions.Logging;
+using Domain.Common.Notifications;
 
 namespace Infrastructure.Services.Notifications
 {

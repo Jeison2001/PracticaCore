@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.Evaluations
 {
-    public class EvaluationDto : BaseDto<int>
+    public record EvaluationDto : BaseDto<int>
     {
         public string EntityType { get; set; } = string.Empty;
         public int EntityId { get; set; }

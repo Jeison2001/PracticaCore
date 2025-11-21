@@ -1,6 +1,6 @@
-﻿namespace Application.Shared.DTOs
+namespace Application.Shared.DTOs
 {
-    public class BaseDto<TId> where TId : struct
+    public record BaseDto<TId> where TId : struct
     {
         public TId Id { get; set; }
         public int IdUserCreatedAt { get; set; }

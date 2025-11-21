@@ -1,7 +1,7 @@
 
 namespace Application.Shared.DTOs.TeacherResearchProfiles
 {
-    public class TeacherResearchProfileDto : BaseDto<int>
+    public record TeacherResearchProfileDto : BaseDto<int>
     {
         public int IdUser { get; set; }
         public int IdResearchLine { get; set; }

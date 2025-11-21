@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Queries.ProjectFinals
 {
-    public class GetProjectFinalsByUserQuery : IRequest<List<ProjectFinalWithDetailsResponseDto>>
+    public record GetProjectFinalsByUserQuery : IRequest<List<ProjectFinalWithDetailsResponseDto>>
     {
         public int UserId { get; set; }
         public bool? Status { get; set; }

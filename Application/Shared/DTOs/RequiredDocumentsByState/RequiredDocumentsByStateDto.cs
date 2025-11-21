@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.RequiredDocumentsByState
 {
-    public class RequiredDocumentsByStateDto : BaseDto<int>
+    public record RequiredDocumentsByStateDto : BaseDto<int>
     {
         public int DocumentTypeId { get; set; }
         public string DocumentCode { get; set; } = string.Empty;

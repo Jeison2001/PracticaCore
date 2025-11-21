@@ -7,6 +7,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services;
+using Domain.Common.Users;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {

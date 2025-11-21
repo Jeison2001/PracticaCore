@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.Proposals
 {
-    public class ProposalDto : BaseDto<int>
+    public record ProposalDto : BaseDto<int>
     {
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }

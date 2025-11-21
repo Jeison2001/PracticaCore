@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.AcademicPractices
 {
-    public class AcademicPracticeDto : BaseDto<int>
+    public record AcademicPracticeDto : BaseDto<int>
     {
         public int IdStateStage { get; set; }
         public string? Title { get; set; }                   // ✅ AÑADIDO

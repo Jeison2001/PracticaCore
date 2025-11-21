@@ -4,7 +4,7 @@ using Application.Shared.DTOs.Documents;
 
 namespace Application.Shared.DTOs.AcademicPractices
 {
-    public class AcademicPracticeWithDetailsResponseDto
+    public record AcademicPracticeWithDetailsResponseDto
     {
         public AcademicPracticeDetailsDto? AcademicPractice { get; set; }
         

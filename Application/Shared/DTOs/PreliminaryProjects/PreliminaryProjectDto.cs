@@ -1,5 +1,5 @@
 namespace Application.Shared.DTOs.PreliminaryProjects
-{    public class PreliminaryProjectDto : BaseDto<int>
+{    public record PreliminaryProjectDto : BaseDto<int>
     {
         public int IdStateStage { get; set; }
         public DateTime? ApprovalDate { get; set; }

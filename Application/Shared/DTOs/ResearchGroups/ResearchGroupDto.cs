@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.ResearchGroups
 {
-    public class ResearchGroupDto : BaseDto<int>
+    public record ResearchGroupDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.ThematicAreas
 {
-    public class ThematicAreaDto : BaseDto<int>
+    public record ThematicAreaDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

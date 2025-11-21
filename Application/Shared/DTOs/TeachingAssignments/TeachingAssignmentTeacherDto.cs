@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.TeachingAssignments
 {
-    public class TeachingAssignmentTeacherDto
+    public record TeachingAssignmentTeacherDto
     {
         public int Id { get; set; } // Id del registro TeachingAssignment
         public int IdUser { get; set; } // Id del docente

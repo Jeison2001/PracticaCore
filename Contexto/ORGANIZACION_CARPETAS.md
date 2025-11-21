@@ -31,11 +31,14 @@
 ```
 Domain/
 ├── Common/
-│   ├── EmailNotification.cs
 │   ├── FilterBuilder.cs
 │   ├── PaginatedResult.cs
-│   └── Auth/
-│       └── AuthenticationResult.cs
+│   ├── Auth/
+│   │   └── AuthenticationResult.cs
+│   └── Notifications/
+│       ├── EmailNotification.cs
+│       ├── EmailAttachment.cs
+│       └── EmailRecipientsResult.cs
 ├── Configuration/
 │   ├── AzureBlobOptions.cs
 │   ├── GoogleCloudOptions.cs
@@ -60,6 +63,7 @@ Domain/
     └── Services/
         ├── IAcademicPeriodService.cs
         ├── IUserService.cs
+        ├── IIdGeneratorService.cs
         ├── Auth/
 │       │   ├── IAuthService.cs
 │       │   └── ITokenValidator.cs
@@ -119,6 +123,9 @@ Application/
     ├── BaseValidators/
     │   ├── BaseCreateCommandValidator.cs
     │   └── BaseUpdateCommandValidator.cs
+    ├── Common/
+    │   ├── EmailNotificationValidator.cs
+    │   └── EmailAttachmentValidator.cs
     └── SpecificValidators/
         └── {Entity}/
             ├── {Entity}Validator.cs

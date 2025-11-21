@@ -2,7 +2,7 @@ using Application.Shared.DTOs.Proposals;
 
 namespace Application.Shared.DTOs.ProjectFinals
 {
-    public class ProjectFinalWithDetailsResponseDto
+    public record ProjectFinalWithDetailsResponseDto
     {
         public required ProjectFinalDetailsDto ProjectFinal { get; set; }
         public required ProposalWithDetailsResponseDto Proposal { get; set; }

@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.Roles
 {
-    public class RoleDto : BaseDto<int>
+    public record RoleDto : BaseDto<int>
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

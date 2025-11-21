@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Application.Shared.Queries.PreliminaryProjects
 {
-    public class GetPreliminaryProjectsByUserQuery : IRequest<List<PreliminaryProjectWithDetailsResponseDto>>
+    public record GetPreliminaryProjectsByUserQuery : IRequest<List<PreliminaryProjectWithDetailsResponseDto>>
     {
         public int UserId { get; set; }
         public bool? Status { get; set; }

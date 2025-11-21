@@ -1,5 +1,5 @@
 using Api.Responses;
-using Application.Common.Services;
+using Domain.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers.Utilities

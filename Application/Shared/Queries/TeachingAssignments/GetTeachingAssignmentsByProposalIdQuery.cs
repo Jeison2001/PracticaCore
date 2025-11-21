@@ -3,7 +3,7 @@ using Application.Shared.DTOs.TeachingAssignments;
 
 namespace Application.Shared.Queries.TeachingAssignments
 {
-    public class GetTeachingAssignmentsByProposalIdQuery : IRequest<List<TeachingAssignmentTeacherDto>>
+    public record GetTeachingAssignmentsByProposalIdQuery : IRequest<List<TeachingAssignmentTeacherDto>>
     {
         public int ProposalId { get; set; }
         public bool? StatusRegister { get; set; }

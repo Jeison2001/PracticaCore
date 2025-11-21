@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.AcademicPractices
 {
-    public class AcademicPracticeDetailsDto
+    public record AcademicPracticeDetailsDto
     {
         public int Id { get; set; }
         public string? Title { get; set; }                   // ✅ AÑADIDO
