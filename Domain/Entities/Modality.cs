@@ -13,6 +13,7 @@ namespace Domain.Entities
         public string? SpecificRequirements { get; set; }
         public bool RequiresResearchHotbed { get; set; } = false;
         public bool RequiresApproval { get; set; } = true;
+        public bool RequiresDocumentation { get; set; } = true;
         public new int? IdUserCreatedAt { get; set; }
     }
 }

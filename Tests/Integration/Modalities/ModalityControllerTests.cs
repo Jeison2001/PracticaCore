@@ -22,6 +22,7 @@ namespace Tests.Integration.Modalities
                 AllowsExtension = true,
                 RequiresDirector = true,
                 MaxStudents = 1,
+                RequiresDocumentation = true,
                 StatusRegister = true
             };
         }
@@ -37,6 +38,7 @@ namespace Tests.Integration.Modalities
                 AllowsExtension = true,
                 RequiresDirector = true,
                 MaxStudents = 1,
+                RequiresDocumentation = true,
                 StatusRegister = true
             };
         }
