@@ -364,3 +364,6 @@ FodyWeavers.xsd
 Api/Uploads/
 *.sql
 docker-compose.yml
+
+.vscode/
+publish_clean.bat
