@@ -1,4 +1,6 @@
-namespace Domain.Entities
+using Domain.Entities;
+
+namespace Domain.Common.Proposals
 {
     /// <summary>
     /// Clase de transporte para encapsular una Propuesta junto con sus UserInscriptionModalities relacionados

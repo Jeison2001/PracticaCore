@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
+using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.Handlers
 {
@@ -18,7 +20,7 @@ namespace Application.Shared.Commands.Handlers
         private readonly IRepository<T, TId> _repository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly INotificationDispatcher? _notificationDispatcher;
+        private readonly IJobEnqueuer? _jobEnqueuer;
         private readonly ILogger<CreateEntityCommandHandler<T, TId, TDto>> _logger;
 
         public CreateEntityCommandHandler(
@@ -26,12 +28,12 @@ namespace Application.Shared.Commands.Handlers
             IMapper mapper,
             IUnitOfWork unitOfWork,
             ILogger<CreateEntityCommandHandler<T, TId, TDto>> logger,
-            INotificationDispatcher? notificationDispatcher = null)
+            IJobEnqueuer? jobEnqueuer = null)
         {
             _repository = repository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
-            _notificationDispatcher = notificationDispatcher;
+            _jobEnqueuer = jobEnqueuer;
             _logger = logger;
         }
 
@@ -60,7 +62,7 @@ namespace Application.Shared.Commands.Handlers
                             ct);
                         if (existingEntity != null)
                         {
-                            throw new InvalidOperationException($"Ya existe un registro con el código '{codeValue}'.");
+                            throw new InvalidOperationException($"Ya existe un registro con el cï¿½digo '{codeValue}'.");
                         }
                     }
                     catch (InvalidOperationException)
@@ -69,7 +71,7 @@ namespace Application.Shared.Commands.Handlers
                     }
                     catch (Exception ex)
                     {
-                        throw new InvalidOperationException("Error al verificar la unicidad del código.", ex);
+                        throw new InvalidOperationException("Error al verificar la unicidad del cï¿½digo.", ex);
                     }
                 }
             }
@@ -89,26 +91,26 @@ namespace Application.Shared.Commands.Handlers
 
                 if (innerExceptionMessage != null)
                 {
-                    // Intentar identificar violaciones de llaves foráneas de forma genérica
-                    // Esto es menos robusto que usar las propiedades específicas del proveedor de BD
+                    // Intentar identificar violaciones de llaves forï¿½neas de forma genï¿½rica
+                    // Esto es menos robusto que usar las propiedades especï¿½ficas del proveedor de BD
                     if (innerExceptionMessage.Contains("violates foreign key constraint") ||
                         innerExceptionMessage.Contains("FOREIGN KEY constraint") ||
-                        innerExceptionMessage.Contains("referential integrity constraint")) // Añadir otras variaciones comunes
+                        innerExceptionMessage.Contains("referential integrity constraint")) // Aï¿½adir otras variaciones comunes
                     {
-                        // Intentar extraer el nombre de la restricción si está disponible en el mensaje
+                        // Intentar extraer el nombre de la restricciï¿½n si estï¿½ disponible en el mensaje
                         var constraintName = ExtractConstraintName(innerExceptionMessage);
                         if (!string.IsNullOrEmpty(constraintName) && constraintName.Equals("fkteachingassignmentinscriptionmodality", StringComparison.OrdinalIgnoreCase))
                         {
-                            throw new InvalidOperationException("Error de llave foránea: El valor de 'idInscriptionModality' no es válido o no existe.", ex);
+                            throw new InvalidOperationException("Error de llave forï¿½nea: El valor de 'idInscriptionModality' no es vï¿½lido o no existe.", ex);
                         }
                         else if (!string.IsNullOrEmpty(constraintName))
                         {
-                             throw new InvalidOperationException($"Error de llave foránea: La restricción '{constraintName}' ha sido violada. Verifique los datos relacionados.", ex);
+                             throw new InvalidOperationException($"Error de llave forï¿½nea: La restricciï¿½n '{constraintName}' ha sido violada. Verifique los datos relacionados.", ex);
                         }
-                        throw new InvalidOperationException("Error de llave foránea: Uno de los valores proporcionados no existe en las tablas relacionadas.", ex);
+                        throw new InvalidOperationException("Error de llave forï¿½nea: Uno de los valores proporcionados no existe en las tablas relacionadas.", ex);
                     }
 
-                    // Mantener la lógica existente para otras violaciones comunes
+                    // Mantener la lï¿½gica existente para otras violaciones comunes
                     if (innerExceptionMessage.Contains("duplicate") == true ||
                         innerExceptionMessage.Contains("unique") == true ||
                         innerExceptionMessage.Contains("violation of primary key") == true)
@@ -126,13 +128,13 @@ namespace Application.Shared.Commands.Handlers
         }
 private string ExtractConstraintName(string errorMessage)
         {
-            // Ejemplo de patrones para extraer el nombre de la restricción.
+            // Ejemplo de patrones para extraer el nombre de la restricciï¿½n.
             // Estos patrones pueden necesitar ajustes dependiendo del formato exacto del mensaje de error de tu proveedor de base de datos.
             var patterns = new[]
             {
                 @"constraint ""([^""]+)""", // Para PostgreSQL: constraint "constraint_name"
                 @"constraint '([^']+)'",    // Para SQL Server: constraint 'constraint_name'
-                // Añade más patrones aquí si es necesario para otros proveedores de BD o formatos de mensaje.
+                // Aï¿½ade mï¿½s patrones aquï¿½ si es necesario para otros proveedores de BD o formatos de mensaje.
             };
 
             foreach (var pattern in patterns)
@@ -148,27 +150,14 @@ private string ExtractConstraintName(string errorMessage)
 
         private void ProcessNotificationsAsync(T entity)
         {
-            // Solo procesar Proposals - InscriptionModality manejado por handler específico
-            if (typeof(T) == typeof(Proposal) && _notificationDispatcher != null)
+            // Solo procesar Proposals - InscriptionModality manejado por handler especï¿½fico
+            if (typeof(T) == typeof(Proposal) && _jobEnqueuer != null)
             {
-                // ? MEJORADO: Fire-and-forget seguro con manejo de scope
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        _logger.LogDebug("Dispatching creation notification for {EntityType} ID: {Id}", typeof(T).Name, entity.Id);
-                        
-                        // El dispatcher ahora maneja su propio scope internamente
-                        await _notificationDispatcher.DispatchEntityCreationAsync<T, TId>(entity);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error dispatching creation notification for {EntityType} ID: {Id}", typeof(T).Name, entity.Id);
-                    }
-                });
+                // ? MEJORADO: Fire-and-forget seguro usando Hangfire
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleEntityCreationAsync<T, TId>(entity.Id));
             }
 
-            // ? ELIMINADO COMPLETAMENTE: InscriptionModality ya no se notifica aquí
+            // ? ELIMINADO COMPLETAMENTE: InscriptionModality ya no se notifica aquï¿½
             // InscriptionModality solo se crea via CreateInscriptionWithStudentsHandler
             // que usa InscriptionCreationService para notificaciones
         }

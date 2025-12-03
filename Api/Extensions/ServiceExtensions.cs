@@ -21,6 +21,7 @@ using System.Data;
 using System.Reflection;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Storage;
+using Infrastructure.Services.Startup;
 
 namespace Api.Extensions
 {
@@ -50,6 +51,9 @@ namespace Api.Extensions
 
             // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
+
+            // Registrar Worker de consistencia de Enums (Fail Fast)
+            services.AddHostedService<EnumConsistencyWorker>();
         }
 
         public static void AddApplicationLayer(this IServiceCollection services)

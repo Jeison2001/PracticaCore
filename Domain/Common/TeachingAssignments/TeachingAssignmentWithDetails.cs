@@ -1,4 +1,6 @@
-namespace Domain.Entities
+using Domain.Entities;
+
+namespace Domain.Common.TeachingAssignments
 {
     /// <summary>
     /// Clase de transporte para encapsular una asignación docente junto con sus entidades relacionadas

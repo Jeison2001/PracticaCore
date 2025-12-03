@@ -95,9 +95,29 @@ namespace Tests.Integration.ProjectFinals
             }
         }
 
-        public override Task GetAll_ReturnsOkAndList()
+        public override async Task GetAll_ReturnsOkAndList()
         {
-            return Task.CompletedTask;
+            // Arrange
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+            
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                context.Set<ProjectFinal>().Add(entity);
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var response = await _client.GetAsync($"{BaseUrl}/GetAll?PageNumber=1&PageSize=10");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProjectFinalWithDetailsResponseDto>>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.Items.Should().NotBeEmpty();
         }
 
         public override Task GetById_ReturnsOkAndEntity()
@@ -208,31 +228,7 @@ namespace Tests.Integration.ProjectFinals
             result.Data!.Observations.Should().Be("Updated Observations");
         }
 
-        [Fact]
-        public async Task GetAllWithDetails_ReturnsOkAndList()
-        {
-            // Arrange
-            var entity = CreateValidEntity();
-            SeedAdditionalData(entity);
-            
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                context.Set<ProjectFinal>().Add(entity);
-                await context.SaveChangesAsync();
-            }
 
-            // Act
-            var response = await _client.GetAsync($"{BaseUrl}/GetAll?PageNumber=1&PageSize=10");
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProjectFinalWithDetailsResponseDto>>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data.Should().NotBeNull();
-            result.Data!.Items.Should().NotBeEmpty();
-        }
 
         [Fact]
         public async Task GetByUserId_ReturnsOkAndList()

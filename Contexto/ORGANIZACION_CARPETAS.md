@@ -18,6 +18,11 @@
 1. **Domain/Interfaces/Services/** → `I{Service}.cs` (o en subcarpeta por feature)
 2. **Infrastructure/Services/** → `{Service}.cs` (misma estructura)
 
+### Nuevo Background Service / Worker
+
+1. **Infrastructure/Services/Startup/** → `{Worker}.cs` (si es de inicialización)
+2. **Infrastructure/Services/Background/** → `{Worker}.cs` (si es de ejecución continua)
+
 ### Nuevo Command/Query
 
 1. **Application/Shared/Commands/{Entity}/** → `{Action}{Entity}Command.cs`
@@ -167,6 +172,8 @@ Infrastructure/
 │   ├── Notifications/
 │   │   ├── EmailNotificationQueueService.cs
 │   │   └── SmtpNotificationService.cs
+│   ├── Startup/
+│   │   └── EnumConsistencyWorker.cs
 │   └── Storage/
 │       ├── LocalFileStorageService.cs
 │       ├── GoogleCloudFileStorageService.cs

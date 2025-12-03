@@ -87,7 +87,7 @@ Este proyecto sigue los principios de **Clean Architecture** para garantizar la 
 **Contiene:**
 - `Data/` - DbContext y configuraciones de EF Core
 - `Repositories/` - Implementaciones de repositorios
-- `Services/` - Implementaciones de servicios (Auth, Cache, Storage, Notifications)
+- `Services/` - Implementaciones de servicios (Auth, Cache, Storage, Notifications, Startup)
 - `Extensions/` - Métodos de extensión para configuración
 
 > 📖 **Detalles:** Ver [ORGANIZACION_CARPETAS.md](ORGANIZACION_CARPETAS.md) para estructura completa

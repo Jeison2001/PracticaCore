@@ -5,6 +5,8 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
+using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.TeachingAssignments.Handlers
 {
@@ -13,20 +15,20 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
         private readonly ITeachingAssignmentRepository _repository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly INotificationDispatcher _notificationDispatcher;
+        private readonly IJobEnqueuer _jobEnqueuer;
         private readonly ILogger<UpdateTeachingAssignmentCommandHandler> _logger;
 
         public UpdateTeachingAssignmentCommandHandler(
             ITeachingAssignmentRepository repository,
             IMapper mapper,
             IUnitOfWork unitOfWork,
-            INotificationDispatcher notificationDispatcher,
+            IJobEnqueuer jobEnqueuer,
             ILogger<UpdateTeachingAssignmentCommandHandler> logger)
         {
             _repository = repository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
-            _notificationDispatcher = notificationDispatcher;
+            _jobEnqueuer = jobEnqueuer;
             _logger = logger;
         }
 
@@ -77,22 +79,8 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
         private void ProcessNotificationsAsync(TeachingAssignment originalEntity, TeachingAssignment updatedEntity)
         {
-            if (_notificationDispatcher != null)
-            {
-                // ✅ Fire-and-forget seguro con manejo de scope
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        _logger.LogDebug("Dispatching change notification for TeachingAssignment ID: {AssignmentId}", updatedEntity.Id);
-                        await _notificationDispatcher.DispatchEntityChangeAsync<TeachingAssignment, int>(originalEntity, updatedEntity);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error dispatching change notification for TeachingAssignment ID: {AssignmentId}", updatedEntity.Id);
-                    }
-                });
-            }
+            // ✅ Fire-and-forget seguro usando Hangfire
+            _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleTeachingAssignmentChangeAsync(updatedEntity.Id, originalEntity.IdTeacher));
         }
     }
 }

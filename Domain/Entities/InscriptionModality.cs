@@ -17,6 +17,11 @@ namespace Domain.Entities
         public virtual StageModality? StageModality { get; set; }
         public virtual Proposal? Proposal { get; set; }
         public virtual AcademicPractice? AcademicPractice { get; set; }
+        public virtual CoTerminal? CoTerminal { get; set; }
+        public virtual Seminar? Seminar { get; set; }
+        public virtual ScientificArticle? ScientificArticle { get; set; }
+        public virtual AcademicAverage? AcademicAverage { get; set; }
+        public virtual SaberPro? SaberPro { get; set; }
         public virtual ICollection<TeachingAssignment> TeachingAssignments { get; set; } = new List<TeachingAssignment>();
     }
 }

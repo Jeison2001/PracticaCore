@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Infrastructure.Data;
 using Microsoft.Extensions.Configuration;
+using Domain.Interfaces.Services.Jobs;
+using Tests.Integration.Utilities;
 
 namespace Tests.Integration
 {
@@ -39,6 +41,15 @@ namespace Tests.Integration
                     options.UseInMemoryDatabase(dbName);
                     options.ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
                 });
+
+                // Replace IJobEnqueuer with TestJobEnqueuer
+                // This prevents the application from trying to use Hangfire (which is not configured in tests)
+                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IJobEnqueuer));
+                if (descriptor != null)
+                {
+                    services.Remove(descriptor);
+                }
+                services.AddTransient<IJobEnqueuer, TestJobEnqueuer>();
             });
 
             // Use "Testing" environment to avoid running production configurations

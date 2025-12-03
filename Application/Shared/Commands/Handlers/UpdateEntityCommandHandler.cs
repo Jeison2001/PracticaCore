@@ -6,6 +6,8 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
+using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.Handlers
 {
@@ -17,7 +19,7 @@ namespace Application.Shared.Commands.Handlers
         private readonly IRepository<T, TId> _repository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly INotificationDispatcher? _notificationDispatcher;
+        private readonly IJobEnqueuer? _jobEnqueuer;
         private readonly ILogger<UpdateEntityCommandHandler<T, TId, TDto>> _logger;
 
         public UpdateEntityCommandHandler(
@@ -25,12 +27,12 @@ namespace Application.Shared.Commands.Handlers
             IMapper mapper, 
             IUnitOfWork unitOfWork,
             ILogger<UpdateEntityCommandHandler<T, TId, TDto>> logger,
-            INotificationDispatcher? notificationDispatcher = null)
+            IJobEnqueuer? jobEnqueuer = null)
         {
             _repository = repository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
-            _notificationDispatcher = notificationDispatcher;
+            _jobEnqueuer = jobEnqueuer;
             _logger = logger;
         }
 
@@ -38,8 +40,8 @@ namespace Application.Shared.Commands.Handlers
         {
             var existingEntity = await _repository.GetByIdAsync(request.Id) ?? throw new KeyNotFoundException($"Entity with ID {request.Id} not found.");
             
-            // Crear copia profunda del estado original ANTES de cualquier modificación
-            // Usar serialización JSON para evitar referencias compartidas
+            // Crear copia profunda del estado original ANTES de cualquier modificaciï¿½n
+            // Usar serializaciï¿½n JSON para evitar referencias compartidas
             var originalEntityJson = JsonSerializer.Serialize(existingEntity);
             var originalEntity = JsonSerializer.Deserialize<T>(originalEntityJson)!;
             
@@ -47,7 +49,7 @@ namespace Application.Shared.Commands.Handlers
             var originalCreatedAt = existingEntity.CreatedAt;
             var originalIdUserCreatedAt = existingEntity.IdUserCreatedAt;
 
-            // Mapear el DTO a la entidad existente (DESPUÉS de crear la copia)
+            // Mapear el DTO a la entidad existente (DESPUï¿½S de crear la copia)
             _mapper.Map(request.Dto, existingEntity);
 
             // Restaurar campos inmutables
@@ -66,25 +68,19 @@ namespace Application.Shared.Commands.Handlers
             return _mapper.Map<TDto>(existingEntity);
         }
 
-        private void ProcessNotificationsAsync(T existingEntity, T originalEntity)
+        private void ProcessNotificationsAsync(T updatedEntity, T originalEntity)
         {
-            if (_notificationDispatcher != null)
+            if (_jobEnqueuer != null)
             {
-                // ? MEJORADO: Fire-and-forget seguro con manejo de scope
-                _ = Task.Run(async () =>
+                if (typeof(T) == typeof(Proposal))
                 {
-                    try
-                    {
-                        _logger.LogDebug("Dispatching update notification for {EntityType} ID: {Id}", typeof(T).Name, existingEntity.Id);
-                        
-                        // El dispatcher ahora maneja su propio scope internamente
-                        await _notificationDispatcher.DispatchEntityChangeAsync<T, TId>(originalEntity, existingEntity);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error dispatching update notification for {EntityType} ID: {Id}", typeof(T).Name, existingEntity.Id);
-                    }
-                });
+                     var proposal = updatedEntity as Proposal;
+                     var originalProposal = originalEntity as Proposal;
+                     if (proposal != null && originalProposal != null)
+                     {
+                         _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleProposalChangeAsync(proposal.Id, originalProposal.IdStateStage));
+                     }
+                }
             }
         }
     }

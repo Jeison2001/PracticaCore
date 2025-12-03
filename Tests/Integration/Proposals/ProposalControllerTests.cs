@@ -94,9 +94,29 @@ namespace Tests.Integration.Proposals
         }
 
         // Override GetAll because it is [NonAction]
-        public override Task GetAll_ReturnsOkAndList()
+        public override async Task GetAll_ReturnsOkAndList()
         {
-            return Task.CompletedTask;
+            // Arrange
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+            
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                context.Set<Proposal>().Add(entity);
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var response = await _client.GetAsync($"{BaseUrl}/GetAll?PageNumber=1&PageSize=10");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.Items.Should().NotBeEmpty();
         }
 
         // Override Create because we need to seed data BEFORE creating the DTO
@@ -190,31 +210,7 @@ namespace Tests.Integration.Proposals
             result.Data!.Title.Should().Be("Updated Title");
         }
 
-        [Fact]
-        public async Task GetAllWithDetails_ReturnsOkAndList()
-        {
-            // Arrange
-            var entity = CreateValidEntity();
-            SeedAdditionalData(entity);
-            
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                context.Set<Proposal>().Add(entity);
-                await context.SaveChangesAsync();
-            }
 
-            // Act
-            var response = await _client.GetAsync($"{BaseUrl}/GetAll?PageNumber=1&PageSize=10");
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data.Should().NotBeNull();
-            result.Data!.Items.Should().NotBeEmpty();
-        }
 
         [Fact]
         public async Task GetWithDetails_ReturnsOkAndEntity()

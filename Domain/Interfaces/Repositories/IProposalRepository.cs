@@ -1,4 +1,5 @@
 using Domain.Common;
+using Domain.Common.Proposals;
 using Domain.Entities;
 using Domain.Interfaces.Common;
 

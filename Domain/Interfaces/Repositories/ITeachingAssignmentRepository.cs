@@ -1,3 +1,4 @@
+using Domain.Common.TeachingAssignments;
 using Domain.Entities;
 using Domain.Interfaces.Common;
 
