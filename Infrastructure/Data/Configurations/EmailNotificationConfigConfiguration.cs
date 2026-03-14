@@ -43,7 +43,7 @@ namespace Infrastructure.Data.Configurations
             // Configuración base heredada
             builder.Property(e => e.IdUserCreatedAt)
                 .HasColumnName("idusercreatedat")
-                .IsRequired();
+                .IsRequired(false);
                 
             builder.Property(e => e.CreatedAt)
                 .HasColumnName("createdat")

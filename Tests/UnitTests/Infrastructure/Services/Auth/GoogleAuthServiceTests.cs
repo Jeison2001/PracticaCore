@@ -4,7 +4,6 @@ using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Auth;
 using Infrastructure.Services.Auth;
 using Moq;
-using System.Linq.Expressions;
 using Xunit;
 
 namespace Tests.UnitTests.Infrastructure.Services.Auth
@@ -13,7 +12,6 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
     {
         private readonly Mock<IJwtService> _jwtServiceMock;
         private readonly Mock<IUserInfoRepository> _userInfoRepositoryMock;
-        private readonly Mock<IRepository<Role, int>> _roleRepositoryMock;
         private readonly Mock<ITokenValidator> _tokenValidatorMock;
         private readonly GoogleAuthService _service;
 
@@ -21,13 +19,11 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
         {
             _jwtServiceMock = new Mock<IJwtService>();
             _userInfoRepositoryMock = new Mock<IUserInfoRepository>();
-            _roleRepositoryMock = new Mock<IRepository<Role, int>>();
             _tokenValidatorMock = new Mock<ITokenValidator>();
 
             _service = new GoogleAuthService(
                 _jwtServiceMock.Object,
                 _userInfoRepositoryMock.Object,
-                _roleRepositoryMock.Object,
                 _tokenValidatorMock.Object
             );
         }
@@ -35,7 +31,6 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
         [Fact]
         public async Task AuthenticateWithGoogleAsync_ValidToken_ReturnsResult()
         {
-            // Arrange
             var token = "valid_token";
             var email = "test@unicesar.edu.co";
             var payload = new TokenPayload 
@@ -53,9 +48,11 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 LastName = "User" 
             };
 
-            var roles = new List<string> { "Admin" };
-            var roleEntities = new List<Role> { new Role { Name = "Admin", Code = "ADMIN" } };
-            var permissions = new List<Permission> { new Permission { Code = "PERM_1" } };
+            var loginData = new UserLoginData
+            {
+                Roles = new List<RoleInfoResult> { new RoleInfoResult { Name = "Admin", Code = "ADMIN" } },
+                Permissions = new List<PermissionInfo> { new PermissionInfo { Code = "PERM_1" } }
+            };
 
             _tokenValidatorMock.Setup(x => x.ValidateAsync(token))
                 .ReturnsAsync(payload);
@@ -63,14 +60,8 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
             _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync(email))
                 .ReturnsAsync(user);
 
-            _userInfoRepositoryMock.Setup(x => x.GetUserRolesAsync(user.Id))
-                .ReturnsAsync(roles);
-
-            _roleRepositoryMock.Setup(x => x.GetAllAsync(It.IsAny<Expression<Func<Role, bool>>>(), It.IsAny<Func<IQueryable<Role>, IOrderedQueryable<Role>>>(), It.IsAny<int?>(), It.IsAny<int?>()))
-                .ReturnsAsync(roleEntities);
-
-            _userInfoRepositoryMock.Setup(x => x.GetUserPermissionsFullInfoAsync(user.Id))
-                .ReturnsAsync(permissions);
+            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(user.Id))
+                .ReturnsAsync(loginData);
 
             _jwtServiceMock.Setup(x => x.GenerateTokenWithClaims(
                 It.IsAny<string>(), 
@@ -82,10 +73,8 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 It.IsAny<string>()))
                 .Returns("jwt_token");
 
-            // Act
             var result = await _service.AuthenticateWithGoogleAsync(token);
 
-            // Assert
             Assert.NotNull(result);
             Assert.Equal("jwt_token", result.Token);
             Assert.Equal(email, result.User.Email);
@@ -94,12 +83,10 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
         [Fact]
         public async Task AuthenticateWithGoogleAsync_InvalidToken_ThrowsUnauthorizedAccessException()
         {
-            // Arrange
             var token = "invalid_token";
             _tokenValidatorMock.Setup(x => x.ValidateAsync(token))
                 .ThrowsAsync(new Exception("Invalid token"));
 
-            // Act & Assert
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => 
                 _service.AuthenticateWithGoogleAsync(token));
         }
@@ -107,7 +94,6 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
         [Fact]
         public async Task AuthenticateWithGoogleAsync_NewUser_CreatesUser()
         {
-            // Arrange
             var token = "valid_token";
             var email = "new@unicesar.edu.co";
             var payload = new TokenPayload 
@@ -125,6 +111,12 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 LastName = "User" 
             };
 
+            var loginData = new UserLoginData
+            {
+                Roles = new List<RoleInfoResult>(),
+                Permissions = new List<PermissionInfo>()
+            };
+
             _tokenValidatorMock.Setup(x => x.ValidateAsync(token))
                 .ReturnsAsync(payload);
 
@@ -134,14 +126,8 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
             _userInfoRepositoryMock.Setup(x => x.CreateUserIfNotExistsAsync(email, "New", "User"))
                 .ReturnsAsync(newUser);
 
-            _userInfoRepositoryMock.Setup(x => x.GetUserRolesAsync(newUser.Id))
-                .ReturnsAsync(new List<string>());
-
-            _roleRepositoryMock.Setup(x => x.GetAllAsync(It.IsAny<Expression<Func<Role, bool>>>(), It.IsAny<Func<IQueryable<Role>, IOrderedQueryable<Role>>>(), It.IsAny<int?>(), It.IsAny<int?>()))
-                .ReturnsAsync(new List<Role>());
-
-            _userInfoRepositoryMock.Setup(x => x.GetUserPermissionsFullInfoAsync(newUser.Id))
-                .ReturnsAsync(new List<Permission>());
+            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(newUser.Id))
+                .ReturnsAsync(loginData);
 
             _jwtServiceMock.Setup(x => x.GenerateTokenWithClaims(
                 It.IsAny<string>(), 
@@ -153,10 +139,8 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 It.IsAny<string>()))
                 .Returns("jwt_token");
 
-            // Act
             var result = await _service.AuthenticateWithGoogleAsync(token);
 
-            // Assert
             Assert.NotNull(result);
             Assert.Equal(newUser.Email, result.User.Email);
             _userInfoRepositoryMock.Verify(x => x.CreateUserIfNotExistsAsync(email, "New", "User"), Times.Once);

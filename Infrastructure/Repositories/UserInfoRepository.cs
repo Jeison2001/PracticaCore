@@ -1,3 +1,4 @@
+using Domain.Common.Auth;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -28,41 +29,6 @@ namespace Infrastructure.Repositories
             return userRoles ?? new List<string>();
         }
 
-        public async Task<List<string>> GetUserPermissionsAsync(int userId)
-        {
-            var userPermissionRepo = _unitOfWork.GetRepository<UserPermission, int>();
-            var permissionRepo = _unitOfWork.GetRepository<Permission, int>();
-            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
-            var rolePermissionRepo = _unitOfWork.GetRepository<RolePermission, int>();
-
-            // Obtener permisos directos asignados al usuario
-            var directPermissions = (await userPermissionRepo.GetAllAsync(up => up.IdUser == userId))
-                .Join(await permissionRepo.GetAllAsync(),
-                    up => up.IdPermission,
-                    p => p.Id,
-                    (up, p) => p.Code)
-                .ToList();
-
-            // Obtener permisos a través de roles
-            var userRoles = (await userRoleRepo.GetAllAsync(ur => ur.IdUser == userId))
-                .Select(ur => ur.IdRole)
-                .ToList();
-
-            var rolePermissions = new List<string>();
-            if (userRoles.Any())
-            {
-                rolePermissions = (await rolePermissionRepo.GetAllAsync(rp => userRoles.Contains(rp.IdRole)))
-                    .Join(await permissionRepo.GetAllAsync(),
-                        rp => rp.IdPermission,
-                        p => p.Id,
-                        (rp, p) => p.Code)
-                    .ToList();
-            }
-
-            // Combinar ambos conjuntos de permisos y eliminar duplicados
-            return directPermissions.Union(rolePermissions).ToList();
-        }
-
         public async Task<List<Permission>> GetUserPermissionsFullInfoAsync(int userId)
         {
             var userPermissionRepo = _unitOfWork.GetRepository<UserPermission, int>();
@@ -70,17 +36,14 @@ namespace Infrastructure.Repositories
             var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
             var rolePermissionRepo = _unitOfWork.GetRepository<RolePermission, int>();
 
-            // Obtener IDs de los permisos directos del usuario
             var directPermissionIds = (await userPermissionRepo.GetAllAsync(up => up.IdUser == userId))
                 .Select(up => up.IdPermission)
                 .ToList();
 
-            // Obtener IDs de roles del usuario
             var userRoleIds = (await userRoleRepo.GetAllAsync(ur => ur.IdUser == userId))
                 .Select(ur => ur.IdRole)
                 .ToList();
 
-            // Obtener IDs de permisos a través de roles
             var rolePermissionIds = new List<int>();
             if (userRoleIds.Any())
             {
@@ -89,13 +52,53 @@ namespace Infrastructure.Repositories
                     .ToList();
             }
 
-            // Combinar ambos conjuntos de IDs de permisos y eliminar duplicados
             var allPermissionIds = directPermissionIds.Union(rolePermissionIds).Distinct().ToList();
-
-            // Obtener las entidades completas de permisos
             var permissions = (await permissionRepo.GetAllAsync(p => allPermissionIds.Contains(p.Id))).ToList();
 
             return permissions;
+        }
+
+        public async Task<UserLoginData> GetUserLoginDataAsync(int userId)
+        {
+            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
+            var roleRepo = _unitOfWork.GetRepository<Role, int>();
+            var userPermissionRepo = _unitOfWork.GetRepository<UserPermission, int>();
+            var permissionRepo = _unitOfWork.GetRepository<Permission, int>();
+            var rolePermissionRepo = _unitOfWork.GetRepository<RolePermission, int>();
+
+            var roles = (await userRoleRepo.GetAllAsync(ur => ur.IdUser == userId && ur.StatusRegister))
+                .Join(await roleRepo.GetAllAsync(r => r.StatusRegister),
+                    ur => ur.IdRole,
+                    r => r.Id,
+                    (ur, r) => new RoleInfoResult { Name = r.Name, Code = r.Code })
+                .ToList();
+
+            var directPermissionIds = (await userPermissionRepo.GetAllAsync(up => up.IdUser == userId && up.StatusRegister))
+                .Select(up => up.IdPermission)
+                .ToList();
+
+            var userRoleIds = (await userRoleRepo.GetAllAsync(ur => ur.IdUser == userId && ur.StatusRegister))
+                .Select(ur => ur.IdRole)
+                .ToList();
+
+            var rolePermissionIds = new List<int>();
+            if (userRoleIds.Any())
+            {
+                rolePermissionIds = (await rolePermissionRepo.GetAllAsync(rp => userRoleIds.Contains(rp.IdRole) && rp.StatusRegister))
+                    .Select(rp => rp.IdPermission)
+                    .ToList();
+            }
+
+            var allPermissionIds = directPermissionIds.Union(rolePermissionIds).Distinct().ToList();
+            var permissions = (await permissionRepo.GetAllAsync(p => allPermissionIds.Contains(p.Id) && p.StatusRegister))
+                .Select(p => new PermissionInfo { Code = p.Code, ParentCode = p.ParentCode })
+                .ToList();
+
+            return new UserLoginData
+            {
+                Roles = roles,
+                Permissions = permissions
+            };
         }
 
         public async Task<User?> FindUserByEmailAsync(string email)
@@ -113,20 +116,17 @@ namespace Infrastructure.Repositories
             if (user != null)
                 return user;
 
-            // Generar un número aleatorio de 10 dígitos
             var random = new Random();
             var tempIdentification = random.Next(1000000000, int.MaxValue).ToString();
 
-            // Crear nuevo usuario con datos básicos
             user = new User
             {
                 Email = email,
                 FirstName = firstName,
                 LastName = lastName,
-                // Valores por defecto para campos requeridos
-                IdIdentificationType = 1, // Asume que existe al menos un tipo de identificación
+                IdIdentificationType = 1,
                 Identification = tempIdentification,
-                IdAcademicProgram = 1 // Asume que existe al menos un programa académico
+                IdAcademicProgram = 1
             };
 
             await _unitOfWork.GetRepository<User, int>().AddAsync(user);
