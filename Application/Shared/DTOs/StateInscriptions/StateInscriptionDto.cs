@@ -1,4 +1,4 @@
-// filepath: c:\Users\LENOVO\source\repos\PracticaCore\Application\Shared\DTOs\StateInscription\StateInscriptionDto.cs
+﻿// filepath: c:\Users\LENOVO\source\repos\PracticaCore\Application\Shared\DTOs\StateInscription\StateInscriptionDto.cs
 namespace Application.Shared.DTOs.StateInscriptions
 {
     public record StateInscriptionDto : BaseDto<int>
@@ -8,6 +8,5 @@ namespace Application.Shared.DTOs.StateInscriptions
         public string? Description { get; set; }
         public bool IsInitialState { get; set; } = false;
         public bool IsFinalStateForStage { get; set; } = false;
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

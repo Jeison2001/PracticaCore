@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.UserInscriptionModalities
+﻿namespace Application.Shared.DTOs.UserInscriptionModalities
 {
     public record UserInscriptionModalityDto : BaseDto<int>
     {
@@ -12,6 +12,5 @@ namespace Application.Shared.DTOs.UserInscriptionModalities
         public double? CumulativeAverage { get; set; }
         public int? ApprovedCredits { get; set; }
         public int? TotalAcademicCredits { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

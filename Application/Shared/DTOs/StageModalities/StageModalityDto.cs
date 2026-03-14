@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.StageModalities
+﻿namespace Application.Shared.DTOs.StageModalities
 {
     public record StageModalityDto : BaseDto<int>
     {
@@ -7,6 +7,5 @@ namespace Application.Shared.DTOs.StageModalities
         public string Name { get; set; } = string.Empty;
         public int StageOrder { get; set; }
         public string? Description { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

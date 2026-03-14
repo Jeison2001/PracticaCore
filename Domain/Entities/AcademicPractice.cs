@@ -1,9 +1,9 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class AcademicPractice : BaseEntity<int>
     {
         public int IdStateStage { get; set; }
-        public string? Title { get; set; }                   // ✅ AÑADIDO
+        public string? Title { get; set; }
         public string? InstitutionName { get; set; }
         public string? InstitutionContact { get; set; }
         public DateTime? PracticeStartDate { get; set; }
@@ -18,10 +18,9 @@ namespace Domain.Entities
         public DateTime? FinalReportApprovalDate { get; set; }
         public DateTime? FinalApprovalDate { get; set; }
         
-        // Campos específicos de gestión
-        public int? PracticeHours { get; set; } = 640; // Horas mínimas requeridas
+        // Campos especificos de gestion
+        public int? PracticeHours { get; set; } = 640; // Horas mi­nimas requeridas
         public string? EvaluatorObservations { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
 
         // Navigation properties
         public virtual InscriptionModality InscriptionModality { get; set; } = null!;

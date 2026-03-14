@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.Users
+﻿namespace Application.Shared.DTOs.Users
 {
     public record UserDto : BaseDto<int>
     {
@@ -14,6 +14,5 @@ namespace Application.Shared.DTOs.Users
         public int? ApprovedCredits { get; set; }
         public int? TotalAcademicCredits { get; set; }
         public string? Observation { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

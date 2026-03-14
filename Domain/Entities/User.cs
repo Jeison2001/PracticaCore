@@ -1,4 +1,4 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class User : BaseEntity<int>
     {
@@ -14,7 +14,6 @@ namespace Domain.Entities
         public int? ApprovedCredits { get; set; }
         public int? TotalAcademicCredits { get; set; }
         public string? Observation { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
 
         // Relaciones
         public virtual IdentificationType IdentificationType { get; set; } = null!;

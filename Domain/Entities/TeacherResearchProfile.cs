@@ -1,4 +1,4 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class TeacherResearchProfile : BaseEntity<int>
     {
@@ -6,7 +6,6 @@ namespace Domain.Entities
         public int IdResearchLine { get; set; }
         public int? IdResearchSubLine { get; set; }
         public string? ProfileDescription { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
 
         // Navigation properties
         public virtual User User { get; set; } = null!;

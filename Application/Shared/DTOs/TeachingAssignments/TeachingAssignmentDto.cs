@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.TeachingAssignments
+﻿namespace Application.Shared.DTOs.TeachingAssignments
 {
     public record TeachingAssignmentDto : BaseDto<int>
     {
@@ -6,7 +6,6 @@ namespace Application.Shared.DTOs.TeachingAssignments
         public int IdTeacher { get; set; }
         public int IdTypeTeachingAssignment { get; set; }
         public DateTime? RevocationDate { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
         public int? IdTeacherResearchProfile { get; set; }
     }
 }

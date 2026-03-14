@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.ResearchSubLines
+﻿namespace Application.Shared.DTOs.ResearchSubLines
 {
     public record ResearchSubLineDto : BaseDto<int>
     {
@@ -6,6 +6,5 @@ namespace Application.Shared.DTOs.ResearchSubLines
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public int IdResearchLine { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

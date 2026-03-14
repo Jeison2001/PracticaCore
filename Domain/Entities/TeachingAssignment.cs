@@ -1,4 +1,4 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class TeachingAssignment : BaseEntity<int>
     {
@@ -6,7 +6,6 @@ namespace Domain.Entities
         public int IdTeacher { get; set; }  // FK to user
         public int IdTypeTeachingAssignment { get; set; }
         public DateTime? RevocationDate { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
         public int? IdTeacherResearchProfile { get; set; }
 
         // Navigation properties

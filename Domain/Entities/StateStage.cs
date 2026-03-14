@@ -1,4 +1,4 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class StateStage : BaseEntity<int>
     {
@@ -9,7 +9,6 @@ namespace Domain.Entities
         public bool IsInitialState { get; set; } = false;
         public bool IsFinalStateForStage { get; set; } = false;
         public bool IsFinalStateForModalityOverall { get; set; } = false;
-        public new int? IdUserCreatedAt { get; set; }
 
         // Navigation properties
         public virtual StageModality? StageModality { get; set; }

@@ -3,7 +3,7 @@ namespace Application.Shared.DTOs
     public record BaseDto<TId> where TId : struct
     {
         public TId Id { get; set; }
-        public int IdUserCreatedAt { get; set; }
+        public int? IdUserCreatedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int? IdUserUpdatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

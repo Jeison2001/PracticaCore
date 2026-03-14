@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.RequiredDocumentsByState
+﻿namespace Application.Shared.DTOs.RequiredDocumentsByState
 {
     public record RequiredDocumentsByStateDto : BaseDto<int>
     {
@@ -11,7 +11,6 @@ namespace Application.Shared.DTOs.RequiredDocumentsByState
         public string DocumentClassName { get; set; } = string.Empty;
         public string RequiredForState { get; set; } = string.Empty;
         public string StateName { get; set; } = string.Empty;
-        public new int? IdUserCreatedAt { get; set; }
 
     }
 }

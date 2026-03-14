@@ -1,13 +1,12 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class Permission : BaseEntity<int>
     {
         public string Code { get; set; } = string.Empty;
         public string? ParentCode { get; set; }
         public string Description { get; set; } = string.Empty;
-        public new int? IdUserCreatedAt { get; set; }
 
-        // Relación virtual para representar jerarquía
+        // Relacion virtual para representar jerarquia
         public virtual Permission? ParentPermission { get; set; }
         public virtual ICollection<Permission>? ChildPermissions { get; set; }
         public virtual ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();

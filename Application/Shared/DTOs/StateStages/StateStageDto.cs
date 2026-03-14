@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.StateStages
+﻿namespace Application.Shared.DTOs.StateStages
 {
     public record StateStageDto : BaseDto<int>
     {
@@ -9,6 +9,5 @@ namespace Application.Shared.DTOs.StateStages
         public bool IsInitialState { get; set; } = false;
         public bool IsFinalStateForStage { get; set; } = false;
         public bool IsFinalStateForModalityOverall { get; set; } = false;
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

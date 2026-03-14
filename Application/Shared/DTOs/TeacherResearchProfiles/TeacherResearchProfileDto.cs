@@ -1,4 +1,4 @@
-
+﻿
 namespace Application.Shared.DTOs.TeacherResearchProfiles
 {
     public record TeacherResearchProfileDto : BaseDto<int>
@@ -7,6 +7,5 @@ namespace Application.Shared.DTOs.TeacherResearchProfiles
         public int IdResearchLine { get; set; }
         public int? IdResearchSubLine { get; set; }
         public string? ProfileDescription { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

@@ -1,9 +1,8 @@
-namespace Application.Shared.DTOs.Faculties
+﻿namespace Application.Shared.DTOs.Faculties
 {
     public record FacultyDto : BaseDto<int>
     {
         public string Name { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

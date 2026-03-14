@@ -1,4 +1,4 @@
-namespace Application.Shared.DTOs.DocumentTypes
+﻿namespace Application.Shared.DTOs.DocumentTypes
 {    public record DocumentTypeDto : BaseDto<int>
     {
         public int IdDocumentClass { get; set; }
@@ -6,6 +6,5 @@ namespace Application.Shared.DTOs.DocumentTypes
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

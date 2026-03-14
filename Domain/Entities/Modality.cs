@@ -1,4 +1,4 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class Modality : BaseEntity<int>
     {
@@ -9,11 +9,10 @@ namespace Domain.Entities
         public bool AllowsExtension { get; set; } = false;
         public bool RequiresDirector { get; set; } = true;
         public int MaxStudents { get; set; } = 1;
-        public int? MaxSpecificObjectives { get; set; } // Máximo de objetivos específicos permitidos para la modalidad
+        public int? MaxSpecificObjectives { get; set; } // Maximo de objetivos especificos permitidos para la modalidad
         public string? SpecificRequirements { get; set; }
         public bool RequiresResearchHotbed { get; set; } = false;
         public bool RequiresApproval { get; set; } = true;
         public bool RequiresSimpleDocumentation { get; set; } = true;
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

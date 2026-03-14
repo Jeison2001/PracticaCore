@@ -1,4 +1,4 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class InscriptionModality : BaseEntity<int>
     {
@@ -8,9 +8,8 @@ namespace Domain.Entities
         public int? IdStageModality { get; set; }
         public DateTime? ApprovalDate { get; set; }
         public string? Observations { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
 
-        // Propiedades de navegación
+        // Propiedades de navegacion
         public virtual Modality? Modality { get; set; }
         public virtual StateInscription? StateInscription { get; set; }
         public virtual AcademicPeriod? AcademicPeriod { get; set; }
