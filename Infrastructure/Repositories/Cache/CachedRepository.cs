@@ -1,17 +1,12 @@
 using Domain.Common;
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Cache;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Text;
 using System.Text.Json;
 using System.Reflection;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Cache;
 
 namespace Infrastructure.Repositories.Cache
 {
@@ -183,7 +178,7 @@ namespace Infrastructure.Repositories.Cache
             }
         }
 
-        public async Task UpdatePartialAsync(T entity, Expression<Func<T, object>>[] updatedProperties)
+        public async Task UpdatePartialAsync(T entity, Expression<Func<T, object?>>[] updatedProperties)
         {
             await _decoratedRepository.UpdatePartialAsync(entity, updatedProperties);
             try

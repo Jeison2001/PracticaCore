@@ -1,7 +1,6 @@
 using Application.Shared.DTOs;
 using Domain.Entities;
 using MediatR;
-using System.Collections.Generic;
 
 namespace Application.Shared.Commands
 {

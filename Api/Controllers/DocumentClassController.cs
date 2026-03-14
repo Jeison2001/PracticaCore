@@ -1,5 +1,4 @@
-using Api.Controllers;
-using Application.Shared.DTOs.DocumentClass;
+using Application.Shared.DTOs.DocumentClasses;
 using Domain.Entities;
 using MediatR;
 

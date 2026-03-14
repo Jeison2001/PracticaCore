@@ -12,7 +12,7 @@ namespace Tests.UnitTests.Domain
             var faculty = new Faculty();
 
             // Assert
-            Assert.Null(faculty.Name);
+            Assert.Equal(string.Empty, faculty.Name);
             Assert.Empty(faculty.AcademicPrograms);
         }
 

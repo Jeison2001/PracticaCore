@@ -1,10 +1,8 @@
-using Domain.Interfaces.Cache;
+using Domain.Interfaces.Services.Cache;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using System;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace Infrastructure.Services.Cache
 {
@@ -53,7 +51,10 @@ namespace Infrastructure.Services.Cache
                     .RegisterPostEvictionCallback((key, value, reason, state) =>
                     {
                         _logger.LogDebug("Elemento con clave {key} eliminado de caché. Razón: {reason}", key, reason);
-                        _keys.TryRemove(key.ToString(), out _);
+                        if (key != null)
+                        {
+                            _keys.TryRemove(key.ToString()!, out _);
+                        }
                     });
 
                 _memoryCache.Set(key, item, cacheEntryOptions);

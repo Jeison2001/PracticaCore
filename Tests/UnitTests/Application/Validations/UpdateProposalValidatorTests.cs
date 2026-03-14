@@ -1,6 +1,6 @@
 using Application.Shared.Commands;
-using Application.Shared.DTOs.Proposal;
-using Application.Validations.SpecificValidators.Proposal;
+using Application.Shared.DTOs.Proposals;
+using Application.Validations.SpecificValidators.Proposals;
 using Domain.Entities;
 using Xunit;
 

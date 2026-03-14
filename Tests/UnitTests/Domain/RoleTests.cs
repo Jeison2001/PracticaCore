@@ -12,9 +12,9 @@ namespace Tests.UnitTests.Domain
             var role = new Role();
 
             // Assert
-            Assert.Null(role.Code);
-            Assert.Null(role.Name);
-            Assert.Null(role.Description);
+            Assert.Equal(string.Empty, role.Code);
+            Assert.Equal(string.Empty, role.Name);
+            Assert.Equal(string.Empty, role.Description);
         }
 
         [Fact]

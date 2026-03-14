@@ -1,10 +1,13 @@
-using Application.Shared.DTOs.InscriptionModality;
-using Application.Shared.DTOs.UserInscriptionModality;
+using Application.Shared.DTOs.InscriptionModalities;
+using Application.Shared.DTOs.UserInscriptionModalities;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Entities;
-using Domain.Interfaces;
+using Domain.Interfaces.Services.Notifications;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services;
+using Domain.Common.Users;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
@@ -15,19 +18,22 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
         private readonly IUserService _userService;
         private readonly IAcademicPeriodService _academicPeriodService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IInscriptionCreationService _inscriptionCreationService;
 
         public CreateInscriptionWithStudentsHandler(
             IMediator mediator,
             ILogger<CreateInscriptionWithStudentsHandler> logger,
             IUserService userService,
             IAcademicPeriodService academicPeriodService,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IInscriptionCreationService inscriptionCreationService)
         {
             _mediator = mediator;
             _logger = logger;
             _userService = userService;
             _academicPeriodService = academicPeriodService;
             _unitOfWork = unitOfWork;
+            _inscriptionCreationService = inscriptionCreationService;
         }        public async Task<InscriptionWithStudentsDto> Handle(
             CreateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
@@ -180,11 +186,32 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     };
                 }).ToList();
 
-                return new InscriptionWithStudentsDto
+                var result = new InscriptionWithStudentsDto
                 {
                     InscriptionModality = inscriptionModalityDto,
                     Students = students
                 };
+
+                // 5. Enviar notificación automática después de crear exitosamente la inscripción
+                try
+                {
+                    var studentIds = userDictionary.Values.Select(u => u.Id);
+                    await _inscriptionCreationService.ProcessInscriptionCreationAsync(
+                        inscriptionModalityId, 
+                        request.Dto.InscriptionModality.IdModality,
+                        academicPeriodId,
+                        studentIds,
+                        cancellationToken);
+                    
+                    _logger.LogInformation("Notificación automática procesada para inscripción ID {InscriptionId}", inscriptionModalityId);
+                }
+                catch (Exception notificationEx)
+                {
+                    // Log del error pero no fallar el proceso principal
+                    _logger.LogError(notificationEx, "Error al enviar notificación automática para inscripción ID {InscriptionId}", inscriptionModalityId);
+                }
+
+                return result;
             }
             catch (Exception ex)
             {

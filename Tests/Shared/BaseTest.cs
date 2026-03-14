@@ -1,8 +1,8 @@
 ﻿using Domain.Entities;
-using Domain.Interfaces;
 using AutoMapper;
 using Moq;
 using Application.Shared.Mappings;
+using Domain.Interfaces.Repositories;
 
 namespace Tests.Shared
 {

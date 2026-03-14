@@ -6,6 +6,7 @@ using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,13 @@ builder.Services.AddApplicationLayer();
 
 // Registramos los servicios de caché
 builder.Services.AddCacheServices();
+
+// Configurar Hangfire
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHangfireDefault(builder.Configuration);
+    builder.Services.AddHangfireServer();
+}
 
 // Add CORS configuration
 builder.Services.AddCors(options =>
@@ -107,6 +115,16 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Configurar Hangfire Dashboard con manejo de errores mejorado
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHangfireConfiguration(app.Environment);
+}
+
+
+
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

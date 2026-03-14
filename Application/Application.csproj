@@ -7,10 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Common\Interfaces\" />
-    <Folder Include="Features\Example\Commands\" />
-    <Folder Include="Features\Example\DTOs\" />
-    <Folder Include="Features\Example\Queries\" />
+    <Compile Remove="Common\Interfaces\**" />
+    <Compile Remove="Features\**" />
+    <EmbeddedResource Remove="Common\Interfaces\**" />
+    <EmbeddedResource Remove="Features\**" />
+    <None Remove="Common\Interfaces\**" />
+    <None Remove="Features\**" />
   </ItemGroup>
 
   <ItemGroup>

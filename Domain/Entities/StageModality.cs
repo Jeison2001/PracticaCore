@@ -1,4 +1,4 @@
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class StageModality : BaseEntity<int>
     {
@@ -7,7 +7,7 @@ namespace Domain.Entities
         public string Name { get; set; } = string.Empty;
         public int StageOrder { get; set; }
         public string? Description { get; set; }
-        public new int? IdUserCreatedAt { get; set; }        // Navigation properties
+        // Navigation properties
         public virtual Modality? Modality { get; set; }
         public virtual ICollection<StateStage>? StateStages { get; set; }
         public virtual ICollection<InscriptionModality>? InscriptionModalities { get; set; }

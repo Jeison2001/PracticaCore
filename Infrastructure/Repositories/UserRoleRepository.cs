@@ -1,10 +1,9 @@
 using Domain.Common;
 using Domain.Entities;
-using Domain.Interfaces.Auth;
-using System.Linq.Expressions;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Infrastructure.Extensions; // required for ToPaginatedResultAsync extension
+using Infrastructure.Extensions;
+using Domain.Interfaces.Repositories; // required for ToPaginatedResultAsync extension
 
 namespace Infrastructure.Repositories
 {
@@ -30,8 +29,7 @@ namespace Infrastructure.Repositories
             IQueryable<UserRole> query = _context.Set<UserRole>()
                 .Include(ur => ur.User)
                 .Include(ur => ur.Role)
-                .AsNoTracking() // Mejora el rendimiento para consultas de solo lectura
-                .Where(ur => ur.StatusRegister);
+                .AsNoTracking();
 
             // Filtrar por código de rol si se proporciona
             if (!string.IsNullOrEmpty(roleCode))

@@ -1,7 +1,7 @@
 using Api.Responses;
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.Proposal;
-using Application.Shared.Queries.Proposal;
+using Application.Shared.DTOs.Proposals;
+using Application.Shared.Queries.Proposals;
 using Domain.Common;
 using Domain.Entities;
 using MediatR;
@@ -21,74 +21,33 @@ namespace Api.Controllers
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
         {
-            try
+            var query = new GetAllProposalsQuery
             {
-                var query = new GetAllProposalsQuery
-                {
-                    PageNumber = request.PageNumber,
-                    PageSize = request.PageSize,
-                    SortBy = request.SortBy,
-                    IsDescending = request.IsDescending,
-                    Filters = request.Filters
-                };
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                SortBy = request.SortBy,
+                IsDescending = request.IsDescending,
+                Filters = request.Filters
+            };
 
-                var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"Error al obtener las propuestas con detalles: {ex.Message}" }
-                });
-            }
+            var result = await _mediator.Send(query);
+            return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
-            try
-            {
-                var query = new GetProposalWithDetailsQuery(id);
-                var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<ProposalWithDetailsResponseDto> { Success = true, Data = result });
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound(new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"No se encontró la propuesta con ID {id}" }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"Error al obtener la propuesta: {ex.Message}" }
-                });
-            }
+            var query = new GetProposalWithDetailsQuery(id);
+            var result = await _mediator.Send(query);
+            return Ok(new ApiResponse<ProposalWithDetailsResponseDto> { Success = true, Data = result });
         }
 
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
-            try
-            {
-                var query = new GetProposalsByUserQuery(id, status);
-                var result = await _mediator.Send(query);
-                return Ok(new ApiResponse<List<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"Error al obtener las propuestas del usuario: {ex.Message}" }
-                });
-            }
+            var query = new GetProposalsByUserQuery(id, status);
+            var result = await _mediator.Send(query);
+            return Ok(new ApiResponse<List<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
         [HttpGet("ByTeacher/{id}")]
@@ -96,32 +55,21 @@ namespace Api.Controllers
             int id, 
             [FromQuery] PaginatedRequest request)
         {
-            try
-            {
-                var query = new GetProposalsByTeacherQuery(
-                    id, 
-                    request.PageNumber, 
-                    request.PageSize, 
-                    request.SortBy ?? "", 
-                    request.IsDescending, 
-                    request.Filters ?? new Dictionary<string, string>());
-                
-                var result = await _mediator.Send(query);
-                
-                return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> { 
-                    Success = true, 
-                    Data = result,
-                    Messages = new List<string> { $"Se encontraron {result.TotalRecords} propuestas asignadas al docente." }
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Errors = new List<string> { $"Error al obtener las propuestas asignadas al docente: {ex.Message}" }
-                });
-            }
+            var query = new GetProposalsByTeacherQuery(
+                id, 
+                request.PageNumber, 
+                request.PageSize, 
+                request.SortBy ?? "", 
+                request.IsDescending, 
+                request.Filters ?? new Dictionary<string, string>());
+            
+            var result = await _mediator.Send(query);
+            
+            return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> { 
+                Success = true, 
+                Data = result,
+                Messages = new List<string> { $"Se encontraron {result.TotalRecords} propuestas asignadas al docente." }
+            });
         }
         
         [NonAction]

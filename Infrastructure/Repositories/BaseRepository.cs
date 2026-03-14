@@ -1,9 +1,9 @@
 ﻿using Domain.Entities;
-using Domain.Interfaces;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using Domain.Common;
+using Domain.Interfaces.Repositories;
 
 namespace Infrastructure.Repositories
 {
@@ -92,7 +92,7 @@ namespace Infrastructure.Repositories
             return Task.CompletedTask;
         }
 
-        public Task UpdatePartialAsync(T entity, Expression<Func<T, object>>[] updatedProperties)
+        public Task UpdatePartialAsync(T entity, Expression<Func<T, object?>>[] updatedProperties)
         {
             _context.Attach(entity);
             foreach (var property in updatedProperties)

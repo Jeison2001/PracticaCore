@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs;
 
-public class PaginatedRequest
+public record PaginatedRequest
 {
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;

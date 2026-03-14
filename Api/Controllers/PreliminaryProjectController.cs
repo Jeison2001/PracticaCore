@@ -1,6 +1,5 @@
-using Api.Controllers;
-using Application.Shared.DTOs.PreliminaryProject;
-using Application.Shared.Queries.PreliminaryProject;
+using Application.Shared.DTOs.PreliminaryProjects;
+using Application.Shared.Queries.PreliminaryProjects;
 using Application.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Api.Responses;

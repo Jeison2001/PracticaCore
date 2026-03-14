@@ -1,22 +1,27 @@
 ﻿using Application.Common.Behaviors;
 using Application.Shared.Commands;
+using Application.Shared.Commands.Handlers;
 using Application.Shared.DTOs;
 using Application.Shared.Mappings;
 using Application.Shared.Queries;
+using Application.Shared.Queries.Handlers;
 using Application.Validations.BaseValidators;
-using Application.Validations.SpecificValidators.InscriptionModality;
+using Application.Validations.SpecificValidators.InscriptionModalities;
+using Domain.Configuration;
 using Domain.Entities;
-using Domain.Interfaces;
-using Domain.Interfaces.Registration;
+using Domain.Interfaces.Common;
 using FluentValidation;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
-using Infrastructure.Services;
+using Infrastructure.Services.Storage;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Scrutor;
 using System.Data;
 using System.Reflection;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Storage;
+using Infrastructure.Services.Startup;
 
 namespace Api.Extensions
 {
@@ -24,25 +29,31 @@ namespace Api.Extensions
     {
         public static void AddInfrastructure(this IServiceCollection services, IConfiguration config)
         {
-            services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(config.GetConnectionString("Default")));
+            // Si la configuración indica usar base de datos en memoria (para tests), saltamos la configuración de Npgsql
+            // La configuración de InMemory se hará en el WebApplicationFactory
+            // Usamos variable de entorno porque la configuración de WebApplicationFactory llega tarde para Program.cs
+            if (Environment.GetEnvironmentVariable("UseInMemoryDatabase") != "true")
+            {
+                services.AddDbContext<AppDbContext>(options =>
+                    options.UseNpgsql(config.GetConnectionString("Default")));
+            }
             //options.UseSqlServer(config.GetConnectionString("Default")));
 
             // Registrar el repositorio genérico
             services.AddScoped(typeof(IRepository<,>), typeof(BaseRepository<,>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
-            services.AddScoped<IUserService, UserService>();
-            services.AddScoped<IPreliminaryProjectRepository, PreliminaryProjectRepository>();
-            services.AddScoped<IProjectFinalRepository, ProjectFinalRepository>();
-            services.AddScoped<IAcademicPracticeRepository, AcademicPracticeRepository>();
 
             // Configurar el servicio de almacenamiento de archivos según la configuración
             ConfigureFileStorageService(services, config);
 
+            // Configurar el servicio de notificaciones según la configuración
+            ConfigureNotificationService(services, config);
+
             // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
 
-            services.Configure<GoogleCloudOptions>(config.GetSection("FileStorage:GoogleCloud"));
+            // Registrar Worker de consistencia de Enums (Fail Fast)
+            services.AddHostedService<EnumConsistencyWorker>();
         }
 
         public static void AddApplicationLayer(this IServiceCollection services)
@@ -62,6 +73,7 @@ namespace Api.Extensions
             services.AddValidatorsFromAssembly(typeof(InscriptionModalityValidator).Assembly);
 
             // Auto-registro basado en interfaces marcadoras para servicios de aplicación
+            // Esto registra automáticamente IEmailNotificationEventService y los Builders
             RegisterByLifetime(services, typeof(InscriptionModalityValidator).Assembly);
 
             // Luego registrar los validadores genéricos solo donde no existan específicos
@@ -102,26 +114,51 @@ namespace Api.Extensions
         private static void RegisterGenericValidators(IServiceCollection services)
         {
             var entityTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
+                .Where(a => !a.IsDynamic)
+                .SelectMany(a => 
+                {
+                    try
+                    {
+                        return a.GetTypes();
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        return ex.Types.Where(t => t != null);
+                    }
+                })
+                .Where(t => t != null && t.IsClass && !t.IsAbstract &&
                             t.BaseType?.IsGenericType == true &&
                             t.BaseType.GetGenericTypeDefinition() == typeof(BaseEntity<>))
                 .ToList();
 
             var dtoTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
+                .Where(a => !a.IsDynamic)
+                .SelectMany(a => 
+                {
+                    try
+                    {
+                        return a.GetTypes();
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        return ex.Types.Where(t => t != null);
+                    }
+                })
+                .Where(t => t != null && t.IsClass && !t.IsAbstract &&
                             t.BaseType?.IsGenericType == true &&
                             t.BaseType.GetGenericTypeDefinition() == typeof(BaseDto<>))
                 .ToList();
 
             foreach (var entityType in entityTypes)
             {
+                if (entityType == null || entityType.BaseType == null) continue;
                 var idType = entityType.BaseType!.GetGenericArguments()[0];
                 var dtoName = entityType.Name + "Dto";
                 var dtoType = dtoTypes.FirstOrDefault(dto =>
+                    dto != null &&
                     dto.Name == dtoName &&
-                    dto.BaseType!.GetGenericArguments()[0] == idType);
+                    dto.BaseType != null &&
+                    dto.BaseType.GetGenericArguments()[0] == idType);
 
                 if (dtoType == null) continue;
 
@@ -174,26 +211,51 @@ namespace Api.Extensions
         private static void RegisterGenericHandlers(IServiceCollection services)
         {
             var entityTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
+                .Where(a => !a.IsDynamic)
+                .SelectMany(a => 
+                {
+                    try
+                    {
+                        return a.GetTypes();
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        return ex.Types.Where(t => t != null);
+                    }
+                })
+                .Where(t => t != null && t.IsClass && !t.IsAbstract &&
                             t.BaseType?.IsGenericType == true &&
                             t.BaseType.GetGenericTypeDefinition() == typeof(BaseEntity<>))
                 .ToList();
 
             var dtoTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
+                .Where(a => !a.IsDynamic)
+                .SelectMany(a => 
+                {
+                    try
+                    {
+                        return a.GetTypes();
+                    }
+                    catch (ReflectionTypeLoadException ex)
+                    {
+                        return ex.Types.Where(t => t != null);
+                    }
+                })
+                .Where(t => t != null && t.IsClass && !t.IsAbstract &&
                             t.BaseType?.IsGenericType == true &&
                             t.BaseType.GetGenericTypeDefinition() == typeof(BaseDto<>))
                 .ToList();
 
             foreach (var entityType in entityTypes)
             {
+                if (entityType == null || entityType.BaseType == null) continue;
                 var idType = entityType.BaseType!.GetGenericArguments()[0];
                 var dtoName = entityType.Name + "Dto";
                 var dtoType = dtoTypes.FirstOrDefault(dto =>
+                    dto != null &&
                     dto.Name == dtoName &&
-                    dto.BaseType!.GetGenericArguments()[0] == idType);
+                    dto.BaseType != null &&
+                    dto.BaseType.GetGenericArguments()[0] == idType);
 
                 if (dtoType == null) continue;
 
@@ -254,14 +316,15 @@ namespace Api.Extensions
         private static void ConfigureFileStorageService(IServiceCollection services, IConfiguration config)
         {
             var provider = config["FileStorage:Provider"]?.ToLower() ?? "local";
-            var localPath = config["FileStorage:LocalPath"] ?? "Uploads";
 
             switch (provider)
             {
                 case "google":
+                    services.Configure<GoogleCloudOptions>(config.GetSection("FileStorage:GoogleCloud"));
                     services.AddSingleton<IFileStorageService, GoogleCloudFileStorageService>();
                     break;
                 case "azure":
+                    services.Configure<AzureBlobOptions>(config.GetSection("FileStorage:AzureBlob"));
                     services.AddSingleton<IFileStorageService, AzureBlobFileStorageService>();
                     break;
                 case "aws":
@@ -269,8 +332,31 @@ namespace Api.Extensions
                     break;
                 case "local":
                 default:
-                    services.AddSingleton<IFileStorageService>(sp => new LocalFileStorageService(localPath));
+                    services.Configure<LocalStorageOptions>(opt => 
+                    {
+                        opt.BasePath = config["FileStorage:LocalPath"] ?? "Uploads";
+                    });
+                    services.AddSingleton<IFileStorageService, LocalFileStorageService>();
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Configura el servicio de notificaciones según la configuración
+        /// </summary>
+        private static void ConfigureNotificationService(IServiceCollection services, IConfiguration config)
+        {
+            var provider = config["EmailNotification:Provider"]?.ToLower() ?? "smtp";
+
+            switch (provider)
+            {
+                case "smtp":
+                    // SmtpNotificationService se auto-registra con IScopedService
+                    break;
+                default:
+                    throw new NotSupportedException(
+                        $"Proveedor de notificaciones '{provider}' no soportado. " +
+                        $"Proveedores disponibles: smtp");
             }
         }
     }

@@ -1,8 +1,6 @@
-using Api.Controllers;
-using Application.Shared.DTOs.EvaluationType;
+using Application.Shared.DTOs.EvaluationTypes;
 using Domain.Entities;
 using MediatR;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {

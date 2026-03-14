@@ -1,8 +1,4 @@
-// filepath: c:\Users\LENOVO\source\repos\PracticaCore\Domain\Entities\StateInscription.cs
-using System;
-using System.Collections.Generic;
-
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class StateInscription : BaseEntity<int>
     {
@@ -11,6 +7,5 @@ namespace Domain.Entities
         public string? Description { get; set; }
         public bool IsInitialState { get; set; } = false;
         public bool IsFinalStateForStage { get; set; } = false;
-        public new int? IdUserCreatedAt { get; set; }
     }
 }

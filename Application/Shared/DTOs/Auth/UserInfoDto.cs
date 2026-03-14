@@ -1,6 +1,6 @@
 namespace Application.Shared.DTOs.Auth
 {
-    public class UserInfoDto
+    public record UserInfoDto
     {
         public int Id { get; set; }
         public string Email { get; set; } = string.Empty;

@@ -1,7 +1,7 @@
-using Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using Infrastructure.Data;
+using Domain.Interfaces.Services;
+using Domain.Common.Users;
 
 namespace Infrastructure.Services
 {

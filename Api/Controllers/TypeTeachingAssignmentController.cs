@@ -1,8 +1,6 @@
-using Api.Controllers;
-using Application.Shared.DTOs.TypeTeachingAssignment;
+using Application.Shared.DTOs.TypeTeachingAssignments;
 using Domain.Entities;
 using MediatR;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {

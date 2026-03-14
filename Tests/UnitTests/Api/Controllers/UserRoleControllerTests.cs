@@ -1,8 +1,8 @@
 using Api.Controllers;
 using Api.Responses;
-using Application.Shared.DTOs.Role;
-using Application.Shared.DTOs.UserRole;
-using Application.Shared.Queries.UserRole;
+using Application.Shared.DTOs.Roles;
+using Application.Shared.DTOs.UserRoles;
+using Application.Shared.Queries.UserRoles;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -99,7 +99,9 @@ namespace Tests.UnitTests.Api.Controllers
 
             // Assert
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
-            Assert.Equal("El ID de usuario debe ser válido.", badRequestResult.Value);
+            var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+            Assert.False(apiResponse.Success);
+            Assert.Contains("El ID de usuario debe ser válido.", apiResponse.Errors);
         }        [Fact]
         public async Task GetUserRolesByUserId_ReturnsNotFound_WhenNoUserRolesExist()
         {
@@ -115,7 +117,9 @@ namespace Tests.UnitTests.Api.Controllers
 
             // Assert
             var notFoundResult = Assert.IsType<NotFoundObjectResult>(result.Result);
-            Assert.Equal($"No se encontraron registros de UserRole para el usuario con ID {userId}.", notFoundResult.Value);
+            var apiResponse = Assert.IsType<ApiResponse<object>>(notFoundResult.Value);
+            Assert.False(apiResponse.Success);
+            Assert.Contains($"No se encontraron registros de UserRole para el usuario con ID {userId}.", apiResponse.Errors);
         }        [Fact]
         public async Task GetUserRolesByUserId_CallsMediatorWithCorrectQuery()
         {

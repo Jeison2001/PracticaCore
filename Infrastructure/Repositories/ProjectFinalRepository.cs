@@ -1,6 +1,6 @@
 using Domain.Common;
 using Domain.Entities;
-using Domain.Interfaces;
+using Domain.Interfaces.Repositories;
 using Infrastructure.Data;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;

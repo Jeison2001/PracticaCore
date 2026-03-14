@@ -1,11 +1,11 @@
+using Application.Shared.Commands.Documents;
 using Application.Shared.DTOs;
-using Application.Shared.DTOs.Document;
+using Application.Shared.DTOs.Documents;
 using Application.Shared.DTOs.RequiredDocumentsByState;
-using Application.Shared.Queries;
-using Application.Shared.Queries.Document;
+using Application.Shared.Queries.Documents;
 using Application.Shared.Queries.RequiredDocuments;
 using Domain.Common;
-using Domain.Interfaces;
+using Domain.Interfaces.Services.Storage;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,6 +24,34 @@ namespace Api.Controllers
             _mediator = mediator;
             _configuration = configuration;
             _fileStorageService = fileStorageService;
+        }
+
+        /// <summary>
+        /// Obtiene un documento por su ID.
+        /// </summary>
+        /// <param name="id">Id del documento.</param>
+        /// <returns>Documento.</returns>
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var result = await _mediator.Send(new GetDocumentByIdQuery(id));
+            if (result == null)
+            {
+                return NotFound(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { "Documento no encontrado" },
+                    Messages = new List<string>()
+                });
+            }
+            return Ok(new Responses.ApiResponse<DocumentDto>
+            {
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -66,38 +94,25 @@ namespace Api.Controllers
             [FromQuery] int? idStageModality = null,
             [FromQuery] int? idDocumentClass = null)
         {
-            try
+            var query = new GetDocumentsByInscriptionModalityQuery(
+                id,
+                request.PageNumber,
+                request.PageSize,
+                request.SortBy,
+                request.IsDescending,
+                request.Filters,
+                idStageModality,
+                idDocumentClass
+            );
+            
+            var result = await _mediator.Send(query);
+            return Ok(new Responses.ApiResponse<PaginatedResult<DocumentDto>>
             {
-                var query = new GetDocumentsByInscriptionModalityQuery(
-                    id,
-                    request.PageNumber,
-                    request.PageSize,
-                    request.SortBy,
-                    request.IsDescending,
-                    request.Filters,
-                    idStageModality,
-                    idDocumentClass
-                );
-                
-                var result = await _mediator.Send(query);
-                return Ok(new Responses.ApiResponse<PaginatedResult<DocumentDto>>
-                {
-                    Success = true,
-                    Data = result,
-                    Errors = new List<string>(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { $"Error al obtener los documentos: {ex.Message}" },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -108,39 +123,16 @@ namespace Api.Controllers
         [HttpGet("RequiredByCurrentState/{inscriptionModalityId}")]
         public async Task<IActionResult> GetRequiredDocumentsByCurrentState(int inscriptionModalityId)
         {
-            try
+            var query = new GetRequiredDocumentsByCurrentStateQuery(inscriptionModalityId);
+            var result = await _mediator.Send(query);
+            
+            return Ok(new Responses.ApiResponse<List<RequiredDocumentsByStateDto>>
             {
-                var query = new GetRequiredDocumentsByCurrentStateQuery(inscriptionModalityId);
-                var result = await _mediator.Send(query);
-                
-                return Ok(new Responses.ApiResponse<List<RequiredDocumentsByStateDto>>
-                {
-                    Success = true,
-                    Data = result,
-                    Errors = new List<string>(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { $"Error al obtener documentos requeridos: {ex.Message}" },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -150,47 +142,15 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Upload([FromForm] DocumentUploadDto dto)
         {
-            var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
-            var fileExt = System.IO.Path.GetExtension(dto.File.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(fileExt))
+            var command = new CreateDocumentWithFileCommand(dto);
+            var result = await _mediator.Send(command);
+            return CreatedAtAction(nameof(DownloadFile), new { id = result.Id }, new Responses.ApiResponse<DocumentDto>
             {
-                return BadRequest(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { $"Formato de archivo no permitido. Solo se aceptan: {string.Join(", ", allowedExtensions)}" },
-                    Messages = new List<string>()
-                });
-            }
-            try
-            {
-                var uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, HttpContext.RequestAborted);
-                var command = new Application.Shared.Commands.CreateDocumentWithFileCommand(
-                    dto,
-                    uniqueFileName,
-                    string.Empty, // StoragePath ya no se usa
-                    dto.File.ContentType,
-                    dto.File.Length
-                );
-                var result = await _mediator.Send(command);
-                return CreatedAtAction(nameof(DownloadFile), new { id = result.Id }, new Responses.ApiResponse<DocumentDto>
-                {
-                    Success = true,
-                    Data = result,
-                    Errors = new List<string>(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -200,67 +160,15 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int id, [FromForm] DocumentUpdateDto dto)
         {
-            var allowedExtensions = new[] { ".pdf", ".doc", ".docx" };
-            string? uniqueFileName = null;
-            string? mimeType = null;
-            long? fileSize = null;
-            // Validar y guardar archivo solo si se envía uno nuevo
-            if (dto.File != null)
+            var command = new UpdateDocumentWithFileCommand(id, dto);
+            var result = await _mediator.Send(command);
+            return Ok(new Responses.ApiResponse<DocumentDto>
             {
-                var fileExt = System.IO.Path.GetExtension(dto.File.FileName).ToLowerInvariant();
-                if (!allowedExtensions.Contains(fileExt))
-                {
-                    return BadRequest(new Responses.ApiResponse<object>
-                    {
-                        Success = false,
-                        Data = null,
-                        Errors = new List<string> { $"Formato de archivo no permitido. Solo se aceptan: {string.Join(", ", allowedExtensions)}" },
-                        Messages = new List<string>()
-                    });
-                }
-                uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, HttpContext.RequestAborted);
-                mimeType = dto.File.ContentType;
-                fileSize = dto.File.Length;
-            }
-            try
-            {
-                var command = new Application.Shared.Commands.UpdateDocumentWithFileCommand(
-                    id,
-                    dto,
-                    uniqueFileName,
-                    string.Empty, // StoragePath ya no se usa
-                    mimeType,
-                    fileSize
-                );
-                var result = await _mediator.Send(command);
-                return Ok(new Responses.ApiResponse<DocumentDto>
-                {
-                    Success = true,
-                    Data = result,
-                    Errors = new List<string>(),
-                    Messages = new List<string>()
-                });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new Responses.ApiResponse<object>
-                {
-                    Success = false,
-                    Data = null,
-                    Errors = new List<string> { ex.Message },
-                    Messages = new List<string>()
-                });
-            }
+                Success = true,
+                Data = result,
+                Errors = new List<string>(),
+                Messages = new List<string>()
+            });
         }
 
         /// <summary>
@@ -269,14 +177,26 @@ namespace Api.Controllers
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
         {
-            await Task.CompletedTask;
-            // TODO: Implementar handler UpdateDocumentStatusCommand y su lógica
-            return StatusCode(StatusCodes.Status501NotImplemented, new Responses.ApiResponse<object>
+            var command = new UpdateDocumentStatusCommand(id, dto.StatusRegister, dto.IdUserUpdateAt, dto.OperationRegister);
+            var result = await _mediator.Send(command);
+            
+            if (!result)
             {
-                Success = false,
-                Data = null,
-                Errors = new List<string> { "No implementado: lógica de cambio de estado StatusRegister" },
-                Messages = new List<string>()
+                return NotFound(new Responses.ApiResponse<object>
+                {
+                    Success = false,
+                    Data = null,
+                    Errors = new List<string> { "Documento no encontrado" },
+                    Messages = new List<string>()
+                });
+            }
+
+            return Ok(new Responses.ApiResponse<bool>
+            {
+                Success = true,
+                Data = true,
+                Errors = new List<string>(),
+                Messages = new List<string> { "Estado actualizado correctamente" }
             });
         }
     }

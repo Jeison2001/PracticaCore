@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Api/Dockerfile
+    ports:
+      - "5191:8080"
+    environment:
+      ConnectionStrings__Default: "<TU_CONNECTION_STRING>"
+      Jwt__Key: "<TU_JWT_KEY>"
+      Jwt__Issuer: "PracticaCore.Api"
+      Jwt__Audience: "PracticaCore.Clients"
+      Jwt__ExpireMinutes: "60"
+      FileStorage__Provider: "azure" # Change to "google" if using Google Cloud Storage
+      FileStorage__LocalPath: "Uploads"
+      FileStorage__GoogleCloud__BucketName: "<TU_BUCKET_NAME>"
+      FileStorage__GoogleCloud__ProjectId: "<TU_PROJECT_ID>"
+      FileStorage__GoogleCloud__CredentialsPath: "/app/credentials.json"
+      FileStorage__AzureBlob__ConnectionString: "<TU_CONNECTION_STRING>"
+      FileStorage__AzureBlob__ContainerName: "<TU_CONTAINER_NAME>"
+      FileStorage__AzureBlob__BaseUrl: "<TU_BASE_URL>"
+      EmailNotification__Provider: "SMTP"
+      EmailNotification__SmtpSettings__Host: "smtp.gmail.com"
+      EmailNotification__SmtpSettings__Port: "587"
+      EmailNotification__SmtpSettings__Username: "<TU_EMAIL_GMAIL>"
+      EmailNotification__SmtpSettings__Password: "<TU_APP_PASSWORD>"
+      EmailNotification__SmtpSettings__EnableSsl: "true"
+      EmailNotification__SmtpSettings__DefaultFrom: "<TU_EMAIL_GMAIL>"
+      EmailNotification__SmtpSettings__DefaultFromName: "Sistema de Prácticas Académicas"
+    # Volumen solo necesario si usas Google Cloud Storage
+    volumes:
+      - ./Api/credentials.json:/app/credentials.json
+    restart: unless-stopped

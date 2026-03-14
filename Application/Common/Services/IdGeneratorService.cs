@@ -1,21 +1,12 @@
-using Domain.Interfaces.Registration;
+using Domain.Interfaces.Services;
 
 namespace Application.Common.Services
 {
     /// <summary>
-    /// Servicio para generar identificadores únicos
-    /// </summary>
-    public interface IIdGeneratorService
-    {
-        string GenerateUniqueId();
-        Guid GenerateGuid();
-    }
-
-    /// <summary>
     /// Implementación del servicio de generación de IDs con ciclo de vida transitorio
     /// Se auto-registrará debido a la interfaz ITransientService
     /// </summary>
-    public class IdGeneratorService : IIdGeneratorService, ITransientService
+    public class IdGeneratorService : IIdGeneratorService
     {
         public string GenerateUniqueId()
         {

@@ -1,6 +1,4 @@
-using System;
-
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class RequiredDocumentsByState : BaseEntity<int>
     {
@@ -8,7 +6,6 @@ namespace Domain.Entities
         public int IdDocumentType { get; set; }
         public bool IsRequired { get; set; } = true;
         public int? OrderDisplay { get; set; }
-        public new int? IdUserCreatedAt { get; set; }
 
         // Navigation properties
         public virtual StateStage StateStage { get; set; } = null!;

@@ -11,12 +11,21 @@ namespace Infrastructure.Data
          public DbSet<PreliminaryProject> PreliminaryProjects => Set<PreliminaryProject>();
          public DbSet<ProjectFinal> ProjectFinals => Set<ProjectFinal>();
          public DbSet<AcademicPractice> AcademicPractices => Set<AcademicPractice>();
+         public DbSet<CoTerminal> CoTerminals => Set<CoTerminal>();
+         public DbSet<Seminar> Seminars => Set<Seminar>();
+         public DbSet<ScientificArticle> ScientificArticles => Set<ScientificArticle>();
+         public DbSet<AcademicAverage> AcademicAverages => Set<AcademicAverage>();
+         public DbSet<SaberPro> SaberPros => Set<SaberPro>();
          public DbSet<StageModality> StageModalities => Set<StageModality>();
          public DbSet<StateStage> StateStages => Set<StateStage>();
          public DbSet<DocumentClass> DocumentClasses => Set<DocumentClass>();
          public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
          public DbSet<Document> Documents => Set<Document>();
          public DbSet<RequiredDocumentsByState> RequiredDocumentsByStates => Set<RequiredDocumentsByState>();
+         
+         // Email Notification entities
+         public DbSet<EmailNotificationConfig> EmailNotificationConfigs => Set<EmailNotificationConfig>();
+         public DbSet<EmailRecipientRule> EmailRecipientRules => Set<EmailRecipientRule>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(BaseEntityConfiguration<,>).Assembly);

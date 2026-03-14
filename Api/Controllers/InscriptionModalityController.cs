@@ -1,8 +1,6 @@
-using Api.Controllers;
-using Application.Shared.DTOs.InscriptionModality;
+using Application.Shared.DTOs.InscriptionModalities;
 using Domain.Entities;
 using MediatR;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {

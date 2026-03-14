@@ -1,8 +1,6 @@
-using Api.Controllers;
-using Application.Shared.DTOs.AcademicPeriod;
+using Application.Shared.DTOs.AcademicPeriods;
 using Domain.Entities;
 using MediatR;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {

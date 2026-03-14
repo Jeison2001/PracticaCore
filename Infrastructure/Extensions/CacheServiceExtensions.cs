@@ -1,10 +1,9 @@
-using Domain.Interfaces;
-using Domain.Interfaces.Cache;
+using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Cache;
+using Infrastructure.Repositories.Cache;
 using Infrastructure.Services.Cache;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Linq;
 
 namespace Infrastructure.Extensions
 {

@@ -15,7 +15,7 @@ namespace Tests.UnitTests.Domain
 
             // Assert
             Assert.Equal(0, entity.Id);
-            Assert.Equal(0, entity.IdUserCreatedAt);
+            Assert.Null(entity.IdUserCreatedAt);
             Assert.True((DateTime.UtcNow - entity.CreatedAt).TotalSeconds < 5);
             Assert.Null(entity.IdUserUpdatedAt);
             Assert.Null(entity.UpdatedAt);

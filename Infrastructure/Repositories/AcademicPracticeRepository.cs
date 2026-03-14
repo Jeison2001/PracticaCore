@@ -1,10 +1,11 @@
 using Domain.Entities;
-using Domain.Interfaces;
 using Domain.Common;
 using Infrastructure.Data;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
-using Application.Shared.DTOs.AcademicPractice.Enums;
+using Domain.Enums;
+using Domain.Interfaces.Repositories;
+using Domain.Common.AcademicPractice;
 
 namespace Infrastructure.Repositories;
 
@@ -277,14 +278,14 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // Asigna la(s) fecha(s) relevante(s) automáticamente según el estado destino
         switch ((AcademicPracticeStateStageEnum)newStateStageId)
         {
-            case AcademicPracticeStateStageEnum.InscriptionApproved: // 20
+            case AcademicPracticeStateStageEnum.InscriptionApproved: // 21 - PA_INSCRIPCION_APROBADA
                 academicPractice.AvalApprovalDate = DateTime.UtcNow;
                 academicPractice.PlanApprovalDate = DateTime.UtcNow;
                 break;
-            case AcademicPracticeStateStageEnum.DevelopmentCompleted: // 24
+            case AcademicPracticeStateStageEnum.DevelopmentApproved: // 26 - PA_DESARROLLO_APROBADA
                 academicPractice.DevelopmentCompletionDate = DateTime.UtcNow;
                 break;
-            case AcademicPracticeStateStageEnum.FinalApproved: // 29
+            case AcademicPracticeStateStageEnum.FinalApproved: // 31 - PA_APROBADO
                 academicPractice.FinalApprovalDate = DateTime.UtcNow;
                 break;
             // Si se agregan más fechas/estados, añadir aquí

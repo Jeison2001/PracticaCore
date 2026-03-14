@@ -1,8 +1,7 @@
-﻿using Application.Shared.DTOs;
+using Application.Shared.DTOs;
 using Domain.Common;
 using Domain.Entities;
 using MediatR;
-using System.Linq.Expressions;
 
 namespace Application.Shared.Queries
 {

@@ -1,9 +1,8 @@
+using Api.Responses;
 using Application.Shared.DTOs.Auth;
-using Domain.Interfaces.Auth;
+using Domain.Interfaces.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Threading.Tasks;
 
 namespace Api.Controllers
 {
@@ -22,22 +21,29 @@ namespace Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthRequest request)
         {
-            try
-            {
-                if (string.IsNullOrEmpty(request.IdToken))
-                    return BadRequest("Token de autenticación requerido");
+            if (string.IsNullOrEmpty(request.IdToken))
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Token de autenticación requerido" } });
 
-                var response = await _authService.AuthenticateWithGoogleAsync(request.IdToken);
-                return Ok(response);
-            }
-            catch (UnauthorizedAccessException ex)
+            var authResult = await _authService.AuthenticateWithGoogleAsync(request.IdToken);
+            
+            // Mapear de AuthenticationResult (Domain) a AuthResponse (Application/API)
+            var response = new AuthResponse
             {
-                return Unauthorized(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Error interno del servidor", details = ex.Message });
-            }
+                Token = authResult.Token,
+                User = new UserInfoDto
+                {
+                    Id = authResult.User.Id,
+                    Email = authResult.User.Email,
+                    FirstName = authResult.User.FirstName,
+                    LastName = authResult.User.LastName,
+                    Identification = authResult.User.Identification,
+                    IdIdentificationType = authResult.User.IdIdentificationType
+                },
+                Roles = authResult.Roles.Select(r => new AuthRoleDto { Name = r.Name, Code = r.Code }).ToList(),
+                Permissions = authResult.Permissions
+            };
+            
+            return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
         }
     }
 }

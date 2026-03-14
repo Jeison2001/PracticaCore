@@ -1,9 +1,6 @@
-﻿using Domain.Entities;
-using Infrastructure.Data;
-using Infrastructure.Repositories;
+﻿using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using Xunit;
 
 namespace Tests.UnitTests.Infrastructure
 {
@@ -18,29 +15,5 @@ namespace Tests.UnitTests.Infrastructure
                 .Options;
             _mockContext = new Mock<AppDbContext>(options);
         }
-    }
-     
-
-    internal class TestAsyncEnumerator<T> : IAsyncEnumerator<T>
-    {
-        private readonly IEnumerator<T> _inner;
-
-        public TestAsyncEnumerator(IEnumerator<T> inner)
-        {
-            _inner = inner;
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            _inner.Dispose();
-            return ValueTask.CompletedTask;
-        }
-
-        public ValueTask<bool> MoveNextAsync()
-        {
-            return new ValueTask<bool>(_inner.MoveNext());
-        }
-
-        public T Current => _inner.Current;
     }
 }

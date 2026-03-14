@@ -1,5 +1,4 @@
-using Api.Controllers;
-using Application.Shared.DTOs.User;
+using Application.Shared.DTOs.Users;
 using Domain.Entities;
 using MediatR;
 

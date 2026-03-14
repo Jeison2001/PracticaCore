@@ -1,5 +1,4 @@
-using Api.Controllers;
-using Application.Shared.DTOs.StageModality;
+using Application.Shared.DTOs.StageModalities;
 using Domain.Entities;
 using MediatR;
 
