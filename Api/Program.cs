@@ -127,4 +127,5 @@ app.MapControllers();
 
 app.Run();
 
+// Deploy trigger: Azure sync
 public partial class Program { }
