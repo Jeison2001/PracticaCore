@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -16,7 +16,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.CreatedAt).IsRequired().HasColumnName("createdat");
             builder.Property(e => e.UpdatedAt).HasColumnName("updatedat"); ;
             builder.Property(e => e.IdUserUpdatedAt).HasColumnName("iduserupdatedat");
-            builder.Property(e => e.OperationRegister).IsRequired().HasColumnName("operationregister");
+            builder.Property(e => e.OperationRegister).IsRequired().HasMaxLength(250).HasColumnName("operationregister");
             builder.Property(e => e.StatusRegister).IsRequired().HasColumnName("statusregister");
         }
     }

@@ -1,9 +1,39 @@
-﻿namespace Domain.Entities
+using Domain.Events;
+
+namespace Domain.Entities
 {
     public class UserRole : BaseEntity<int>
     {
-        public int IdUser { get; set; }
-        public int IdRole { get; set; }
+        private int _idUser;
+        public int IdUser
+        {
+            get => _idUser;
+            set
+            {
+                _idUser = value;
+                TryAddEvent();
+            }
+        }
+
+        private int _idRole;
+        public int IdRole
+        {
+            get => _idRole;
+            set
+            {
+                _idRole = value;
+                TryAddEvent();
+            }
+        }
+
+        private void TryAddEvent()
+        {
+            if (_idUser != 0 && _idRole != 0)
+            {
+                ClearDomainEvents();
+                AddDomainEvent(new UserRoleAssignedEvent(_idUser, _idRole, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
+            }
+        }
 
         // Relaciones
         public virtual User User { get; set; } = null!;

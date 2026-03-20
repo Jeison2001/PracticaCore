@@ -1,9 +1,42 @@
+using Domain.Events;
+
 namespace Domain.Entities
 {
     public class Document : BaseEntity<int>
     {
-        public int? IdInscriptionModality { get; set; }
-        public int IdDocumentType { get; set; }
+        private int? _idInscriptionModality;
+        public int? IdInscriptionModality
+        {
+            get => _idInscriptionModality;
+            set
+            {
+                _idInscriptionModality = value;
+                TryDispatchEvent();
+            }
+        }
+
+        private int _idDocumentType;
+        public int IdDocumentType
+        {
+            get => _idDocumentType;
+            set
+            {
+                _idDocumentType = value;
+                TryDispatchEvent();
+            }
+        }
+
+        private void TryDispatchEvent()
+        {
+            if (_idInscriptionModality.HasValue && _idDocumentType != 0)
+            {
+                ClearDomainEvents();
+                AddDomainEvent(new DocumentUploadedEvent(
+                    _idInscriptionModality.Value, 
+                    _idDocumentType, 
+                    IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
+            }
+        }
         public string? Name { get; set; } // Nombre simbólico asignado (ej: Carta Director)
         public string OriginalFileName { get; set; } = string.Empty;
         public string StoredFileName { get; set; } = string.Empty;

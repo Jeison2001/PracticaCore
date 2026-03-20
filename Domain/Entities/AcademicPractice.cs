@@ -1,8 +1,22 @@
-﻿namespace Domain.Entities
+using Domain.Events;
+
+namespace Domain.Entities
 {
     public class AcademicPractice : BaseEntity<int>
     {
-        public int IdStateStage { get; set; }
+        private int _idStateStage;
+        public int IdStateStage
+        {
+            get => _idStateStage;
+            set
+            {
+                if (_idStateStage != value && _idStateStage != 0)
+                {
+                    AddDomainEvent(new AcademicPracticeStateChangedEvent(Id, 0, value, _idStateStage, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
+                }
+                _idStateStage = value;
+            }
+        }
         public string? Title { get; set; }
         public string? InstitutionName { get; set; }
         public string? InstitutionContact { get; set; }

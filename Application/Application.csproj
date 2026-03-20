@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -6,14 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Common\Interfaces\**" />
-    <Compile Remove="Features\**" />
-    <EmbeddedResource Remove="Common\Interfaces\**" />
-    <EmbeddedResource Remove="Features\**" />
-    <None Remove="Common\Interfaces\**" />
-    <None Remove="Features\**" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="14.0.0" />

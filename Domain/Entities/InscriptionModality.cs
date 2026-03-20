@@ -1,9 +1,26 @@
-﻿namespace Domain.Entities
+using Domain.Events;
+
+namespace Domain.Entities
 {
     public class InscriptionModality : BaseEntity<int>
     {
         public int IdModality { get; set; }
-        public int IdStateInscription { get; set; }
+
+        private int _idStateInscription;
+        public int IdStateInscription
+        {
+            get => _idStateInscription;
+            set
+            {
+                // Solo disparamos el evento si el estado cambia realmente,
+                // omitimos si el estado_anterior era 0 (esto evita triggers en INSERTS vacíos o creación)
+                if (_idStateInscription != 0 && _idStateInscription != value)
+                {
+                    AddDomainEvent(new InscriptionStateChangedEvent(this.Id, this.IdModality, value, this.IdUserUpdatedAt ?? 0));
+                }
+                _idStateInscription = value;
+            }
+        }
         public int IdAcademicPeriod { get; set; }
         public int? IdStageModality { get; set; }
         public DateTime? ApprovalDate { get; set; }

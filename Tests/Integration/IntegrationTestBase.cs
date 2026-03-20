@@ -9,7 +9,7 @@ namespace Tests.Integration
         protected readonly CustomWebApplicationFactory _factory;
         protected readonly HttpClient _client;
         protected readonly AppDbContext _context;
-        private readonly IServiceScope _scope;
+        protected readonly IServiceScope _scope;
 
         public IntegrationTestBase(CustomWebApplicationFactory factory)
         {

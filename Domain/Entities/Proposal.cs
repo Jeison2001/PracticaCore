@@ -1,3 +1,5 @@
+using Domain.Events;
+
 namespace Domain.Entities
 {
     public class Proposal : BaseEntity<int>
@@ -9,7 +11,20 @@ namespace Domain.Entities
         public List<string> SpecificObjectives { get; set; } = new List<string>();
         public int IdResearchLine { get; set; }
         public int IdResearchSubLine { get; set; }
-        public int IdStateStage { get; set; }
+
+        private int _idStateStage;
+        public int IdStateStage
+        {
+            get => _idStateStage;
+            set
+            {
+                if (_idStateStage != value && _idStateStage != 0)
+                {
+                    AddDomainEvent(new ProposalStateChangedEvent(Id, 0, value, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
+                }
+                _idStateStage = value;
+            }
+        }
 
         // Navigation properties
         public virtual InscriptionModality InscriptionModality { get; set; } = null!;
