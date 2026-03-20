@@ -122,18 +122,10 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 var statesDict = states.ToDictionary(s => s.Id);
                 var stageModalitiesDict = stageModalities.ToDictionary(sm => sm.Id);
 
-                // 6. Obtener información de los usuarios para los nombres
+                // 6. Obtener información de los usuarios para los nombres — 1 sola query con IN
                 var userIds = allStudents.Select(s => s.IdUser).Distinct().ToList();
-                var users = new Dictionary<int, User>();
-                
-                foreach (var userId in userIds)
-                {
-                    var user = await _userRepository.GetByIdAsync(userId);
-                    if (user != null)
-                    {
-                        users[userId] = user;
-                    }
-                }
+                var users = (await _userRepository.GetAllAsync(u => userIds.Contains(u.Id)))
+                    .ToDictionary(u => u.Id);
 
                 // 7. Construir la respuesta para cada modalidad
                 var resultItems = new List<InscriptionWithStudentsResponseDto>();

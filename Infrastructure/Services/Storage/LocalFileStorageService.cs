@@ -31,13 +31,15 @@ namespace Infrastructure.Services.Storage
             var filePath = Path.Combine(_basePath, fileName);
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"Archivo no encontrado: {fileName}");
-            var memory = new MemoryStream();
-            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-            {
-                await stream.CopyToAsync(memory, cancellationToken);
-            }
-            memory.Position = 0;
-            return memory;
+                
+            // Retorna un FileStream directo (Asíncrono) para que ASP.NET Core lo envíe
+            return await Task.FromResult(new FileStream(
+                filePath, 
+                FileMode.Open, 
+                FileAccess.Read, 
+                FileShare.Read, 
+                4096, 
+                FileOptions.Asynchronous));
         }
 
         public Task DeleteFileAsync(string fileName, CancellationToken cancellationToken)

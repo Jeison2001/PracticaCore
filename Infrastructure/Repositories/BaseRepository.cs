@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -112,5 +112,17 @@ namespace Infrastructure.Repositories
 
         public async Task<T?> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken)
             => await _context.Set<T>().FirstOrDefaultAsync(predicate, cancellationToken);
+            
+        public async Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default)
+        {
+            if (predicate == null) return await _context.Set<T>().CountAsync(cancellationToken);
+            return await _context.Set<T>().CountAsync(predicate, cancellationToken);
+        }
+
+        public async Task<bool> AnyAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default)
+        {
+            if (predicate == null) return await _context.Set<T>().AnyAsync(cancellationToken);
+            return await _context.Set<T>().AnyAsync(predicate, cancellationToken);
+        }
     }
 }

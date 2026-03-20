@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
 using Api.Responses;
 
@@ -7,10 +7,17 @@ namespace Api.Middlewares
     public class GlobalExceptionMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly ILogger<GlobalExceptionMiddleware> _logger;
+        private readonly IHostEnvironment _environment;
 
-        public GlobalExceptionMiddleware(RequestDelegate next)
+        public GlobalExceptionMiddleware(
+            RequestDelegate next,
+            ILogger<GlobalExceptionMiddleware> logger,
+            IHostEnvironment environment)
         {
             _next = next;
+            _logger = logger;
+            _environment = environment;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -21,11 +28,13 @@ namespace Api.Middlewares
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Excepción no controlada en {Method} {Path}",
+                    context.Request.Method, context.Request.Path);
                 await HandleExceptionAsync(context, ex);
             }
         }
 
-        private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+        private Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
             var response = new ApiResponse<object>
             {
@@ -56,7 +65,10 @@ namespace Api.Middlewares
             else
             {
                 context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                response.Errors.Add(exception.Message);
+                // En producción, no exponer detalles internos de la excepción
+                response.Errors.Add(_environment.IsDevelopment()
+                    ? exception.Message
+                    : "Error interno del servidor. Contacte al administrador.");
             }
         
             context.Response.ContentType = "application/json";

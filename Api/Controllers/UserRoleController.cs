@@ -27,12 +27,6 @@ namespace Api.Controllers
         [HttpGet("ByRole")]
         public async Task<IActionResult> GetUsersByRole([FromQuery] string? roleCode, [FromQuery] PaginatedRequest request)
         {
-            // Corregir PageNumber si es menor a 1
-            if (request.PageNumber < 1)
-            {
-                request.PageNumber = 1;
-            }
-
             var query = new GetUserRolesByRoleCodeQuery
             {
                 RoleCode = roleCode,
@@ -41,7 +35,8 @@ namespace Api.Controllers
                 SortBy = request.SortBy,
                 IsDescending = request.IsDescending,
                 Filters = request.Filters
-            };            var result = await _mediator.Send(query);
+            };
+            var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<UserRoleWithUserDetailsDto>> { Success = true, Data = result });
         }        /// <summary>
         /// Obtiene los roles asignados a un usuario específico con información completa del rol

@@ -46,8 +46,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             if (type.MaxAssignments.HasValue)
             {
                 // Contar asignaciones activas para este docente y cargo
-                var assignments = await _repository.GetAllAsync(x => x.IdTeacher == dto.IdTeacher && x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment && x.StatusRegister);
-                var count = assignments.Count();
+                var count = await _repository.CountAsync(x => x.IdTeacher == dto.IdTeacher && x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment && x.StatusRegister, cancellationToken);
                 if (count >= type.MaxAssignments.Value)
                     throw new InvalidOperationException($"El docente ya tiene el máximo permitido ({type.MaxAssignments}) de asignaciones activas para este cargo.");
             }

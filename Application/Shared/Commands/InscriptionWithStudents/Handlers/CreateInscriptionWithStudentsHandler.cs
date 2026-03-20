@@ -128,14 +128,15 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 var userInscriptions = await userInscriptionRepo.GetAllAsync(
                     ui => ui.IdUser == userInfo.Id && ui.StatusRegister);
                 
-                if (userInscriptions.Any())
+                var inscriptionModalityIds = userInscriptions.Select(ui => ui.IdInscriptionModality).ToList();
+                if (inscriptionModalityIds.Any())
                 {
                     // Verificar si alguna de estas inscripciones tiene una modalidad activa
-                    var inscriptionModalityIds = userInscriptions.Select(ui => ui.IdInscriptionModality).ToList();
-                    var activeInscriptionModalities = await inscriptionModalityRepo.GetAllAsync(
-                        im => inscriptionModalityIds.Contains(im.Id) && im.StatusRegister);
+                    bool hasActiveInscription = await inscriptionModalityRepo.AnyAsync(
+                        im => inscriptionModalityIds.Contains(im.Id) && im.StatusRegister,
+                        cancellationToken);
                     
-                    if (activeInscriptionModalities.Any())
+                    if (hasActiveInscription)
                     {
                         throw new InvalidOperationException($"El estudiante con identificación '{student.Identification}' ya tiene una inscripción activa registrada.");
                     }

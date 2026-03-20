@@ -160,6 +160,26 @@ namespace Infrastructure.Repositories.Cache
                 () => _decoratedRepository.GetFirstOrDefaultAsync(predicate, cancellationToken));
         }
 
+        public Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default)
+        {
+            string filterHash = predicate != null ? GenerateExpressionKey(predicate) : "nofilter";
+            string cacheKey = $"{_entityName}_count_{filterHash}";
+            
+            return ExecuteWithFallbackAsync<int>(
+                cacheKey,
+                () => _decoratedRepository.CountAsync(predicate, cancellationToken));
+        }
+
+        public Task<bool> AnyAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default)
+        {
+            string filterHash = predicate != null ? GenerateExpressionKey(predicate) : "nofilter";
+            string cacheKey = $"{_entityName}_any_{filterHash}";
+            
+            return ExecuteWithFallbackAsync<bool>(
+                cacheKey,
+                () => _decoratedRepository.AnyAsync(predicate, cancellationToken));
+        }
+
         public async Task UpdateAsync(T entity)
         {
             await _decoratedRepository.UpdateAsync(entity);

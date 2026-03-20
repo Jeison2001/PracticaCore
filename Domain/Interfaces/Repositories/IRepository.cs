@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Domain.Common;
 using Domain.Entities;
 
@@ -24,5 +24,7 @@ namespace Domain.Interfaces.Repositories
             Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
             int pageNumber = 1,
             int pageSize = 10);
+        Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default);
+        Task<bool> AnyAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default);
     }
 }
