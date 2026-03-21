@@ -3,6 +3,7 @@ using AutoMapper;
 using Moq;
 using Application.Shared.Mappings;
 using Domain.Interfaces.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Tests.Shared
 {
@@ -12,8 +13,10 @@ namespace Tests.Shared
 
         public BaseTest()
         {
-            var config = new MapperConfiguration(cfg => cfg.AddProfile<GenericProfile>());
-            _mapper = config.CreateMapper();
+            var services = new ServiceCollection();
+            services.AddAutoMapper(cfg => cfg.AddMaps(typeof(GenericProfile).Assembly));
+            var serviceProvider = services.BuildServiceProvider();
+            _mapper = serviceProvider.GetRequiredService<IMapper>();
         }
 
         protected static Mock<IRepository<T, TId>> GetMockRepository<T, TId>()

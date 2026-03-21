@@ -67,7 +67,7 @@ namespace Api.Extensions
             // Auto-registro de Handlers MediatR que no se registran automáticamente por MediatR
             RegisterGenericHandlers(services);
             
-            services.AddAutoMapper(typeof(GenericProfile));
+            services.AddAutoMapper(cfg => cfg.AddMaps(typeof(GenericProfile).Assembly));
 
             // Auto-registro de validadores
             services.AddValidatorsFromAssembly(typeof(InscriptionModalityValidator).Assembly);
