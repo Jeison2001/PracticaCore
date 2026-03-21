@@ -14,7 +14,9 @@ namespace Tests.Integration.Utilities
                 new Modality { Id = 2, Code = ModalityCodes.PracticaAcademica, Name = "Práctica Académica", RequiresApproval = true, StatusRegister = true, OperationRegister = "Seed" },
                 new Modality { Id = 3, Code = ModalityCodes.CoTerminal, Name = "CoTerminal", RequiresApproval = false, StatusRegister = true, OperationRegister = "Seed" },
                 new Modality { Id = 4, Code = ModalityCodes.SeminarioAct, Name = "Seminario", RequiresApproval = true, StatusRegister = true, OperationRegister = "Seed" },
-                new Modality { Id = 5, Code = ModalityCodes.PublicacionArticulo, Name = "Artículo", RequiresApproval = true, StatusRegister = true, OperationRegister = "Seed" }
+                new Modality { Id = 5, Code = ModalityCodes.PublicacionArticulo, Name = "Artículo", RequiresApproval = true, StatusRegister = true, OperationRegister = "Seed" },
+                new Modality { Id = 6, Code = ModalityCodes.GradoPromedio, Name = "Grado por Promedio", RequiresApproval = false, StatusRegister = true, OperationRegister = "Seed" },
+                new Modality { Id = 7, Code = ModalityCodes.SaberPro, Name = "Saber Pro", RequiresApproval = false, StatusRegister = true, OperationRegister = "Seed" }
             );
 
             // Seed StateInscriptions
@@ -72,7 +74,9 @@ namespace Tests.Integration.Utilities
             context.Set<StageModality>().AddRange(
                 new StageModality { Id = 10, Code = "SA_FASE_1", IdModality = 4,  StageOrder = 1, StatusRegister = true, OperationRegister = "Seed", Name = "Seminario Fase 1" },
                 new StageModality { Id = 11, Code = "PA_FASE_1", IdModality = 5,  StageOrder = 1, StatusRegister = true, OperationRegister = "Seed", Name = "Artículo Fase 1" },
-                new StageModality { Id = 12, Code = "PA_FASE_2", IdModality = 5,  StageOrder = 2, StatusRegister = true, OperationRegister = "Seed", Name = "Artículo Fase 2" }
+                new StageModality { Id = 12, Code = "PA_FASE_2", IdModality = 5,  StageOrder = 2, StatusRegister = true, OperationRegister = "Seed", Name = "Artículo Fase 2" },
+                new StageModality { Id = 13, Code = "GP_FASE_1", IdModality = 6,  StageOrder = 1, StatusRegister = true, OperationRegister = "Seed", Name = "Grado Promedio" },
+                new StageModality { Id = 14, Code = "SP_FASE_1", IdModality = 7,  StageOrder = 1, StatusRegister = true, OperationRegister = "Seed", Name = "Saber Pro" }
             );
 
             // Initial StateStages for minor modality phases
@@ -83,7 +87,11 @@ namespace Tests.Integration.Utilities
                 new StateStage { Id = 21, Code = "PC_FASEINICIAL", IdStageModality = 11, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed", Name = "Artículo Fase 1 Inicial" },
                 new StateStage { Id = 22, Code = "PC_FASE1_APROBADO", IdStageModality = 11, IsInitialState = false, IsFinalStateForStage = true, IsFinalStateForModalityOverall = false, StatusRegister = true, OperationRegister = "Seed", Name = "Artículo Fase 1 Aprobado" },
                 // Artículo Fase 2
-                new StateStage { Id = 23, Code = "PC_FASE2_INICIAL", IdStageModality = 12, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed", Name = "Artículo Fase 2 Inicial" }
+                new StateStage { Id = 23, Code = "PC_FASE2_INICIAL", IdStageModality = 12, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed", Name = "Artículo Fase 2 Inicial" },
+                // Grado Promedio Fase 1
+                new StateStage { Id = 24, Code = "GP_INICIAL", IdStageModality = 13, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed", Name = "Grado Promedio Inicial" },
+                // Saber Pro Fase 1
+                new StateStage { Id = 25, Code = "SP_INICIAL", IdStageModality = 14, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed", Name = "Saber Pro Inicial" }
             );
 
             // Commit all seeded configuration data

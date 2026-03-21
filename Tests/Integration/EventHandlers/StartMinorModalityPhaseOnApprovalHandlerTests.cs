@@ -34,6 +34,10 @@ namespace Tests.Integration.EventHandlers
             { 2, 2, ModalityCodes.SeminarioAct,         true,  StateInscriptionCodes.Aprobado, [PermissionCodes.Seminario.N1SA,             PermissionCodes.Seminario.N2SAC] },
             // Publicacion Articulo (RequiresApproval=true) → triggers on APROBADO
             { 3, 3, ModalityCodes.PublicacionArticulo,  true,  StateInscriptionCodes.Aprobado, [PermissionCodes.PublicacionArticulo.N1PC,  PermissionCodes.PublicacionArticulo.N2PCC] },
+            // Grado Promedio (RequiresApproval=false) → triggers on NO_APLICA
+            { 4, 4, ModalityCodes.GradoPromedio,       false, StateInscriptionCodes.NoAplica, [PermissionCodes.GradoPromedio.N1GP,       PermissionCodes.GradoPromedio.N2GPES, PermissionCodes.GradoPromedio.N2GPR] },
+            // Saber Pro (RequiresApproval=false) → triggers on NO_APLICA
+            { 5, 5, ModalityCodes.SaberPro,            false, StateInscriptionCodes.NoAplica, [PermissionCodes.SaberPro.N1SP,            PermissionCodes.SaberPro.N2SPC] },
         };
 
         [Theory]
@@ -112,6 +116,26 @@ namespace Tests.Integration.EventHandlers
 
             assignedPermIds.Should().Contain(permIds,
                 $"los permisos iniciales de {modalityCode} deben asignarse al activarse");
+
+            // 3. The extension record must be created according to the modality
+            switch (modalityCode)
+            {
+                case ModalityCodes.CoTerminal:
+                    (await actContext.Set<CoTerminal>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    break;
+                case ModalityCodes.SeminarioAct:
+                    (await actContext.Set<Seminar>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    break;
+                case ModalityCodes.PublicacionArticulo:
+                    (await actContext.Set<ScientificArticle>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    break;
+                case ModalityCodes.GradoPromedio:
+                    (await actContext.Set<AcademicAverage>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    break;
+                case ModalityCodes.SaberPro:
+                    (await actContext.Set<SaberPro>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    break;
+            }
         }
 
         [Fact]

@@ -11,6 +11,10 @@ using Domain.Common.Users;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
+    /// <summary>
+    /// Manejador principal para la creación de una nueva inscripción de modalidad.
+    /// Valida cupos, asigna la fase inicial y propaga los eventos de dominio correspondientes.
+    /// </summary>
     public class CreateInscriptionWithStudentsHandler : IRequestHandler<CreateInscriptionWithStudentsCommand, InscriptionWithStudentsDto>
     {
         private readonly IMediator _mediator;
@@ -34,50 +38,50 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             _academicPeriodService = academicPeriodService;
             _unitOfWork = unitOfWork;
             _inscriptionCreationService = inscriptionCreationService;
-        }        public async Task<InscriptionWithStudentsDto> Handle(
+        }
+
+        public async Task<InscriptionWithStudentsDto> Handle(
             CreateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
         {
-            // Validación: Debe haber al menos un estudiante
             if (request.Dto.Students == null || !request.Dto.Students.Any())
                 throw new InvalidOperationException("Se requiere al menos un estudiante para crear una inscripción de modalidad.");
 
-            // Validación: No debe haber estudiantes repetidos (por identificación)
             var repeated = request.Dto.Students
                 .GroupBy(s => new { s.Identification, s.IdIdentificationType })
                 .Where(g => g.Count() > 1)
                 .Select(g => g.Key.Identification)
                 .ToList();
+
             if (repeated.Any())
-                throw new InvalidOperationException($"No se puede repetir el estudiante con identificación: {string.Join(", ", repeated)}");            // Auto-detección del período académico si no se proporciona
+                throw new InvalidOperationException($"No se puede repetir el estudiante con identificación: {string.Join(", ", repeated)}");
+
             int academicPeriodId;
             if (request.Dto.InscriptionModality.IdAcademicPeriod.HasValue)
             {
                 academicPeriodId = request.Dto.InscriptionModality.IdAcademicPeriod.Value;
-                // Validar que el período académico existe
                 var specifiedPeriod = await _academicPeriodService.GetAcademicPeriodByIdAsync(academicPeriodId);
                 if (specifiedPeriod == null)
                     throw new InvalidOperationException($"No se encontró el período académico con ID {academicPeriodId}");
             }
             else
             {
-                // Auto-detectar período académico activo
                 var activePeriod = await _academicPeriodService.GetActiveAcademicPeriodAsync();
                 if (activePeriod == null)
                     throw new InvalidOperationException("No hay un período académico activo y no se especificó uno explícitamente.");
                 academicPeriodId = activePeriod.Id;
             }
 
-            // Validación: Modalidad existente
             var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
             var modality = await modalityRepo.GetByIdAsync(request.Dto.InscriptionModality.IdModality);
+            
             if (modality == null)
-                throw new InvalidOperationException($"No se encontró la modalidad con ID {request.Dto.InscriptionModality.IdModality}");            // Validación: Cupo máximo de estudiantes
+                throw new InvalidOperationException($"No se encontró la modalidad con ID {request.Dto.InscriptionModality.IdModality}");
+
             var maxStudents = modality.MaxStudents;
             if (maxStudents > 0 && request.Dto.Students.Count > maxStudents)
                 throw new InvalidOperationException($"La modalidad solo permite un máximo de {maxStudents} estudiantes.");
 
-            // Obtener información de usuarios por identificación
             var userDictionary = new Dictionary<string, UserIdentificationResult>();
             foreach (var student in request.Dto.Students)
             {
@@ -85,17 +89,16 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     student.IdIdentificationType,
                     student.Identification);
                 
-                // Validar existencia de usuario
                 if (identResult == null || identResult.Id <= 0)
                     throw new KeyNotFoundException($"No se encontró el usuario con identificación '{student.Identification}'");
                 
                 userDictionary.Add(student.Identification, identResult);
             }
 
-            // Validación: Todos los usuarios deben tener el rol 'STUDENT'
             var userIds = userDictionary.Values.Select(u => u.Id).ToList();
             var users = await _unitOfWork.GetRepository<User, int>()
                 .GetAllAsync(u => userIds.Contains(u.Id));
+            
             var usersDict = users.ToDictionary(u => u.Id);
             
             var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
@@ -103,20 +106,22 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             
             var roleRepo = _unitOfWork.GetRepository<Role, int>();
             var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT", cancellationToken);
+            
             if (studentRole == null)
                 throw new InvalidOperationException("No se encontró el rol 'STUDENT' en el sistema.");
-                  var studentRoleId = studentRole.Id;
+            
+            var studentRoleId = studentRole.Id;
             foreach (var student in request.Dto.Students)
             {
                 var userInfo = userDictionary[student.Identification];
                 var hasStudentRole = userRoles.Any(ur => ur.IdUser == userInfo.Id && ur.IdRole == studentRoleId);
+                
                 if (!usersDict.ContainsKey(userInfo.Id) || !hasStudentRole)
                 {
                     throw new InvalidOperationException($"El usuario con identificación '{student.Identification}' no existe o no tiene el rol 'STUDENT'.");
                 }
             }
 
-            // Validación: Verificar que los estudiantes no tengan inscripciones activas
             var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
             var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
             
@@ -124,14 +129,12 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             {
                 var userInfo = userDictionary[student.Identification];
                 
-                // Buscar todas las inscripciones del usuario
                 var userInscriptions = await userInscriptionRepo.GetAllAsync(
                     ui => ui.IdUser == userInfo.Id && ui.StatusRegister);
                 
                 var inscriptionModalityIds = userInscriptions.Select(ui => ui.IdInscriptionModality).ToList();
                 if (inscriptionModalityIds.Any())
                 {
-                    // Verificar si alguna de estas inscripciones tiene una modalidad activa
                     bool hasActiveInscription = await inscriptionModalityRepo.AnyAsync(
                         im => inscriptionModalityIds.Contains(im.Id) && im.StatusRegister,
                         cancellationToken);
@@ -145,21 +148,29 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
             try
             {
-                // 1. Create the modality record (sin IdStateInscription e IdStageModality - serán manejados por trigger)
+                // Assign initial state depending on the modality's approval requirements
+                var stateInscriptionRepo = _unitOfWork.GetRepository<StateInscription, int>();
+                var targetStateCode = modality.RequiresApproval ? Domain.Constants.StateInscriptionCodes.Pendiente : Domain.Constants.StateInscriptionCodes.NoAplica;
+                var initialState = await stateInscriptionRepo.GetFirstOrDefaultAsync(s => s.Code == targetStateCode, cancellationToken);
+                
+                if (initialState == null)
+                    throw new InvalidOperationException($"No se encontró el estado inicial: {targetStateCode}");
+
+                // 1. Create the inscription record
                 var inscriptionModalityDto = await _mediator.Send(
                     new CreateEntityCommand<InscriptionModality, int, InscriptionModalityDto>(
                         new InscriptionModalityDto
                         {
                             IdModality = request.Dto.InscriptionModality.IdModality,
                             IdAcademicPeriod = academicPeriodId,
+                            IdStateInscription = initialState.Id,
                             Observations = request.Dto.InscriptionModality.Observations
                         }),
                     cancellationToken);
 
-                // 2. Get the generated ID for the modality record
                 var inscriptionModalityId = inscriptionModalityDto.Id;
 
-                // 3. Crear los registros de estudiantes enlazados a la modalidad
+                // 2. Link students to the newly created inscription
                 foreach (var studentDto in request.Dto.Students)
                 {
                     var userIdentification = userDictionary[studentDto.Identification];
@@ -175,7 +186,18 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                         cancellationToken);
                 }
 
-                // 4. Prepare and return the response
+                // 3. Dispatch initial domain event to trigger extension record creation
+                var primaryStudentId = userDictionary.Values.First().Id;
+                await _mediator.Publish(new Domain.Events.InscriptionStateChangedEvent(
+                    InscriptionModalityId: inscriptionModalityId,
+                    ModalityId: modality.Id,
+                    NewStateInscriptionId: initialState.Id,
+                    TriggeredByUserId: primaryStudentId
+                ), cancellationToken);
+
+                await _unitOfWork.CommitAsync(cancellationToken);
+
+                // 4. Prepare response
                 var students = request.Dto.Students.Select(s =>
                 {
                     var userIdentification = userDictionary[s.Identification];
@@ -193,7 +215,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     Students = students
                 };
 
-                // 5. Enviar notificación automática después de crear exitosamente la inscripción
+                // 5. Send automated notifications asynchronously
                 try
                 {
                     var studentIds = userDictionary.Values.Select(u => u.Id);
@@ -208,7 +230,6 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 }
                 catch (Exception notificationEx)
                 {
-                    // Log del error pero no fallar el proceso principal
                     _logger.LogError(notificationEx, "Error al enviar notificación automática para inscripción ID {InscriptionId}", inscriptionModalityId);
                 }
 
