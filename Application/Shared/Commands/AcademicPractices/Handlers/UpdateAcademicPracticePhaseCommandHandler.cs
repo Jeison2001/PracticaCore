@@ -1,24 +1,25 @@
-using Domain.Interfaces.Services.Notifications.Dispatcher;
+using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.AcademicPractices.Handlers
 {
     public class UpdateAcademicPracticePhaseCommandHandler : IRequestHandler<UpdateAcademicPracticePhaseCommand, bool>
     {
         private readonly IAcademicPracticeRepository _academicPracticeRepository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly INotificationDispatcher _notificationDispatcher;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IJobEnqueuer _jobEnqueuer;
 
         public UpdateAcademicPracticePhaseCommandHandler(
             IAcademicPracticeRepository academicPracticeRepository,
             IUnitOfWork unitOfWork,
-            INotificationDispatcher notificationDispatcher)
+            IJobEnqueuer jobEnqueuer)
         {
             _academicPracticeRepository = academicPracticeRepository;
             _unitOfWork = unitOfWork;
-            _notificationDispatcher = notificationDispatcher;
+            _jobEnqueuer = jobEnqueuer;
         }
 
         public async Task<bool> Handle(UpdateAcademicPracticePhaseCommand request, CancellationToken cancellationToken)
@@ -41,18 +42,20 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
 
             await _unitOfWork.CommitAsync(cancellationToken);
 
-            // Verificar si realmente hubo cambio de estado y disparar notificación
+            // Verificar si realmente hubo cambio de estado y procesar notificación en background
             if (original.IdStateStage != dto.NewStateStageId)
             {
-                // Obtener la entidad actualizada para la notificación
-                var updatedEntity = await _academicPracticeRepository.GetByIdAsync(dto.Id);
-                if (updatedEntity != null)
-                {
-                    await _notificationDispatcher.DispatchEntityChangeAsync<AcademicPractice, int>(original, updatedEntity, cancellationToken);
-                }
+                ProcessNotificationsAsync(dto.Id, original.IdStateStage);
             }
 
             return true;
+        }
+
+        private void ProcessNotificationsAsync(int practiceId, int oldStateId)
+        {
+            // Fire-and-forget seguro usando Hangfire
+            _jobEnqueuer.Enqueue<INotificationBackgroundJob>(
+                x => x.HandleAcademicPracticeChangeAsync(practiceId, oldStateId));
         }
     }
 }

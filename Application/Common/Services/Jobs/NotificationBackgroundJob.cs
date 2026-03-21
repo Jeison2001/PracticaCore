@@ -108,5 +108,34 @@ namespace Application.Common.Services.Jobs
                 throw;
             }
         }
+
+        public async Task HandleAcademicPracticeChangeAsync(int practiceId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<AcademicPractice, int>>();
+
+                if (repository == null)
+                {
+                    _logger.LogError("Repository not found for AcademicPractice");
+                    return;
+                }
+
+                var entity = await repository.GetByIdAsync(practiceId);
+                if (entity == null)
+                {
+                    _logger.LogWarning("AcademicPractice with ID {Id} not found during background processing", practiceId);
+                    return;
+                }
+
+                var oldEntity = new AcademicPractice { Id = practiceId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<AcademicPractice, int>(oldEntity, entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing academic practice change job for ID {Id}", practiceId);
+                throw;
+            }
+        }
     }
 }
