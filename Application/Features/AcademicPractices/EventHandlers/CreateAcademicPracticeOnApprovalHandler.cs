@@ -77,6 +77,19 @@ namespace Application.Features.AcademicPractices.EventHandlers
             inscription.OperationRegister += " | Fase asignada por DomainEvent";
 
             await inscriptionModalityRepo.UpdateAsync(inscription);
+
+            // Asignar permisos iniciales de Phase 0 (F0)
+            await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
+                _unitOfWork,
+                notification.InscriptionModalityId,
+                [
+                    PermissionCodes.PracticaAcademica.N1PA,
+                    PermissionCodes.PracticaAcademica.N2PAF0,
+                    PermissionCodes.PracticaAcademica.N3PAF0R,
+                    PermissionCodes.PracticaAcademica.N3PAF0C
+                ],
+                notification.TriggeredByUserId,
+                cancellationToken);
         }
     }
 }
