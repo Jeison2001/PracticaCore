@@ -36,7 +36,7 @@ PracticaCore es un proyecto diseñado para implementar una arquitectura limpia (
 ## 🚀 Configuración Rápida
 
 ### Prerrequisitos
-- .NET 8.0 SDK
+- .NET 10.0 SDK
 - PostgreSQL 12+
 - (Opcional) Docker para desarrollo local
 
@@ -72,6 +72,20 @@ PracticaCore es un proyecto diseñado para implementar una arquitectura limpia (
 ### Ejecutar Tests
 ```bash
 dotnet test
+```
+
+---
+
+## 📤 Despliegue
+
+### Publicar en Release
+```bash
+dotnet publish Api/Api.csproj --configuration Release --output publish
+```
+
+### Publicar en carpeta específica
+```bash
+dotnet publish Api/Api.csproj --configuration Release --output <ruta_destino>
 ```
 
 ---
