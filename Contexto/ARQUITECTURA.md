@@ -47,6 +47,7 @@ Este proyecto sigue los principios de **Clean Architecture** para garantizar la 
 - `Interfaces/` - Contratos para repositorios y servicios
 - `Enums/` - Enumeraciones del dominio
 - `Exceptions/` - Excepciones de negocio
+- `Events/` - Eventos de dominio (Domain Events) que representan cosas que ocurrieron en el negocio
 - `Common/` - Utilidades compartidas del dominio
 
 > 📖 **Detalles:** Ver [CONVENCIONES_NAMESPACES.md](CONVENCIONES_NAMESPACES.md) para organización de namespaces

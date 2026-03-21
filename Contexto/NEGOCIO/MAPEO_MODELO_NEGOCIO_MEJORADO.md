@@ -28,12 +28,12 @@ Este documento describe las entidades principales del esquema de base de datos, 
 | ThematicArea           | Define las áreas temáticas específicas dentro de una sub-línea de investigación, como "Arquitectura Empresarial" o "Machine Learning". | Es el nivel más granular de clasificación para la investigación.                                                   |
 | Role                   | Define los roles de los usuarios en el sistema, como Estudiante, Docente, Director de comité o Jefe de departamento. | Cada User puede tener uno o más roles asignados a través de UserRole.                                             |
 | StageModality          | Define las fases secuenciales que componen una modalidad de grado. Por ejemplo, para "Proyecto de Grado" las fases son: Propuesta, Anteproyecto, Informe Final y Sustentación. | Cada fase tiene un orden y agrupa un conjunto de estados (StateStage).                                            |
-| StateInscription       | Define los posibles estados de una inscripción inicial a una modalidad, como "Pendiente", "Aprobado" o "Rechazado". | Un trigger (TrgInitialStateInscription) asigna el estado inicial basándose en si la modalidad requiere aprobación. |
-| StateStage             | Tabla clave que define los estados específicos por los que pasa un proceso dentro de cada fase (StageModality), como "Radicada", "En Evaluación" o "Aprobado". | Es fundamental para la lógica de negocio, ya que los cambios de estado (ej. de "AP_EN_EVALUACION" a "AP_APROBADO") disparan transiciones automáticas a la siguiente fase. |
+| StateInscription       | Define los posibles estados de una inscripción inicial a una modalidad, como "Pendiente", "Aprobado" o "Rechazado". | Un EventHandler en C# asigna el estado inicial basándose en si la modalidad requiere aprobación (anteriormente manejado por un trigger). |
+| StateStage             | Tabla clave que define los estados específicos por los que pasa un proceso dentro de cada fase (StageModality), como "Radicada", "En Evaluación" o "Aprobado". | Es fundamental para la lógica de negocio, ya que los cambios de estado disparan transiciones automáticas mediante Domain Events. |
 | TeachingAssignment     | Registra la asignación de docentes a un trabajo de grado con un rol específico, como Director, Co-Director o Jurado Evaluador. | Vincula un User (docente) a una InscriptionModality con un TypeTeachingAssignment.                                |
 | TypeTeachingAssignment | Cataloga los roles que un docente puede desempeñar en una asignación académica.                     | Proporciona los tipos para TeachingAssignment.                                                                    |
 | User                   | Almacena la información de todos los usuarios del sistema (estudiantes, docentes, administrativos). | Es la entidad central de actores, vinculada a roles, permisos, inscripciones y asignaciones.                      |
-| EmailNotificationConfig y EmailRecipientRule | Sistema para el envío de notificaciones automáticas por correo electrónico basadas en eventos del sistema, como la radicación de una propuesta o la aprobación de una inscripción. | Las plantillas (EmailNotificationConfig) y las reglas de destinatarios (EmailRecipientRule) permiten una comunicación fluida y automatizada con los involucrados. |
+| EmailNotificationConfig y EmailRecipientRule | Sistema para el envío de notificaciones automáticas por correo electrónico basadas en eventos del sistema. | Las plantillas (EmailNotificationConfig) y reglas permiten una comunicación fluida. |
 
 ---
 
@@ -43,10 +43,10 @@ El modelo de datos está diseñado para dar soporte completo al Acuerdo 015, ref
 
 La arquitectura es altamente modular y escalable, utilizando tablas de estado (StateStage) y fases (StageModality) para gestionar la lógica de negocio de manera centralizada.
 
-El uso de triggers de base de datos es intensivo para automatizar procesos clave, como:
+La automatización de procesos clave, **que anteriormente se basaba intensivamente en triggers de base de datos, ahora está implementada a nivel de código mediante Patrón Observer (Domain Events con MediatR)**. Esto incluye:
 
-- Asignar el estado inicial a una inscripción (TrgInitialStateInscription).
-- Asignar permisos a los estudiantes a medida que avanzan de fase (fn_assign_permissions_to_inscription_users).
+- Asignar el estado inicial a una inscripción.
+- Asignar permisos a los estudiantes a medida que avanzan de fase.
 - Crear instancias de AcademicPractice o Proposal cuando una inscripción es aprobada.
 - Transitar automáticamente de una fase a la siguiente cuando se alcanza un estado final (ej. AP_APROBADO en Anteproyecto inicia la fase de Proyecto).
 
@@ -56,10 +56,10 @@ La gestión de roles y permisos es granular, permitiendo un control de acceso pr
 
 ## Ejemplo de Flujo: Modalidad "Proyecto de Grado" 🎓
 
-1. **Inscripción:** Un User (estudiante) con el rol "STUDENT" se inscribe a la Modality "PROYECTO_GRADO" a través de InscriptionModality. Un trigger evalúa si requiere aprobación y le asigna un StateInscription ("PENDIENTE").
-2. **Aprobación y Fase de Propuesta:** El comité aprueba la inscripción. El StateInscription cambia a "APROBADO". Un trigger actualiza la InscriptionModality para que apunte a la primera StageModality ("PG_FASE_PROPUESTA") y asigna los permisos necesarios al estudiante para radicar su propuesta.
+1. **Inscripción:** Un User (estudiante) con el rol "STUDENT" se inscribe a la Modality "PROYECTO_GRADO" a través de InscriptionModality. El sistema evalúa si requiere aprobación y le asigna un StateInscription ("PENDIENTE").
+2. **Aprobación y Fase de Propuesta:** El comité aprueba la inscripción. El StateInscription cambia a "APROBADO" disparando el evento de dominio `InscriptionStateChangedEvent`. Los handlers actualizan la InscriptionModality a la primera StageModality ("PG_FASE_PROPUESTA") y asignan los permisos.
 3. **Radicación de Propuesta:** El estudiante registra su Proposal. Esta se crea con un StateStage inicial ("PROP_RADICADA").
-4. **Evaluación y Fase de Anteproyecto:** La propuesta es evaluada y su estado cambia a "PROP_PERTINENTE". Esto dispara otro trigger que:
+4. **Evaluación y Fase de Anteproyecto:** La propuesta es evaluada y su estado cambia a "PROP_PERTINENTE" disparando el evento de dominio `ProposalStateChangedEvent` que:
    - Actualiza la InscriptionModality a la siguiente fase: "PG_FASE_ANTEPROYECTO".
    - Crea una instancia en la tabla PreliminaryProject con su estado inicial.
    - Asigna al estudiante los permisos para cargar el documento del anteproyecto.

@@ -193,46 +193,78 @@ public async Task<IActionResult> Create([FromBody] ProposalDto dto)
 5. Handler ejecuta lógica
 6. Retorna resultado
 
-## Notification Pattern (Domain Events)
+## Domain Events Pattern (Patrón Observer)
 
-### Dispatcher
+Se han reemplazado los triggers de base de datos por Eventos de Dominio gestionados por MediatR. Esto permite acoplamiento débil entre el cambio de estado de una entidad y las reglas de negocio que se disparan como resultado.
+
+### Definición del Evento (Dominio)
 
 ```csharp
-// Domain/Interfaces/Services/Notifications/Dispatcher/INotificationDispatcher.cs
-public interface INotificationDispatcher
+// Domain/Common/BaseEvent.cs
+public abstract record BaseEvent : INotification;
+
+// Domain/Events/InscriptionStateChangedEvent.cs
+public record InscriptionStateChangedEvent(
+    int InscriptionModalityId, 
+    int ModalityId, 
+    int NewStateInscriptionId, 
+    int TriggeredByUserId) : BaseEvent;
+```
+
+### Agregando el Evento (Entidad)
+
+```csharp
+// Domain/Entities/BaseEntity.cs
+public abstract class BaseEntity<TId> where TId : struct
 {
-    Task DispatchEntityChangedAsync<T>(T originalEntity, T modifiedEntity, string changeType)
-        where T : class;
+    private readonly List<BaseEvent> _domainEvents = new();
+    public IReadOnlyCollection<BaseEvent> DomainEvents => _domainEvents.AsReadOnly();
+
+    public void AddDomainEvent(BaseEvent domainEvent) => _domainEvents.Add(domainEvent);
+    public void ClearDomainEvents() => _domainEvents.Clear();
 }
 
-// Application/Common/Services/Notifications/Dispatcher/NotificationDispatcher.cs
-public class NotificationDispatcher : INotificationDispatcher
+// Ejemplo de uso en un handler de Application o servicio:
+inscription.IdStateInscription = newStateId;
+inscription.AddDomainEvent(new InscriptionStateChangedEvent(
+    inscription.Id, inscription.IdModality, newStateId, userId));
+```
+
+### Dispatcher (UnitOfWork)
+
+El `UnitOfWork` intercepta el `SaveChanges` de EF Core, recolecta todos los `DomainEvents` pendientes y los publica vía MediatR en la misma transacción:
+
+```csharp
+// Infrastructure/Repositories/UnitOfWork.cs
+public async Task<int> CommitAsync(CancellationToken ct = default)
 {
-    private readonly Dictionary<Type, IEntityChangeHandler> _handlers;
-    
-    public async Task DispatchEntityChangedAsync<T>(T original, T modified, string changeType)
+    var domainEvents = _context.ChangeTracker.Entries<BaseEntity<int>>()
+        .SelectMany(x => x.Entity.DomainEvents).ToList();
+
+    var result = await _context.SaveChangesAsync(ct);
+
+    foreach (var domainEvent in domainEvents)
     {
-        if (_handlers.TryGetValue(typeof(T), out var handler))
-        {
-            await handler.HandleChangeAsync(original, modified, changeType);
-        }
+        await _mediator.Publish(domainEvent, ct);
     }
+    
+    // ... clear events ...
+    return result;
 }
 ```
 
-### Handler
+### Múltiples Handlers Reaccionan al Evento (Application)
 
 ```csharp
-// Application/Common/Services/Notifications/Handlers/ProposalChangeHandler.cs
-public class ProposalChangeHandler : IEntityChangeHandler<Proposal>
+// Application/Features/Proposals/EventHandlers/StartProposalPhaseOnApprovalHandler.cs
+public class StartProposalPhaseOnApprovalHandler : INotificationHandler<InscriptionStateChangedEvent>
 {
-    private readonly IProposalEventDataBuilder _builder;
-    private readonly IEmailNotificationEventService _notificationService;
-    
-    public async Task HandleChangeAsync(Proposal original, Proposal modified, string changeType)
+    public async Task Handle(InscriptionStateChangedEvent notification, CancellationToken ct)
     {
-        var eventData = await _builder.BuildEventDataAsync(modified, changeType);
-        await _notificationService.ProcessEventAsync(eventData);
+        // ... Solo reaccionar si la modalidad es Proyecto de Grado
+        if (modality.Code != ModalityCodes.ProyectoGrado) return;
+        
+        // Ejecutar lógica de negocio como avance de fase, creación de registros, etc.
     }
 }
 ```

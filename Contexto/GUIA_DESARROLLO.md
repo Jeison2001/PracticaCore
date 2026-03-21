@@ -239,6 +239,11 @@ namespace Application.Shared.Commands.Course.Handlers
         public async Task<bool> Handle(EnrollStudentCommand request, CancellationToken ct)
         {
             // Lógica personalizada
+            var course = await _repository.GetByIdAsync(request.CourseId, ct);
+            course.AddDomainEvent(new StudentEnrolledEvent(request.CourseId, request.StudentId));
+            
+            // CommitAsync disparará todos los DomainEvents registrados automáticamente
+            await _unitOfWork.CommitAsync(ct);
             return true;
         }
     }
