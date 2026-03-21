@@ -8,6 +8,9 @@ namespace Tests.Integration.Utilities
     {
         public static void SeedCatalogs(AppDbContext context)
         {
+            // Check if already seeded to make idempotent
+            if (context.Set<Modality>().Any()) return;
+
             // Seed Modalities
             context.Set<Modality>().AddRange(
                 new Modality { Id = 1, Code = ModalityCodes.ProyectoGrado, Name = "Proyecto de Grado", RequiresApproval = true, StatusRegister = true, OperationRegister = "Seed" },
@@ -47,8 +50,9 @@ namespace Tests.Integration.Utilities
                 new StateStage { Id = 2, Code = StateStageCodes.PaDesarrolloAprobada, IdStageModality = 2, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 10, Code = StateStageCodes.PaInscripcionPendDoc, IdStageModality = 1, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
                 
-                // Proyecto de Grado - Propuesta
-                new StateStage { Id = 3, Code = StateStageCodes.PropPertinente, IdStageModality = 4, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
+                // Proyecto de Grado - Propuesta (Fase inicial)
+                new StateStage { Id = 3, Code = StateStageCodes.PgPropuestaInicial, IdStageModality = 4, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 30, Code = StateStageCodes.PropPertinente, IdStageModality = 4, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
                 
                 // Proyecto de Grado - Anteproyecto
                 new StateStage { Id = 4, Code = StateStageCodes.ApPendienteDocumento, IdStageModality = 5, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },

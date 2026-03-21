@@ -1,4 +1,5 @@
 using Api.Responses;
+using Application.Shared.Commands.Proposals;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Proposals;
 using Application.Shared.Queries.Proposals;
@@ -16,6 +17,14 @@ namespace Api.Controllers
         public ProposalController(IMediator mediator) : base(mediator)
         {
             _mediator = mediator;
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] CreateProposalDto dto)
+        {
+            var command = new CreateProposalCommand(dto);
+            var result = await _mediator.Send(command);
+            return Ok(new ApiResponse<ProposalDto> { Success = true, Data = result });
         }
 
         [HttpGet("GetAll")]
@@ -52,28 +61,34 @@ namespace Api.Controllers
 
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(
-            int id, 
+            int id,
             [FromQuery] PaginatedRequest request)
         {
             var query = new GetProposalsByTeacherQuery(
-                id, 
-                request.PageNumber, 
-                request.PageSize, 
-                request.SortBy ?? "", 
-                request.IsDescending, 
+                id,
+                request.PageNumber,
+                request.PageSize,
+                request.SortBy ?? "",
+                request.IsDescending,
                 request.Filters ?? new Dictionary<string, string>());
-            
+
             var result = await _mediator.Send(query);
-            
-            return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> { 
-                Success = true, 
+
+            return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> {
+                Success = true,
                 Data = result,
                 Messages = new List<string> { $"Se encontraron {result.TotalRecords} propuestas asignadas al docente." }
             });
         }
-        
+
         [NonAction]
         public override Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> Create([FromBody] ProposalDto dto)
         {
             return Task.FromResult<IActionResult>(NotFound());
         }

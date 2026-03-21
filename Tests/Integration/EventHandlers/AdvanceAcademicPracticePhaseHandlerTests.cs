@@ -62,6 +62,16 @@ namespace Tests.Integration.EventHandlers
                 CreatedAt = DateTime.UtcNow, StatusRegister = true, OperationRegister = "Test"
             });
 
+            // Seed AcademicPractice for date stamping (handler updates it on state transitions)
+            var academicPractice = new AcademicPractice
+            {
+                Id = inscription.Id,
+                Title = "Test Practice",
+                StatusRegister = true,
+                OperationRegister = "Test"
+            };
+            context.Set<AcademicPractice>().Add(academicPractice);
+
             await context.SaveChangesAsync();
             context.ChangeTracker.Clear();
 
@@ -138,6 +148,16 @@ namespace Tests.Integration.EventHandlers
                 Id = 2, IdUser = user.Id, IdInscriptionModality = inscription.Id,
                 CreatedAt = DateTime.UtcNow, StatusRegister = true, OperationRegister = "Test"
             });
+
+            // Seed AcademicPractice for date stamping (handler updates it on state transitions)
+            var academicPractice = new AcademicPractice
+            {
+                Id = inscription.Id,
+                Title = "Test Practice",
+                StatusRegister = true,
+                OperationRegister = "Test"
+            };
+            context.Set<AcademicPractice>().Add(academicPractice);
 
             await context.SaveChangesAsync();
             context.ChangeTracker.Clear();

@@ -6,11 +6,14 @@ namespace Domain.Constants
     public static class StateStageCodes
     {
         // Práctica Académica
-        public const string PaInscripcionPendDoc   = "PA_INSCRIPCION_PEND_DOC";
-        public const string PaInscripcionAprobada  = "PA_INSCRIPCION_APROBADA";
-        public const string PaDesarrolloAprobada   = "PA_DESARROLLO_APROBADA";
+        public const string PaInscripcionPendDoc       = "PA_INSCRIPCION_PEND_DOC";
+        public const string PaInscripcionAprobada      = "PA_INSCRIPCION_APROBADA";
+        public const string PaDesarrolloAprobada       = "PA_DESARROLLO_APROBADA";
+        public const string PaInformeFinalEnRevision  = "PA_INFORME_FINAL_EN_REVISION";
+        public const string PaAprobado                = "PA_APROBADO";
 
         // Propuesta (Proyecto de Grado — Fase Propuesta)
+        public const string PgPropuestaInicial      = "PG_PROPUESTA_INICIAL";
         public const string PropPertinente         = "PROP_PERTINENTE";
 
         // Anteproyecto (Proyecto de Grado — Fase Anteproyecto)

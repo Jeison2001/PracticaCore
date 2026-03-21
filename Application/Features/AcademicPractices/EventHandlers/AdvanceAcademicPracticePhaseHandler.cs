@@ -9,10 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace Application.Features.AcademicPractices.EventHandlers
 {
     /// <summary>
-    /// Reemplaza: trg_assign_practice_phase_permissions + trg_academic_practice_phase_transitions
-    /// Gestiona dos responsabilidades al cambiar el estado de AcademicPractice:
+    /// Reemplaza: trg_assign_practice_phase_permissions + trg_academic_practice_phase_transitions + trg_academic_practice_dates
+    /// Gestiona tres responsabilidades al cambiar el estado de AcademicPractice:
     ///   1. Transiciones automáticas de fase en InscriptionModality.
     ///   2. Asignación de permisos progresivos al estudiante.
+    ///   3. Estampado de fechas de aprobación automáticas (equivalente al trigger BEFORE UPDATE).
     /// </summary>
     public class AdvanceAcademicPracticePhaseHandler : INotificationHandler<AcademicPracticeStateChangedEvent>
     {
@@ -42,8 +43,56 @@ namespace Application.Features.AcademicPractices.EventHandlers
             var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
             if (modality?.Code != ModalityCodes.PracticaAcademica) return;
 
+            var academicPracticeRepo = _unitOfWork.GetRepository<AcademicPractice, int>();
+            var academicPractice = await academicPracticeRepo.GetByIdAsync(notification.InscriptionModalityId);
+            if (academicPractice == null) return;
+
             var stageModalityRepo = _unitOfWork.GetRepository<StageModality, int>();
 
+            // =========================================================================
+            // 1. ESTAMPADO DE FECHAS AUTOMÁTICAS (equivalente a trg_academic_practice_dates)
+            // =========================================================================
+            switch (newState.Code)
+            {
+                case StateStageCodes.PaInscripcionAprobada:
+                    if (academicPractice.AvalApprovalDate == null)
+                    {
+                        academicPractice.AvalApprovalDate = DateTime.UtcNow;
+                        academicPractice.PlanApprovalDate = DateTime.UtcNow;
+                        _logger.LogInformation("{Handler}: Fechas Aval y Plan establecidas para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
+                    }
+                    break;
+
+                case StateStageCodes.PaDesarrolloAprobada:
+                    if (academicPractice.DevelopmentCompletionDate == null)
+                    {
+                        academicPractice.DevelopmentCompletionDate = DateTime.UtcNow;
+                        _logger.LogInformation("{Handler}: Fecha DevelopmentCompletion establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
+                    }
+                    break;
+
+                case StateStageCodes.PaInformeFinalEnRevision:
+                    if (academicPractice.FinalReportApprovalDate == null)
+                    {
+                        academicPractice.FinalReportApprovalDate = DateTime.UtcNow;
+                        _logger.LogInformation("{Handler}: Fecha FinalReportApproval establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
+                    }
+                    break;
+
+                case StateStageCodes.PaAprobado:
+                    if (academicPractice.FinalApprovalDate == null)
+                    {
+                        academicPractice.FinalApprovalDate = DateTime.UtcNow;
+                        _logger.LogInformation("{Handler}: Fecha FinalApproval establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
+                    }
+                    break;
+            }
+
+            await academicPracticeRepo.UpdateAsync(academicPractice);
+
+            // =========================================================================
+            // 2. TRANSICIONES DE FASE Y PERMISOS (lógica existente)
+            // =========================================================================
             switch (newState.Code)
             {
                 // Transición: Inscripción Aprobada → Fase Desarrollo + permisos F1

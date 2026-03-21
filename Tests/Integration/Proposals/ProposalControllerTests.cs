@@ -2,12 +2,15 @@ using System.Net;
 using System.Net.Http.Json;
 using Api.Responses;
 using Application.Shared.DTOs.Proposals;
+using Domain.Constants;
 using Domain.Entities;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Domain.Common;
 using Infrastructure.Data;
+using Tests.Integration.Utilities;
 
 namespace Tests.Integration.Proposals
 {
@@ -17,6 +20,9 @@ namespace Tests.Integration.Proposals
 
         public ProposalControllerTests(CustomWebApplicationFactory factory) : base(factory)
         {
+            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            if (!context.Set<Modality>().Any())
+                SeedingUtilities.SeedCatalogs(context);
         }
 
         protected override ProposalDto CreateValidDto()
@@ -122,53 +128,69 @@ namespace Tests.Integration.Proposals
         // Override Create because we need to seed data BEFORE creating the DTO
         public override async Task Create_ReturnsCreated()
         {
-            // Arrange
-            var dto = CreateValidDto();
-            
+            // Arrange - use CreateProposalDto (not ProposalDto) to match endpoint signature
+            var dto = new CreateProposalDto
+            {
+                Title = "Test Proposal",
+                GeneralObjective = "Test Objective",
+                SpecificObjectives = new List<string> { "Obj 1", "Obj 2" },
+                Description = "Test Description",
+            };
+
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // Seed InscriptionModality
-                var modality = new Modality { Name = "Test Modality Create " + Guid.NewGuid(), Description = "Test" };
-                context.Set<Modality>().Add(modality);
-                var stateInscription = new StateInscription { Name = "Test State Create " + Guid.NewGuid() };
-                context.Set<StateInscription>().Add(stateInscription);
-                var academicPeriod = new AcademicPeriod { Code = "2025-C" + Guid.NewGuid().ToString().Substring(0,4), StartDate = DateTime.Now, EndDate = DateTime.Now.AddMonths(6) };
-                context.Set<AcademicPeriod>().Add(academicPeriod);
-                context.SaveChanges();
+                // Create unique inscription ID (starts from high number to avoid conflicts)
+                int inscriptionId = 5000;
+                while (context.Set<InscriptionModality>().Local.Any(i => i.Id == inscriptionId) ||
+                       await context.Set<InscriptionModality>().AnyAsync(i => i.Id == inscriptionId))
+                    inscriptionId++;
 
+                // Get or create AcademicPeriod
+                var academicPeriod = context.Set<AcademicPeriod>().Local.FirstOrDefault()
+                    ?? await context.Set<AcademicPeriod>().FirstOrDefaultAsync();
+                if (academicPeriod == null)
+                {
+                    academicPeriod = new AcademicPeriod { Code = "2025-C", StartDate = DateTime.Now, EndDate = DateTime.Now.AddMonths(6) };
+                    context.Set<AcademicPeriod>().Add(academicPeriod);
+                    await context.SaveChangesAsync();
+                }
+
+                // Create InscriptionModality
                 var inscription = new InscriptionModality
                 {
-                    IdModality = modality.Id,
-                    IdStateInscription = stateInscription.Id,
-                    IdAcademicPeriod = academicPeriod.Id
+                    Id = inscriptionId,
+                    IdModality = 1,  // Proyecto de Grado (seeded by SeedingUtilities in constructor)
+                    IdStageModality = 4,  // PG_FASE_PROPUESTA (seeded by SeedingUtilities)
+                    IdStateInscription = 2,  // Aprobado
+                    IdAcademicPeriod = academicPeriod.Id,
+                    StatusRegister = true,
+                    OperationRegister = "Test"
                 };
                 context.Set<InscriptionModality>().Add(inscription);
-                context.SaveChanges();
+                await context.SaveChangesAsync();
 
-                // Seed Proposal Dependencies
-                var researchLine = new ResearchLine { Name = "Line Create " + Guid.NewGuid(), Description = "Desc" };
+                // Create ResearchLine
+                var researchLine = new ResearchLine { Name = "Line " + Guid.NewGuid(), Description = "Desc", StatusRegister = true, OperationRegister = "Test" };
                 context.Set<ResearchLine>().Add(researchLine);
-                context.SaveChanges();
-                var subLine = new ResearchSubLine { Name = "SubLine Create " + Guid.NewGuid(), Description = "Desc", IdResearchLine = researchLine.Id };
-                context.Set<ResearchSubLine>().Add(subLine);
-                var stateStage = new StateStage { Name = "Stage Create " + Guid.NewGuid() };
-                context.Set<StateStage>().Add(stateStage);
-                context.SaveChanges();
+                await context.SaveChangesAsync();
 
-                // Update DTO
-                dto.Id = inscription.Id; // IMPORTANT: Proposal ID must match Inscription ID
+                // Create ResearchSubLine
+                var subLine = new ResearchSubLine { Name = "SubLine " + Guid.NewGuid(), Description = "Desc", IdResearchLine = researchLine.Id, StatusRegister = true, OperationRegister = "Test" };
+                context.Set<ResearchSubLine>().Add(subLine);
+                await context.SaveChangesAsync();
+
+                dto.Id = inscription.Id;
                 dto.IdResearchLine = researchLine.Id;
                 dto.IdResearchSubLine = subLine.Id;
-                dto.IdStateStage = stateStage.Id;
             }
 
             // Act
             var response = await _client.PostAsJsonAsync(BaseUrl, dto);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await response.Content.ReadFromJsonAsync<ApiResponse<ProposalDto>>();
             result.Should().NotBeNull();
             result!.Success.Should().BeTrue();

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Api.Responses;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Common;
+using Domain.Constants;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Data;
@@ -26,7 +27,7 @@ namespace Tests.Integration.Inscription
             var modality = new Modality { Name = "Modality " + Guid.NewGuid(), Description = "Desc", StatusRegister = true, MaxStudents = 5 };
             context.Set<Modality>().Add(modality);
 
-            var state = new StateInscription { Name = "State " + Guid.NewGuid(), Description = "Desc", StatusRegister = true, IsInitialState = true };
+            var state = new StateInscription { Code = StateInscriptionCodes.Pendiente, Name = "State " + Guid.NewGuid(), Description = "Desc", StatusRegister = true, IsInitialState = true };
             context.Set<StateInscription>().Add(state);
 
             var period = new AcademicPeriod { Code = "2025-" + Guid.NewGuid().ToString().Substring(0, 4), StartDate = DateTime.Now, EndDate = DateTime.Now.AddMonths(6), StatusRegister = true };
