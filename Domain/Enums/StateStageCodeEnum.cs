@@ -44,6 +44,55 @@ namespace Domain.Enums
         PA_INFORME_FINAL_EN_REVISION,
         PA_INFORME_FINAL_OBSERVACIONES,
         PA_APROBADO,
-        PA_NO_APROBADO
+        PA_NO_APROBADO,
+
+        // Sustentacion (SUST)
+        SUST_PENDIENTE_PROGRAMACION,
+        SUST_PROGRAMADA,
+        SUST_APROBADA,
+        SUST_NO_APROBADA_REINTENTO,
+        SUST_REPROBADA_FINAL,
+
+        // Co-terminal (CT)
+        CT_PENDIENTE_DOCUMENTACION,
+        CT_RADICADO,
+        CT_CON_OBSERVACIONES,
+        CT_APROBADO,
+        CT_RECHAZADO,
+
+        // Seminario (SEM)
+        SEM_PENDIENTE_DOCUMENTACION,
+        SEM_RADICADO,
+        SEM_CON_OBSERVACIONES,
+        SEM_APROBADO,
+        SEM_RECHAZADO,
+
+        // Grado por Promedio (GP)
+        GP_PENDIENTE_DOCUMENTACION,
+        GP_RADICADO,
+        GP_CON_OBSERVACIONES,
+        GP_APROBADO,
+        GP_RECHAZADO,
+
+        // Saber Pro (SP)
+        SP_PENDIENTE_DOCUMENTACION,
+        SP_RADICADO,
+        SP_CON_OBSERVACIONES,
+        SP_APROBADO,
+        SP_RECHAZADO,
+
+        // Articulo de Investigacion - Inscripcion (ART_INS)
+        ART_INS_PENDIENTE,
+        ART_INS_RADICADO,
+        ART_INS_OBSERVACIONES,
+        ART_INS_APROBADO,
+        ART_INS_RECHAZADO,
+
+        // Articulo de Investigacion - Publicacion (ART_PUB)
+        ART_PUB_PENDIENTE,
+        ART_PUB_RADICADO,
+        ART_PUB_OBSERVACIONES,
+        ART_PUB_APROBADO,
+        ART_PUB_RECHAZADO
     }
 }
