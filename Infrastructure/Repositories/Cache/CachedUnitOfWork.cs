@@ -35,5 +35,11 @@ namespace Infrastructure.Repositories.Cache
             // Simplemente delegamos al UnitOfWork original
             return await _decoratedUnitOfWork.CommitAsync(ct);
         }
+
+        public Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken ct = default)
+        {
+            // Delegamos directamente — las transacciones no se cachean
+            return _decoratedUnitOfWork.BeginTransactionAsync(ct);
+        }
     }
 }
