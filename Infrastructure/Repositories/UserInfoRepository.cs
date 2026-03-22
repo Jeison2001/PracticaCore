@@ -112,7 +112,7 @@ namespace Infrastructure.Repositories
         public async Task<User> CreateUserIfNotExistsAsync(string email, string firstName, string lastName)
         {
             var user = await FindUserByEmailAsync(email);
-            
+
             if (user != null)
                 return user;
 
@@ -130,6 +130,22 @@ namespace Infrastructure.Repositories
             };
 
             await _unitOfWork.GetRepository<User, int>().AddAsync(user);
+
+            // Asignar rol STUDENT por defecto para disparar UserRoleAssignedEvent
+            // Esto activará AssignPermissionsOnRoleAssignedHandler que asignará los permisos
+            var roleRepo = _unitOfWork.GetRepository<Role, int>();
+            var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT", CancellationToken.None);
+            if (studentRole != null)
+            {
+                var userRole = new UserRole
+                {
+                    IdUser = user.Id,
+                    IdRole = studentRole.Id,
+                    IdUserCreatedAt = 1 // System user
+                };
+                await _unitOfWork.GetRepository<UserRole, int>().AddAsync(userRole);
+            }
+
             await _unitOfWork.CommitAsync();
 
             return user;
