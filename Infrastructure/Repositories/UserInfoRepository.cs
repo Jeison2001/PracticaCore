@@ -129,10 +129,12 @@ namespace Infrastructure.Repositories
                 IdAcademicProgram = 1
             };
 
+            // Primero guardar el usuario para obtener el ID generado por la base de datos
             await _unitOfWork.GetRepository<User, int>().AddAsync(user);
+            await _unitOfWork.CommitAsync();
 
-            // Asignar rol STUDENT por defecto para disparar UserRoleAssignedEvent
-            // Esto activará AssignPermissionsOnRoleAssignedHandler que asignará los permisos
+            // Ahora que el usuario tiene ID real, asignar rol STUDENT
+            // Esto disparará UserRoleAssignedEvent -> AssignPermissionsOnRoleAssignedHandler
             var roleRepo = _unitOfWork.GetRepository<Role, int>();
             var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT", CancellationToken.None);
             if (studentRole != null)
@@ -144,9 +146,8 @@ namespace Infrastructure.Repositories
                     IdUserCreatedAt = 1 // System user
                 };
                 await _unitOfWork.GetRepository<UserRole, int>().AddAsync(userRole);
+                await _unitOfWork.CommitAsync();
             }
-
-            await _unitOfWork.CommitAsync();
 
             return user;
         }
