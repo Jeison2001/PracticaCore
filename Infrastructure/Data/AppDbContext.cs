@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 using Infrastructure.Data.Configurations;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,8 +21,8 @@ namespace Infrastructure.Data
          public DbSet<DocumentClass> DocumentClasses => Set<DocumentClass>();
          public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
          public DbSet<Document> Documents => Set<Document>();
-         public DbSet<RequiredDocumentsByState> RequiredDocumentsByStates => Set<RequiredDocumentsByState>();
          
+
          // Email Notification entities
          public DbSet<EmailNotificationConfig> EmailNotificationConfigs => Set<EmailNotificationConfig>();
          public DbSet<EmailRecipientRule> EmailRecipientRules => Set<EmailRecipientRule>();

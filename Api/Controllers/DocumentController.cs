@@ -1,9 +1,7 @@
 using Application.Shared.Commands.Documents;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Documents;
-using Application.Shared.DTOs.RequiredDocumentsByState;
 using Application.Shared.Queries.Documents;
-using Application.Shared.Queries.RequiredDocuments;
 using Domain.Common;
 using Domain.Interfaces.Services.Storage;
 using MediatR;
@@ -107,26 +105,6 @@ namespace Api.Controllers
             
             var result = await _mediator.Send(query);
             return Ok(new Responses.ApiResponse<PaginatedResult<DocumentDto>>
-            {
-                Success = true,
-                Data = result,
-                Errors = new List<string>(),
-                Messages = new List<string>()
-            });
-        }
-
-        /// <summary>
-        /// Obtiene los tipos de documentos requeridos para el estado actual de una inscripción.
-        /// </summary>
-        /// <param name="inscriptionModalityId">ID de la InscriptionModality</param>
-        /// <returns>Lista de DocumentType requeridos para el estado actual</returns>
-        [HttpGet("RequiredByCurrentState/{inscriptionModalityId}")]
-        public async Task<IActionResult> GetRequiredDocumentsByCurrentState(int inscriptionModalityId)
-        {
-            var query = new GetRequiredDocumentsByCurrentStateQuery(inscriptionModalityId);
-            var result = await _mediator.Send(query);
-            
-            return Ok(new Responses.ApiResponse<List<RequiredDocumentsByStateDto>>
             {
                 Success = true,
                 Data = result,
