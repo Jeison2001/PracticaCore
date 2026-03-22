@@ -1,4 +1,4 @@
-﻿using Domain.Entities;
+using Domain.Entities;
 
 namespace Domain.Interfaces.Repositories
 {
@@ -6,5 +6,6 @@ namespace Domain.Interfaces.Repositories
     {
         IRepository<T, TId> GetRepository<T, TId>() where T : BaseEntity<TId> where TId : struct;
         Task<int> CommitAsync(CancellationToken ct = default);
+        Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken ct = default);
     }
 }

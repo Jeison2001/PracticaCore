@@ -129,27 +129,37 @@ namespace Infrastructure.Repositories
                 IdAcademicProgram = 1
             };
 
-            // Primero guardar el usuario para obtener el ID generado por la base de datos
-            await _unitOfWork.GetRepository<User, int>().AddAsync(user);
-            await _unitOfWork.CommitAsync();
-
-            // Ahora que el usuario tiene ID real, asignar rol STUDENT
-            // Esto disparará UserRoleAssignedEvent -> AssignPermissionsOnRoleAssignedHandler
-            var roleRepo = _unitOfWork.GetRepository<Role, int>();
-            var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT", CancellationToken.None);
-            if (studentRole != null)
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
             {
-                var userRole = new UserRole
-                {
-                    IdUser = user.Id,
-                    IdRole = studentRole.Id,
-                    IdUserCreatedAt = 1 // System user
-                };
-                await _unitOfWork.GetRepository<UserRole, int>().AddAsync(userRole);
+                // Persistir usuario para obtener ID generado por la base de datos
+                await _unitOfWork.GetRepository<User, int>().AddAsync(user);
                 await _unitOfWork.CommitAsync();
-            }
 
-            return user;
+                // Asignar rol STUDENT por defecto para nuevos usuarios
+                var roleRepo = _unitOfWork.GetRepository<Role, int>();
+                var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT", CancellationToken.None);
+                
+                if (studentRole != null)
+                {
+                    var userRole = new UserRole
+                    {
+                        IdUser = user.Id,
+                        IdRole = studentRole.Id,
+                        IdUserCreatedAt = 1 // System user
+                    };
+                    await _unitOfWork.GetRepository<UserRole, int>().AddAsync(userRole);
+                    await _unitOfWork.CommitAsync();
+                }
+
+                await transaction.CommitAsync();
+                return user;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }

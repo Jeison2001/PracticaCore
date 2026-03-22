@@ -89,5 +89,11 @@ namespace Infrastructure.Repositories
                 await _mediator.Publish((object)domainEvent);
             }
         }
+
+        public async Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken ct = default)
+        {
+            var transaction = await _context.Database.BeginTransactionAsync(ct);
+            return new EfDatabaseTransaction(transaction);
+        }
     }
 }
