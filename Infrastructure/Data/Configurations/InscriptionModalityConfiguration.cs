@@ -10,14 +10,14 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("InscriptionModality");
-            
-            builder.Property(e => e.IdModality).IsRequired().HasColumnName("idmodality");
-            builder.Property(e => e.IdStateInscription).IsRequired().HasColumnName("idstateinscription");
-            builder.Property(e => e.IdAcademicPeriod).IsRequired().HasColumnName("idacademicperiod");
-            builder.Property(e => e.IdStageModality).HasColumnName("idstagemodality").IsRequired(false);
-            builder.Property(e => e.ApprovalDate).HasColumnName("approvaldate").IsRequired(false);
-            builder.Property(e => e.Observations).HasColumnName("observations").IsRequired(false);
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+
+            builder.Property(e => e.IdModality).IsRequired().HasColumnName("IdModality");
+            builder.Property(e => e.IdStateInscription).IsRequired().HasColumnName("IdStateInscription");
+            builder.Property(e => e.IdAcademicPeriod).IsRequired().HasColumnName("IdAcademicPeriod");
+            builder.Property(e => e.IdStageModality).HasColumnName("IdStageModality").IsRequired(false);
+            builder.Property(e => e.ApprovalDate).HasColumnName("ApprovalDate").IsRequired(false);
+            builder.Property(e => e.Observations).HasColumnName("Observations").IsRequired(false);
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
             // Configuración de relaciones
             builder.HasOne(rm => rm.Modality)

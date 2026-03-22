@@ -11,13 +11,13 @@ namespace Infrastructure.Data.Configurations
         public virtual void Configure(EntityTypeBuilder<T> builder)
         {
             builder.HasKey(e => e.Id);
-            builder.Property(e => e.Id).HasColumnName("id");
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat");
-            builder.Property(e => e.CreatedAt).IsRequired().HasColumnName("createdat");
-            builder.Property(e => e.UpdatedAt).HasColumnName("updatedat"); ;
-            builder.Property(e => e.IdUserUpdatedAt).HasColumnName("iduserupdatedat");
-            builder.Property(e => e.OperationRegister).IsRequired().HasMaxLength(250).HasColumnName("operationregister");
-            builder.Property(e => e.StatusRegister).IsRequired().HasColumnName("statusregister");
+            builder.Property(e => e.Id).HasColumnName("Id");
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt");
+            builder.Property(e => e.CreatedAt).IsRequired().HasColumnName("CreatedAt");
+            builder.Property(e => e.UpdatedAt).HasColumnName("UpdatedAt"); ;
+            builder.Property(e => e.IdUserUpdatedAt).HasColumnName("IdUserUpdatedAt");
+            builder.Property(e => e.OperationRegister).IsRequired().HasMaxLength(250).HasColumnName("OperationRegister");
+            builder.Property(e => e.StatusRegister).IsRequired().HasColumnName("StatusRegister");
         }
     }
 }

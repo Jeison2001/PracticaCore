@@ -10,10 +10,10 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("TeacherResearchProfile");
-            builder.Property(x => x.IdUser).HasColumnName("iduser").IsRequired();
-            builder.Property(x => x.IdResearchLine).HasColumnName("idresearchline").IsRequired();
-            builder.Property(x => x.IdResearchSubLine).HasColumnName("idresearchsubline");
-            builder.Property(x => x.ProfileDescription).HasColumnName("profiledescription").HasMaxLength(255);
+            builder.Property(x => x.IdUser).HasColumnName("IdUser").IsRequired();
+            builder.Property(x => x.IdResearchLine).HasColumnName("IdResearchLine").IsRequired();
+            builder.Property(x => x.IdResearchSubLine).HasColumnName("IdResearchSubLine");
+            builder.Property(x => x.ProfileDescription).HasColumnName("ProfileDescription").HasMaxLength(255);
             builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.IdUser);
             builder.HasOne(x => x.ResearchLine).WithMany().HasForeignKey(x => x.IdResearchLine);
             builder.HasOne(x => x.ResearchSubLine).WithMany().HasForeignKey(x => x.IdResearchSubLine);

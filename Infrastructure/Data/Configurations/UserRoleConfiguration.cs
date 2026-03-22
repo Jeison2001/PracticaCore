@@ -10,9 +10,9 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("UserRole");
-            builder.Property(e => e.IdUser).HasColumnName("iduser");
-            builder.Property(e => e.IdRole).HasColumnName("idrole");
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.IdUser).HasColumnName("IdUser");
+            builder.Property(e => e.IdRole).HasColumnName("IdRole");
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
             // Configuración explícita de la relación con User
             builder.HasOne(ur => ur.User)

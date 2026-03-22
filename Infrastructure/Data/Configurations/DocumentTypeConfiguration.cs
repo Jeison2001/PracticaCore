@@ -10,13 +10,13 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("DocumentType");
-              builder.Property(e => e.IdDocumentClass).HasColumnName("iddocumentclass").IsRequired();
-            builder.Property(e => e.IdStageModality).HasColumnName("idstagemodality").IsRequired(false);
-            builder.Property(e => e.Code).IsRequired().HasMaxLength(100).HasColumnName("code");
+              builder.Property(e => e.IdDocumentClass).HasColumnName("IdDocumentClass").IsRequired();
+            builder.Property(e => e.IdStageModality).HasColumnName("IdStageModality").IsRequired(false);
+            builder.Property(e => e.Code).IsRequired().HasMaxLength(100).HasColumnName("Code");
             builder.HasIndex(e => e.Code).IsUnique();
-            builder.Property(e => e.Name).IsRequired().HasMaxLength(255).HasColumnName("name");
-            builder.Property(e => e.Description).HasColumnType("text").HasColumnName("description").IsRequired(false);
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.Name).IsRequired().HasMaxLength(255).HasColumnName("Name");
+            builder.Property(e => e.Description).HasColumnType("text").HasColumnName("Description").IsRequired(false);
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
             // Configure relationships            
             builder.HasOne(e => e.DocumentClass)

@@ -9,18 +9,18 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("Document");
-            
-            builder.Property(e => e.IdInscriptionModality).HasColumnName("idinscriptionmodality").IsRequired(false);
-            builder.Property(e => e.IdDocumentType).HasColumnName("iddocumenttype").IsRequired();
-            builder.Property(e => e.Name).HasMaxLength(255).HasColumnName("name").IsRequired(false);
-            builder.Property(e => e.OriginalFileName).IsRequired().HasMaxLength(255).HasColumnName("originalfilename");
-            builder.Property(e => e.StoredFileName).IsRequired().HasMaxLength(255).HasColumnName("storedfilename");
+
+            builder.Property(e => e.IdInscriptionModality).HasColumnName("IdInscriptionModality").IsRequired(false);
+            builder.Property(e => e.IdDocumentType).HasColumnName("IdDocumentType").IsRequired();
+            builder.Property(e => e.Name).HasMaxLength(255).HasColumnName("Name").IsRequired(false);
+            builder.Property(e => e.OriginalFileName).IsRequired().HasMaxLength(255).HasColumnName("OriginalFileName");
+            builder.Property(e => e.StoredFileName).IsRequired().HasMaxLength(255).HasColumnName("StoredFileName");
             builder.HasIndex(e => e.StoredFileName).IsUnique();
-            builder.Property(e => e.StoragePath).IsRequired().HasMaxLength(1024).HasColumnName("storagepath");
-            builder.Property(e => e.MimeType).IsRequired().HasMaxLength(100).HasColumnName("mimetype");
-            builder.Property(e => e.FileSize).IsRequired().HasColumnName("filesize");
-            builder.Property(e => e.Version).HasMaxLength(50).HasColumnName("version").IsRequired(false);
-            builder.Property(e => e.IdDocumentOld).HasColumnName("iddocumentold").IsRequired(false);
+            builder.Property(e => e.StoragePath).IsRequired().HasMaxLength(1024).HasColumnName("StoragePath");
+            builder.Property(e => e.MimeType).IsRequired().HasMaxLength(100).HasColumnName("MimeType");
+            builder.Property(e => e.FileSize).IsRequired().HasColumnName("FileSize");
+            builder.Property(e => e.Version).HasMaxLength(50).HasColumnName("Version").IsRequired(false);
+            builder.Property(e => e.IdDocumentOld).HasColumnName("IdDocumentOld").IsRequired(false);
 
             // Relationships
             builder.HasOne(d => d.DocumentType)

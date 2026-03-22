@@ -10,14 +10,14 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("Proposal");
-            builder.Property(e => e.Title).IsRequired().HasMaxLength(500).HasColumnName("title");
-            builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);
-            builder.Property(e => e.GeneralObjective).HasColumnName("generalobjective").IsRequired();
-            builder.Property(e => e.SpecificObjectives).HasColumnName("specificobjectives").HasColumnType("text[]").IsRequired();
-            builder.Property(e => e.Observation).HasColumnName("observation").IsRequired(false);
-            builder.Property(e => e.IdResearchLine).HasColumnName("idresearchline");
-            builder.Property(e => e.IdResearchSubLine).HasColumnName("idresearchsubline");
-            builder.Property(e => e.IdStateStage).HasColumnName("idstatestage");
+            builder.Property(e => e.Title).IsRequired().HasMaxLength(500).HasColumnName("Title");
+            builder.Property(e => e.Description).HasColumnName("Description").IsRequired(false);
+            builder.Property(e => e.GeneralObjective).HasColumnName("GeneralObjective").IsRequired();
+            builder.Property(e => e.SpecificObjectives).HasColumnName("SpecificObjectives").HasColumnType("text[]").IsRequired();
+            builder.Property(e => e.Observation).HasColumnName("Observation").IsRequired(false);
+            builder.Property(e => e.IdResearchLine).HasColumnName("IdResearchLine");
+            builder.Property(e => e.IdResearchSubLine).HasColumnName("IdResearchSubLine");
+            builder.Property(e => e.IdStateStage).HasColumnName("IdStateStage");
 
             // Configure relationships
             builder.HasOne(p => p.InscriptionModality)

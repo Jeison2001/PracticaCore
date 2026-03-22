@@ -11,9 +11,9 @@ namespace Infrastructure.Data.Configurations
             base.Configure(builder);
             builder.ToTable("UserInscriptionModality");
             
-            builder.Property(e => e.IdInscriptionModality).IsRequired().HasColumnName("idinscriptionmodality");
-            builder.Property(e => e.IdUser).IsRequired().HasColumnName("iduser");
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.IdInscriptionModality).IsRequired().HasColumnName("IdInscriptionModality");
+            builder.Property(e => e.IdUser).IsRequired().HasColumnName("IdUser");
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
             // Configuración de relaciones
             builder.HasOne(rms => rms.InscriptionModality)

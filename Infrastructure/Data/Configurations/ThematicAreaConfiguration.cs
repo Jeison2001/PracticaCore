@@ -10,11 +10,11 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("ThematicArea");
-            builder.Property(e => e.Code).IsRequired().HasMaxLength(150).HasColumnName("code");
-            builder.Property(e => e.Name).IsRequired().HasMaxLength(255).HasColumnName("name");
-            builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);
-            builder.Property(e => e.IdResearchSubLine).HasColumnName("idresearchsubline");
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.Code).IsRequired().HasMaxLength(150).HasColumnName("Code");
+            builder.Property(e => e.Name).IsRequired().HasMaxLength(255).HasColumnName("Name");
+            builder.Property(e => e.Description).HasColumnName("Description").IsRequired(false);
+            builder.Property(e => e.IdResearchSubLine).HasColumnName("IdResearchSubLine");
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
             // Configure relationship with ResearchSubLine
             builder.HasOne(t => t.ResearchSubLine)

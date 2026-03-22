@@ -19,50 +19,50 @@ namespace Infrastructure.Data.Configurations
             
             // Propiedades
             builder.Property(e => e.Id)
-                .HasColumnName("id")
+                .HasColumnName("Id")
                 .ValueGeneratedOnAdd();
                 
             builder.Property(e => e.EventName)
-                .HasColumnName("eventname")
+                .HasColumnName("EventName")
                 .HasMaxLength(100)
                 .IsRequired();
                 
             builder.Property(e => e.SubjectTemplate)
-                .HasColumnName("subjecttemplate")
+                .HasColumnName("SubjectTemplate")
                 .IsRequired();
                 
             builder.Property(e => e.BodyTemplate)
-                .HasColumnName("bodytemplate")
+                .HasColumnName("BodyTemplate")
                 .IsRequired();
                 
             builder.Property(e => e.IsActive)
-                .HasColumnName("isactive")
+                .HasColumnName("IsActive")
                 .IsRequired()
                 .HasDefaultValue(true);
 
             // Configuración base heredada
             builder.Property(e => e.IdUserCreatedAt)
-                .HasColumnName("idusercreatedat")
+                .HasColumnName("IdUserCreatedAt")
                 .IsRequired(false);
                 
             builder.Property(e => e.CreatedAt)
-                .HasColumnName("createdat")
+                .HasColumnName("CreatedAt")
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
                 
             builder.Property(e => e.IdUserUpdatedAt)
-                .HasColumnName("iduserupdatedat");
+                .HasColumnName("IdUserUpdatedAt");
                 
             builder.Property(e => e.UpdatedAt)
-                .HasColumnName("updatedat");
+                .HasColumnName("UpdatedAt");
                 
             builder.Property(e => e.OperationRegister)
-                .HasColumnName("operationregister")
+                .HasColumnName("OperationRegister")
                 .HasMaxLength(50)
                 .HasDefaultValue("INSERT");
                 
             builder.Property(e => e.StatusRegister)
-                .HasColumnName("statusregister")
+                .HasColumnName("StatusRegister")
                 .IsRequired()
                 .HasDefaultValue(true);
 

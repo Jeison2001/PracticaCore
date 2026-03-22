@@ -12,11 +12,11 @@ namespace Infrastructure.Data.Configurations
 
             builder.ToTable("SaberPro");
 
-            builder.Property(e => e.IdStateStage).HasColumnName("idstatestage").IsRequired();
-            builder.Property(e => e.ExamDate).HasColumnName("examdate").IsRequired(false);
-            builder.Property(e => e.ResultQuintile).HasColumnName("resultquintile").HasMaxLength(50).IsRequired(false);
-            builder.Property(e => e.ResultScore).HasColumnName("resultscore").HasColumnType("numeric(10,2)").IsRequired(false);
-            builder.Property(e => e.Observations).HasColumnName("observations").HasColumnType("text").IsRequired(false);
+            builder.Property(e => e.IdStateStage).HasColumnName("IdStateStage").IsRequired();
+            builder.Property(e => e.ExamDate).HasColumnName("ExamDate").IsRequired(false);
+            builder.Property(e => e.ResultQuintile).HasColumnName("ResultQuintile").HasMaxLength(50).IsRequired(false);
+            builder.Property(e => e.ResultScore).HasColumnName("ResultScore").HasColumnType("numeric(10,2)").IsRequired(false);
+            builder.Property(e => e.Observations).HasColumnName("Observations").HasColumnType("text").IsRequired(false);
 
             // Relationships
             builder.HasOne(e => e.InscriptionModality)

@@ -10,12 +10,12 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("TeachingAssignment");
-            builder.Property(e => e.IdInscriptionModality).IsRequired().HasColumnName("idinscriptionmodality");
-            builder.Property(e => e.IdTeacher).IsRequired().HasColumnName("idteacher");
-            builder.Property(e => e.IdTypeTeachingAssignment).IsRequired().HasColumnName("idtypeteachingassignment");
-            builder.Property(e => e.RevocationDate).HasColumnName("revocationdate").IsRequired(false);
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
-            builder.Property(e => e.IdTeacherResearchProfile).HasColumnName("idteacherresearchprofile").IsRequired(false);
+            builder.Property(e => e.IdInscriptionModality).IsRequired().HasColumnName("IdInscriptionModality");
+            builder.Property(e => e.IdTeacher).IsRequired().HasColumnName("IdTeacher");
+            builder.Property(e => e.IdTypeTeachingAssignment).IsRequired().HasColumnName("IdTypeTeachingAssignment");
+            builder.Property(e => e.RevocationDate).HasColumnName("RevocationDate").IsRequired(false);
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
+            builder.Property(e => e.IdTeacherResearchProfile).HasColumnName("IdTeacherResearchProfile").IsRequired(false);
 
             // Configure foreign key relationships
             builder.HasOne(e => e.InscriptionModality)

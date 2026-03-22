@@ -11,84 +11,84 @@ namespace Infrastructure.Data.Configurations
             base.Configure(builder);
             
             builder.ToTable("AcademicPractice");
-            
-            // Required fields              
+
+            // Required fields
             builder.Property(e => e.IdStateStage)
-                .HasColumnName("idstatestage")
+                .HasColumnName("IdStateStage")
                 .IsRequired();
-                
+
             // Title field
             builder.Property(e => e.Title)
-                .HasColumnName("title")                      // ✅ CORREGIDO: en minúscula
+                .HasColumnName("Title")
                 .HasMaxLength(500)
                 .HasDefaultValue("")
                 .IsRequired();
-            
+
             // Institution fields
             builder.Property(e => e.InstitutionName)
-                .HasColumnName("institutionname")
+                .HasColumnName("InstitutionName")
                 .HasMaxLength(500)
                 .IsRequired(false);
-            
+
             builder.Property(e => e.InstitutionContact)
-                .HasColumnName("institutioncontact")
+                .HasColumnName("InstitutionContact")
                 .HasMaxLength(250)
                 .IsRequired(false);
-            
+
             // Practice dates
             builder.Property(e => e.PracticeStartDate)
-                .HasColumnName("practicestartdate")
+                .HasColumnName("PracticeStartDate")
                 .IsRequired(false);
-                
+
             builder.Property(e => e.PracticeEndDate)
-                .HasColumnName("practiceenddate")
+                .HasColumnName("PracticeEndDate")
                 .IsRequired(false);
-            
+
             // Emprendimiento flag
             builder.Property(e => e.IsEmprendimiento)
-                .HasColumnName("isemprendimiento")
+                .HasColumnName("IsEmprendimiento")
                 .HasDefaultValue(false);
-            
+
             // General observations
             builder.Property(e => e.Observations)
-                .HasColumnName("observations")
+                .HasColumnName("Observations")
                 .HasColumnType("text")
                 .IsRequired(false);
-            
+
             // Phase-specific approval dates
             builder.Property(e => e.AvalApprovalDate)
-                .HasColumnName("avalapprovaldate")
+                .HasColumnName("AvalApprovalDate")
                 .IsRequired(false);
-                
+
             builder.Property(e => e.PlanApprovalDate)
-                .HasColumnName("planapprovaldate")
+                .HasColumnName("PlanApprovalDate")
                 .IsRequired(false);
-                
+
             builder.Property(e => e.DevelopmentCompletionDate)
-                .HasColumnName("developmentcompletiondate")
+                .HasColumnName("DevelopmentCompletionDate")
                 .IsRequired(false);
-                
+
             builder.Property(e => e.FinalReportApprovalDate)
-                .HasColumnName("finalreportapprovaldate")
+                .HasColumnName("FinalReportApprovalDate")
                 .IsRequired(false);
-                
+
             builder.Property(e => e.FinalApprovalDate)
-                .HasColumnName("finalapprovaldate")
+                .HasColumnName("FinalApprovalDate")
                 .IsRequired(false);
-            
+
             // Practice management fields
             builder.Property(e => e.PracticeHours)
-                .HasColumnName("practicehours")
+                .HasColumnName("PracticeHours")
                 .HasDefaultValue(640)
                 .IsRequired(false);
-                
+
             builder.Property(e => e.EvaluatorObservations)
-                .HasColumnName("evaluatorobservations")
+                .HasColumnName("EvaluatorObservations")
                 .HasColumnType("text")
                 .IsRequired(false);
-            
+
             builder.Property(e => e.IdUserCreatedAt)
-                .HasColumnName("idusercreatedat")
+                .HasColumnName("IdUserCreatedAt")
                 .IsRequired(false);
 
             // Configure relationships

@@ -22,60 +22,60 @@ namespace Infrastructure.Data.Configurations
             
             // Propiedades
             builder.Property(e => e.Id)
-                .HasColumnName("id")
+                .HasColumnName("Id")
                 .ValueGeneratedOnAdd();
                 
             builder.Property(e => e.EmailNotificationConfigId)
-                .HasColumnName("emailnotificationconfigid")
+                .HasColumnName("EmailNotificationConfigId")
                 .IsRequired();
                 
             builder.Property(e => e.RecipientType)
-                .HasColumnName("recipienttype")
+                .HasColumnName("RecipientType")
                 .HasMaxLength(10)
                 .IsRequired();
                 
             builder.Property(e => e.RuleType)
-                .HasColumnName("ruletype")
+                .HasColumnName("RuleType")
                 .HasMaxLength(20)
                 .IsRequired();
                 
             builder.Property(e => e.RuleValue)
-                .HasColumnName("rulevalue")
+                .HasColumnName("RuleValue")
                 .HasMaxLength(255)
                 .IsRequired();
                 
             builder.Property(e => e.Conditions)
-                .HasColumnName("conditions")
+                .HasColumnName("Conditions")
                 .HasColumnType("jsonb");
                 
             builder.Property(e => e.Priority)
-                .HasColumnName("priority")
+                .HasColumnName("Priority")
                 .IsRequired()
                 .HasDefaultValue(1);
 
             // Configuración base heredada
             builder.Property(e => e.IdUserCreatedAt)
-                .HasColumnName("idusercreatedat")
+                .HasColumnName("IdUserCreatedAt")
                 .IsRequired(false);
                 
             builder.Property(e => e.CreatedAt)
-                .HasColumnName("createdat")
+                .HasColumnName("CreatedAt")
                 .IsRequired()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
                 
             builder.Property(e => e.IdUserUpdatedAt)
-                .HasColumnName("iduserupdatedat");
+                .HasColumnName("IdUserUpdatedAt");
                 
             builder.Property(e => e.UpdatedAt)
-                .HasColumnName("updatedat");
+                .HasColumnName("UpdatedAt");
                 
             builder.Property(e => e.OperationRegister)
-                .HasColumnName("operationregister")
+                .HasColumnName("OperationRegister")
                 .HasMaxLength(50)
                 .HasDefaultValue("INSERT");
                 
             builder.Property(e => e.StatusRegister)
-                .HasColumnName("statusregister")
+                .HasColumnName("StatusRegister")
                 .IsRequired()
                 .HasDefaultValue(true);
 

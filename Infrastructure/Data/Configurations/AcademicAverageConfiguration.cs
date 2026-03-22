@@ -12,10 +12,10 @@ namespace Infrastructure.Data.Configurations
 
             builder.ToTable("AcademicAverage");
 
-            builder.Property(e => e.IdStateStage).HasColumnName("idstatestage").IsRequired();
-            builder.Property(e => e.CertifiedAverage).HasColumnName("certifiedaverage").HasColumnType("numeric(3,2)").IsRequired(false);
-            builder.Property(e => e.HasFailedSubjects).HasColumnName("hasfailedsubjects").HasDefaultValue(false).IsRequired(false);
-            builder.Property(e => e.Observations).HasColumnName("observations").HasColumnType("text").IsRequired(false);
+            builder.Property(e => e.IdStateStage).HasColumnName("IdStateStage").IsRequired();
+            builder.Property(e => e.CertifiedAverage).HasColumnName("CertifiedAverage").HasColumnType("numeric(3,2)").IsRequired(false);
+            builder.Property(e => e.HasFailedSubjects).HasColumnName("HasFailedSubjects").HasDefaultValue(false).IsRequired(false);
+            builder.Property(e => e.Observations).HasColumnName("Observations").HasColumnType("text").IsRequired(false);
 
             // Relationships
             builder.HasOne(e => e.InscriptionModality)

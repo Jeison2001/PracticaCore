@@ -14,26 +14,26 @@ namespace Infrastructure.Data.Configurations
             
             // Primary key
             builder.Property(e => e.Id)
-                .HasColumnName("id")
+                .HasColumnName("Id")
                 .IsRequired();
             
             // Required fields
             builder.Property(e => e.IdStateStage)
-                .HasColumnName("idstatestage")
+                .HasColumnName("IdStateStage")
                 .IsRequired();
                 
             builder.Property(e => e.IdDocumentType)
-                .HasColumnName("iddocumenttype")
+                .HasColumnName("IdDocumentType")
                 .IsRequired();
             
             builder.Property(e => e.IsRequired)
-                .HasColumnName("isrequired")
+                .HasColumnName("IsRequired")
                 .HasDefaultValue(true);
                 
             builder.Property(e => e.OrderDisplay)
-                .HasColumnName("orderdisplay")
+                .HasColumnName("OrderDisplay")
                 .IsRequired(false);
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
             // Unique constraint
             builder.HasIndex(e => new { e.IdStateStage, e.IdDocumentType })

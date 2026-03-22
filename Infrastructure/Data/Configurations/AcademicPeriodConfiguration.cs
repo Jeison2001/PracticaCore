@@ -10,10 +10,10 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("AcademicPeriod");
-            builder.Property(e => e.Code).IsRequired().HasMaxLength(20).HasColumnName("code");
-            builder.Property(e => e.StartDate).IsRequired().HasColumnName("startdate");
-            builder.Property(e => e.EndDate).IsRequired().HasColumnName("enddate");
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.Code).IsRequired().HasMaxLength(20).HasColumnName("Code");
+            builder.Property(e => e.StartDate).IsRequired().HasColumnName("StartDate");
+            builder.Property(e => e.EndDate).IsRequired().HasColumnName("EndDate");
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
         }
     }
 }

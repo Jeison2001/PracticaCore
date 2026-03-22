@@ -9,11 +9,11 @@ namespace Infrastructure.Data.Configurations
         public override void Configure(EntityTypeBuilder<ProjectFinal> builder)
         {            base.Configure(builder);
             builder.ToTable("ProjectFinal");
-            builder.Property(e => e.IdStateStage).HasColumnName("idstatestage").IsRequired();
-            builder.Property(e => e.ReportApprovalDate).HasColumnName("reportapprovaldate");
-            builder.Property(e => e.FinalPhaseApprovalDate).HasColumnName("finalphaseapprovaldate");
-            builder.Property(e => e.Observations).HasColumnName("observations").HasColumnType("text");
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.IdStateStage).HasColumnName("IdStateStage").IsRequired();
+            builder.Property(e => e.ReportApprovalDate).HasColumnName("ReportApprovalDate");
+            builder.Property(e => e.FinalPhaseApprovalDate).HasColumnName("FinalPhaseApprovalDate");
+            builder.Property(e => e.Observations).HasColumnName("Observations").HasColumnType("text");
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
             builder.HasOne(e => e.StateStage)
                 .WithMany()
                 .HasForeignKey(e => e.IdStateStage);

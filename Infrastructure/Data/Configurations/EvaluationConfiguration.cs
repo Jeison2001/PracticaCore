@@ -10,13 +10,13 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("Evaluation");
-            builder.Property(e => e.EntityType).IsRequired().HasMaxLength(100).HasColumnName("entitytype");
-            builder.Property(e => e.EntityId).IsRequired().HasColumnName("entityid");
-            builder.Property(e => e.IdEvaluationType).IsRequired().HasColumnName("idevaluationtype");
-            builder.Property(e => e.IdEvaluator).IsRequired().HasColumnName("idevaluator");
-            builder.Property(e => e.Result).HasMaxLength(100).HasColumnName("result").IsRequired(false);
-            builder.Property(e => e.Observations).HasColumnName("observations").IsRequired(false);
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.EntityType).IsRequired().HasMaxLength(100).HasColumnName("EntityType");
+            builder.Property(e => e.EntityId).IsRequired().HasColumnName("EntityId");
+            builder.Property(e => e.IdEvaluationType).IsRequired().HasColumnName("IdEvaluationType");
+            builder.Property(e => e.IdEvaluator).IsRequired().HasColumnName("IdEvaluator");
+            builder.Property(e => e.Result).HasMaxLength(100).HasColumnName("Result").IsRequired(false);
+            builder.Property(e => e.Observations).HasColumnName("Observations").IsRequired(false);
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
             
             // Configure foreign key relationships
             builder.HasOne(e => e.EvaluationType)

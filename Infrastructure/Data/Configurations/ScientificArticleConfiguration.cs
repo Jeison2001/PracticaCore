@@ -12,13 +12,13 @@ namespace Infrastructure.Data.Configurations
 
             builder.ToTable("ScientificArticle");
 
-            builder.Property(e => e.IdStateStage).HasColumnName("idstatestage").IsRequired();
-            builder.Property(e => e.ArticleTitle).HasColumnName("articletitle").HasMaxLength(500).IsRequired(false);
-            builder.Property(e => e.JournalName).HasColumnName("journalname").HasMaxLength(255).IsRequired(false);
-            builder.Property(e => e.ISSN).HasColumnName("issn").HasMaxLength(50).IsRequired(false);
-            builder.Property(e => e.JournalCategory).HasColumnName("journalcategory").HasMaxLength(50).IsRequired(false);
-            builder.Property(e => e.AcceptanceDate).HasColumnName("acceptancedate").IsRequired(false);
-            builder.Property(e => e.Observations).HasColumnName("observations").HasColumnType("text").IsRequired(false);
+            builder.Property(e => e.IdStateStage).HasColumnName("IdStateStage").IsRequired();
+            builder.Property(e => e.ArticleTitle).HasColumnName("ArticleTitle").HasMaxLength(500).IsRequired(false);
+            builder.Property(e => e.JournalName).HasColumnName("JournalName").HasMaxLength(255).IsRequired(false);
+            builder.Property(e => e.ISSN).HasColumnName("ISSN").HasMaxLength(50).IsRequired(false);
+            builder.Property(e => e.JournalCategory).HasColumnName("JournalCategory").HasMaxLength(50).IsRequired(false);
+            builder.Property(e => e.AcceptanceDate).HasColumnName("AcceptanceDate").IsRequired(false);
+            builder.Property(e => e.Observations).HasColumnName("Observations").HasColumnType("text").IsRequired(false);
 
             // Relationships
             builder.HasOne(e => e.InscriptionModality)

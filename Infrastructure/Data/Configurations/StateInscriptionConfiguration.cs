@@ -11,12 +11,12 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("StateInscription");
-            builder.Property(e => e.Code).IsRequired().HasMaxLength(50).HasColumnName("code");
-            builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("name");
-            builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);
-            builder.Property(e => e.IsInitialState).IsRequired().HasColumnName("isinitialstate").HasDefaultValue(false);
-            builder.Property(e => e.IsFinalStateForStage).IsRequired().HasColumnName("isfinalstateforstage").HasDefaultValue(false);
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.Code).IsRequired().HasMaxLength(50).HasColumnName("Code");
+            builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("Name");
+            builder.Property(e => e.Description).HasColumnName("Description").IsRequired(false);
+            builder.Property(e => e.IsInitialState).IsRequired().HasColumnName("IsInitialState").HasDefaultValue(false);
+            builder.Property(e => e.IsFinalStateForStage).IsRequired().HasColumnName("IsFinalStateForStage").HasDefaultValue(false);
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
         }
     }
 }

@@ -9,11 +9,11 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("TypeTeachingAssignment");
-            builder.Property(e => e.Code).IsRequired().HasMaxLength(50).HasColumnName("code");
-            builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("name");
-            builder.Property(e => e.Description).HasColumnName("description").IsRequired(false);
-            builder.Property(e => e.MaxAssignments).HasColumnName("maxassignments").IsRequired(false);
-            builder.Property(e => e.IdUserCreatedAt).HasColumnName("idusercreatedat").IsRequired(false);
+            builder.Property(e => e.Code).IsRequired().HasMaxLength(50).HasColumnName("Code");
+            builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("Name");
+            builder.Property(e => e.Description).HasColumnName("Description").IsRequired(false);
+            builder.Property(e => e.MaxAssignments).HasColumnName("MaxAssignments").IsRequired(false);
+            builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
             
             // Add unique constraint for Code
             builder.HasIndex(e => e.Code).IsUnique();

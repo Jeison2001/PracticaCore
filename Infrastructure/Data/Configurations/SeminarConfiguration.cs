@@ -12,11 +12,11 @@ namespace Infrastructure.Data.Configurations
 
             builder.ToTable("Seminar");
 
-            builder.Property(e => e.IdStateStage).HasColumnName("idstatestage").IsRequired();
-            builder.Property(e => e.SeminarName).HasColumnName("seminarname").HasMaxLength(255).IsRequired(false);
-            builder.Property(e => e.AttendancePercentage).HasColumnName("attendancepercentage").HasColumnType("numeric(5,2)").IsRequired(false);
-            builder.Property(e => e.FinalGrade).HasColumnName("finalgrade").HasColumnType("numeric(3,2)").IsRequired(false);
-            builder.Property(e => e.Observations).HasColumnName("observations").HasColumnType("text").IsRequired(false);
+            builder.Property(e => e.IdStateStage).HasColumnName("IdStateStage").IsRequired();
+            builder.Property(e => e.SeminarName).HasColumnName("SeminarName").HasMaxLength(255).IsRequired(false);
+            builder.Property(e => e.AttendancePercentage).HasColumnName("AttendancePercentage").HasColumnType("numeric(5,2)").IsRequired(false);
+            builder.Property(e => e.FinalGrade).HasColumnName("FinalGrade").HasColumnType("numeric(3,2)").IsRequired(false);
+            builder.Property(e => e.Observations).HasColumnName("Observations").HasColumnType("text").IsRequired(false);
 
             // Relationships
             builder.HasOne(e => e.InscriptionModality)
