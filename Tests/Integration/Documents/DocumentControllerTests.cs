@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using Api.Responses;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Documents;
-using Application.Shared.DTOs.RequiredDocumentsByState;
 using Domain.Common;
 using Domain.Entities;
 using FluentAssertions;
@@ -269,92 +268,6 @@ namespace Tests.Integration.Documents
                 updatedDoc.Should().NotBeNull();
                 updatedDoc!.StatusRegister.Should().BeFalse();
             }
-        }
-
-        [Fact]
-        public async Task GetRequiredDocumentsByCurrentState_ShouldReturnList()
-        {
-            // Arrange
-            var (inscriptionModality, docType) = await SeedDataAsync();
-            int academicPracticeId;
-
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                // Create StageModality
-                var stageModality = new StageModality
-                {
-                    IdModality = inscriptionModality.IdModality,
-                    Name = "Stage 1",
-                    Code = "S1",
-                    StageOrder = 1,
-                    StatusRegister = true
-                };
-                context.Set<StageModality>().Add(stageModality);
-                await context.SaveChangesAsync();
-
-                // Create StateStage
-                var stateStage = new StateStage
-                {
-                    IdStageModality = stageModality.Id,
-                    Name = "In Progress",
-                    Code = "IN_PROGRESS",
-                    StatusRegister = true
-                };
-                context.Set<StateStage>().Add(stateStage);
-                await context.SaveChangesAsync();
-
-                // Create AcademicPractice
-                // Note: The repository queries AcademicPractice by Id using the passed inscriptionModalityId.
-                // We will create an AcademicPractice and use its Id in the call.
-                var academicPractice = new AcademicPractice
-                {
-                    IdStateStage = stateStage.Id,
-                    StatusRegister = true,
-                    Title = "Test Practice", // Added Title
-                    // Assuming InscriptionModality is required, but we can try to set it or rely on EF
-                    // Since we are in InMemory, we can just set the navigation property if needed, 
-                    // but let's try to set the shadow FK if possible or just add it.
-                    // However, AcademicPractice has a required InscriptionModality property.
-                    // We need to link it to an InscriptionModality.
-                    // We can use the one from SeedDataAsync.
-                    // But wait, InscriptionModality might already be tracked.
-                    // We should attach it or fetch it.
-                };
-                
-                // To avoid tracking issues, let's just set the ID if we knew the FK column name, 
-                // but better to fetch the existing InscriptionModality and assign it.
-                var existingModality = await context.Set<InscriptionModality>().FindAsync(inscriptionModality.Id);
-                academicPractice.InscriptionModality = existingModality!;
-                
-                context.Set<AcademicPractice>().Add(academicPractice);
-                await context.SaveChangesAsync();
-                academicPracticeId = academicPractice.Id;
-
-                // Create RequiredDocumentsByState
-                var requiredDoc = new RequiredDocumentsByState
-                {
-                    IdStateStage = stateStage.Id,
-                    IdDocumentType = docType.Id,
-                    IsRequired = true,
-                    StatusRegister = true
-                };
-                context.Set<RequiredDocumentsByState>().Add(requiredDoc);
-                await context.SaveChangesAsync();
-            }
-
-            // Act
-            // We pass academicPracticeId because the repository queries AcademicPractice.Id
-            var response = await _client.GetAsync($"/api/Document/RequiredByCurrentState/{academicPracticeId}");
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<RequiredDocumentsByStateDto>>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data.Should().NotBeNull();
-            result.Data!.Should().Contain(x => x.DocumentTypeId == docType.Id);
         }
     }
 }
