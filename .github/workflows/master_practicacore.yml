@@ -1,6 +1,3 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
 name: Build and deploy ASP.Net Core app to Azure Web App - PracticaCore
 
 on:
@@ -10,10 +7,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -30,28 +28,8 @@ jobs:
         run: dotnet test Tests/Tests.csproj --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~Tests.Integration.Documents.DocumentControllerTests"
 
       - name: dotnet publish
-        run: dotnet publish Api/Api.csproj -c Release -o "${{ github.workspace }}/myapp" --self-contained false
+        run: dotnet publish Api/Api.csproj --configuration Release --output publish
 
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: .net-app
-          path: ${{ github.workspace }}/myapp
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-          path: ${{ github.workspace }}/myapp
-      
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -60,11 +38,8 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4294A74A267247169F2AC6874F333573 }}
 
       - name: Deploy to Azure Web App
-        run: |
-          # Delete source control configuration to remove ChangeSetId tracking
-          az webapp deployment source delete --resource-group PracticaCore --name PracticaCore --yes 2>$null
-          # Create ZIP from published folder
-          Compress-Archive -Path "${{ github.workspace }}/myapp\*" -DestinationPath "${{ github.workspace }}/deploy.zip" -Force
-          # Deploy using the official zip push deployment command
-          az webapp deployment source config-zip --resource-group PracticaCore --name PracticaCore --src "${{ github.workspace }}/deploy.zip"
-          
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: PracticaCore
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_4294A74A267247169F2AC6874F333573 }}
+          package: ./publish
