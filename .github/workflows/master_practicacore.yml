@@ -27,14 +27,8 @@ jobs:
       - name: Run Tests
         run: dotnet test Tests/Tests.csproj --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~Tests.Integration.Documents.DocumentControllerTests"
 
-      - name: dotnet publish (self-contained)
-        run: dotnet publish Api/Api.csproj --configuration Release --runtime win-x64 --self-contained true --output publish
-
-      - name: Create ZIP for deployment
-        run: |
-          cd publish
-          powershell Compress-Archive -Path * -DestinationPath ../publish.zip -Force
-          cd ..
+      - name: dotnet publish
+        run: dotnet publish Api/Api.csproj --configuration Release --output publish
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -44,9 +38,10 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4294A74A267247169F2AC6874F333573 }}
 
       - name: Deploy to Azure Web App
-        run: |
-          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path ./publish.zip --type zip
-        shell: bash
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: PracticaCore
+          package: ./publish
 
       - name: Health check
         run: |
