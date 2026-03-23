@@ -63,7 +63,6 @@ namespace Tests.Integration.Documents
         [Fact]
         public async Task Upload_ShouldReturnCreated_WhenFileIsValid()
         {
-            // Arrange
             var (inscriptionModality, docType) = await SeedDataAsync();
 
             using var content = new MultipartFormDataContent();
@@ -92,7 +91,6 @@ namespace Tests.Integration.Documents
         [Fact]
         public async Task GetById_ShouldReturnDocument_WhenExists()
         {
-            // Arrange
             var (inscriptionModality, docType) = await SeedDataAsync();
             int docId;
 
@@ -131,7 +129,6 @@ namespace Tests.Integration.Documents
         [Fact]
         public async Task GetByInscriptionModality_ShouldReturnList_WhenExists()
         {
-            // Arrange
             var (inscriptionModality, docType) = await SeedDataAsync();
             
             using (var scope = _factory.Services.CreateScope())
@@ -168,7 +165,6 @@ namespace Tests.Integration.Documents
         [Fact]
         public async Task Update_ShouldReturnOk_WhenDataIsValid()
         {
-            // Arrange
             var (inscriptionModality, docType) = await SeedDataAsync();
             int docId;
 
@@ -219,7 +215,6 @@ namespace Tests.Integration.Documents
         [Fact]
         public async Task UpdateStatus_ShouldReturnOk_WhenDocumentExists()
         {
-            // Arrange
             var (inscriptionModality, docType) = await SeedDataAsync();
             int docId;
 
