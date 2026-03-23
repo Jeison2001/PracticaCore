@@ -6,6 +6,7 @@ using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Notifications.Dispatcher;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
@@ -14,15 +15,18 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
         private readonly IMediator _mediator;
         private readonly ILogger<UpdateInscriptionWithStudentsHandler> _logger;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly INotificationDispatcher _notificationDispatcher;
 
         public UpdateInscriptionWithStudentsHandler(
             IMediator mediator,
             ILogger<UpdateInscriptionWithStudentsHandler> logger,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            INotificationDispatcher notificationDispatcher)
         {
             _mediator = mediator;
             _logger = logger;
             _unitOfWork = unitOfWork;
+            _notificationDispatcher = notificationDispatcher;
         }
 
         public async Task<InscriptionWithStudentsDto> Handle(
@@ -35,6 +39,11 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             {
                 // Log the DTO values for debugging
                 _logger.LogInformation("Updating InscriptionModality with the following values: {@Dto}", request.Dto.InscriptionModality);
+
+                // 0. Obtener estado original para notificaciones (antes de actualizar)
+                var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
+                var originalInscription = await inscriptionModalityRepo.GetByIdAsync(request.Id);
+                var originalStateId = originalInscription?.IdStateInscription ?? 0;
 
                 // 1. Update the modality registration
                 var inscriptionModalityDto = await _mediator.Send(
@@ -119,7 +128,23 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     }
                 }
 
-                // 4. Prepare and return the response
+                // 4. Preparar entidad actualizada para notificaciones
+                var updatedInscription = await inscriptionModalityRepo.GetByIdAsync(request.Id);
+
+                // 5. Despachar notificación si hubo cambio de estado
+                if (updatedInscription != null && originalStateId != updatedInscription.IdStateInscription)
+                {
+                    _logger.LogInformation(
+                        "Estado de inscripción cambió de {OldStateId} a {NewStateId}. Enviando notificación.",
+                        originalStateId, updatedInscription.IdStateInscription);
+
+                    await _notificationDispatcher.DispatchEntityChangeAsync<InscriptionModality, int>(
+                        originalInscription!,
+                        updatedInscription,
+                        cancellationToken);
+                }
+
+                // 6. Prepare and return the response
                 return new InscriptionWithStudentsDto
                 {
                     InscriptionModality = inscriptionModalityDto,
