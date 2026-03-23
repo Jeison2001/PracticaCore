@@ -61,15 +61,10 @@ jobs:
 
       - name: Deploy to Azure Web App
         run: |
-          # Clean deployment history to prevent ChangeSetId validation errors
-          $deployments = az webapp deployment list --resource-group PracticaCore --name PracticaCore --query "[].id" -o tsv 2>$null
-          if ($deployments) {
-            foreach ($id in $deployments) {
-              az webapp deployment delete --resource-group PracticaCore --name PracticaCore --ids $id --yes 2>$null
-            }
-          }
-          # Create ZIP from published folder (compress the folder contents, not the folder itself)
+          # Delete source control configuration to remove ChangeSetId tracking
+          az webapp deployment source delete --resource-group PracticaCore --name PracticaCore --yes 2>$null
+          # Create ZIP from published folder
           Compress-Archive -Path "${{ github.workspace }}/myapp\*" -DestinationPath "${{ github.workspace }}/deploy.zip" -Force
-          # Deploy using az cli with zip type, no slot
-          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path "${{ github.workspace }}/deploy.zip" --type zip
+          # Deploy using the official zip push deployment command
+          az webapp deployment source config-zip --resource-group PracticaCore --name PracticaCore --src "${{ github.workspace }}/deploy.zip"
           
