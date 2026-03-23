@@ -42,6 +42,7 @@ jobs:
         with:
           app-name: PracticaCore
           package: ./publish
+        continue-on-error: true
 
       - name: Health check
         run: |
