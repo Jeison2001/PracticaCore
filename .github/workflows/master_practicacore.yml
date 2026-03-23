@@ -61,10 +61,15 @@ jobs:
 
       - name: Deploy to Azure Web App
         run: |
-          # Remove any .deployment file and .git folder that cause ChangeSetId mismatch
-          Get-ChildItem -Path "${{ github.workspace }}/myapp" -Recurse -Force | Where-Object { $_.Name -eq ".deployment" -or $_.Name -eq ".git" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          # Create ZIP from published folder
-          Compress-Archive -Path "${{ github.workspace }}/myapp/*" -DestinationPath "${{ github.workspace }}/deploy.zip" -Force
-          # Deploy using az cli (zip type, no slot, async to skip ChangeSetId validation)
-          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path "${{ github.workspace }}/deploy.zip" --type zip --async
+          # Clean deployment history to prevent ChangeSetId validation errors
+          $deployments = az webapp deployment list --resource-group PracticaCore --name PracticaCore --query "[].id" -o tsv 2>$null
+          if ($deployments) {
+            foreach ($id in $deployments) {
+              az webapp deployment delete --resource-group PracticaCore --name PracticaCore --ids $id --yes 2>$null
+            }
+          }
+          # Create ZIP from published folder (compress the folder contents, not the folder itself)
+          Compress-Archive -Path "${{ github.workspace }}/myapp\*" -DestinationPath "${{ github.workspace }}/deploy.zip" -Force
+          # Deploy using az cli with zip type, no slot
+          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path "${{ github.workspace }}/deploy.zip" --type zip
           
