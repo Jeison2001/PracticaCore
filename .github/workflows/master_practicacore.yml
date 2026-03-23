@@ -59,15 +59,6 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FA64EEF39FE74E509FB26E378E41E817 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4294A74A267247169F2AC6874F333573 }}
 
-      - name: Get Azure Web App logs
-        run: |
-          echo "=== Azure Web App Configuration ==="
-          az webapp config show --name PracticaCore --resource-group practicacoregroup --slot Production --query "[runtimeStack, linuxFxVersion, windowsFxVersion]" -o table 2>&1 || echo "Config lookup failed"
-          echo "=== Azure Web App Settings ==="
-          az webapp config appsettings list --name PracticaCore --resource-group practicacoregroup --slot Production -o table 2>&1 || echo "Settings lookup failed"
-          echo "=== Deployment History ==="
-          az webapp deployment list --name PracticaCore --resource-group practicacoregroup --slot Production -o table 2>&1 || echo "No deployment history"
-
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
