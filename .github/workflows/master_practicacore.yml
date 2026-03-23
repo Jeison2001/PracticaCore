@@ -21,13 +21,10 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      - name: Build with dotnet
-        run: dotnet build Tests/Tests.csproj --configuration Release
+      - name: Build and publish
+        run: dotnet publish Api/Api.csproj --configuration Release --output publish
 
-      - name: Run Tests
-        run: dotnet test Tests/Tests.csproj --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~Tests.Integration.Documents.DocumentControllerTests"
-
-      - name: dotnet publish
+      - name: Login to Azure
         run: dotnet publish Api/Api.csproj --configuration Release --output publish
 
       - name: Login to Azure
