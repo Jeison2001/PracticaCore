@@ -99,7 +99,7 @@ var app = builder.Build();
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "PracticaCore API v2 - CI Test 2026-03-23");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "PracticaCore API v1");
         // Habilitar el botón de autorización en la UI de Swagger
         c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
     });
