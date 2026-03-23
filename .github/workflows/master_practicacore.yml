@@ -45,7 +45,7 @@ jobs:
 
       - name: Deploy to Azure Web App
         run: |
-          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path ./publish.zip --type zip --async false --retry-on-error true
+          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path ./publish.zip --type zip
         shell: bash
 
       - name: Health check
