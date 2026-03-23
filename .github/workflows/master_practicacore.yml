@@ -1,7 +1,4 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy ASP.Net Core app to Azure Web App - PracticaCore
+name: Build and Test ASP.NET Core App
 
 on:
   push:
@@ -10,10 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -30,49 +27,10 @@ jobs:
         run: dotnet test Tests/Tests.csproj --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~Tests.Integration.Documents.DocumentControllerTests"
 
       - name: dotnet publish
-        run: dotnet publish Api/Api.csproj -c Release -o "${{ github.workspace }}/myapp"
+        run: dotnet publish Api/Api.csproj -c Release -o "${{ github.workspace }}/publish"
 
-      - name: Upload artifact for deployment job
+      - name: Upload published artifact
         uses: actions/upload-artifact@v4
         with:
-          name: .net-app
-          path: ${{ github.workspace }}/myapp
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-          path: ${{ github.workspace }}/myapp
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_67749FBB0EAB49559F85AB3091188289 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FA64EEF39FE74E509FB26E378E41E817 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4294A74A267247169F2AC6874F333573 }}
-
-      - name: Get Azure Web App logs
-        run: |
-          echo "=== Azure Web App Configuration ==="
-          az webapp config show --name PracticaCore --slot Production --query "[runtimeStack, linuxFxVersion, windowsFxVersion]" -o table
-          echo "=== Azure Web App Settings ==="
-          az webapp config appsettings list --name PracticaCore --slot Production -o table
-          echo "=== Latest Deployment Log ==="
-          az webapp deployment log show --name PracticaCore --slot Production --query "[*].{Message:message, Time:datetime}" -o table 2>&1 || echo "No deployment log available"
-
-      - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'PracticaCore'
-          slot-name: 'Production'
-          package: myapp
-          
+          name: PracticaCore-publish
+          path: ${{ github.workspace }}/publish
