@@ -21,7 +21,7 @@ jobs:
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.x'
+          dotnet-version: '10.x'
 
       - name: Build with dotnet
         run: dotnet build PracticaCore.sln --configuration Release
@@ -62,9 +62,9 @@ jobs:
       - name: Deploy to Azure Web App
         run: |
           # Disable build during deployment since we deploy pre-built code
-          az webapp config appsettings set --resource-group PracticaCore --name PracticaCore --slot Production --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
+          az webapp config appsettings set --resource-group PracticaCore --name PracticaCore --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
           # Create ZIP from published folder
           Compress-Archive -Path "${{ github.workspace }}/myapp/*" -DestinationPath "${{ github.workspace }}/deploy.zip" -Force
           # Deploy using az cli
-          az webapp deploy --resource-group PracticaCore --name PracticaCore --slot Production --src-path "${{ github.workspace }}/deploy.zip"
+          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path "${{ github.workspace }}/deploy.zip"
           
