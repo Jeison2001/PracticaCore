@@ -61,10 +61,8 @@ jobs:
 
       - name: Deploy to Azure Web App
         run: |
-          # Disable build during deployment since we deploy pre-built code
-          az webapp config appsettings set --resource-group PracticaCore --name PracticaCore --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
           # Create ZIP from published folder
           Compress-Archive -Path "${{ github.workspace }}/myapp/*" -DestinationPath "${{ github.workspace }}/deploy.zip" -Force
-          # Deploy using az cli
-          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path "${{ github.workspace }}/deploy.zip"
+          # Deploy using az cli (zip type, no slot)
+          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path "${{ github.workspace }}/deploy.zip" --type zip
           
