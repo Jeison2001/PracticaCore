@@ -38,5 +38,7 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4294A74A267247169F2AC6874F333573 }}
 
       - name: Deploy to Azure Web App
-        run: |
-          az webapp deploy --resource-group PracticaCore --name PracticaCore --src-path ./publish --type zip
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: PracticaCore
+          package: ./publish
