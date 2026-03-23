@@ -60,10 +60,11 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_4294A74A267247169F2AC6874F333573 }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'PracticaCore'
-          slot-name: 'Production'
-          package: myapp
+        run: |
+          # Disable build during deployment since we deploy pre-built code
+          az webapp config appsettings set --resource-group PracticaCore --name PracticaCore --slot Production --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
+          # Create ZIP from published folder
+          Compress-Archive -Path "${{ github.workspace }}/myapp/*" -DestinationPath "${{ github.workspace }}/deploy.zip" -Force
+          # Deploy using az cli
+          az webapp deploy --resource-group PracticaCore --name PracticaCore --slot Production --src-path "${{ github.workspace }}/deploy.zip"
           
