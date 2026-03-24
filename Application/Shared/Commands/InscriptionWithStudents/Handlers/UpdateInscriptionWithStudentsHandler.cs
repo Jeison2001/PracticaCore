@@ -50,6 +50,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
                 var originalInscription = await inscriptionModalityRepo.GetByIdAsync(request.Id);
                 var originalStateId = originalInscription?.IdStateInscription ?? 0;
+                var newStateId = request.Dto.InscriptionModality.IdStateInscription; // Capturar el NUEVO estado del request
 
                 // 1. Update the modality registration
                 var inscriptionModalityDto = await _mediator.Send(
@@ -137,12 +138,16 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 // 4. Preparar entidad actualizada para notificaciones
                 var updatedInscription = await inscriptionModalityRepo.GetByIdAsync(request.Id);
 
+                _logger.LogInformation(
+                    "Debug UPDATE Inscription Id={Id}: originalStateId={OriginalStateId}, newStateId={NewStateId}",
+                    request.Id, originalStateId, newStateId);
+
                 // 5. Encolar job de notificación si hubo cambio de estado (patrón consistente con Proposal, TeachingAssignment, etc.)
-                if (updatedInscription != null && originalStateId != updatedInscription.IdStateInscription)
+                if (newStateId != originalStateId)
                 {
                     _logger.LogInformation(
                         "Estado de inscripción cambió de {OldStateId} a {NewStateId}. Encolando job de notificación.",
-                        originalStateId, updatedInscription.IdStateInscription);
+                        originalStateId, newStateId);
 
                     _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>
                         x.HandleInscriptionChangeAsync(request.Id, originalStateId));

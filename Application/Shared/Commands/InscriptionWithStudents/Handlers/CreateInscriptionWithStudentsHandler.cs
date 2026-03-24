@@ -219,7 +219,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 // 5. Encolar job de notificación asíncrona (patrón consistente)
                 try
                 {
-                    var studentIds = userDictionary.Values.Select(u => u.Id);
+                    var studentIds = userDictionary.Values.Select(u => u.Id).ToList();
                     _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>
                         x.HandleInscriptionCreationAsync(
                             inscriptionModalityId,
