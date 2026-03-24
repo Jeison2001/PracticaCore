@@ -5,13 +5,35 @@ namespace Tests.Integration.Utilities
 {
     public class TestJobEnqueuer : IJobEnqueuer
     {
+        private readonly List<EnqueuedJobInfo> _enqueuedJobs;
+
+        public TestJobEnqueuer(List<EnqueuedJobInfo> enqueuedJobs)
+        {
+            _enqueuedJobs = enqueuedJobs;
+        }
+
         public string Enqueue<T>(Expression<Action<T>> methodCall)
         {
-            // In tests, we don't want to run background jobs or we want to run them immediately.
-            // For now, we just return a dummy Job ID and do nothing, 
-            // effectively mocking the "Enqueue" part.
-            // If we wanted to test the side effects, we would need to execute the expression here.
-            return "test-job-id";
+            var jobInfo = new EnqueuedJobInfo
+            {
+                JobType = typeof(T).Name,
+                MethodName = ((MethodCallExpression)methodCall.Body).Method.Name,
+                EnqueuedAt = DateTime.UtcNow
+            };
+
+            lock (_enqueuedJobs)
+            {
+                _enqueuedJobs.Add(jobInfo);
+            }
+
+            return $"test-job-id-{_enqueuedJobs.Count}";
         }
+    }
+
+    public class EnqueuedJobInfo
+    {
+        public string JobType { get; set; } = string.Empty;
+        public string MethodName { get; set; } = string.Empty;
+        public DateTime EnqueuedAt { get; set; }
     }
 }

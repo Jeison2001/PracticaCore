@@ -11,6 +11,8 @@ namespace Tests.Integration
 {
     public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
+        public List<EnqueuedJobInfo> EnqueuedJobs { get; } = new();
+
         public CustomWebApplicationFactory()
         {
             // Set environment variable to signal Program.cs to skip Npgsql registration
@@ -40,7 +42,12 @@ namespace Tests.Integration
                 {
                     options.UseInMemoryDatabase(dbName);
                     options.ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
+                    // Disable proxy generation (lazy loading requires proxy package which is not installed)
+                    options.ConfigureWarnings(w => w.Throw(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
                 });
+
+                // Register the enqueued jobs list as a singleton so it can be accessed by TestJobEnqueuer
+                services.AddSingleton(EnqueuedJobs);
 
                 // Replace IJobEnqueuer with TestJobEnqueuer
                 // This prevents the application from trying to use Hangfire (which is not configured in tests)
@@ -52,7 +59,7 @@ namespace Tests.Integration
                 services.AddTransient<IJobEnqueuer, TestJobEnqueuer>();
             });
 
-            // Use "Testing" environment to avoid running production configurations
+            // Use "Testing" environment to avoid Hangfire initialization and get specific test behavior
             builder.UseEnvironment("Testing");
         }
 

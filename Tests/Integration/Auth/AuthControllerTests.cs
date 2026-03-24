@@ -7,6 +7,7 @@ using Domain.Entities;
 using Domain.Interfaces.Services.Auth;
 using FluentAssertions;
 using Google.Apis.Auth;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -30,57 +31,6 @@ namespace Tests.Integration.Auth
             var email = "test@unicesar.edu.co";
             var validToken = "valid-google-token";
             
-            // Seed dependencies
-            var identificationType = new IdentificationType 
-            { 
-                Code = "CC", 
-                Name = "Cedula", 
-                OperationRegister = "INSERT", 
-                StatusRegister = true, 
-                CreatedAt = DateTime.UtcNow 
-            };
-            _context.Set<IdentificationType>().Add(identificationType);
-            
-            var faculty = new Faculty 
-            { 
-                Code = "ING",
-                Name = "Ingenieria", 
-                OperationRegister = "INSERT", 
-                StatusRegister = true, 
-                CreatedAt = DateTime.UtcNow 
-            };
-            _context.Set<Faculty>().Add(faculty);
-            await _context.SaveChangesAsync();
-
-            var academicProgram = new AcademicProgram 
-            { 
-                Code = "SYS", 
-                Name = "Systems", 
-                IdFaculty = faculty.Id, 
-                OperationRegister = "INSERT", 
-                StatusRegister = true, 
-                CreatedAt = DateTime.UtcNow 
-            };
-            _context.Set<AcademicProgram>().Add(academicProgram);
-            await _context.SaveChangesAsync();
-
-            // Seed user
-            var user = new User
-            {
-                Email = email,
-                FirstName = "Test",
-                LastName = "User",
-                Identification = "123456789",
-                OperationRegister = "INSERT",
-                StatusRegister = true,
-                CreatedAt = DateTime.UtcNow,
-                IdIdentificationType = identificationType.Id,
-                IdAcademicProgram = academicProgram.Id
-            };
-            
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
             // Mock Token Validator
             var payload = new TokenPayload
             {
@@ -92,13 +42,71 @@ namespace Tests.Integration.Auth
             _tokenValidatorMock.Setup(x => x.ValidateAsync(validToken))
                 .ReturnsAsync(payload);
 
-            var client = _factory.WithWebHostBuilder(builder =>
+            var customFactory = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
                     services.AddScoped(_ => _tokenValidatorMock.Object);
                 });
-            }).CreateClient();
+            });
+
+            var client = customFactory.CreateClient();
+
+            // Seed dependencies in the NEW context created by WithWebHostBuilder
+            using (var scope = customFactory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                
+                var identificationType = new IdentificationType 
+                { 
+                    Code = "CC", 
+                    Name = "Cedula", 
+                    OperationRegister = "INSERT", 
+                    StatusRegister = true, 
+                    CreatedAt = DateTime.UtcNow 
+                };
+                context.Set<IdentificationType>().Add(identificationType);
+                
+                var faculty = new Faculty 
+                { 
+                    Code = "ING",
+                    Name = "Ingenieria", 
+                    OperationRegister = "INSERT", 
+                    StatusRegister = true, 
+                    CreatedAt = DateTime.UtcNow 
+                };
+                context.Set<Faculty>().Add(faculty);
+                await context.SaveChangesAsync();
+
+                var academicProgram = new AcademicProgram 
+                { 
+                    Code = "SYS", 
+                    Name = "Systems", 
+                    IdFaculty = faculty.Id, 
+                    OperationRegister = "INSERT", 
+                    StatusRegister = true, 
+                    CreatedAt = DateTime.UtcNow 
+                };
+                context.Set<AcademicProgram>().Add(academicProgram);
+                await context.SaveChangesAsync();
+
+                // Seed user
+                var user = new User
+                {
+                    Email = email,
+                    FirstName = "Test",
+                    LastName = "User",
+                    Identification = "123456789",
+                    OperationRegister = "INSERT",
+                    StatusRegister = true,
+                    CreatedAt = DateTime.UtcNow,
+                    IdIdentificationType = identificationType.Id,
+                    IdAcademicProgram = academicProgram.Id
+                };
+                
+                context.Users.Add(user);
+                await context.SaveChangesAsync();
+            }
 
             var request = new GoogleAuthRequest { IdToken = validToken };
 

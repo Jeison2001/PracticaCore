@@ -6,7 +6,8 @@ using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Domain.Interfaces.Repositories;
-using Domain.Interfaces.Services.Notifications.Dispatcher;
+using Domain.Interfaces.Services.Jobs;
+using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
@@ -15,18 +16,18 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
         private readonly IMediator _mediator;
         private readonly ILogger<UpdateInscriptionWithStudentsHandler> _logger;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly INotificationDispatcher _notificationDispatcher;
+        private readonly IJobEnqueuer _jobEnqueuer;
 
         public UpdateInscriptionWithStudentsHandler(
             IMediator mediator,
             ILogger<UpdateInscriptionWithStudentsHandler> logger,
             IUnitOfWork unitOfWork,
-            INotificationDispatcher notificationDispatcher)
+            IJobEnqueuer jobEnqueuer)
         {
             _mediator = mediator;
             _logger = logger;
             _unitOfWork = unitOfWork;
-            _notificationDispatcher = notificationDispatcher;
+            _jobEnqueuer = jobEnqueuer;
         }
 
         public async Task<InscriptionWithStudentsDto> Handle(
@@ -37,8 +38,13 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
             try
             {
-                // Log the DTO values for debugging
-                _logger.LogInformation("Updating InscriptionModality with the following values: {@Dto}", request.Dto.InscriptionModality);
+                // Log the DTO values for debugging (only log IDs to avoid circular reference serialization issues)
+                _logger.LogInformation(
+                    "Updating InscriptionModality. Id={Id}, IdModality={IdModality}, IdStateInscription={IdStateInscription}, IdAcademicPeriod={IdAcademicPeriod}",
+                    request.Id,
+                    request.Dto.InscriptionModality.IdModality,
+                    request.Dto.InscriptionModality.IdStateInscription,
+                    request.Dto.InscriptionModality.IdAcademicPeriod);
 
                 // 0. Obtener estado original para notificaciones (antes de actualizar)
                 var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
@@ -131,17 +137,15 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 // 4. Preparar entidad actualizada para notificaciones
                 var updatedInscription = await inscriptionModalityRepo.GetByIdAsync(request.Id);
 
-                // 5. Despachar notificación si hubo cambio de estado
+                // 5. Encolar job de notificación si hubo cambio de estado (patrón consistente con Proposal, TeachingAssignment, etc.)
                 if (updatedInscription != null && originalStateId != updatedInscription.IdStateInscription)
                 {
                     _logger.LogInformation(
-                        "Estado de inscripción cambió de {OldStateId} a {NewStateId}. Enviando notificación.",
+                        "Estado de inscripción cambió de {OldStateId} a {NewStateId}. Encolando job de notificación.",
                         originalStateId, updatedInscription.IdStateInscription);
 
-                    await _notificationDispatcher.DispatchEntityChangeAsync<InscriptionModality, int>(
-                        originalInscription!,
-                        updatedInscription,
-                        cancellationToken);
+                    _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>
+                        x.HandleInscriptionChangeAsync(request.Id, originalStateId));
                 }
 
                 // 6. Prepare and return the response

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Infrastructure.Data;
 using Xunit;
+using Tests.Integration.Utilities;
 
 namespace Tests.Integration
 {
@@ -15,9 +16,12 @@ namespace Tests.Integration
         {
             _factory = factory;
             _client = factory.CreateClient();
-            
+
             _scope = factory.Services.CreateScope();
             _context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            // Clear any previously enqueued jobs before each test
+            _factory.EnqueuedJobs.Clear();
         }
 
         public void Dispose()

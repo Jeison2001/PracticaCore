@@ -1,10 +1,8 @@
 using Application.Shared.DTOs;
 using AutoMapper;
 using Domain.Entities;
-using Domain.Interfaces.Services.Notifications.Dispatcher;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
 using Application.Common.Services.Jobs;
@@ -39,17 +37,15 @@ namespace Application.Shared.Commands.Handlers
         public async Task<TDto> Handle(UpdateEntityCommand<T, TId, TDto> request, CancellationToken ct)
         {
             var existingEntity = await _repository.GetByIdAsync(request.Id) ?? throw new KeyNotFoundException($"Entity with ID {request.Id} not found.");
-            
-            // Crear copia profunda del estado original ANTES de cualquier modificaci�n
-            // Usar serializaci�n JSON para evitar referencias compartidas
-            var originalEntityJson = JsonSerializer.Serialize(existingEntity);
-            var originalEntity = JsonSerializer.Deserialize<T>(originalEntityJson)!;
-            
+
+            // Capturar solo los valores necesarios para notificaciones ANTES de modificar
+            int? originalStateId = CaptureStateIdIfNeeded(existingEntity);
+
             var originalId = existingEntity.Id;
             var originalCreatedAt = existingEntity.CreatedAt;
             var originalIdUserCreatedAt = existingEntity.IdUserCreatedAt;
 
-            // Mapear el DTO a la entidad existente (DESPU�S de crear la copia)
+            // Mapear el DTO a la entidad existente (despues de capturar valores originales)
             _mapper.Map(request.Dto, existingEntity);
 
             // Restaurar campos inmutables
@@ -63,23 +59,32 @@ namespace Application.Shared.Commands.Handlers
             await _unitOfWork.CommitAsync(ct);
 
             // Procesar notificaciones en background
-            ProcessNotificationsAsync(existingEntity, originalEntity);
+            ProcessNotificationsAsync(existingEntity, originalStateId);
 
             return _mapper.Map<TDto>(existingEntity);
         }
 
-        private void ProcessNotificationsAsync(T updatedEntity, T originalEntity)
+        private int? CaptureStateIdIfNeeded(T entity)
         {
-            if (_jobEnqueuer != null)
+            // Solo Proposal tiene notificación por cambio de estado en este handler genérico
+            if (typeof(T) == typeof(Proposal))
+            {
+                return (entity as Proposal)?.IdStateStage;
+            }
+            return null;
+        }
+
+        private void ProcessNotificationsAsync(T updatedEntity, int? originalStateId)
+        {
+            if (_jobEnqueuer != null && originalStateId.HasValue)
             {
                 if (typeof(T) == typeof(Proposal))
                 {
-                     var proposal = updatedEntity as Proposal;
-                     var originalProposal = originalEntity as Proposal;
-                     if (proposal != null && originalProposal != null)
-                     {
-                         _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleProposalChangeAsync(proposal.Id, originalProposal.IdStateStage));
-                     }
+                    var proposal = updatedEntity as Proposal;
+                    if (proposal != null)
+                    {
+                        _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleProposalChangeAsync(proposal.Id, originalStateId.Value));
+                    }
                 }
             }
         }

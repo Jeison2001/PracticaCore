@@ -50,9 +50,8 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             if (exists != null)
                 return _mapper.Map<TeachingAssignmentDto>(entity);
 
-            // Copia profunda del estado original ANTES de modificar
-            var originalEntityJson = System.Text.Json.JsonSerializer.Serialize(entity);
-            var originalEntity = System.Text.Json.JsonSerializer.Deserialize<TeachingAssignment>(originalEntityJson)!;
+            // Capturar solo el valor necesario para notificaciones ANTES de modificar
+            var originalTeacherId = entity.IdTeacher;
 
             // Preservar campos de auditoría inmutables
             var originalCreatedAt = entity.CreatedAt;
@@ -62,8 +61,8 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             _mapper.Map(dto, entity);
 
             // Restaurar campos inmutables y asegurar UTC
-            entity.CreatedAt = originalCreatedAt.Kind == DateTimeKind.Unspecified 
-                ? DateTime.SpecifyKind(originalCreatedAt, DateTimeKind.Utc) 
+            entity.CreatedAt = originalCreatedAt.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(originalCreatedAt, DateTimeKind.Utc)
                 : originalCreatedAt;
             entity.IdUserCreatedAt = originalIdUserCreatedAt;
             entity.UpdatedAt = DateTime.UtcNow;
@@ -72,15 +71,15 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             await _unitOfWork.CommitAsync(cancellationToken);
 
             // Procesar notificaciones en background
-            ProcessNotificationsAsync(originalEntity, entity);
+            ProcessNotificationsAsync(entity, originalTeacherId);
 
             return _mapper.Map<TeachingAssignmentDto>(entity);
         }
 
-        private void ProcessNotificationsAsync(TeachingAssignment originalEntity, TeachingAssignment updatedEntity)
+        private void ProcessNotificationsAsync(TeachingAssignment updatedEntity, int originalTeacherId)
         {
             // ✅ Fire-and-forget seguro usando Hangfire
-            _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleTeachingAssignmentChangeAsync(updatedEntity.Id, originalEntity.IdTeacher));
+            _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleTeachingAssignmentChangeAsync(updatedEntity.Id, originalTeacherId));
         }
     }
 }

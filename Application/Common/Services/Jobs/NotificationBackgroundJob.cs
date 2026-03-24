@@ -1,6 +1,8 @@
 using Application.Common.Services.Jobs;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Notifications;
+using Domain.Interfaces.Services.Notifications.Builders;
 using Domain.Interfaces.Services.Notifications.Dispatcher;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -134,6 +136,67 @@ namespace Application.Common.Services.Jobs
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing academic practice change job for ID {Id}", practiceId);
+                throw;
+            }
+        }
+
+        public async Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<InscriptionModality, int>>();
+
+                if (repository == null)
+                {
+                    _logger.LogError("Repository not found for InscriptionModality");
+                    return;
+                }
+
+                var entity = await repository.GetByIdAsync(inscriptionId);
+                if (entity == null)
+                {
+                    _logger.LogWarning("InscriptionModality with ID {Id} not found during background processing", inscriptionId);
+                    return;
+                }
+
+                var oldEntity = new InscriptionModality { Id = inscriptionId, IdStateInscription = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<InscriptionModality, int>(oldEntity, entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing inscription change job for ID {Id}", inscriptionId);
+                throw;
+            }
+        }
+
+        public async Task HandleInscriptionCreationAsync(int inscriptionId, int modalityId, int academicPeriodId, IEnumerable<int> studentIds)
+        {
+            try
+            {
+                _logger.LogInformation("Processing inscription creation notification for Inscription ID: {InscriptionId}", inscriptionId);
+
+                var queueService = _serviceProvider.GetService<IEmailNotificationQueueService>();
+                var eventDataBuilder = _serviceProvider.GetService<IInscriptionEventDataBuilder>();
+
+                if (queueService == null || eventDataBuilder == null)
+                {
+                    _logger.LogError("Required services not found for inscription creation notification");
+                    return;
+                }
+
+                var eventData = await eventDataBuilder.BuildBasicInscriptionDataAsync(
+                    inscriptionId,
+                    modalityId,
+                    academicPeriodId,
+                    studentIds);
+
+                queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
+
+                _logger.LogInformation("Inscription creation notification enqueued - Inscription ID: {InscriptionId}", inscriptionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing inscription creation notification for ID {Id}", inscriptionId);
                 throw;
             }
         }

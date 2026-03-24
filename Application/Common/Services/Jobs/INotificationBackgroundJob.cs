@@ -9,5 +9,7 @@ namespace Application.Common.Services.Jobs
         Task HandleProposalChangeAsync(int proposalId, int oldStateId);
         Task HandleTeachingAssignmentChangeAsync(int assignmentId, int oldTeacherId);
         Task HandleAcademicPracticeChangeAsync(int practiceId, int oldStateId);
+        Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId);
+        Task HandleInscriptionCreationAsync(int inscriptionId, int modalityId, int academicPeriodId, IEnumerable<int> studentIds);
     }
 }

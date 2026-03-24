@@ -2,11 +2,12 @@ using Application.Shared.DTOs.InscriptionModalities;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Domain.Entities;
-using Domain.Interfaces.Services.Notifications;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services;
+using Domain.Interfaces.Services.Jobs;
+using Application.Common.Services.Jobs;
 using Domain.Common.Users;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
@@ -22,7 +23,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
         private readonly IUserService _userService;
         private readonly IAcademicPeriodService _academicPeriodService;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IInscriptionCreationService _inscriptionCreationService;
+        private readonly IJobEnqueuer _jobEnqueuer;
 
         public CreateInscriptionWithStudentsHandler(
             IMediator mediator,
@@ -30,14 +31,14 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             IUserService userService,
             IAcademicPeriodService academicPeriodService,
             IUnitOfWork unitOfWork,
-            IInscriptionCreationService inscriptionCreationService)
+            IJobEnqueuer jobEnqueuer)
         {
             _mediator = mediator;
             _logger = logger;
             _userService = userService;
             _academicPeriodService = academicPeriodService;
             _unitOfWork = unitOfWork;
-            _inscriptionCreationService = inscriptionCreationService;
+            _jobEnqueuer = jobEnqueuer;
         }
 
         public async Task<InscriptionWithStudentsDto> Handle(
@@ -215,22 +216,22 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     Students = students
                 };
 
-                // 5. Send automated notifications asynchronously
+                // 5. Encolar job de notificación asíncrona (patrón consistente)
                 try
                 {
                     var studentIds = userDictionary.Values.Select(u => u.Id);
-                    await _inscriptionCreationService.ProcessInscriptionCreationAsync(
-                        inscriptionModalityId, 
-                        request.Dto.InscriptionModality.IdModality,
-                        academicPeriodId,
-                        studentIds,
-                        cancellationToken);
-                    
-                    _logger.LogInformation("Notificación automática procesada para inscripción ID {InscriptionId}", inscriptionModalityId);
+                    _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>
+                        x.HandleInscriptionCreationAsync(
+                            inscriptionModalityId,
+                            request.Dto.InscriptionModality.IdModality,
+                            academicPeriodId,
+                            studentIds));
+
+                    _logger.LogInformation("Job de notificación encolado para inscripción ID {InscriptionId}", inscriptionModalityId);
                 }
                 catch (Exception notificationEx)
                 {
-                    _logger.LogError(notificationEx, "Error al enviar notificación automática para inscripción ID {InscriptionId}", inscriptionModalityId);
+                    _logger.LogError(notificationEx, "Error al encolar job de notificación para inscripción ID {InscriptionId}", inscriptionModalityId);
                 }
 
                 return result;

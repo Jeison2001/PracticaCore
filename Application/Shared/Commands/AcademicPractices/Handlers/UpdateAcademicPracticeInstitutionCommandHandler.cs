@@ -1,25 +1,26 @@
 using Application.Shared.DTOs.AcademicPractices;
-using Domain.Interfaces.Services.Notifications.Dispatcher;
+using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.AcademicPractices.Handlers
 {
     public class UpdateAcademicPracticeInstitutionCommandHandler : IRequestHandler<UpdateAcademicPracticeInstitutionCommand, bool>
     {
         private readonly IAcademicPracticeRepository _academicPracticeRepository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly INotificationDispatcher _notificationDispatcher;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IJobEnqueuer _jobEnqueuer;
 
         public UpdateAcademicPracticeInstitutionCommandHandler(
             IAcademicPracticeRepository academicPracticeRepository,
             IUnitOfWork unitOfWork,
-            INotificationDispatcher notificationDispatcher)
+            IJobEnqueuer jobEnqueuer)
         {
             _academicPracticeRepository = academicPracticeRepository;
             _unitOfWork = unitOfWork;
-            _notificationDispatcher = notificationDispatcher;
+            _jobEnqueuer = jobEnqueuer;
         }
 
         public async Task<bool> Handle(UpdateAcademicPracticeInstitutionCommand request, CancellationToken cancellationToken)
@@ -30,17 +31,16 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 return false;
 
             // Snapshot para notificaciones (copia superficial suficiente para comparar IdStateStage)
-            var originalEntity = new AcademicPractice
-            {
-                Id = academicPractice.Id,
-                IdStateStage = academicPractice.IdStateStage
-            };
+            var originalStateId = academicPractice.IdStateStage;
+            var hasStateChange = dto.NewStateStageId.HasValue
+                && dto.NewStateStageId.Value > 0
+                && dto.NewStateStageId.Value != originalStateId;
 
             // Actualizar campos de institución
             UpdateInstitutionFields(academicPractice, dto);
 
             // Cambiar de estado si se especifica (ej: pasar a PA_PEND_APROBACION_DOCUMENTOS después de radicar docs)
-            if (dto.NewStateStageId.HasValue && dto.NewStateStageId.Value > 0 && dto.NewStateStageId.Value != academicPractice.IdStateStage)
+            if (hasStateChange)
             {
                 academicPractice.IdStateStage = dto.NewStateStageId.Value;
             }
@@ -52,10 +52,11 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             await _academicPracticeRepository.UpdateAsync(academicPractice);
             await _unitOfWork.CommitAsync(cancellationToken);
 
-            // Despachar notificación si hubo cambio de estado
-            if (originalEntity.IdStateStage != academicPractice.IdStateStage)
+            // Encolar job de notificación si hubo cambio de estado (patrón consistente)
+            if (hasStateChange)
             {
-                await _notificationDispatcher.DispatchEntityChangeAsync<AcademicPractice, int>(originalEntity, academicPractice, cancellationToken);
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>
+                    x.HandleAcademicPracticeChangeAsync(academicPractice.Id, originalStateId));
             }
 
             return true;
