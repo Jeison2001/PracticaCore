@@ -59,11 +59,5 @@ namespace Api.Controllers
                 new ApiResponse<InscriptionWithStudentsDto> { Success = true, Data = result });
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] InscriptionWithStudentsUpdateDto dto)
-        {
-            var result = await _mediator.Send(new UpdateInscriptionWithStudentsCommand(id, dto));
-            return Ok(new ApiResponse<InscriptionWithStudentsDto> { Success = true, Data = result });
-        }
     }
 }

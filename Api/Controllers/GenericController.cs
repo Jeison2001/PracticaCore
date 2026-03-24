@@ -1,4 +1,4 @@
-﻿using Application.Shared.Queries;
+using Application.Shared.Queries;
 using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
@@ -16,7 +16,7 @@ namespace Api.Controllers
         where TId : struct
         where TDto : BaseDto<TId>
     {
-        private readonly IMediator _mediator;
+        protected readonly IMediator _mediator;
 
         public GenericController(IMediator mediator) => _mediator = mediator;
 

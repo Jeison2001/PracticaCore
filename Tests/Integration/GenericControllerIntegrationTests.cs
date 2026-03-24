@@ -39,6 +39,11 @@ namespace Tests.Integration
         
         protected virtual void SeedAdditionalData(TEntity entity) { }
 
+        /// <summary>
+        /// Override in derived classes if the controller disables PUT via [NonAction].
+        /// </summary>
+        protected virtual bool SupportsUpdate => true;
+
         [Fact]
         public virtual async Task GetAll_ReturnsOkAndList()
         {
@@ -112,6 +117,12 @@ namespace Tests.Integration
         [Fact]
         public virtual async Task Update_ReturnsOk()
         {
+            // Skip if the controller has disabled PUT via [NonAction]
+            if (!SupportsUpdate)
+            {
+                return;
+            }
+
             // Arrange
             var entity = CreateValidEntity();
             SeedAdditionalData(entity);

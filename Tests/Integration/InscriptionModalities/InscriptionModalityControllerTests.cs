@@ -12,6 +12,9 @@ namespace Tests.Integration.InscriptionModalities
 
         protected override string BaseUrl => "/api/InscriptionModality";
 
+        // PUT is disabled via [NonAction] in InscriptionModalityController, use PATCH instead
+        protected override bool SupportsUpdate => false;
+
         protected override void SeedAdditionalData(InscriptionModality entity)
         {
             using (var scope = _factory.Services.CreateScope())

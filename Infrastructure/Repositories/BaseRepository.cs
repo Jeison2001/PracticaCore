@@ -7,6 +7,12 @@ using Domain.Interfaces.Repositories;
 
 namespace Infrastructure.Repositories
 {
+    /// <summary>
+    /// Base repository implementation using Entity Framework Core.
+    /// Provides standard CRUD operations and supports partial updates via expression-based property tracking.
+    /// </summary>
+    /// <typeparam name="T">Entity type.</typeparam>
+    /// <typeparam name="TId">Primary key type.</typeparam>
     public class BaseRepository<T, TId> : IRepository<T, TId> where T : BaseEntity<TId> where TId : struct
     {
         protected readonly AppDbContext _context;
@@ -31,19 +37,13 @@ namespace Infrastructure.Repositories
             IQueryable<T> query = _context.Set<T>();
 
             if (filter != null)
-            {
                 query = query.Where(filter);
-            }
 
             if (orderBy != null)
-            {
                 query = orderBy(query);
-            }
 
             if (pageNumber.HasValue && pageSize.HasValue)
-            {
                 query = query.Skip((pageNumber.Value - 1) * pageSize.Value).Take(pageSize.Value);
-            }
 
             return await query.ToListAsync();
         }
@@ -57,14 +57,10 @@ namespace Infrastructure.Repositories
             IQueryable<T> query = _context.Set<T>();
 
             if (filter != null)
-            {
                 query = query.Where(filter);
-            }
 
             if (orderBy != null)
-            {
                 query = orderBy(query);
-            }
 
             var totalRecords = await query.CountAsync();
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
@@ -82,9 +78,7 @@ namespace Infrastructure.Repositories
             => await _context.Set<T>().AddAsync(entity);
 
         public async Task AddRangeAsync(IEnumerable<T> entities)
-        {
-            await _context.Set<T>().AddRangeAsync(entities);
-        }
+            => await _context.Set<T>().AddRangeAsync(entities);
 
         public Task UpdateAsync(T entity)
         {
@@ -94,14 +88,14 @@ namespace Infrastructure.Repositories
 
         public Task UpdatePartialAsync(T entity, Expression<Func<T, object?>>[] updatedProperties)
         {
-            _context.Attach(entity);
+            var entry = _context.Entry(entity);
+            if (entry.State == EntityState.Unchanged)
+                entry.State = EntityState.Unchanged;
+
             foreach (var property in updatedProperties)
-            {
-                _context.Entry(entity).Property(property).IsModified = true;
-            }
-            // No guardar cambios aquí, UnitOfWork se encargará.
+                entry.Property(property).IsModified = true;
+
             return Task.CompletedTask;
-            
         }
 
         public Task DeleteAsync(T entity)
@@ -112,7 +106,7 @@ namespace Infrastructure.Repositories
 
         public async Task<T?> GetFirstOrDefaultAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken)
             => await _context.Set<T>().FirstOrDefaultAsync(predicate, cancellationToken);
-            
+
         public async Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default)
         {
             if (predicate == null) return await _context.Set<T>().CountAsync(cancellationToken);

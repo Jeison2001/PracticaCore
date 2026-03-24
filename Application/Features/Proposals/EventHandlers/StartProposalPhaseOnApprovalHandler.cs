@@ -5,9 +5,15 @@ using Domain.Events;
 using Domain.Interfaces.Repositories;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Linq.Expressions;
 
 namespace Application.Features.Proposals.EventHandlers
 {
+    /// <summary>
+    /// Handles InscriptionStateChangedEvent to initiate the Proposal phase (Phase 1)
+    /// when an inscription is approved for the Proyecto de Grado modality.
+    /// Creates the initial stage and assigns the standard proposal permissions to students.
+    /// </summary>
     public class StartProposalPhaseOnApprovalHandler : INotificationHandler<InscriptionStateChangedEvent>
     {
         private static readonly string[] InitialPermissions =
@@ -46,7 +52,9 @@ namespace Application.Features.Proposals.EventHandlers
 
             if (targetStageModality == null)
             {
-                _logger.LogWarning("{Handler}: No se encontró la fase {code} activa.", nameof(StartProposalPhaseOnApprovalHandler), StageModalityCodes.PgFasePropuesta);
+                _logger.LogWarning(
+                    "StartProposalPhaseOnApprovalHandler: Stage {StageCode} not found or inactive.",
+                    StageModalityCodes.PgFasePropuesta);
                 return;
             }
 
@@ -58,7 +66,12 @@ namespace Application.Features.Proposals.EventHandlers
             inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
             inscription.OperationRegister += " | Fase propuesta asignada por DomainEvent";
 
-            await inscriptionModalityRepo.UpdateAsync(inscription);
+            await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
+                x => x.IdStageModality,
+                x => x.UpdatedAt,
+                x => x.IdUserUpdatedAt,
+                x => x.OperationRegister
+            ]);
 
             await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
                 _unitOfWork,
