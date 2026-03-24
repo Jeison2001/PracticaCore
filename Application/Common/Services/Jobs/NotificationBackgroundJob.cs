@@ -169,7 +169,7 @@ namespace Application.Common.Services.Jobs
             }
         }
 
-        public async Task HandleInscriptionCreationAsync(int inscriptionId, int modalityId, int academicPeriodId, IEnumerable<int> studentIds)
+        public async Task HandleInscriptionCreationAsync(int inscriptionId, int modalityId, int academicPeriodId, IList<int> studentIds)
         {
             try
             {

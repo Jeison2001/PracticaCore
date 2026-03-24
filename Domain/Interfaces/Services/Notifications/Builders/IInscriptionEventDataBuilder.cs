@@ -9,6 +9,6 @@ namespace Domain.Interfaces.Services.Notifications.Builders
     public interface IInscriptionEventDataBuilder : IScopedService
     {
         Task<Dictionary<string, object>> BuildInscriptionEventDataAsync(int inscriptionId, string eventType);
-        Task<Dictionary<string, object>> BuildBasicInscriptionDataAsync(int inscriptionId, int modalityId, int academicPeriodId, IEnumerable<int> studentIds);
+        Task<Dictionary<string, object>> BuildBasicInscriptionDataAsync(int inscriptionId, int modalityId, int academicPeriodId, IList<int> studentIds);
     }
 }

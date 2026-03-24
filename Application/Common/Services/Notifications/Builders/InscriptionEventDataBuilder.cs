@@ -81,7 +81,7 @@ namespace Application.Common.Services.Notifications.Builders
             }
         }
 
-        public async Task<Dictionary<string, object>> BuildBasicInscriptionDataAsync(int inscriptionId, int modalityId, int academicPeriodId, IEnumerable<int> studentIds)
+        public async Task<Dictionary<string, object>> BuildBasicInscriptionDataAsync(int inscriptionId, int modalityId, int academicPeriodId, IList<int> studentIds)
         {
             try
             {

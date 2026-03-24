@@ -10,6 +10,6 @@ namespace Application.Common.Services.Jobs
         Task HandleTeachingAssignmentChangeAsync(int assignmentId, int oldTeacherId);
         Task HandleAcademicPracticeChangeAsync(int practiceId, int oldStateId);
         Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId);
-        Task HandleInscriptionCreationAsync(int inscriptionId, int modalityId, int academicPeriodId, IEnumerable<int> studentIds);
+        Task HandleInscriptionCreationAsync(int inscriptionId, int modalityId, int academicPeriodId, IList<int> studentIds);
     }
 }
