@@ -13,5 +13,6 @@ namespace Application.Shared.DTOs.InscriptionWithStudents
         public int? StageOrder { get; set; }
         public List<UserInscriptionModalityDto> Students { get; set; } = new();
         public string? StateInscriptionCode { get; set; } // Código del estado de la inscripción
+        public int? MaxSpecificObjectives { get; set; }
     }
 }

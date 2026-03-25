@@ -173,7 +173,8 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                         ModalityName = modality.Name,
                         StateInscriptionName = stateInscription.Name,
                         StateInscriptionCode = stateInscription.Code, // Código del estado de la inscripción
-                        Students = studentDtos
+                        Students = studentDtos,
+                        MaxSpecificObjectives = modality.MaxSpecificObjectives
                     });
                 }
 
