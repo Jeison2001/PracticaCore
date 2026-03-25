@@ -5,6 +5,8 @@ using Domain.Events;
 using Domain.Interfaces.Repositories;
 using FluentAssertions;
 using Infrastructure.Data;
+using Infrastructure.Repositories;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Tests.Integration.Utilities;
@@ -16,13 +18,12 @@ namespace Tests.Integration.EventHandlers
     {
         public StartMinorModalityPhaseOnApprovalHandlerTests(CustomWebApplicationFactory factory) : base(factory)
         {
-            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            if (!context.Set<Modality>().Any())
-                SeedingUtilities.SeedCatalogs(context);
         }
 
-        private StartMinorModalityPhaseOnApprovalHandler CreateHandler() =>
-            new(_scope.ServiceProvider.GetRequiredService<IUnitOfWork>(),
+        private StartMinorModalityPhaseOnApprovalHandler CreateHandler(AppDbContext context) =>
+            new(new UnitOfWork(context,
+                _scope.ServiceProvider.GetRequiredService<IMediator>(),
+                _scope.ServiceProvider.GetRequiredService<ILogger<UnitOfWork>>()),
                 _scope.ServiceProvider.GetRequiredService<ILogger<StartMinorModalityPhaseOnApprovalHandler>>());
 
         // Each Theory row: (userId, inscriptionId, modalityCode, requiresApproval, stateCode, permCodes[])
@@ -43,11 +44,12 @@ namespace Tests.Integration.EventHandlers
         [Theory]
         [MemberData(nameof(ModalityScenarios))]
         public async Task Handle_MinorModalityApproved_CreatesRecordAndAssignsPermissions(
-            int userId, int inscriptionId, string modalityCode, bool requiresApproval, 
+            int userId, int inscriptionId, string modalityCode, bool requiresApproval,
             string triggerStateCode, string[] expectedPermCodes)
         {
-            // Arrange
-            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // Arrange - use FRESH isolated database for this test
+            var context = GetFreshDbContext();
+            SeedingUtilities.SeedCatalogs(context);
             SeedingUtilities.SeedPermissions(context, expectedPermCodes);
 
             var modality = context.Set<Modality>().First(m => m.Code == modalityCode);
@@ -70,7 +72,7 @@ namespace Tests.Integration.EventHandlers
 
             var inscription = new InscriptionModality
             {
-                Id = inscriptionId, IdModality = modality.Id, 
+                Id = inscriptionId, IdModality = modality.Id,
                 IdStateInscription = pendienteState.Id,
                 IdAcademicPeriod = 1, CreatedAt = DateTime.UtcNow,
                 StatusRegister = true, OperationRegister = "Test"
@@ -92,48 +94,46 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act
-            await CreateHandler().Handle(domainEvent, CancellationToken.None);
+            // Act - use the SAME context (with fresh DB)
+            await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert
-            var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
-
+            // Assert - use the SAME context
             // 1. The inscription must have a phase assigned (Phase 1 of its modality)
-            var updatedInscription = await actContext.Set<InscriptionModality>().FindAsync(inscription.Id);
+            var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
             updatedInscription.Should().NotBeNull();
             updatedInscription!.IdStageModality.Should().NotBeNull(
                 $"la modalidad {modalityCode} debe asignar la Fase 1 al activarse");
 
             // 2. Assigned permissions must include expected ones
-            var permIds = actContext.Set<Permission>()
-                .Where(p => expectedPermCodes.Contains(p.Code))
-                .Select(p => p.Id).ToList();
-
-            var assignedPermIds = actContext.Set<UserPermission>()
+            var assignedPermCodes = context.Set<UserPermission>()
                 .Where(up => up.IdUser == user.Id && up.StatusRegister)
-                .Select(up => up.IdPermission).ToList();
+                .Join(context.Set<Permission>(),
+                      up => up.IdPermission,
+                      p => p.Id,
+                      (up, p) => p.Code)
+                .ToList();
 
-            assignedPermIds.Should().Contain(permIds,
+            assignedPermCodes.Should().Contain(expectedPermCodes,
                 $"los permisos iniciales de {modalityCode} deben asignarse al activarse");
 
             // 3. The extension record must be created according to the modality
             switch (modalityCode)
             {
                 case ModalityCodes.CoTerminal:
-                    (await actContext.Set<CoTerminal>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    context.Set<CoTerminal>().Find(inscription.Id).Should().NotBeNull();
                     break;
                 case ModalityCodes.SeminarioAct:
-                    (await actContext.Set<Seminar>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    context.Set<Seminar>().Find(inscription.Id).Should().NotBeNull();
                     break;
                 case ModalityCodes.PublicacionArticulo:
-                    (await actContext.Set<ScientificArticle>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    context.Set<ScientificArticle>().Find(inscription.Id).Should().NotBeNull();
                     break;
                 case ModalityCodes.GradoPromedio:
-                    (await actContext.Set<AcademicAverage>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    context.Set<AcademicAverage>().Find(inscription.Id).Should().NotBeNull();
                     break;
                 case ModalityCodes.SaberPro:
-                    (await actContext.Set<SaberPro>().FindAsync(inscription.Id)).Should().NotBeNull();
+                    context.Set<SaberPro>().Find(inscription.Id).Should().NotBeNull();
                     break;
             }
         }
@@ -142,7 +142,9 @@ namespace Tests.Integration.EventHandlers
         public async Task Handle_ProyectoGradoModality_IsIgnored()
         {
             // Arrange — PG is NOT a minor modality → handler should do nothing
-            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var context = GetFreshDbContext();
+            SeedingUtilities.SeedCatalogs(context);
+
             var pgModalityId    = context.Set<Modality>().First(m => m.Code == ModalityCodes.ProyectoGrado).Id;
             var aprobadoStateId = context.Set<StateInscription>().First(s => s.Code == StateInscriptionCodes.Aprobado).Id;
 
@@ -171,13 +173,12 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act
-            await CreateHandler().Handle(domainEvent, CancellationToken.None);
+            // Act - use the SAME context
+            await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
             // Assert - IdStageModality should remain null
-            var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
-            var updatedInscription = await actContext.Set<InscriptionModality>().FindAsync(inscription.Id);
+            var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
             updatedInscription!.IdStageModality.Should().BeNull(
                 "Proyecto de Grado no es una modalidad menor y debe ser ignorado por este handler");
         }

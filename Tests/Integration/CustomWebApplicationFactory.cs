@@ -12,6 +12,8 @@ namespace Tests.Integration
     public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         public List<EnqueuedJobInfo> EnqueuedJobs { get; } = new();
+        private string? _initialDbName;
+        private readonly object _lock = new();
 
         public CustomWebApplicationFactory()
         {
@@ -37,10 +39,10 @@ namespace Tests.Integration
             {
                 // Add AppDbContext using an in-memory database for testing
                 // Use a unique name for each factory instance to isolate tests
-                var dbName = Guid.NewGuid().ToString();
+                _initialDbName = Guid.NewGuid().ToString();
                 services.AddDbContext<AppDbContext>(options =>
                 {
-                    options.UseInMemoryDatabase(dbName);
+                    options.UseInMemoryDatabase(_initialDbName);
                     options.ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
                     // Disable proxy generation (lazy loading requires proxy package which is not installed)
                     options.ConfigureWarnings(w => w.Throw(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
@@ -61,6 +63,33 @@ namespace Tests.Integration
 
             // Use "Testing" environment to avoid Hangfire initialization and get specific test behavior
             builder.UseEnvironment("Testing");
+        }
+
+        /// <summary>
+        /// Creates a NEW in-memory database and returns a fresh AppDbContext.
+        /// Use this to ensure test isolation between test methods.
+        /// </summary>
+        public AppDbContext CreateNewDbContext()
+        {
+            lock (_lock)
+            {
+                var serviceProvider = Services.GetService<IServiceProvider>();
+                if (serviceProvider == null)
+                    throw new InvalidOperationException("ServiceProvider not available");
+
+                // Create a new in-memory database with unique name
+                var newDbName = Guid.NewGuid().ToString();
+
+                // Create a new service scope
+                var scope = serviceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                // Use the new database
+                context.Database.EnsureDeleted();
+                context.Database.EnsureCreated();
+
+                return context;
+            }
         }
 
         protected override void Dispose(bool disposing)

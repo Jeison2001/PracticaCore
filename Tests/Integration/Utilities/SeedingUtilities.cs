@@ -114,5 +114,22 @@ namespace Tests.Integration.Utilities
             }
             context.SaveChanges();
         }
+
+        public static void SeedPermissions(AppDbContext context, Dictionary<string, int> permissionsWithIds)
+        {
+            foreach (var (code, id) in permissionsWithIds)
+            {
+                var existing = context.Set<Permission>().FirstOrDefault(p => p.Code == code);
+                if (existing != null)
+                {
+                    existing.Id = id;
+                }
+                else
+                {
+                    context.Set<Permission>().Add(new Permission { Id = id, Code = code, Description = code, StatusRegister = true, OperationRegister = "Seed" });
+                }
+            }
+            context.SaveChanges();
+        }
     }
 }

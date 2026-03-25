@@ -4,6 +4,7 @@ using Application.Shared.DTOs;
 using Application.Shared.DTOs.Proposals;
 using Application.Shared.Queries.Proposals;
 using Domain.Common;
+using Domain.Common.Extensions;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,8 @@ namespace Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateProposalDto dto)
         {
-            var command = new CreateProposalCommand(dto);
+            var currentUser = User.GetCurrentUserInfo();
+            var command = new CreateProposalCommand(dto, currentUser);
             var result = await _mediator.Send(command);
             return Ok(new ApiResponse<ProposalDto> { Success = true, Data = result });
         }

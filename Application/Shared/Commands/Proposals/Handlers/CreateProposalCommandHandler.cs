@@ -2,6 +2,8 @@ using Application.Shared.DTOs.Proposals;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
+using Application.Common.Services.Jobs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -10,11 +12,16 @@ namespace Application.Shared.Commands.Proposals.Handlers
     public class CreateProposalCommandHandler : IRequestHandler<CreateProposalCommand, ProposalDto>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IJobEnqueuer _jobEnqueuer;
         private readonly ILogger<CreateProposalCommandHandler> _logger;
 
-        public CreateProposalCommandHandler(IUnitOfWork unitOfWork, ILogger<CreateProposalCommandHandler> logger)
+        public CreateProposalCommandHandler(
+            IUnitOfWork unitOfWork, 
+            IJobEnqueuer jobEnqueuer,
+            ILogger<CreateProposalCommandHandler> logger)
         {
             _unitOfWork = unitOfWork;
+            _jobEnqueuer = jobEnqueuer;
             _logger = logger;
         }
 
@@ -74,16 +81,19 @@ namespace Application.Shared.Commands.Proposals.Handlers
                 Observation = request.Dto.Observation,
                 IdResearchLine = request.Dto.IdResearchLine,
                 IdResearchSubLine = request.Dto.IdResearchSubLine,
-                IdUserCreatedAt = request.Dto.Id, // El usuario trigger es la misma inscripción por ahora
+                IdUserCreatedAt = request.CurrentUser?.UserId,
                 OperationRegister = "Creada por CreateProposalCommand - Estado inicial asignado por dominio",
                 StatusRegister = true,
                 CreatedAt = DateTime.UtcNow
             };
 
             await proposalRepo.AddAsync(proposal);
+            await _unitOfWork.CommitAsync(cancellationToken);
 
-            _logger.LogInformation("Proposal creada exitosamente con ID {Id} y estado inicial {StateStage}",
+            _logger.LogInformation("Proposal creada exitosamente con ID {Id} y estado inicial {StateStage}. Encolando notificación.",
                 proposal.Id, initialState.Code);
+
+            ProcessNotificationsAsync(proposal.Id);
 
             // 7. Retornar DTO
             return new ProposalDto
@@ -99,6 +109,12 @@ namespace Application.Shared.Commands.Proposals.Handlers
                 IdStateStage = proposal.IdStateStage,
                 CreatedAt = proposal.CreatedAt
             };
+        }
+
+        private void ProcessNotificationsAsync(int proposalId)
+        {
+            _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>
+                x.HandleEntityCreationAsync<Proposal, int>(proposalId));
         }
     }
 }

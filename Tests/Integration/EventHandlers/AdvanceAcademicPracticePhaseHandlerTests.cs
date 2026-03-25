@@ -5,6 +5,8 @@ using Domain.Events;
 using Domain.Interfaces.Repositories;
 using FluentAssertions;
 using Infrastructure.Data;
+using Infrastructure.Repositories;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Tests.Integration.Utilities;
@@ -16,13 +18,12 @@ namespace Tests.Integration.EventHandlers
     {
         public AdvanceAcademicPracticePhaseHandlerTests(CustomWebApplicationFactory factory) : base(factory)
         {
-            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            if (!context.Set<Modality>().Any())
-                SeedingUtilities.SeedCatalogs(context);
         }
 
-        private AdvanceAcademicPracticePhaseHandler CreateHandler() =>
-            new(_scope.ServiceProvider.GetRequiredService<IUnitOfWork>(),
+        private AdvanceAcademicPracticePhaseHandler CreateHandler(AppDbContext context) =>
+            new(new UnitOfWork(context,
+                _scope.ServiceProvider.GetRequiredService<IMediator>(),
+                _scope.ServiceProvider.GetRequiredService<ILogger<UnitOfWork>>()),
                 _scope.ServiceProvider.GetRequiredService<ILogger<AdvanceAcademicPracticePhaseHandler>>());
 
         // ──────────────────────────────────────────────────────────────────────────────
@@ -31,8 +32,9 @@ namespace Tests.Integration.EventHandlers
         [Fact]
         public async Task Handle_InscripcionAprobada_AdvancesToDesarrolloAndAssignsF1Permissions()
         {
-            // Arrange
-            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // Arrange - use FRESH isolated database for this test
+            var context = GetFreshDbContext();
+            SeedingUtilities.SeedCatalogs(context);
             SeedingUtilities.SeedPermissions(context,
                 PermissionCodes.PracticaAcademica.N2PAF1,
                 PermissionCodes.PracticaAcademica.N3PAF1R,
@@ -86,26 +88,25 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act
-            await CreateHandler().Handle(domainEvent, CancellationToken.None);
+            // Act - use the SAME context (with fresh DB)
+            await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert
-            var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
-            var updatedInscription = await actContext.Set<InscriptionModality>().FindAsync(inscription.Id);
+            // Assert - use the SAME context
+            var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
 
             updatedInscription.Should().NotBeNull();
-            var desarrolloStageId = actContext.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseDesarrollo).Id;
+            var desarrolloStageId = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseDesarrollo).Id;
             updatedInscription!.IdStageModality.Should().Be(desarrolloStageId,
                 "al aprobar la inscripción de PA debe avanzar a Fase Desarrollo");
 
-            var f1Perms = actContext.Set<Permission>()
+            var f1Perms = context.Set<Permission>()
                 .Where(p => p.Code == PermissionCodes.PracticaAcademica.N2PAF1 ||
                             p.Code == PermissionCodes.PracticaAcademica.N3PAF1R ||
                             p.Code == PermissionCodes.PracticaAcademica.N3PAF1C)
                 .Select(p => p.Id).ToList();
 
-            var assigned = actContext.Set<UserPermission>()
+            var assigned = context.Set<UserPermission>()
                 .Where(up => up.IdUser == user.Id && up.StatusRegister)
                 .Select(up => up.IdPermission).ToList();
 
@@ -118,8 +119,9 @@ namespace Tests.Integration.EventHandlers
         [Fact]
         public async Task Handle_DesarrolloAprobado_AdvancesToEvaluacionAndAssignsF2Permissions()
         {
-            // Arrange
-            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // Arrange - use FRESH isolated database for this test
+            var context = GetFreshDbContext();
+            SeedingUtilities.SeedCatalogs(context);
             SeedingUtilities.SeedPermissions(context,
                 PermissionCodes.PracticaAcademica.N2PAF2,
                 PermissionCodes.PracticaAcademica.N3PAF2R,
@@ -173,26 +175,25 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act
-            await CreateHandler().Handle(domainEvent, CancellationToken.None);
+            // Act - use the SAME context (with fresh DB)
+            await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert
-            var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
-            var updatedInscription = await actContext.Set<InscriptionModality>().FindAsync(inscription.Id);
+            // Assert - use the SAME context
+            var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
 
             updatedInscription.Should().NotBeNull();
-            var evalStageId = actContext.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseEvaluacion).Id;
+            var evalStageId = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseEvaluacion).Id;
             updatedInscription!.IdStageModality.Should().Be(evalStageId,
                 "al aprobar el desarrollo de PA debe avanzar a Fase Evaluación");
 
-            var f2Perms = actContext.Set<Permission>()
+            var f2Perms = context.Set<Permission>()
                 .Where(p => p.Code == PermissionCodes.PracticaAcademica.N2PAF2 ||
                             p.Code == PermissionCodes.PracticaAcademica.N3PAF2R ||
                             p.Code == PermissionCodes.PracticaAcademica.N3PAF2C)
                 .Select(p => p.Id).ToList();
 
-            var assigned = actContext.Set<UserPermission>()
+            var assigned = context.Set<UserPermission>()
                 .Where(up => up.IdUser == user.Id && up.StatusRegister)
                 .Select(up => up.IdPermission).ToList();
 
@@ -205,8 +206,10 @@ namespace Tests.Integration.EventHandlers
         [Fact]
         public async Task Handle_SameOldAndNewState_DoesNothing()
         {
-            // Arrange
-            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // Arrange - use FRESH isolated database for this test
+            var context = GetFreshDbContext();
+            SeedingUtilities.SeedCatalogs(context);
+
             var paModalityId    = context.Set<Modality>().First(m => m.Code == ModalityCodes.PracticaAcademica).Id;
             var aprobadoStateId = context.Set<StateInscription>().First(s => s.Code == StateInscriptionCodes.Aprobado).Id;
             var inscFaseId      = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseInscripcion).Id;
@@ -239,13 +242,12 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act
-            await CreateHandler().Handle(domainEvent, CancellationToken.None);
+            // Act - use the SAME context (with fresh DB)
+            await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
             // Assert - phase should remain in PaFaseInscripcion
-            var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
-            var updatedInscription = await actContext.Set<InscriptionModality>().FindAsync(inscription.Id);
+            var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
             updatedInscription!.IdStageModality.Should().Be(inscFaseId,
                 "si OldStateId == NewStateId, el handler no debe hacer nada");
         }

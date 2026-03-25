@@ -175,14 +175,42 @@ namespace Infrastructure.Repositories.Cache
                 foreach (var f in target.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
                 {
                     var val = f.GetValue(target);
-                    if (val == null || val is IRepository<T, TId>) continue;
+                    if (val == null) continue;
 
-                    // Types cannot be JSON-serialized; use FullName as a stable identifier.
-                    string serializedVal = val is Type t ? t.FullName ?? t.Name : JsonSerializer.Serialize(val);
+                    // Skip types that are not serializable or not relevant for cache uniqueness
+                    if (val is IRepository<T, TId> || val is CancellationToken || val is ILogger) continue;
+
+                    string serializedVal;
+                    if (val is Type t)
+                    {
+                        serializedVal = t.FullName ?? t.Name;
+                    }
+                    else if (val is Expression exp)
+                    {
+                        serializedVal = exp.ToString();
+                    }
+                    else
+                    {
+                        // Try JSON serialization, fallback to type name + hash if it fails
+                        serializedVal = TrySerializeSafe(val);
+                    }
                     sb.Append('|').Append(serializedVal);
                 }
             }
             return sb.ToString();
+        }
+
+        private static string TrySerializeSafe(object val)
+        {
+            try
+            {
+                return JsonSerializer.Serialize(val);
+            }
+            catch
+            {
+                // Fallback: use type name + hash code for uniqueness without breaking the cache key
+                return val.GetType().Name + val.GetHashCode();
+            }
         }
 
         /// <summary>
@@ -262,7 +290,9 @@ namespace Infrastructure.Repositories.Cache
             {
                 sb.Append('|');
                 // Types cannot be serialized by System.Text.Json; use FullName as fallback.
-                string serializedConstant = constant is Type t ? t.FullName ?? t.Name : JsonSerializer.Serialize(constant);
+                string serializedConstant = constant is Type t 
+                    ? (t.FullName ?? t.Name) 
+                    : (constant is Expression exp ? exp.ToString() : TrySerializeSafe(constant));
                 sb.Append(serializedConstant);
             }
             return sb.ToString().GetHashCode().ToString();
