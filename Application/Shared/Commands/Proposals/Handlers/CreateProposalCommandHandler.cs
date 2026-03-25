@@ -35,6 +35,17 @@ namespace Application.Shared.Commands.Proposals.Handlers
             if (inscription == null)
                 throw new InvalidOperationException($"No se encontró la inscripción de modalidad con ID {request.Dto.Id}");
 
+            // 1b. Obtener MaxSpecificObjectives de la modalidad y validar límite de objetivos
+            var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
+            var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
+
+            if (modality?.MaxSpecificObjectives.HasValue == true &&
+                request.Dto.SpecificObjectives.Count > modality.MaxSpecificObjectives.Value)
+            {
+                throw new InvalidOperationException(
+                    $"El número de objetivos específicos ({request.Dto.SpecificObjectives.Count}) no puede exceder el máximo permitido ({modality.MaxSpecificObjectives.Value})");
+            }
+
             // 2. Validar que la inscripción ya tiene fase propuesta (validación de negocio)
             var stageModalityRepo = _unitOfWork.GetRepository<StageModality, int>();
             var propuestaStage = await stageModalityRepo.GetFirstOrDefaultAsync(
