@@ -51,7 +51,7 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
             var updatedProperties = new List<Expression<Func<InscriptionModality, object?>>>();
 
             // Always update tracking fields FIRST (before state change to ensure domain event captures correct user)
-            entity.IdUserUpdatedAt = request.UserId;
+            entity.IdUserUpdatedAt = request.CurrentUser.UserId;
             entity.UpdatedAt = DateTime.UtcNow;
             updatedProperties.Add(x => x.IdUserUpdatedAt);
             updatedProperties.Add(x => x.UpdatedAt);

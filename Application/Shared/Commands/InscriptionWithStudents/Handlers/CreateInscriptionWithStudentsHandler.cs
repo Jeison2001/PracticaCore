@@ -165,7 +165,8 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                             IdModality = request.Dto.InscriptionModality.IdModality,
                             IdAcademicPeriod = academicPeriodId,
                             IdStateInscription = initialState.Id,
-                            Observations = request.Dto.InscriptionModality.Observations
+                            Observations = request.Dto.InscriptionModality.Observations,
+                            IdUserCreatedAt = request.CurrentUser?.UserId
                         }),
                     cancellationToken);
 

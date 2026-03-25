@@ -4,6 +4,7 @@ using Application.Shared.DTOs;
 using Application.Shared.DTOs.InscriptionWithStudents;
 using Application.Shared.Queries.InscriptionWithStudents;
 using Domain.Common;
+using Domain.Common.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -54,7 +55,8 @@ namespace Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] InscriptionWithStudentsCreateDto dto)
         {
-            var result = await _mediator.Send(new CreateInscriptionWithStudentsCommand(dto));
+            var currentUser = User.GetCurrentUserInfo();
+            var result = await _mediator.Send(new CreateInscriptionWithStudentsCommand(dto, currentUser));
             return CreatedAtAction(nameof(GetById), new { id = result.InscriptionModality.Id },
                 new ApiResponse<InscriptionWithStudentsDto> { Success = true, Data = result });
         }
