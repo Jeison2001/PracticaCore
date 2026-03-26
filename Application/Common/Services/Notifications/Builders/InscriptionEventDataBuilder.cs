@@ -56,6 +56,7 @@ namespace Application.Common.Services.Notifications.Builders
                     ["InscriptionState"] = stateInscription?.Name ?? string.Empty,
                     ["EventType"] = eventType,
                     ["ModalityName"] = modality?.Name ?? string.Empty,
+                    ["ModalityCode"] = modality?.Code ?? string.Empty,
                     ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty, // AcademicPeriod solo tiene Code
                     ["AcademicPeriodCode"] = academicPeriod?.Code ?? string.Empty,
                     ["StudentNames"] = studentNames,
@@ -68,7 +69,8 @@ namespace Application.Common.Services.Notifications.Builders
                     ["ApprovalComments"] = inscription.Observations ?? string.Empty,
                     ["RejectionComments"] = inscription.Observations ?? string.Empty,
                     ["CreatedAt"] = inscription.CreatedAt,
-                    ["UpdatedAt"] = inscription.UpdatedAt ?? DateTime.UtcNow
+                    ["UpdatedAt"] = inscription.UpdatedAt ?? DateTime.UtcNow,
+                    ["NextSteps"] = GetNextStepsByModality(modality?.Code ?? string.Empty)
                 };
 
                 _logger.LogDebug("Built event data for Inscription ID: {InscriptionId}, Event: {EventType}", inscriptionId, eventType);
@@ -123,6 +125,21 @@ namespace Application.Common.Services.Notifications.Builders
                 _logger.LogError(ex, "Error building basic inscription data for ID: {InscriptionId}", inscriptionId);
                 throw;
             }
+        }
+
+        private string GetNextStepsByModality(string modalityCode)
+        {
+            return modalityCode switch
+            {
+                "PROYECTO_GRADO" => "<li>Proceder con la radicación de la propuesta</li><li>Mantente atento a futuras comunicaciones del comité académico</li>",
+                "PRACTICA_ACADEMICA" => "<li>Proceder con la inscripción de la práctica académica</li><li>Completar el formulario de inscripción de práctica</li>",
+                "CO_TERMINAL" => "<li>Gestionar los trámites de co-terminalidad con posgrado</li><li>Entregar documentación requerida</li>",
+                "SEMINARIO_ACT" => "<li>Preparar y presentar el seminario de actualización</li><li>Obtener aprobación del comité</li>",
+                "PUBLICACION_ARTICULO" => "<li>Gestionar la publicación del artículo científico</li><li>Verificar indexación en Publindex/Scimago/Scopus</li>",
+                "GRADO_PROMEDIO" => "<li>Tramitar grado por promedio académico</li><li>Verificar cumplimiento de requisitos</li>",
+                "SABER_PRO" => "<li>Gestionar grado según resultados Saber Pro</li><li>Entregar documentación requerida</li>",
+                _ => "<li>Consultar con la coordinación los próximos pasos</li>"
+            };
         }
     }
 }
