@@ -29,17 +29,22 @@ namespace Infrastructure.Repositories
             return userRoles ?? new List<string>();
         }
 
-        public async Task<List<Permission>> GetUserPermissionsFullInfoAsync(int userId)
+        public async Task<List<PermissionWithUserPermission>> GetUserPermissionsWithUserPermissionsAsync(int userId)
         {
+            // Acceso directo al DbContext para usar Include explícito (evita lazy loading)
             var userPermissionRepo = _unitOfWork.GetRepository<UserPermission, int>();
-            var permissionRepo = _unitOfWork.GetRepository<Permission, int>();
+            var baseRepo = (BaseRepository<UserPermission, int>)userPermissionRepo;
+            var context = baseRepo.Context;
             var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
             var rolePermissionRepo = _unitOfWork.GetRepository<RolePermission, int>();
 
-            var directPermissionIds = (await userPermissionRepo.GetAllAsync(up => up.IdUser == userId))
-                .Select(up => up.IdPermission)
-                .ToList();
+            // Permisos directos del usuario con Permission cargada via Include
+            var directUserPermissions = await context.Set<UserPermission>()
+                .Where(up => up.IdUser == userId)
+                .Include(up => up.Permission)
+                .ToListAsync();
 
+            // Permisos por rol
             var userRoleIds = (await userRoleRepo.GetAllAsync(ur => ur.IdUser == userId))
                 .Select(ur => ur.IdRole)
                 .ToList();
@@ -52,10 +57,52 @@ namespace Infrastructure.Repositories
                     .ToList();
             }
 
-            var allPermissionIds = directPermissionIds.Union(rolePermissionIds).Distinct().ToList();
-            var permissions = (await permissionRepo.GetAllAsync(p => allPermissionIds.Contains(p.Id))).ToList();
+            // Cargar permisos por rol con su relación Permission
+            var roleUserPermissions = new List<UserPermission>();
+            if (rolePermissionIds.Any())
+            {
+                var rolePermissions = await context.Set<RolePermission>()
+                    .Where(rp => userRoleIds.Contains(rp.IdRole))
+                    .Include(rp => rp.Permission)
+                    .ToListAsync();
 
-            return permissions;
+                roleUserPermissions = rolePermissions
+                    .Select(rp => new UserPermission
+                    {
+                        Id = 0,
+                        IdUser = userId,
+                        IdPermission = rp.IdPermission,
+                        Permission = rp.Permission
+                    })
+                    .ToList();
+            }
+
+            // Combinar resultados
+            var result = new List<PermissionWithUserPermission>();
+
+            // Permisos directos (ya tienen Permission cargada via Include)
+            foreach (var up in directUserPermissions)
+            {
+                if (up.Permission != null)
+                {
+                    result.Add(new PermissionWithUserPermission(up.Permission, up));
+                }
+            }
+
+            // Permisos por rol
+            foreach (var up in roleUserPermissions)
+            {
+                if (up.Permission != null)
+                {
+                    // Verificar que no sea duplicado de permiso directo
+                    if (!result.Any(r => r.Permission.Id == up.Permission.Id))
+                    {
+                        result.Add(new PermissionWithUserPermission(up.Permission, up));
+                    }
+                }
+            }
+
+            return result;
         }
 
         public async Task<UserLoginData> GetUserLoginDataAsync(int userId)

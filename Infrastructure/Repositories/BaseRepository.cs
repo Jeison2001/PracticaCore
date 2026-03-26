@@ -22,6 +22,12 @@ namespace Infrastructure.Repositories
             _context = context;
         }
 
+        /// <summary>
+        /// Exposes the DbContext for advanced queries that require Include or other EF Core operations.
+        /// Use sparingly - prefer standard repository methods when possible.
+        /// </summary>
+        public AppDbContext Context => _context;
+
         public async Task<T?> GetByIdAsync(TId id)
             => await _context.Set<T>().FindAsync(id);
 

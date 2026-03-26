@@ -1,5 +1,6 @@
 using Application.Shared.DTOs.Permissions;
 using Application.Shared.DTOs.UserPermissions;
+using Domain.Common.Auth;
 using MediatR;
 using Domain.Interfaces.Repositories;
 
@@ -14,43 +15,35 @@ namespace Application.Shared.Queries.Permissions.Handlers
         }
         public async Task<List<UserPermissionInfoDto>> Handle(GetPermissionsByUserIdQuery request, CancellationToken cancellationToken)
         {
-            var permissions = await _userInfoRepository.GetUserPermissionsFullInfoAsync(request.UserId);
-            var result = new List<UserPermissionInfoDto>();
-            
-            foreach (var permission in permissions)
+            // Usa Include explícito para cargar Permission.UserPermissions - sin lazy loading
+            var permissionsWithUserPermissions = await _userInfoRepository.GetUserPermissionsWithUserPermissionsAsync(request.UserId);
+
+            return permissionsWithUserPermissions.Select(pwu => new UserPermissionInfoDto
             {
-                foreach (var up in permission.UserPermissions.Where(up => up.IdUser == request.UserId))
+                Permission = new PermissionDto
                 {
-                    result.Add(new UserPermissionInfoDto
-                    {
-                        Permission = new PermissionDto
-                        {
-                            Id = permission.Id,
-                            Code = permission.Code,
-                            ParentCode = permission.ParentCode,
-                            Description = permission.Description,
-                            IdUserCreatedAt = permission.IdUserCreatedAt,
-                            IdUserUpdatedAt = permission.IdUserUpdatedAt,
-                            UpdatedAt = permission.UpdatedAt,
-                            StatusRegister = permission.StatusRegister,
-                            OperationRegister = permission.OperationRegister
-                        },
-                        UserPermission = new UserPermissionDto
-                        {
-                            Id = up.Id,
-                            IdUser = up.IdUser,
-                            IdPermission = up.IdPermission,
-                            IdUserCreatedAt = up.IdUserCreatedAt,
-                            IdUserUpdatedAt = up.IdUserUpdatedAt,
-                            UpdatedAt = up.UpdatedAt,
-                            StatusRegister = up.StatusRegister,
-                            OperationRegister = up.OperationRegister
-                        }
-                    });
+                    Id = pwu.Permission.Id,
+                    Code = pwu.Permission.Code,
+                    ParentCode = pwu.Permission.ParentCode,
+                    Description = pwu.Permission.Description,
+                    IdUserCreatedAt = pwu.Permission.IdUserCreatedAt,
+                    IdUserUpdatedAt = pwu.Permission.IdUserUpdatedAt,
+                    UpdatedAt = pwu.Permission.UpdatedAt,
+                    StatusRegister = pwu.Permission.StatusRegister,
+                    OperationRegister = pwu.Permission.OperationRegister
+                },
+                UserPermission = new UserPermissionDto
+                {
+                    Id = pwu.UserPermission.Id,
+                    IdUser = pwu.UserPermission.IdUser,
+                    IdPermission = pwu.UserPermission.IdPermission,
+                    IdUserCreatedAt = pwu.UserPermission.IdUserCreatedAt,
+                    IdUserUpdatedAt = pwu.UserPermission.IdUserUpdatedAt,
+                    UpdatedAt = pwu.UserPermission.UpdatedAt,
+                    StatusRegister = pwu.UserPermission.StatusRegister,
+                    OperationRegister = pwu.UserPermission.OperationRegister
                 }
-            }
-            
-            return result;
+            }).ToList();
         }
     }
 }

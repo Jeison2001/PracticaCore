@@ -14,9 +14,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplicationLayer();
 
-// Registramos los servicios de caché
-builder.Services.AddCacheServices();
-
 // Configurar Hangfire
 if (!builder.Environment.IsEnvironment("Testing"))
 {
