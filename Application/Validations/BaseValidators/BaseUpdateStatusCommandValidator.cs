@@ -18,16 +18,6 @@ namespace Application.Validations.BaseValidators
             RuleFor(cmd => cmd.StatusRegister)
                 .NotNull()
                 .WithMessage("El estado es requerido.");
-
-            RuleFor(cmd => cmd.IdUserUpdateAt)
-                .GreaterThan(0)
-                .WithMessage("El ID del usuario que actualiza debe ser mayor a 0.");
-
-            RuleFor(cmd => cmd.OperationRegister)
-                .NotEmpty()
-                .WithMessage("La operación es requerida.")
-                .MaximumLength(100)
-                .WithMessage("La operación no puede exceder los 100 caracteres.");
         }
     }
 }

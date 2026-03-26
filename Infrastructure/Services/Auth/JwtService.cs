@@ -101,7 +101,7 @@ namespace Infrastructure.Services.Auth
                 issuer: _issuer,
                 audience: _audience,
                 claims: claims,
-                expires: DateTime.Now.AddHours(24),
+                expires: DateTime.UtcNow.AddHours(24),
                 signingCredentials: _signingCredentials
             );
 

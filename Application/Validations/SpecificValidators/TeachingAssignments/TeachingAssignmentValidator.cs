@@ -20,9 +20,6 @@ namespace Application.Validations.SpecificValidators.TeachingAssignments
                 .GreaterThan(x => x.CreatedAt)
                 .When(x => x.RevocationDate.HasValue)
                 .WithMessage("La fecha de revocación debe ser posterior a la fecha de asignación.");
-            
-            RuleFor(x => x.IdUserCreatedAt)
-                .GreaterThan(0).WithMessage("UserCreate es obligatorio.");
         }
     }
 }
