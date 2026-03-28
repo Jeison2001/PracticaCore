@@ -5,6 +5,7 @@ using Domain.Entities;
 using Application.Common.Services.Jobs;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
+using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Linq.Expressions;
@@ -56,16 +57,32 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
             updatedProperties.Add(x => x.IdUserUpdatedAt);
             updatedProperties.Add(x => x.UpdatedAt);
 
+            bool isApprovalTransition = false;
             if (request.Dto.IdStateInscription.HasValue)
             {
                 entity.IdStateInscription = request.Dto.IdStateInscription.Value;
                 updatedProperties.Add(x => x.IdStateInscription);
+
+                var stateRepo = _unitOfWork.GetRepository<Domain.Entities.StateInscription, int>();
+                var newState = await stateRepo.GetByIdAsync(request.Dto.IdStateInscription.Value);
+                isApprovalTransition = newState?.Code == Domain.Constants.StateInscriptionCodes.Aprobado;
             }
 
-            if (request.Dto.ApprovalDate.HasValue)
+            if (isApprovalTransition)
             {
-                entity.ApprovalDate = EnsureUtc(request.Dto.ApprovalDate.Value);
+                entity.ApprovalDate = DateTime.UtcNow;
                 updatedProperties.Add(x => x.ApprovalDate);
+            }
+            else if (entity.ApprovalDate.HasValue)
+            {
+                entity.ApprovalDate = null;
+                updatedProperties.Add(x => x.ApprovalDate);
+            }
+
+            // Validar que si NO es aprobación, las observaciones son requeridas
+            if (!isApprovalTransition && string.IsNullOrWhiteSpace(request.Dto.Observations))
+            {
+                throw new ValidationException("Las observaciones son requeridas cuando se rechaza un registro de trabajo de grado.");
             }
 
             if (request.Dto.Observations != null)
