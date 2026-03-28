@@ -67,6 +67,7 @@ namespace Application.Common.Services.Notifications
             return rule.RuleType.ToUpper() switch
             {
                 "BY_ROLE" => await ResolveByRoleAsync(rule, eventData),
+                "BY_PERMISSION" => await ResolveByPermissionAsync(rule, eventData),
                 "BY_ENTITY_RELATION" => await ResolveByEntityRelationAsync(rule, eventData, entityContext),
                 "FIXED_EMAIL" => ResolveFixedEmail(rule),
                 "EVENT_PARTICIPANT" => ResolveEventParticipant(rule, eventData),
@@ -110,6 +111,43 @@ namespace Application.Common.Services.Notifications
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error resolviendo destinatarios por rol: {RoleValue}", rule.RuleValue);
+            }
+
+            return emails;
+        }
+
+        private async Task<List<string>> ResolveByPermissionAsync(EmailRecipientRule rule, Dictionary<string, object> eventData)
+        {
+            var emails = new List<string>();
+
+            try
+            {
+                var userRepo = _unitOfWork.GetRepository<User, int>();
+                var permissionRepo = _unitOfWork.GetRepository<Permission, int>();
+                var userPermissionRepo = _unitOfWork.GetRepository<UserPermission, int>();
+
+                var permission = await permissionRepo.GetFirstOrDefaultAsync(
+                    p => p.Code == rule.RuleValue && p.StatusRegister,
+                    CancellationToken.None);
+
+                if (permission == null)
+                {
+                    _logger.LogWarning("No se encontró permiso con código: {PermissionCode}", rule.RuleValue);
+                    return emails;
+                }
+
+                var userPermissions = await userPermissionRepo.GetAllAsync(
+                    filter: up => up.IdPermission == permission.Id && up.StatusRegister);
+                var userIds = userPermissions.Select(up => up.IdUser).ToList();
+
+                var users = await userRepo.GetAllAsync(
+                    filter: u => userIds.Contains(u.Id) && u.StatusRegister);
+
+                emails.AddRange(users.Select(u => u.Email).Where(e => !string.IsNullOrEmpty(e)));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resolviendo destinatarios por permiso: {PermissionCode}", rule.RuleValue);
             }
 
             return emails;
