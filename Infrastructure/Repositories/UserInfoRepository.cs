@@ -152,7 +152,15 @@ namespace Infrastructure.Repositories
         {
             var userRepo = _unitOfWork.GetRepository<User, int>();
             var users = await userRepo.GetAllAsync(u => u.Email == email);
-            
+
+            return users?.FirstOrDefault();
+        }
+
+        public async Task<User?> FindUserByIdentificationAsync(string identification)
+        {
+            var userRepo = _unitOfWork.GetRepository<User, int>();
+            var users = await userRepo.GetAllAsync(u => u.Identification == identification);
+
             return users?.FirstOrDefault();
         }
 

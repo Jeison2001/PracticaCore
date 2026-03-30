@@ -10,6 +10,7 @@ namespace Domain.Interfaces.Repositories
         Task<List<PermissionWithUserPermission>> GetUserPermissionsWithUserPermissionsAsync(int userId);
         Task<UserLoginData> GetUserLoginDataAsync(int userId);
         Task<User?> FindUserByEmailAsync(string email);
+        Task<User?> FindUserByIdentificationAsync(string identification);
         Task<User> CreateUserIfNotExistsAsync(string email, string firstName, string lastName);
     }
 }

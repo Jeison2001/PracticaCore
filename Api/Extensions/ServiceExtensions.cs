@@ -13,6 +13,7 @@ using Domain.Interfaces.Common;
 using FluentValidation;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
+using Infrastructure.Services.Auth;
 using Infrastructure.Services.Storage;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ using Scrutor;
 using System.Data;
 using System.Reflection;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Auth;
 using Domain.Interfaces.Services.Storage;
 using Infrastructure.Services.Startup;
 
@@ -51,6 +53,13 @@ namespace Api.Extensions
 
             // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
+
+            // Registrar ManualAuthService explícitamente para E2E testing
+            // Este servicio permite login sin Google OAuth usando email + secret compartido
+            services.AddScoped<IAuthService, ManualAuthService>();
+
+            // Registrar GoogleAuthService para login con Google OAuth
+            services.AddScoped<GoogleAuthService>();
 
             // Registrar Worker de consistencia de Enums (Fail Fast)
             services.AddHostedService<EnumConsistencyWorker>();
