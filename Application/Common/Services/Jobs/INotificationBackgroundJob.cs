@@ -8,6 +8,7 @@ namespace Application.Common.Services.Jobs
         Task HandleEntityCreationAsync<T, TId>(TId id) where T : BaseEntity<TId> where TId : struct;
         Task HandleProposalCreationAsync(int proposalId);
         Task HandleProposalChangeAsync(int proposalId, int oldStateId);
+        Task HandleTeachingAssignmentCreationAsync(int assignmentId);
         Task HandleTeachingAssignmentChangeAsync(int assignmentId, int oldTeacherId);
         Task HandleAcademicPracticeChangeAsync(int practiceId, int oldStateId);
         Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId);

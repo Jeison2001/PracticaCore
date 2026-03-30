@@ -150,16 +150,6 @@ private string ExtractConstraintName(string errorMessage)
 
         private void ProcessNotificationsAsync(T entity)
         {
-            // Solo procesar Proposals - InscriptionModality manejado por handler espec�fico
-            if (typeof(T) == typeof(Proposal) && _jobEnqueuer != null)
-            {
-                // ? MEJORADO: Fire-and-forget seguro usando Hangfire
-                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleEntityCreationAsync<T, TId>(entity.Id));
-            }
-
-            // ? ELIMINADO COMPLETAMENTE: InscriptionModality ya no se notifica aqu�
-            // InscriptionModality solo se crea via CreateInscriptionWithStudentsHandler
-            // que usa InscriptionCreationService para notificaciones
         }
     }
 }

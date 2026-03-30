@@ -80,6 +80,33 @@ namespace Application.Common.Services.Jobs
             }
         }
 
+        public async Task HandleTeachingAssignmentCreationAsync(int assignmentId)
+        {
+            try
+            {
+                _logger.LogInformation("Processing teaching assignment creation notification for Assignment ID: {AssignmentId}", assignmentId);
+
+                var queueService = _serviceProvider.GetService<IEmailNotificationQueueService>();
+                var eventDataBuilder = _serviceProvider.GetService<ITeachingAssignmentEventDataBuilder>();
+
+                if (queueService == null || eventDataBuilder == null)
+                {
+                    _logger.LogError("Required services not found for teaching assignment creation notification");
+                    return;
+                }
+
+                var eventData = await eventDataBuilder.BuildTeachingAssignmentEventDataAsync(assignmentId, "TEACHING_ASSIGNMENT_ASSIGNED");
+                queueService.EnqueueEventNotification("TEACHING_ASSIGNMENT_ASSIGNED", eventData);
+
+                _logger.LogInformation("Teaching assignment creation notification enqueued - Assignment ID: {AssignmentId}", assignmentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing teaching assignment creation notification for ID {Id}", assignmentId);
+                throw;
+            }
+        }
+
         public async Task HandleProposalChangeAsync(int proposalId, int oldStateId)
         {
             try
