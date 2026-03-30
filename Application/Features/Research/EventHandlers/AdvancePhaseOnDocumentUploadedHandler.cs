@@ -64,7 +64,12 @@ namespace Application.Features.Research.EventHandlers
                 preliminaryProject.IdUserUpdatedAt = notification.TriggeredByUserId;
                 preliminaryProject.OperationRegister += " | Radicado automáticamente al cargar documento";
 
-                await preliminaryProjectRepo.UpdateAsync(preliminaryProject);
+                await preliminaryProjectRepo.UpdatePartialAsync(preliminaryProject, [
+                    x => x.IdStateStage,
+                    x => x.UpdatedAt,
+                    x => x.IdUserUpdatedAt,
+                    x => x.OperationRegister
+                ]);
             }
         }
 
@@ -88,7 +93,12 @@ namespace Application.Features.Research.EventHandlers
                 projectFinal.IdUserUpdatedAt = notification.TriggeredByUserId;
                 projectFinal.OperationRegister += " | Radicado automáticamente al cargar documento";
 
-                await projectFinalRepo.UpdateAsync(projectFinal);
+                await projectFinalRepo.UpdatePartialAsync(projectFinal, [
+                    x => x.IdStateStage,
+                    x => x.UpdatedAt,
+                    x => x.IdUserUpdatedAt,
+                    x => x.OperationRegister
+                ]);
             }
         }
     }

@@ -33,11 +33,21 @@ namespace Application.Features.Proposals.EventHandlers
 
         public async Task Handle(ProposalStateChangedEvent notification, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("StartPreliminaryPhaseOnProposalApprovalHandler: Processing proposal state change. InscriptionModalityId={IMId}, NewStateStageId={NewStateId}, TriggeredBy={UserId}",
+                notification.InscriptionModalityId, notification.NewStateStageId, notification.TriggeredByUserId);
+
             var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
             var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
 
             var inscription = await inscriptionModalityRepo.GetByIdAsync(notification.InscriptionModalityId);
-            if (inscription == null) return;
+            if (inscription == null)
+            {
+                _logger.LogWarning("StartPreliminaryPhaseOnProposalApprovalHandler: InscriptionModality Id={Id} not found", notification.InscriptionModalityId);
+                return;
+            }
+
+            _logger.LogInformation("StartPreliminaryPhaseOnProposalApprovalHandler: Found inscription Id={Id}, Modality={ModalityCode}",
+                inscription.Id, inscription.IdModality);
 
             var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
             var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
@@ -89,7 +99,12 @@ namespace Application.Features.Proposals.EventHandlers
             inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
             inscription.OperationRegister += " | Fase Anteproyecto asignada por DomainEvent";
 
-            await inscriptionModalityRepo.UpdateAsync(inscription);
+            await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
+                x => x.IdStageModality,
+                x => x.UpdatedAt,
+                x => x.IdUserUpdatedAt,
+                x => x.OperationRegister
+            ]);
 
             await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
                 _unitOfWork,

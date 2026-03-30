@@ -20,6 +20,15 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] ProposalPatchDto dto)
+        {
+            var currentUser = User.GetCurrentUserInfo();
+            var command = new PatchProposalCommand(id, dto, currentUser);
+            var result = await _mediator.Send(command);
+            return Ok(new ApiResponse<ProposalDto> { Success = true, Data = result });
+        }
+
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateProposalDto dto)
         {

@@ -43,31 +43,28 @@ namespace Application.Shared.Commands.Documents.Handlers
             // Guardar el archivo usando el servicio de almacenamiento
             var uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, cancellationToken);
 
+            var now = DateTime.UtcNow;
             var entity = new Document
             {
+                // Campos de auditoría primero para que el Domain Event capture correctamente al usuario
+                IdUserCreatedAt = dto.IdUserCreatedAt ?? 0,
+                CreatedAt = now,
+                OperationRegister = "INSERT",
+                StatusRegister = true,
+
+                // Estas propiedades desencadenan TryDispatchEvent()
                 IdInscriptionModality = dto.IdInscriptionModality,
                 IdDocumentType = idDocumentType,
+
+                // Demás propiedades
                 Name = dto.Name ?? dto.File.FileName,
                 OriginalFileName = dto.File.FileName,
                 StoredFileName = uniqueFileName,
-                StoragePath = string.Empty, 
+                StoragePath = string.Empty,
                 MimeType = dto.File.ContentType,
                 FileSize = dto.File.Length,
-                Version = dto.Version,
-                IdUserCreatedAt = dto.IdUserCreatedAt,
-                CreatedAt = dto.CreatedAt,
-                IdUserUpdatedAt = dto.IdUserUpdatedAt,
-                UpdatedAt = dto.UpdatedAt,
-                OperationRegister = dto.OperationRegister,
-                StatusRegister = dto.StatusRegister
+                Version = dto.Version ?? "1.0"
             };
-            // Asegurar que las fechas sean UTC
-            entity.CreatedAt = dto.CreatedAt.Kind == DateTimeKind.Utc
-                ? dto.CreatedAt
-                : DateTime.SpecifyKind(dto.CreatedAt, DateTimeKind.Utc);
-            entity.UpdatedAt = (dto.UpdatedAt ?? DateTime.UtcNow).Kind == DateTimeKind.Utc
-                ? (dto.UpdatedAt ?? DateTime.UtcNow)
-                : DateTime.SpecifyKind(dto.UpdatedAt ?? DateTime.UtcNow, DateTimeKind.Utc);
             await _repository.AddAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
             return _mapper.Map<DocumentDto>(entity);

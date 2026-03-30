@@ -42,25 +42,22 @@ namespace Application.Shared.Commands.Documents.Handlers
                 idDocumentType = docType.Id;
             }
 
+            // Campos de auditoría (asignarlos PRIMERO para que el Domain Event 
+            // incrustado en los setters capture al usuario que actualiza)
+            entity.IdUserUpdatedAt = request.Dto.IdUserUpdatedAt; // Puede ser null
+            entity.UpdatedAt = DateTime.UtcNow;
+            entity.OperationRegister = "UPDATE";
+            entity.StatusRegister = request.Dto.StatusRegister;
+            entity.IdDocumentOld = request.Dto.IdDocumentOld;
+
             // Actualizar metadatos
             entity.IdInscriptionModality = request.Dto.IdInscriptionModality;
             entity.IdDocumentType = idDocumentType;
             entity.Name = request.Dto.Name ?? entity.Name;
             entity.Version = request.Dto.Version;
-            entity.IdUserUpdatedAt = request.Dto.IdUserUpdatedAt;
-            
-            // Asegurar que las fechas sean UTC
-            // No actualizamos CreatedAt ya que es inmutable, pero aseguramos su Kind
-            if (entity.CreatedAt.Kind == DateTimeKind.Unspecified)
-                entity.CreatedAt = DateTime.SpecifyKind(entity.CreatedAt, DateTimeKind.Utc);
 
-            entity.UpdatedAt = (request.Dto.UpdatedAt ?? DateTime.UtcNow).Kind == DateTimeKind.Utc
-                ? (request.Dto.UpdatedAt ?? DateTime.UtcNow)
-                : DateTime.SpecifyKind(request.Dto.UpdatedAt ?? DateTime.UtcNow, DateTimeKind.Utc);
-            
-            entity.OperationRegister = request.Dto.OperationRegister;
-            entity.StatusRegister = request.Dto.StatusRegister;
-            entity.IdDocumentOld = request.Dto.IdDocumentOld;
+            // Prevenir error Npgsql DateTimeKind=Unspecified para este recordtrack
+            entity.CreatedAt = DateTime.SpecifyKind(entity.CreatedAt, DateTimeKind.Utc);
 
             // Si hay archivo nuevo, actualizar info de archivo
             if (request.Dto.File != null)
