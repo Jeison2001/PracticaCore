@@ -27,10 +27,10 @@ namespace Application.Common.Services.Jobs
 
         public async Task HandleEntityCreationAsync<T, TId>(TId id) where T : BaseEntity<TId> where TId : struct
         {
-            try 
+            try
             {
                 var repository = _serviceProvider.GetService<IRepository<T, TId>>();
-                
+
                 if (repository == null)
                 {
                     _logger.LogError("Repository not found for type {EntityType}", typeof(T).Name);
@@ -49,6 +49,33 @@ namespace Application.Common.Services.Jobs
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing creation job for {EntityType} ID {Id}", typeof(T).Name, id);
+                throw;
+            }
+        }
+
+        public async Task HandleProposalCreationAsync(int proposalId)
+        {
+            try
+            {
+                _logger.LogInformation("Processing proposal creation notification for Proposal ID: {ProposalId}", proposalId);
+
+                var queueService = _serviceProvider.GetService<IEmailNotificationQueueService>();
+                var eventDataBuilder = _serviceProvider.GetService<IProposalEventDataBuilder>();
+
+                if (queueService == null || eventDataBuilder == null)
+                {
+                    _logger.LogError("Required services not found for proposal creation notification");
+                    return;
+                }
+
+                var eventData = await eventDataBuilder.BuildProposalEventDataAsync(proposalId, "PROPOSAL_SUBMITTED");
+                queueService.EnqueueEventNotification("PROPOSAL_SUBMITTED", eventData);
+
+                _logger.LogInformation("Proposal creation notification enqueued - Proposal ID: {ProposalId}", proposalId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing proposal creation notification for ID {Id}", proposalId);
                 throw;
             }
         }

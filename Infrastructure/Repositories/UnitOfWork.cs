@@ -45,7 +45,7 @@ namespace Infrastructure.Repositories
             var domainEntities = _context.ChangeTracker
                 .Entries()
                 .Select(x => x.Entity)
-                .Where(e => 
+                .Where(e =>
                 {
                     var type = e.GetType();
                     if (type.FullName != null && type.FullName.StartsWith("Castle.Proxies"))
@@ -54,11 +54,13 @@ namespace Infrastructure.Repositories
                     }
                     var prop = type.GetProperty("DomainEvents");
                     if (prop == null) return false;
-                    
+
                     var events = prop.GetValue(e) as IEnumerable<IDomainEvent>;
                     return events != null && events.Any();
                 })
                 .ToList();
+
+            _logger.LogDebug("[DEBUG] DispatchDomainEventsAsync: Found {Count} entities with events", domainEntities.Count);
 
             var domainEvents = new List<IDomainEvent>();
 
@@ -83,6 +85,8 @@ namespace Infrastructure.Repositories
                     method.Invoke(entity, null); // ClearDomainEvents()
                 }
             }
+
+            _logger.LogDebug("[DEBUG] Publishing {Count} domain events", domainEvents.Count);
 
             foreach (var domainEvent in domainEvents)
             {
