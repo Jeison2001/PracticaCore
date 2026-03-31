@@ -14,7 +14,7 @@ namespace Infrastructure.Services
             _context = context;
         }        public async Task<AcademicPeriod?> GetActiveAcademicPeriodAsync()
         {
-            var currentDate = DateTime.UtcNow.Date;
+            var currentDate = DateTimeOffset.UtcNow.Date;
             
             return await _context.Set<AcademicPeriod>()
                 .Where(ap => ap.StatusRegister && 
@@ -31,3 +31,4 @@ namespace Infrastructure.Services
         }
     }
 }
+

@@ -43,7 +43,7 @@ namespace Application.Shared.Commands.Documents.Handlers
             // Guardar el archivo usando el servicio de almacenamiento
             var uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, cancellationToken);
 
-            var now = DateTime.UtcNow;
+            var now = DateTimeOffset.UtcNow;
             var entity = new Document
             {
                 // Campos de auditoría primero para que el Domain Event capture correctamente al usuario

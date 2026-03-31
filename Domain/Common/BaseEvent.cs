@@ -8,6 +8,6 @@ namespace Domain.Common
 
     public abstract record BaseEvent : IDomainEvent
     {
-        public DateTime DateOccurred { get; protected set; } = DateTime.UtcNow;
+        public DateTimeOffset DateOccurred { get; set; } = DateTimeOffset.UtcNow;
     }
 }

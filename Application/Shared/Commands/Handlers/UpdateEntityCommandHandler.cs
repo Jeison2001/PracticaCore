@@ -53,16 +53,14 @@ namespace Application.Shared.Commands.Handlers
 
             // Restaurar campos inmutables - el frontend envía fechas en hora Colombia (Kind=Unspecified)
             existingEntity.Id = originalId;
-            // Convertir realmente a UTC si no lo es
-            existingEntity.CreatedAt = originalCreatedAt.Kind == DateTimeKind.Utc
-                ? originalCreatedAt
-                : DateTime.SpecifyKind(originalCreatedAt.ToUniversalTime(), DateTimeKind.Utc);
+            // Preservar la fecha de creación inmutable original
             existingEntity.IdUserCreatedAt = originalIdUserCreatedAt;
+            existingEntity.CreatedAt = originalCreatedAt;
 
-            // UpdatedAt siempre lo genera el backend en UTC
-            existingEntity.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+            // UpdatedAt se genera globalmente
+            existingEntity.UpdatedAt = DateTimeOffset.UtcNow;
 
-            // Nullificar navegaciones para evitar que EF Core incluya fechas con Kind=Unspecified en el UPDATE
+            // Nullificar navegaciones para evitar validaciones cruzadas EF Core
             NullifyNavigations(existingEntity);
 
             await _repository.UpdateAsync(existingEntity);
@@ -116,3 +114,4 @@ namespace Application.Shared.Commands.Handlers
         }
     }
 }
+

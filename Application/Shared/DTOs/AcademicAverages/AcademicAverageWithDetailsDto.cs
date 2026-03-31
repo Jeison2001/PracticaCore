@@ -13,7 +13,7 @@ namespace Application.Shared.DTOs.AcademicAverages
         public string ModalityName { get; set; } = string.Empty;
         public string StateInscriptionName { get; set; } = string.Empty;
         public string AcademicPeriodCode { get; set; } = string.Empty;
-        public DateTime? InscriptionApprovalDate { get; set; }
+        public DateTimeOffset? InscriptionApprovalDate { get; set; }
         public string? InscriptionObservations { get; set; }
 
         // Students information
@@ -26,3 +26,4 @@ namespace Application.Shared.DTOs.AcademicAverages
         public List<DocumentDto> Documents { get; set; } = new();
     }
 }
+

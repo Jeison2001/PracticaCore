@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Domain.Entities;
 using MediatR;
 using Domain.Interfaces.Repositories;
@@ -22,9 +22,9 @@ namespace Application.Shared.Commands.Handlers
         {
             var existingEntity = await _repository.GetByIdAsync(request.Id) ?? throw new KeyNotFoundException($"Entity with ID {request.Id} not found.");
 
-            // Actualizar los campos para el borrado lógico
+            // Actualizar los campos para el borrado l�gico
             existingEntity.StatusRegister = request.StatusRegister;
-            existingEntity.UpdatedAt = DateTime.UtcNow;
+            existingEntity.UpdatedAt = DateTimeOffset.UtcNow;
             existingEntity.IdUserUpdatedAt = request.IdUserUpdateAt;
             existingEntity.OperationRegister = request.OperationRegister;
 

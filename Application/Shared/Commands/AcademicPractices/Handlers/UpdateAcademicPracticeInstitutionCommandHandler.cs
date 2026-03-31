@@ -47,7 +47,6 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
 
             // Tracking
             UpdateTrackingFields(academicPractice, dto);
-            NormalizeAllDatesToUtc(academicPractice);
 
             await _academicPracticeRepository.UpdateAsync(academicPractice);
             await _unitOfWork.CommitAsync(cancellationToken);
@@ -74,10 +73,10 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 academicPractice.InstitutionContact = dto.InstitutionContact;
                 
             if (dto.PracticeStartDate.HasValue)
-                academicPractice.PracticeStartDate = EnsureUtc(dto.PracticeStartDate.Value);
+                academicPractice.PracticeStartDate = dto.PracticeStartDate.Value;
 
             if (dto.PracticeEndDate.HasValue)
-                academicPractice.PracticeEndDate = EnsureUtc(dto.PracticeEndDate.Value);
+                academicPractice.PracticeEndDate = dto.PracticeEndDate.Value;
 
             if (dto.PracticeHours.HasValue)
                 academicPractice.PracticeHours = dto.PracticeHours;
@@ -90,39 +89,10 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
 
         private static void UpdateTrackingFields(AcademicPractice academicPractice, UpdateInstitutionInfoDto dto)
         {
-            academicPractice.UpdatedAt = DateTime.UtcNow;
+            academicPractice.UpdatedAt = DateTimeOffset.UtcNow;
             academicPractice.IdUserUpdatedAt = dto.IdUserUpdatedAt;
-            
-            // Asegurar que CreatedAt sea UTC si es Unspecified
-            if (academicPractice.CreatedAt.Kind == DateTimeKind.Unspecified)
-                academicPractice.CreatedAt = DateTime.SpecifyKind(academicPractice.CreatedAt, DateTimeKind.Utc);
         }
 
-        private static void NormalizeAllDatesToUtc(AcademicPractice academicPractice)
-        {
-            // Normalize base tracking dates
-            academicPractice.CreatedAt = EnsureUtc(academicPractice.CreatedAt);
-            
-            // Normalize optional dates specific to AcademicPractice
-            academicPractice.PracticeStartDate = EnsureUtcIfHasValue(academicPractice.PracticeStartDate);
-            academicPractice.PracticeEndDate = EnsureUtcIfHasValue(academicPractice.PracticeEndDate);
-            academicPractice.AvalApprovalDate = EnsureUtcIfHasValue(academicPractice.AvalApprovalDate);
-            academicPractice.PlanApprovalDate = EnsureUtcIfHasValue(academicPractice.PlanApprovalDate);
-            academicPractice.DevelopmentCompletionDate = EnsureUtcIfHasValue(academicPractice.DevelopmentCompletionDate);
-            academicPractice.FinalReportApprovalDate = EnsureUtcIfHasValue(academicPractice.FinalReportApprovalDate);
-            academicPractice.FinalApprovalDate = EnsureUtcIfHasValue(academicPractice.FinalApprovalDate);
-        }
-
-        private static DateTime EnsureUtc(DateTime dateTime)
-        {
-            return dateTime.Kind == DateTimeKind.Utc 
-                ? dateTime 
-                : DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
-        }
-
-        private static DateTime? EnsureUtcIfHasValue(DateTime? dateTime)
-        {
-            return dateTime.HasValue ? EnsureUtc(dateTime.Value) : null;
-        }
     }
 }
+

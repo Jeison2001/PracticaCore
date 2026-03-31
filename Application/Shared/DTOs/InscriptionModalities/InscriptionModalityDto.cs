@@ -1,4 +1,4 @@
-﻿namespace Application.Shared.DTOs.InscriptionModalities
+namespace Application.Shared.DTOs.InscriptionModalities
 {
     public record InscriptionModalityDto : BaseDto<int>
     {
@@ -6,7 +6,8 @@
         public int IdStateInscription { get; set; }
         public int IdAcademicPeriod { get; set; }
         public int? IdStageModality { get; set; }
-        public DateTime? ApprovalDate { get; set; }
+        public DateTimeOffset? ApprovalDate { get; set; }
         public string? Observations { get; set; }
     }
 }
+

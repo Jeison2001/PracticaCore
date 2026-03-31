@@ -5,7 +5,7 @@ namespace Domain.Entities
     public class SaberPro : BaseEntity<int>
     {
         public int IdStateStage { get; set; }
-        public DateTime? ExamDate { get; set; }
+        public DateTimeOffset? ExamDate { get; set; }
         public string? ResultQuintile { get; set; }
         public decimal? ResultScore { get; set; }
         public string? Observations { get; set; }

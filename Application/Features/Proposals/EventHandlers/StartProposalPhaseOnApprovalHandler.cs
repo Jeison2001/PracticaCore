@@ -62,7 +62,7 @@ namespace Application.Features.Proposals.EventHandlers
             if (inscription == null) return;
 
             inscription.IdStageModality = targetStageModality.Id;
-            inscription.UpdatedAt = DateTime.UtcNow;
+            inscription.UpdatedAt = DateTimeOffset.UtcNow;
             inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
             inscription.OperationRegister += " | Fase propuesta asignada por DomainEvent";
 
@@ -82,3 +82,4 @@ namespace Application.Features.Proposals.EventHandlers
         }
     }
 }
+

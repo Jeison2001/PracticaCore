@@ -281,7 +281,7 @@ namespace Application.Common.Services.Notifications.Builders
         private string GetApprovalDate(string stateCode, AcademicPractice ap)
         {
             if (!Enum.TryParse<StateStageCodeEnum>(stateCode, out var code)) return string.Empty;
-            DateTime? date = code switch
+            DateTimeOffset? date = code switch
             {
                 // Fechas por fase (modelo híbrido CORREGIDO)
                 StateStageCodeEnum.PA_INSCRIPCION_APROBADA => ap.PlanApprovalDate ?? ap.AvalApprovalDate,

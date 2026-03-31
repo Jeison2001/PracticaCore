@@ -7,9 +7,10 @@ namespace Application.Shared.DTOs.AcademicPractices
         public bool Phase1Completed { get; set; }
         public bool Phase2Completed { get; set; }
         public bool Phase3Completed { get; set; }
-        public DateTime? Phase1CompletionDate { get; set; }
-        public DateTime? Phase2CompletionDate { get; set; }
-        public DateTime? Phase3CompletionDate { get; set; }
+        public DateTimeOffset? Phase1CompletionDate { get; set; }
+        public DateTimeOffset? Phase2CompletionDate { get; set; }
+        public DateTimeOffset? Phase3CompletionDate { get; set; }
         public List<AcademicPracticePhaseDetailDto> PhaseDetails { get; set; } = new();
     }
 }
+

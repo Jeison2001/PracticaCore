@@ -51,10 +51,11 @@ namespace Application.Features.Security.EventHandlers
                         IdUserCreatedAt = notification.TriggeredByUserId,
                         OperationRegister = operationRegister,
                         StatusRegister = true,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTimeOffset.UtcNow
                     });
                 }
             }
         }
     }
 }
+

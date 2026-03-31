@@ -43,11 +43,9 @@ namespace Application.Shared.Commands.TeacherResearchProfiles.Handlers
             _mapper.Map(dto, entity);
 
             // Restaurar campos inmutables y asegurar UTC
-            entity.CreatedAt = originalCreatedAt.Kind == DateTimeKind.Unspecified 
-                ? DateTime.SpecifyKind(originalCreatedAt, DateTimeKind.Utc) 
-                : originalCreatedAt;
+            entity.CreatedAt = originalCreatedAt;
             entity.IdUserCreatedAt = originalIdUserCreatedAt;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
 
             await _repository.UpdateAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);

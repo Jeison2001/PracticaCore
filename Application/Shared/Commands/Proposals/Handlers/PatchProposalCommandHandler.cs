@@ -51,7 +51,7 @@ namespace Application.Shared.Commands.Proposals.Handlers
 
             // Always update tracking fields FIRST
             entity.IdUserUpdatedAt = request.CurrentUser.UserId;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
             updatedProperties.Add(x => x.IdUserUpdatedAt);
             updatedProperties.Add(x => x.UpdatedAt);
 
@@ -91,3 +91,4 @@ namespace Application.Shared.Commands.Proposals.Handlers
         }
     }
 }
+

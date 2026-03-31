@@ -13,7 +13,7 @@ namespace Application.Shared.DTOs.AcademicPractices
         public string ModalityName { get; set; } = string.Empty;
         public string StateInscriptionName { get; set; } = string.Empty;
         public string AcademicPeriodCode { get; set; } = string.Empty;
-        public DateTime? InscriptionApprovalDate { get; set; }
+        public DateTimeOffset? InscriptionApprovalDate { get; set; }
         public string? InscriptionObservations { get; set; }
         
         // Students information - usando UserDto existente
@@ -29,3 +29,4 @@ namespace Application.Shared.DTOs.AcademicPractices
         public AcademicPracticePhaseProgressDto PhaseProgress { get; set; } = new AcademicPracticePhaseProgressDto();
     }
 }
+

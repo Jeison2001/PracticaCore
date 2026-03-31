@@ -279,14 +279,14 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         switch ((AcademicPracticeStateStageEnum)newStateStageId)
         {
             case AcademicPracticeStateStageEnum.InscriptionApproved: // 21 - PA_INSCRIPCION_APROBADA
-                academicPractice.AvalApprovalDate = DateTime.UtcNow;
-                academicPractice.PlanApprovalDate = DateTime.UtcNow;
+                academicPractice.AvalApprovalDate = DateTimeOffset.UtcNow;
+                academicPractice.PlanApprovalDate = DateTimeOffset.UtcNow;
                 break;
             case AcademicPracticeStateStageEnum.DevelopmentApproved: // 26 - PA_DESARROLLO_APROBADA
-                academicPractice.DevelopmentCompletionDate = DateTime.UtcNow;
+                academicPractice.DevelopmentCompletionDate = DateTimeOffset.UtcNow;
                 break;
             case AcademicPracticeStateStageEnum.FinalApproved: // 31 - PA_APROBADO
-                academicPractice.FinalApprovalDate = DateTime.UtcNow;
+                academicPractice.FinalApprovalDate = DateTimeOffset.UtcNow;
                 break;
             // Si se agregan más fechas/estados, añadir aquí
         }
@@ -301,7 +301,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             academicPractice.EvaluatorObservations = evaluatorObservations;
         }
 
-        academicPractice.UpdatedAt = DateTime.UtcNow;
+        academicPractice.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
         return true;
@@ -443,3 +443,4 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         return query;
     }
 }
+

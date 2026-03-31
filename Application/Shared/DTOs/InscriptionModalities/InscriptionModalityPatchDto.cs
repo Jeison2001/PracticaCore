@@ -7,7 +7,8 @@ namespace Application.Shared.DTOs.InscriptionModalities
     public record InscriptionModalityPatchDto
     {
         public int? IdStateInscription { get; set; }
-        public DateTime? ApprovalDate { get; set; }
+        public DateTimeOffset? ApprovalDate { get; set; }
         public string? Observations { get; set; }
     }
 }
+

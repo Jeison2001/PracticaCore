@@ -65,18 +65,23 @@ namespace Application.Features.AcademicPractices.EventHandlers
                 IdUserCreatedAt = notification.TriggeredByUserId,
                 OperationRegister = "Creada automáticamente al aprobar inscripción",
                 StatusRegister = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow
             });
 
             var inscription = await inscriptionModalityRepo.GetByIdAsync(notification.InscriptionModalityId);
             if (inscription == null) return;
 
             inscription.IdStageModality = targetStageModality.Id;
-            inscription.UpdatedAt = DateTime.UtcNow;
+            inscription.UpdatedAt = DateTimeOffset.UtcNow;
             inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
             inscription.OperationRegister += " | Fase asignada por DomainEvent";
 
-            await inscriptionModalityRepo.UpdateAsync(inscription);
+            await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
+                x => x.IdStageModality,
+                x => x.UpdatedAt,
+                x => x.IdUserUpdatedAt,
+                x => x.OperationRegister
+            ]);
 
             // Asignar permisos iniciales de Phase 0 (F0)
             await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
@@ -93,3 +98,4 @@ namespace Application.Features.AcademicPractices.EventHandlers
         }
     }
 }
+

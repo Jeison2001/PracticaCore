@@ -89,13 +89,13 @@ namespace Application.Features.Proposals.EventHandlers
                     IdUserCreatedAt = notification.TriggeredByUserId,
                     OperationRegister = "Creado automáticamente al aprobar propuesta",
                     StatusRegister = true,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTimeOffset.UtcNow
                 });
             }
 
             // Avanzar la fase en InscriptionModality
             inscription.IdStageModality = targetStageModality.Id;
-            inscription.UpdatedAt = DateTime.UtcNow;
+            inscription.UpdatedAt = DateTimeOffset.UtcNow;
             inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
             inscription.OperationRegister += " | Fase Anteproyecto asignada por DomainEvent";
 
@@ -115,3 +115,4 @@ namespace Application.Features.Proposals.EventHandlers
         }
     }
 }
+

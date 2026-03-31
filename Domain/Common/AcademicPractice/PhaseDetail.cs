@@ -6,7 +6,7 @@ namespace Domain.Common.AcademicPractice
         public string PhaseName { get; set; } = string.Empty;
         public string PhaseCode { get; set; } = string.Empty;
         public bool IsCompleted { get; set; }
-        public DateTime? CompletionDate { get; set; }
+        public DateTimeOffset? CompletionDate { get; set; }
         public string CurrentState { get; set; } = string.Empty;
         public List<StateDetail> States { get; set; } = new();
     }

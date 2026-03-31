@@ -45,7 +45,7 @@ namespace Application.Shared.Commands.Documents.Handlers
             // Campos de auditoría (asignarlos PRIMERO para que el Domain Event 
             // incrustado en los setters capture al usuario que actualiza)
             entity.IdUserUpdatedAt = request.Dto.IdUserUpdatedAt; // Puede ser null
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
             entity.OperationRegister = "UPDATE";
             entity.StatusRegister = request.Dto.StatusRegister;
             entity.IdDocumentOld = request.Dto.IdDocumentOld;
@@ -57,7 +57,6 @@ namespace Application.Shared.Commands.Documents.Handlers
             entity.Version = request.Dto.Version;
 
             // Prevenir error Npgsql DateTimeKind=Unspecified para este recordtrack
-            entity.CreatedAt = DateTime.SpecifyKind(entity.CreatedAt, DateTimeKind.Utc);
 
             // Si hay archivo nuevo, actualizar info de archivo
             if (request.Dto.File != null)

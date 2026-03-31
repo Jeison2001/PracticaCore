@@ -23,7 +23,7 @@ namespace Domain.Entities
         }
         public int IdAcademicPeriod { get; set; }
         public int? IdStageModality { get; set; }
-        public DateTime? ApprovalDate { get; set; }
+        public DateTimeOffset? ApprovalDate { get; set; }
         public string? Observations { get; set; }
 
         // Propiedades de navegacion

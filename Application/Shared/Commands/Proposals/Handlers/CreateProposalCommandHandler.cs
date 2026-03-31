@@ -95,7 +95,7 @@ namespace Application.Shared.Commands.Proposals.Handlers
                 IdUserCreatedAt = request.CurrentUser?.UserId,
                 OperationRegister = "Creada por CreateProposalCommand - Estado inicial asignado por dominio",
                 StatusRegister = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow
             };
 
             await proposalRepo.AddAsync(proposal);
@@ -129,3 +129,4 @@ namespace Application.Shared.Commands.Proposals.Handlers
         }
     }
 }
+

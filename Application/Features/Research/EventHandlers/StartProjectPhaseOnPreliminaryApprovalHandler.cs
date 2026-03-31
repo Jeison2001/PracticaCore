@@ -79,17 +79,22 @@ namespace Application.Features.Research.EventHandlers
                     IdUserCreatedAt = notification.TriggeredByUserId,
                     OperationRegister = "Creado automáticamente al aprobar anteproyecto",
                     StatusRegister = true,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTimeOffset.UtcNow
                 });
             }
 
             // Avanzar la fase en InscriptionModality
             inscription.IdStageModality = targetStageModality.Id;
-            inscription.UpdatedAt = DateTime.UtcNow;
+            inscription.UpdatedAt = DateTimeOffset.UtcNow;
             inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
             inscription.OperationRegister += " | Fase Proyecto asignada por DomainEvent";
 
-            await inscriptionModalityRepo.UpdateAsync(inscription);
+            await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
+                x => x.IdStageModality,
+                x => x.UpdatedAt,
+                x => x.IdUserUpdatedAt,
+                x => x.OperationRegister
+            ]);
 
             await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
                 _unitOfWork,
@@ -100,3 +105,4 @@ namespace Application.Features.Research.EventHandlers
         }
     }
 }
+

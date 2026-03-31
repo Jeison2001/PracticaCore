@@ -57,8 +57,8 @@ namespace Application.Features.AcademicPractices.EventHandlers
                 case StateStageCodes.PaInscripcionAprobada:
                     if (academicPractice.AvalApprovalDate == null)
                     {
-                        academicPractice.AvalApprovalDate = DateTime.UtcNow;
-                        academicPractice.PlanApprovalDate = DateTime.UtcNow;
+                        academicPractice.AvalApprovalDate = DateTimeOffset.UtcNow;
+                        academicPractice.PlanApprovalDate = DateTimeOffset.UtcNow;
                         _logger.LogInformation("{Handler}: Fechas Aval y Plan establecidas para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
                     }
                     break;
@@ -66,7 +66,7 @@ namespace Application.Features.AcademicPractices.EventHandlers
                 case StateStageCodes.PaDesarrolloAprobada:
                     if (academicPractice.DevelopmentCompletionDate == null)
                     {
-                        academicPractice.DevelopmentCompletionDate = DateTime.UtcNow;
+                        academicPractice.DevelopmentCompletionDate = DateTimeOffset.UtcNow;
                         _logger.LogInformation("{Handler}: Fecha DevelopmentCompletion establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
                     }
                     break;
@@ -74,7 +74,7 @@ namespace Application.Features.AcademicPractices.EventHandlers
                 case StateStageCodes.PaInformeFinalEnRevision:
                     if (academicPractice.FinalReportApprovalDate == null)
                     {
-                        academicPractice.FinalReportApprovalDate = DateTime.UtcNow;
+                        academicPractice.FinalReportApprovalDate = DateTimeOffset.UtcNow;
                         _logger.LogInformation("{Handler}: Fecha FinalReportApproval establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
                     }
                     break;
@@ -82,13 +82,19 @@ namespace Application.Features.AcademicPractices.EventHandlers
                 case StateStageCodes.PaAprobado:
                     if (academicPractice.FinalApprovalDate == null)
                     {
-                        academicPractice.FinalApprovalDate = DateTime.UtcNow;
+                        academicPractice.FinalApprovalDate = DateTimeOffset.UtcNow;
                         _logger.LogInformation("{Handler}: Fecha FinalApproval establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
                     }
                     break;
             }
 
-            await academicPracticeRepo.UpdateAsync(academicPractice);
+            await academicPracticeRepo.UpdatePartialAsync(academicPractice, [
+                x => x.AvalApprovalDate,
+                x => x.PlanApprovalDate,
+                x => x.DevelopmentCompletionDate,
+                x => x.FinalReportApprovalDate,
+                x => x.FinalApprovalDate
+            ]);
 
             // =========================================================================
             // 2. TRANSICIONES DE FASE Y PERMISOS (lógica existente)
@@ -108,10 +114,15 @@ namespace Application.Features.AcademicPractices.EventHandlers
                     }
 
                     inscription.IdStageModality = devStage.Id;
-                    inscription.UpdatedAt = DateTime.UtcNow;
+                    inscription.UpdatedAt = DateTimeOffset.UtcNow;
                     inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
                     inscription.OperationRegister += " | Fase Desarrollo PA por DomainEvent";
-                    await inscriptionModalityRepo.UpdateAsync(inscription);
+                    await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
+                        x => x.IdStageModality,
+                        x => x.UpdatedAt,
+                        x => x.IdUserUpdatedAt,
+                        x => x.OperationRegister
+                    ]);
 
                     await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
                         _unitOfWork, notification.InscriptionModalityId,
@@ -133,10 +144,15 @@ namespace Application.Features.AcademicPractices.EventHandlers
                     }
 
                     inscription.IdStageModality = evalStage.Id;
-                    inscription.UpdatedAt = DateTime.UtcNow;
+                    inscription.UpdatedAt = DateTimeOffset.UtcNow;
                     inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
                     inscription.OperationRegister += " | Fase Evaluación PA por DomainEvent";
-                    await inscriptionModalityRepo.UpdateAsync(inscription);
+                    await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
+                        x => x.IdStageModality,
+                        x => x.UpdatedAt,
+                        x => x.IdUserUpdatedAt,
+                        x => x.OperationRegister
+                    ]);
 
                     await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
                         _unitOfWork, notification.InscriptionModalityId,
@@ -148,3 +164,4 @@ namespace Application.Features.AcademicPractices.EventHandlers
         }
     }
 }
+

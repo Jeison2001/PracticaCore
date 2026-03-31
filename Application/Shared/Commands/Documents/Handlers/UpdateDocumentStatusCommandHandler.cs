@@ -25,7 +25,7 @@ namespace Application.Shared.Commands.Documents.Handlers
             entity.StatusRegister = request.StatusRegister;
             entity.IdUserUpdatedAt = request.IdUserUpdateAt;
             entity.OperationRegister = request.OperationRegister ?? string.Empty;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
 
             await _repository.UpdatePartialAsync(entity, new Expression<Func<Document, object?>>[] {
                 e => e.StatusRegister,

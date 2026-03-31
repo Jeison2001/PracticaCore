@@ -18,7 +18,7 @@ namespace Domain.Entities
             }
         }
 
-        public DateTime? ApprovalDate { get; set; }
+        public DateTimeOffset? ApprovalDate { get; set; }
         public string? Observations { get; set; }
 
         public virtual StateStage? StateStage { get; set; }

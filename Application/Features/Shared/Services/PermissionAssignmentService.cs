@@ -48,7 +48,7 @@ namespace Application.Features.Shared.Services
                             IdUserCreatedAt = triggeredByUserId,
                             OperationRegister = "Asignado automáticamente por DomainEvent",
                             StatusRegister = true,
-                            CreatedAt = DateTime.UtcNow
+                            CreatedAt = DateTimeOffset.UtcNow
                         });
                     }
                 }
@@ -56,3 +56,4 @@ namespace Application.Features.Shared.Services
         }
     }
 }
+

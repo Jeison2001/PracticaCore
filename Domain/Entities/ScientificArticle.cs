@@ -21,7 +21,7 @@ namespace Domain.Entities
         public string? JournalName { get; set; }
         public string? ISSN { get; set; }
         public string? JournalCategory { get; set; }
-        public DateTime? AcceptanceDate { get; set; }
+        public DateTimeOffset? AcceptanceDate { get; set; }
         public string? Observations { get; set; }
 
         // Navigation properties

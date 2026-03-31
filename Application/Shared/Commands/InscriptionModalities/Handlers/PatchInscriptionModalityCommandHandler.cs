@@ -53,7 +53,7 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
 
             // Always update tracking fields FIRST (before state change to ensure domain event captures correct user)
             entity.IdUserUpdatedAt = request.CurrentUser.UserId;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
             updatedProperties.Add(x => x.IdUserUpdatedAt);
             updatedProperties.Add(x => x.UpdatedAt);
 
@@ -70,7 +70,7 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
 
             if (isApprovalTransition)
             {
-                entity.ApprovalDate = DateTime.UtcNow;
+                entity.ApprovalDate = DateTimeOffset.UtcNow;
                 updatedProperties.Add(x => x.ApprovalDate);
             }
             else if (entity.ApprovalDate.HasValue)
@@ -111,12 +111,6 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
 
             return _mapper.Map<InscriptionModalityDto>(entity);
         }
-
-        private static DateTime EnsureUtc(DateTime dateTime)
-        {
-            return dateTime.Kind == DateTimeKind.Utc
-                ? dateTime
-                : DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
-        }
     }
 }
+

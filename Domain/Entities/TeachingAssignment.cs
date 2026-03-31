@@ -1,11 +1,11 @@
-﻿namespace Domain.Entities
+namespace Domain.Entities
 {
     public class TeachingAssignment : BaseEntity<int>
     {
         public int IdInscriptionModality { get; set; }
         public int IdTeacher { get; set; }  // FK to user
         public int IdTypeTeachingAssignment { get; set; }
-        public DateTime? RevocationDate { get; set; }
+        public DateTimeOffset? RevocationDate { get; set; }
         public int? IdTeacherResearchProfile { get; set; }
 
         // Navigation properties

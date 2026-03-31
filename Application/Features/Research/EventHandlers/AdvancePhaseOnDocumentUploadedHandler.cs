@@ -60,7 +60,7 @@ namespace Application.Features.Research.EventHandlers
             if (radicadoState != null)
             {
                 preliminaryProject.IdStateStage = radicadoState.Id;
-                preliminaryProject.UpdatedAt = DateTime.UtcNow;
+                preliminaryProject.UpdatedAt = DateTimeOffset.UtcNow;
                 preliminaryProject.IdUserUpdatedAt = notification.TriggeredByUserId;
                 preliminaryProject.OperationRegister += " | Radicado automáticamente al cargar documento";
 
@@ -89,7 +89,7 @@ namespace Application.Features.Research.EventHandlers
             if (radicadoState != null)
             {
                 projectFinal.IdStateStage = radicadoState.Id;
-                projectFinal.UpdatedAt = DateTime.UtcNow;
+                projectFinal.UpdatedAt = DateTimeOffset.UtcNow;
                 projectFinal.IdUserUpdatedAt = notification.TriggeredByUserId;
                 projectFinal.OperationRegister += " | Radicado automáticamente al cargar documento";
 
@@ -103,3 +103,4 @@ namespace Application.Features.Research.EventHandlers
         }
     }
 }
+

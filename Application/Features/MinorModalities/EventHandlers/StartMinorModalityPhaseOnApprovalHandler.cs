@@ -79,11 +79,16 @@ namespace Application.Features.MinorModalities.EventHandlers
             if (inscription == null) return;
 
             inscription.IdStageModality = targetStageModality.Id;
-            inscription.UpdatedAt = DateTime.UtcNow;
+            inscription.UpdatedAt = DateTimeOffset.UtcNow;
             inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
             inscription.OperationRegister += $" | Inicio automático fase 1 ({modality.Code})";
 
-            await inscriptionModalityRepo.UpdateAsync(inscription);
+            await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
+                x => x.IdStageModality,
+                x => x.UpdatedAt,
+                x => x.IdUserUpdatedAt,
+                x => x.OperationRegister
+            ]);
 
             // Asignar permisos iniciales al estudiante
             await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
@@ -109,33 +114,34 @@ namespace Application.Features.MinorModalities.EventHandlers
                 case ModalityCodes.CoTerminal:
                     var coTerminalRepo = _unitOfWork.GetRepository<CoTerminal, int>();
                     if (!await coTerminalRepo.AnyAsync(x => x.Id == id, cancellationToken))
-                        await coTerminalRepo.AddAsync(new CoTerminal { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTime.UtcNow });
+                        await coTerminalRepo.AddAsync(new CoTerminal { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTimeOffset.UtcNow });
                     break;
 
                 case ModalityCodes.SeminarioAct:
                     var seminarRepo = _unitOfWork.GetRepository<Seminar, int>();
                     if (!await seminarRepo.AnyAsync(x => x.Id == id, cancellationToken))
-                        await seminarRepo.AddAsync(new Seminar { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTime.UtcNow });
+                        await seminarRepo.AddAsync(new Seminar { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTimeOffset.UtcNow });
                     break;
 
                 case ModalityCodes.PublicacionArticulo:
                     var articleRepo = _unitOfWork.GetRepository<ScientificArticle, int>();
                     if (!await articleRepo.AnyAsync(x => x.Id == id, cancellationToken))
-                        await articleRepo.AddAsync(new ScientificArticle { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTime.UtcNow });
+                        await articleRepo.AddAsync(new ScientificArticle { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTimeOffset.UtcNow });
                     break;
 
                 case ModalityCodes.GradoPromedio:
                     var avgRepo = _unitOfWork.GetRepository<AcademicAverage, int>();
                     if (!await avgRepo.AnyAsync(x => x.Id == id, cancellationToken))
-                        await avgRepo.AddAsync(new AcademicAverage { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTime.UtcNow });
+                        await avgRepo.AddAsync(new AcademicAverage { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTimeOffset.UtcNow });
                     break;
 
                 case ModalityCodes.SaberPro:
                     var saberProRepo = _unitOfWork.GetRepository<SaberPro, int>();
                     if (!await saberProRepo.AnyAsync(x => x.Id == id, cancellationToken))
-                        await saberProRepo.AddAsync(new SaberPro { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTime.UtcNow });
+                        await saberProRepo.AddAsync(new SaberPro { Id = id, IdStateStage = targetStateStageId, IdUserCreatedAt = userId, OperationRegister = operationRegister, StatusRegister = true, CreatedAt = DateTimeOffset.UtcNow });
                     break;
             }
         }
     }
 }
+

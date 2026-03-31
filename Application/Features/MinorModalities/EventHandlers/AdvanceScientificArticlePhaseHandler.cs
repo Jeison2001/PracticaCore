@@ -72,17 +72,28 @@ namespace Application.Features.MinorModalities.EventHandlers
             if (article == null) return;
 
             article.IdStateStage = initialState.Id;
-            article.UpdatedAt = DateTime.UtcNow;
+            article.UpdatedAt = DateTimeOffset.UtcNow;
             article.IdUserUpdatedAt = notification.TriggeredByUserId;
             article.OperationRegister += " | Auto-Inicio Fase 2";
-            await scientificArticleRepo.UpdateAsync(article);
+            await scientificArticleRepo.UpdatePartialAsync(article, [
+                x => x.IdStateStage,
+                x => x.UpdatedAt,
+                x => x.IdUserUpdatedAt,
+                x => x.OperationRegister
+            ]);
 
             // Avanzar la fase en InscriptionModality
             inscription.IdStageModality = nextStage.Id;
-            inscription.UpdatedAt = DateTime.UtcNow;
+            inscription.UpdatedAt = DateTimeOffset.UtcNow;
             inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
             inscription.OperationRegister += " | Fase 2 Artículo activada por DomainEvent";
-            await inscriptionModalityRepo.UpdateAsync(inscription);
+            await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
+                x => x.IdStageModality,
+                x => x.UpdatedAt,
+                x => x.IdUserUpdatedAt,
+                x => x.OperationRegister
+            ]);
         }
     }
 }
+
