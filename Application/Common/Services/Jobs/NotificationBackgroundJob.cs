@@ -53,59 +53,6 @@ namespace Application.Common.Services.Jobs
             }
         }
 
-        public async Task HandleProposalCreationAsync(int proposalId)
-        {
-            try
-            {
-                _logger.LogInformation("Processing proposal creation notification for Proposal ID: {ProposalId}", proposalId);
-
-                var queueService = _serviceProvider.GetService<IEmailNotificationQueueService>();
-                var eventDataBuilder = _serviceProvider.GetService<IProposalEventDataBuilder>();
-
-                if (queueService == null || eventDataBuilder == null)
-                {
-                    _logger.LogError("Required services not found for proposal creation notification");
-                    return;
-                }
-
-                var eventData = await eventDataBuilder.BuildProposalEventDataAsync(proposalId, "PROPOSAL_SUBMITTED");
-                queueService.EnqueueEventNotification("PROPOSAL_SUBMITTED", eventData);
-
-                _logger.LogInformation("Proposal creation notification enqueued - Proposal ID: {ProposalId}", proposalId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing proposal creation notification for ID {Id}", proposalId);
-                throw;
-            }
-        }
-
-        public async Task HandleTeachingAssignmentCreationAsync(int assignmentId)
-        {
-            try
-            {
-                _logger.LogInformation("Processing teaching assignment creation notification for Assignment ID: {AssignmentId}", assignmentId);
-
-                var queueService = _serviceProvider.GetService<IEmailNotificationQueueService>();
-                var eventDataBuilder = _serviceProvider.GetService<ITeachingAssignmentEventDataBuilder>();
-
-                if (queueService == null || eventDataBuilder == null)
-                {
-                    _logger.LogError("Required services not found for teaching assignment creation notification");
-                    return;
-                }
-
-                var eventData = await eventDataBuilder.BuildTeachingAssignmentEventDataAsync(assignmentId, "TEACHING_ASSIGNMENT_ASSIGNED");
-                queueService.EnqueueEventNotification("TEACHING_ASSIGNMENT_ASSIGNED", eventData);
-
-                _logger.LogInformation("Teaching assignment creation notification enqueued - Assignment ID: {AssignmentId}", assignmentId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing teaching assignment creation notification for ID {Id}", assignmentId);
-                throw;
-            }
-        }
 
         public async Task HandleProposalChangeAsync(int proposalId, int oldStateId)
         {
@@ -281,36 +228,6 @@ namespace Application.Common.Services.Jobs
             }
         }
 
-        public async Task HandleInscriptionCreationAsync(int inscriptionId, int modalityId, int academicPeriodId, IList<int> studentIds)
-        {
-            try
-            {
-                _logger.LogInformation("Processing inscription creation notification for Inscription ID: {InscriptionId}", inscriptionId);
 
-                var queueService = _serviceProvider.GetService<IEmailNotificationQueueService>();
-                var eventDataBuilder = _serviceProvider.GetService<IInscriptionEventDataBuilder>();
-
-                if (queueService == null || eventDataBuilder == null)
-                {
-                    _logger.LogError("Required services not found for inscription creation notification");
-                    return;
-                }
-
-                var eventData = await eventDataBuilder.BuildBasicInscriptionDataAsync(
-                    inscriptionId,
-                    modalityId,
-                    academicPeriodId,
-                    studentIds);
-
-                queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
-
-                _logger.LogInformation("Inscription creation notification enqueued - Inscription ID: {InscriptionId}", inscriptionId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing inscription creation notification for ID {Id}", inscriptionId);
-                throw;
-            }
-        }
     }
 }

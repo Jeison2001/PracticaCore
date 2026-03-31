@@ -125,7 +125,7 @@ namespace Application.Shared.Commands.Proposals.Handlers
         private void ProcessNotificationsAsync(int proposalId)
         {
             _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>
-                x.HandleProposalCreationAsync(proposalId));
+                x.HandleEntityCreationAsync<Proposal, int>(proposalId));
         }
     }
 }

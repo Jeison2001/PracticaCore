@@ -47,12 +47,32 @@ namespace Application.Common.Services.Notifications.Handlers
             }
         }
 
-        public Task HandleCreationAsync(InscriptionModality entity, CancellationToken cancellationToken = default)
+        public async Task HandleCreationAsync(InscriptionModality entity, CancellationToken cancellationToken = default)
         {
-            // Esta lógica NO se ejecutará porque eliminamos la llamada del CreateEntityCommandHandler
-            // Solo se maneja via CreateInscriptionWithStudentsHandler usando InscriptionCreationService
-            _logger.LogDebug("InscriptionModality creation handling skipped - managed by specific handler");
-            return Task.CompletedTask;
+            _logger.LogInformation("🔄 Iniciando procesamiento de notificaciones para nueva inscripción ID: {InscriptionId}", entity.Id);
+
+            try
+            {
+                // Retrieve students linked to the new inscription
+                var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
+                var userInscriptions = await userInscriptionRepo.GetAllAsync(ui => ui.IdInscriptionModality == entity.Id && ui.StatusRegister);
+                var studentIds = userInscriptions.Select(ui => ui.IdUser).ToList();
+
+                var eventData = await _eventDataBuilder.BuildBasicInscriptionDataAsync(
+                    entity.Id,
+                    entity.IdModality,
+                    entity.IdAcademicPeriod,
+                    studentIds);
+
+                var jobId = _queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
+
+                _logger.LogInformation("✅ Inscription creation notification enqueued - Inscription ID: {InscriptionId}, JobId: {JobId}", entity.Id, jobId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing inscription creation notification for ID {Id}", entity.Id);
+                throw;
+            }
         }
 
         private async Task<string> GetInscriptionEventNameAsync(int stateId, CancellationToken cancellationToken)
