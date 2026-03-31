@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
 using Application.Common.Services.Jobs;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Shared.Commands.TeachingAssignments.Handlers
 {
@@ -66,8 +67,37 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
             // Crear nueva asignación directamente
             var entity = _mapper.Map<TeachingAssignment>(dto);
-            await _repository.AddAsync(entity);
-            await _unitOfWork.CommitAsync(cancellationToken);
+            
+            try
+            {
+                await _repository.AddAsync(entity);
+                await _unitOfWork.CommitAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex)
+            {
+                // Extraer el SqlState de forma libre de dependencias (para no acoplar Application con Npgsql)
+                var innerExceptionType = ex.InnerException?.GetType().Name;
+                var sqlStateProperty = ex.InnerException?.GetType().GetProperty("SqlState");
+                var sqlState = sqlStateProperty?.GetValue(ex.InnerException) as string;
+
+                if (innerExceptionType == "PostgresException" && sqlState == "23505")
+                {
+                    _logger.LogWarning("Condición de carrera prevenida: El docente {IdTeacher} ya fue asignado activamente en la inscripción {IdInscriptionModality} con el cargo {IdTypeTeachingAssignment}.", dto.IdTeacher, dto.IdInscriptionModality, dto.IdTypeTeachingAssignment);
+                    
+                    var raceConditionExisting = await _repository.GetFirstOrDefaultAsync(x =>
+                        x.IdTeacher == dto.IdTeacher &&
+                        x.IdInscriptionModality == dto.IdInscriptionModality &&
+                        x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
+                        x.StatusRegister,
+                        cancellationToken);
+
+                    if (raceConditionExisting != null)
+                    {
+                        return _mapper.Map<TeachingAssignmentDto>(raceConditionExisting);
+                    }
+                }
+                throw; // Lanzar la excepción si no es una carrera de concurrencia esperada
+            }
 
             // Procesar notificaciones en background
             ProcessNotificationsAsync(entity);
