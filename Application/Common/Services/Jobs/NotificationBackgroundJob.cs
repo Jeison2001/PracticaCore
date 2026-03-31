@@ -194,6 +194,64 @@ namespace Application.Common.Services.Jobs
             }
         }
 
+        public async Task HandlePreliminaryProjectChangeAsync(int preliminaryId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<PreliminaryProject, int>>();
+
+                if (repository == null)
+                {
+                    _logger.LogError("Repository not found for PreliminaryProject");
+                    return;
+                }
+
+                var entity = await repository.GetByIdAsync(preliminaryId);
+                if (entity == null)
+                {
+                    _logger.LogWarning("PreliminaryProject with ID {Id} not found during background processing", preliminaryId);
+                    return;
+                }
+
+                var oldEntity = new PreliminaryProject { Id = preliminaryId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<PreliminaryProject, int>(oldEntity, entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing preliminary project change job for ID {Id}", preliminaryId);
+                throw;
+            }
+        }
+
+        public async Task HandleProjectFinalChangeAsync(int projectFinalId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<ProjectFinal, int>>();
+
+                if (repository == null)
+                {
+                    _logger.LogError("Repository not found for ProjectFinal");
+                    return;
+                }
+
+                var entity = await repository.GetByIdAsync(projectFinalId);
+                if (entity == null)
+                {
+                    _logger.LogWarning("ProjectFinal with ID {Id} not found during background processing", projectFinalId);
+                    return;
+                }
+
+                var oldEntity = new ProjectFinal { Id = projectFinalId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<ProjectFinal, int>(oldEntity, entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing project final change job for ID {Id}", projectFinalId);
+                throw;
+            }
+        }
+
         public async Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId)
         {
             try

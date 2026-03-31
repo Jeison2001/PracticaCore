@@ -11,6 +11,8 @@ namespace Application.Common.Services.Jobs
         Task HandleTeachingAssignmentCreationAsync(int assignmentId);
         Task HandleTeachingAssignmentChangeAsync(int assignmentId, int oldTeacherId);
         Task HandleAcademicPracticeChangeAsync(int practiceId, int oldStateId);
+        Task HandlePreliminaryProjectChangeAsync(int preliminaryId, int oldStateId);
+        Task HandleProjectFinalChangeAsync(int projectFinalId, int oldStateId);
         Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId);
         Task HandleInscriptionCreationAsync(int inscriptionId, int modalityId, int academicPeriodId, IList<int> studentIds);
     }

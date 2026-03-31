@@ -91,9 +91,11 @@ namespace Application.Shared.Commands.Handlers
         private int? CaptureStateIdIfNeeded(T entity)
         {
             if (typeof(T) == typeof(Proposal))
-            {
                 return (entity as Proposal)?.IdStateStage;
-            }
+            if (typeof(T) == typeof(PreliminaryProject))
+                return (entity as PreliminaryProject)?.IdStateStage;
+            if (typeof(T) == typeof(ProjectFinal))
+                return (entity as ProjectFinal)?.IdStateStage;
             return null;
         }
 
@@ -109,6 +111,24 @@ namespace Application.Shared.Commands.Handlers
                 {
                     _jobEnqueuer.Enqueue<INotificationBackgroundJob>(
                         x => x.HandleProposalChangeAsync(proposal.Id, originalStateId.Value));
+                }
+            }
+            else if (typeof(T) == typeof(PreliminaryProject))
+            {
+                var preliminary = entity as PreliminaryProject;
+                if (preliminary != null && preliminary.IdStateStage != originalStateId.Value)
+                {
+                    _jobEnqueuer.Enqueue<INotificationBackgroundJob>(
+                        x => x.HandlePreliminaryProjectChangeAsync(preliminary.Id, originalStateId.Value));
+                }
+            }
+            else if (typeof(T) == typeof(ProjectFinal))
+            {
+                var projectFinal = entity as ProjectFinal;
+                if (projectFinal != null && projectFinal.IdStateStage != originalStateId.Value)
+                {
+                    _jobEnqueuer.Enqueue<INotificationBackgroundJob>(
+                        x => x.HandleProjectFinalChangeAsync(projectFinal.Id, originalStateId.Value));
                 }
             }
         }
