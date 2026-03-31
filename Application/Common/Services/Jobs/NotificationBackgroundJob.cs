@@ -54,6 +54,10 @@ namespace Application.Common.Services.Jobs
         }
 
 
+        public Task HandleProposalCreationAsync(int proposalId) => HandleEntityCreationAsync<Proposal, int>(proposalId);
+        
+        public Task HandleTeachingAssignmentCreationAsync(int assignmentId) => HandleEntityCreationAsync<TeachingAssignment, int>(assignmentId);
+
         public async Task HandleProposalChangeAsync(int proposalId, int oldStateId)
         {
             try
@@ -228,6 +232,8 @@ namespace Application.Common.Services.Jobs
             }
         }
 
+
+        public Task HandleInscriptionCreationAsync(int inscriptionId) => HandleEntityCreationAsync<InscriptionModality, int>(inscriptionId);
 
     }
 }

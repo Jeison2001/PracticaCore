@@ -107,8 +107,8 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
         private void ProcessNotificationsAsync(TeachingAssignment entity)
         {
-            // Fire-and-forget seguro usando Hangfire mediante dispatcher genérico
-            _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleEntityCreationAsync<TeachingAssignment, int>(entity.Id));
+            // Fire-and-forget seguro usando Hangfire mediante dispatcher genérico envoltorio
+            _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleTeachingAssignmentCreationAsync(entity.Id));
         }
     }
 }

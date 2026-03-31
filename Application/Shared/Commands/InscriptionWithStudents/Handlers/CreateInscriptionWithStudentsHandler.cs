@@ -221,7 +221,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 try
                 {
                     _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>
-                        x.HandleEntityCreationAsync<InscriptionModality, int>(inscriptionModalityId));
+                        x.HandleInscriptionCreationAsync(inscriptionModalityId));
 
                     _logger.LogInformation("Job de notificación encolado para inscripción ID {InscriptionId}", inscriptionModalityId);
                 }
