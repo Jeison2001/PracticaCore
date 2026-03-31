@@ -4,6 +4,8 @@ using Domain.Events;
 using Domain.Interfaces.Repositories;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Domain.Interfaces.Services.Jobs;
+using Application.Common.Services.Jobs;
 
 namespace Application.Features.Research.EventHandlers
 {
@@ -17,11 +19,13 @@ namespace Application.Features.Research.EventHandlers
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<AdvancePhaseOnDocumentUploadedHandler> _logger;
+        private readonly IJobEnqueuer _jobEnqueuer;
 
-        public AdvancePhaseOnDocumentUploadedHandler(IUnitOfWork unitOfWork, ILogger<AdvancePhaseOnDocumentUploadedHandler> logger)
+        public AdvancePhaseOnDocumentUploadedHandler(IUnitOfWork unitOfWork, ILogger<AdvancePhaseOnDocumentUploadedHandler> logger, IJobEnqueuer jobEnqueuer)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _jobEnqueuer = jobEnqueuer;
         }
 
         public async Task Handle(DocumentUploadedEvent notification, CancellationToken cancellationToken)
@@ -70,6 +74,10 @@ namespace Application.Features.Research.EventHandlers
                     x => x.IdUserUpdatedAt,
                     x => x.OperationRegister
                 ]);
+
+                _logger.LogInformation("Encolando notificación de cambio de estado para Anteproyecto ID {PreliminaryProjectId}", preliminaryProject.Id);
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(
+                    x => x.HandlePreliminaryProjectChangeAsync(preliminaryProject.Id, currentState.Id));
             }
         }
 
@@ -99,6 +107,10 @@ namespace Application.Features.Research.EventHandlers
                     x => x.IdUserUpdatedAt,
                     x => x.OperationRegister
                 ]);
+
+                _logger.LogInformation("Encolando notificación de cambio de estado para Proyecto Final ID {ProjectFinalId}", projectFinal.Id);
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(
+                    x => x.HandleProjectFinalChangeAsync(projectFinal.Id, currentState.Id));
             }
         }
     }

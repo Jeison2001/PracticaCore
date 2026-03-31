@@ -35,7 +35,8 @@ namespace Application.Shared.Queries.PreliminaryProjects.Handlers
                         Id = e.Project.StateStage.Id,
                         Code = e.Project.StateStage.Code,
                         Name = e.Project.StateStage.Name,
-                        Description = e.Project.StateStage.Description
+                        Description = e.Project.StateStage.Description,
+                        IsInitialState = e.Project.StateStage.IsInitialState
                     } : null
                 },
                 Proposal = new ProposalWithDetailsResponseDto
