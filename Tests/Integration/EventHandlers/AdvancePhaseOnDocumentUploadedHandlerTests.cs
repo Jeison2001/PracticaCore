@@ -3,6 +3,7 @@ using Domain.Constants;
 using Domain.Entities;
 using Domain.Events;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
 using FluentAssertions;
 using Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +26,8 @@ namespace Tests.Integration.EventHandlers
 
         private AdvancePhaseOnDocumentUploadedHandler CreateHandler() =>
             new(_scope.ServiceProvider.GetRequiredService<IUnitOfWork>(),
-                _scope.ServiceProvider.GetRequiredService<ILogger<AdvancePhaseOnDocumentUploadedHandler>>());
+                _scope.ServiceProvider.GetRequiredService<ILogger<AdvancePhaseOnDocumentUploadedHandler>>(),
+                _scope.ServiceProvider.GetRequiredService<IJobEnqueuer>());
 
         // ──────────────────────────────────────────────────────────────────────────────
         // Scenario 1: Uploading AnteproyectoEntregable while in AP_PENDIENTE_DOCUMENTO
