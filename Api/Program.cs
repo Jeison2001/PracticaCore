@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.Http.Features;
 using Api.Extensions;
 using Api.Middlewares;
 using Api.SwaggerFilters;
@@ -55,6 +56,13 @@ builder.Services.AddAuthentication(options =>
     };
 });
 builder.Services.AddControllers();
+
+// Configurar límites para permitir subida de archivos con nombres o cabeceras muy grandes
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartHeadersLengthLimit = 1024;
+});
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
