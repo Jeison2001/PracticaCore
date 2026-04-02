@@ -47,7 +47,7 @@ namespace Application.Shared.Commands.Documents.Handlers
             var entity = new Document
             {
                 // Campos de auditoría primero para que el Domain Event capture correctamente al usuario
-                IdUserCreatedAt = dto.IdUserCreatedAt ?? 0,
+                IdUserCreatedAt = request.CurrentUser.UserId,
                 CreatedAt = now,
                 OperationRegister = "INSERT",
                 StatusRegister = true,

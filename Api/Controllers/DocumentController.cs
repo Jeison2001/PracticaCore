@@ -3,6 +3,7 @@ using Application.Shared.DTOs;
 using Application.Shared.DTOs.Documents;
 using Application.Shared.Queries.Documents;
 using Domain.Common;
+using Domain.Common.Extensions;
 using Domain.Interfaces.Services.Storage;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -120,7 +121,7 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Upload([FromForm] DocumentUploadDto dto)
         {
-            var command = new CreateDocumentWithFileCommand(dto);
+            var command = new CreateDocumentWithFileCommand(dto, User.GetCurrentUserInfo());
             var result = await _mediator.Send(command);
             return CreatedAtAction(nameof(DownloadFile), new { id = result.Id }, new Responses.ApiResponse<DocumentDto>
             {
