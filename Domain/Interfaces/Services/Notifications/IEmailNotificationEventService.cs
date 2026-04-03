@@ -3,7 +3,9 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Services.Notifications;
 
 /// <summary>
-/// Servicio para manejar eventos de notificación automáticos
+/// Punto de entrada del sistema de notificaciones. Busca EmailNotificationConfig por
+/// nombre de evento, resuelve destinatarios, procesa template y envía email.
+/// Solo actúa si existe configuración activa para el evento (HasActiveConfigurationAsync).
 /// </summary>
 public interface IEmailNotificationEventService : IScopedService
 {

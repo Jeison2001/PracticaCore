@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace Application.Common.Services.Notifications.Builders
 {
     /// <summary>
-    /// Construye datos de eventos para notificaciones relacionadas con proyectos finales
+    /// Construye datos de notificación para ProjectFinal con la misma estructura que
+    /// PreliminaryProjectEventDataBuilder (título, estudiantes, estado, fechas, observaciones).
     /// </summary>
     public class ProjectFinalEventDataBuilder : IProjectFinalEventDataBuilder
     {

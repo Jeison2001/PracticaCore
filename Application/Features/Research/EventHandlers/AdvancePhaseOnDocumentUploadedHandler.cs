@@ -10,10 +10,8 @@ using Application.Common.Services.Jobs;
 namespace Application.Features.Research.EventHandlers
 {
     /// <summary>
-    /// Reemplaza la lógica (o la complementa si estaba en deshuso) de:
-    /// - trg_update_preliminary_project_on_document_upload
-    /// - trg_update_project_final_on_document_upload
-    /// Actualiza el estado de las fases cuando se carga el documento respectivo.
+    /// Actualiza el estado de las fases de Anteproyecto y Proyecto Final cuando se carga
+    /// el documento obligatorio de cada fase.
     /// </summary>
     public class AdvancePhaseOnDocumentUploadedHandler : INotificationHandler<DocumentUploadedEvent>
     {

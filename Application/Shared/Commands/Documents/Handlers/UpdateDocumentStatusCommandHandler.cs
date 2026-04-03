@@ -5,6 +5,11 @@ using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.Documents.Handlers
 {
+    /// <summary>
+    /// Soft-delete / actualización de solo estado para Document. Actualiza StatusRegister,
+    /// OperationRegister, UpdatedAt e IdUserUpdatedAt. Usado por el endpoint UpdateStatus
+    /// de DocumentController.
+    /// </summary>
     public class UpdateDocumentStatusCommandHandler : IRequestHandler<UpdateDocumentStatusCommand, bool>
     {
         private readonly IRepository<Document, int> _repository;

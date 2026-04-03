@@ -10,6 +10,11 @@ using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.TeachingAssignments.Handlers
 {
+    /// <summary>
+    /// Actualiza una asignación docente. Preserva campos de auditoría immutables (CreatedAt, IdUserCreatedAt).
+    /// Encola HandleTeachingAssignmentChangeAsync que notifica tanto al nuevo docente como al anterior
+    /// (en caso de que la asignación haya sido reasignada).
+    /// </summary>
     public class UpdateTeachingAssignmentCommandHandler : IRequestHandler<UpdateTeachingAssignmentCommand, TeachingAssignmentDto>
     {
         private readonly ITeachingAssignmentRepository _repository;

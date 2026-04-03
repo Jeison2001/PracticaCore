@@ -7,7 +7,9 @@ using Microsoft.Extensions.Logging;
 namespace Application.Common.Services.Notifications
 {
     /// <summary>
-    /// Implementación del servicio de eventos de notificación
+    /// Corazón del sistema de notificaciones email. Carga EmailNotificationConfig por evento,
+    /// resuelve destinatarios via EmailRecipientResolverService, procesa templates con
+    /// placeholders {Key} y envía via INotificationService. Solo actúa si existe config activa.
     /// </summary>
     public class EmailNotificationEventService : IEmailNotificationEventService
     {

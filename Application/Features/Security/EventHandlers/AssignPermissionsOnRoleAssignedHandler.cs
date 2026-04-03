@@ -7,9 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace Application.Features.Security.EventHandlers
 {
     /// <summary>
-    /// Reemplaza: TrgUserRoleAssignPermissions
     /// Cuando se asigna un nuevo rol a un usuario, asigna automáticamente todos los permisos
-    /// del rol al usuario (equivalente al trigger AFTER INSERT en UserRole).
+    /// del rol al usuario.
     /// </summary>
     public class AssignPermissionsOnRoleAssignedHandler : INotificationHandler<UserRoleAssignedEvent>
     {

@@ -7,6 +7,11 @@ using Domain.Interfaces.Services.Storage;
 
 namespace Application.Shared.Commands.Documents.Handlers
 {
+    /// <summary>
+    /// Actualiza metadatos del documento y opcionalmente reemplaza el archivo. Los campos
+    /// de auditoría se establecen antes del mapeo para que los Domain Events capturados
+    /// por los setters tengan el usuario corrector. Puede resolver IdDocumentType por Code.
+    /// </summary>
     public class UpdateDocumentWithFileCommandHandler : IRequestHandler<UpdateDocumentWithFileCommand, DocumentDto>
     {
         private readonly IRepository<Document, int> _repository;

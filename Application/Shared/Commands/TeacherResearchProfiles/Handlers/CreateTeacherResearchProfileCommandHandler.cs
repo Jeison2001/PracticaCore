@@ -6,6 +6,10 @@ using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.TeacherResearchProfiles.Handlers
 {
+    /// <summary>
+    /// Crea un TeacherResearchProfile tras validar unicidad: mismo usuario + línea de investigación + subínea.
+    /// Un docente puede tener múltiples perfiles pero no combinaciones duplicadas de línea/subínea.
+    /// </summary>
     public class CreateTeacherResearchProfileCommandHandler : IRequestHandler<CreateTeacherResearchProfileCommand, TeacherResearchProfileDto>
     {
         private readonly IRepository<TeacherResearchProfile, int> _repository;

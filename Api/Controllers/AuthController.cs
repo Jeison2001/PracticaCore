@@ -9,6 +9,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Endpoints de autenticación: login Google OAuth2, login manual (testing), y registro de usuarios.
+    /// GoogleLogin es el flujo principal de auth usado por pegi_web.
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     [AllowAnonymous]

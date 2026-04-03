@@ -9,6 +9,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Common.Services.Jobs
 {
+    /// <summary>
+    /// Puente entre Hangfire (background jobs) y NotificationDispatcher (notificaciones).
+    /// Cada método typed obtiene la entidad del repositorio y delega al dispatcher.
+    /// Crea un IServiceScope por cada job para resolver repositorios con DI correctamente.
+    /// </summary>
     public class NotificationBackgroundJob : INotificationBackgroundJob
     {
         private readonly INotificationDispatcher _dispatcher;

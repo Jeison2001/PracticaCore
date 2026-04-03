@@ -11,6 +11,11 @@ using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.Handlers
 {
+    /// <summary>
+    /// Handler genérico para crear una entidad. Usado por ~16+ tipos de entidad via GenericController.
+    /// Valida unicidad de Code si la entidad tiene esa propiedad, mapea DTO a entidad,
+    /// y traduce violaciones de FK en mensajes de error amigables.
+    /// </summary>
     public class CreateEntityCommandHandler<T, TId, TDto> : IRequestHandler<CreateEntityCommand<T, TId, TDto>, TDto>
         where T : BaseEntity<TId>
         where TId : struct

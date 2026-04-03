@@ -3,7 +3,8 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Services.Notifications.Builders
 {
     /// <summary>
-    /// Builder para construir datos de eventos de notificaciones para Práctica Académica
+    /// Construye placeholders para emails de Práctica Académica: título, institución,
+    /// fase, estado, estudiantes y fechas de aprobación/desarrollo.
     /// </summary>
     public interface IAcademicPracticeEventDataBuilder : IScopedService
     {

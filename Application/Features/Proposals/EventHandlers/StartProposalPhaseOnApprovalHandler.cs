@@ -10,9 +10,9 @@ using System.Linq.Expressions;
 namespace Application.Features.Proposals.EventHandlers
 {
     /// <summary>
-    /// Handles InscriptionStateChangedEvent to initiate the Proposal phase (Phase 1)
-    /// when an inscription is approved for the Proyecto de Grado modality.
-    /// Creates the initial stage and assigns the standard proposal permissions to students.
+    /// Cuando se aprueba una inscripción de modalidad Proyecto de Grado, avanza la
+    /// InscriptionModality a la fase de propuesta (PG_FASE_PROPUESTA) y asigna
+    /// los permisos iniciales de propuesta al estudiante.
     /// </summary>
     public class StartProposalPhaseOnApprovalHandler : INotificationHandler<InscriptionStateChangedEvent>
     {

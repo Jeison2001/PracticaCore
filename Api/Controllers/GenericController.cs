@@ -10,6 +10,11 @@ using Domain.Common.Extensions;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Base controller que provee CRUD estándar para cualquier entidad que herede de BaseEntity.
+    /// GetById, GetAll (paginado), Create, CreateMultiple, Update, UpdateStatus.
+    /// Los controllers específicos sobrescriben estos métodos cuando necesitan lógica adicional.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class GenericController<T, TId, TDto> : ControllerBase

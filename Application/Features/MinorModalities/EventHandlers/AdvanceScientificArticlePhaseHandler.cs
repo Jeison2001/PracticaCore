@@ -8,10 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace Application.Features.MinorModalities.EventHandlers
 {
     /// <summary>
-    /// Reemplaza: trg_article_phase_transition
     /// Cuando el estado de un ScientificArticle es el último de Fase 1 (IsFinalStateForStage=true)
     /// y no es el final general (IsFinalStateForModalityOverall=false), avanza automáticamente a la Fase 2.
-    /// Usa lógica dinámica igual que el trigger original.
     /// </summary>
     public class AdvanceScientificArticlePhaseHandler : INotificationHandler<ScientificArticleStateChangedEvent>
     {
@@ -31,7 +29,7 @@ namespace Application.Features.MinorModalities.EventHandlers
 
             var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
 
-            // El trigger original verifica: IsFinalStateForStage=true AND IsFinalStateForModalityOverall=false
+            // Verifica: IsFinalStateForStage=true AND IsFinalStateForModalityOverall=false
             // Es decir: fin de una fase intermedia → avanzar a la siguiente fase.
             var newState = await stateStageRepo.GetByIdAsync(notification.NewStateStageId);
             if (newState == null || !newState.IsFinalStateForStage || newState.IsFinalStateForModalityOverall) return;

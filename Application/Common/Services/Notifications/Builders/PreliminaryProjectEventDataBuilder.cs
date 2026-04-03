@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace Application.Common.Services.Notifications.Builders
 {
     /// <summary>
-    /// Construye datos de eventos para notificaciones relacionadas con anteproyectos
+    /// Construye datos de notificación para PreliminaryProject extrayendo: título del proyecto,
+    /// estudiantes, estado actual, fecha deSubmission, observaciones y resultado de evaluación.
     /// </summary>
     public class PreliminaryProjectEventDataBuilder : IPreliminaryProjectEventDataBuilder
     {

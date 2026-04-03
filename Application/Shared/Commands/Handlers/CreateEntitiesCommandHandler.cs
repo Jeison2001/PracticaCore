@@ -6,6 +6,10 @@ using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.Handlers
 {
+    /// <summary>
+    /// Handler genérico para creación batch de entidades. Crea múltiples entidades
+    /// en una sola transacción. Valida que todos los DTOs sean válidos antes de insertar.
+    /// </summary>
     public class CreateEntitiesCommandHandler<T, TId, TDto> : IRequestHandler<CreateEntitiesCommand<T, TId, TDto>, List<TDto>>
         where T : BaseEntity<TId>
         where TId : struct

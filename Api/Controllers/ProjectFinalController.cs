@@ -9,6 +9,11 @@ using MediatR;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Controlador de Proyectos Finales de Grado. Override GetAll/GetById como [NonAction]
+    /// (usa queries con details). Es la fase final del flujo Propuesta→Anteproyecto→Proyecto.
+    /// GetAllWithDetails, GetByUserId, GetByTeacherId retornan detalles completos con evaluación.
+    /// </summary>
     public class ProjectFinalController : GenericController<ProjectFinal, int, ProjectFinalDto>
     {
         private readonly IMediator _mediator;

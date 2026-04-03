@@ -4,8 +4,9 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Services.Notifications.Handlers;
 
 /// <summary>
-/// Handler específico para cambios en un tipo de entidad.
-/// Implementa Single Responsibility Principle - cada handler maneja un solo tipo.
+/// Handler para detectar cambios de estado en entidades y encolar notificaciones.
+/// Capture: HandleCreationAsync (nueva entidad) y HandleChangeAsync (cambio de estado).
+/// Cada implementación es para un tipo de entidad específico (Proposal, InscriptionModality, etc.).
 /// </summary>
 public interface IEntityChangeHandler<T, TId> : IScopedService 
     where T : BaseEntity<TId> 

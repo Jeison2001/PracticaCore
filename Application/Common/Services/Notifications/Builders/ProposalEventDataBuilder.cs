@@ -7,8 +7,8 @@ using Domain.Interfaces.Repositories;
 namespace Application.Common.Services.Notifications.Builders
 {
     /// <summary>
-    /// Builder específico para eventos de Proposal.
-    /// Single Responsibility: Solo construye datos para eventos de Proposal.
+    /// Construye datos de notificación para Proposal extrayendo: título, objetivos, estado,
+    /// línea de investigación, estudiantes, fechas deSubmission/aprobación y observaciones.
     /// </summary>
     public class ProposalEventDataBuilder : IProposalEventDataBuilder
     {

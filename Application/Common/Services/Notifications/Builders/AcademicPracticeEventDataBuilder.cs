@@ -26,6 +26,12 @@ namespace Application.Common.Services.Notifications.Builders
             _logger = logger;
         }
 
+        /// <summary>
+        /// Extrae datos de AcademicPractice, InscriptionModality, StateStage y estudiantes
+        /// para popular placeholders en templates de email de Práctica Académica.
+        /// El método GetPhaseInfo() mapea StateStage.Code a PhaseInfo con mensajes
+        /// personalizados (NextSteps, ObservationAction, PossibleCauses, etc.).
+        /// </summary>
         public async Task<Dictionary<string, object>> BuildAcademicPracticeEventDataAsync(int academicPracticeId, string eventType)
         {
             _logger.LogInformation("Building academic practice event data for AcademicPractice ID: {AcademicPracticeId}, Event: {EventType}",
@@ -131,6 +137,10 @@ namespace Application.Common.Services.Notifications.Builders
             return (stateStage?.Name ?? "Estado desconocido", stateStage?.Code ?? "UNKNOWN");
         }
 
+        /// <summary>
+        /// Mapa de StateStageCode → PhaseInfo con mensajes personalizados por estado.
+        /// Cada estado tiene mensajes específicos de NextSteps, PossibleCauses, AvailableOptions, etc.
+        /// </summary>
         private PhaseInfo GetPhaseInfo(string stateCode)
         {
             if (!Enum.TryParse<StateStageCodeEnum>(stateCode, out var code))
@@ -267,6 +277,10 @@ namespace Application.Common.Services.Notifications.Builders
             public string AdministrativeNextSteps { get; set; } = string.Empty;
         }
 
+        /// <summary>
+        /// Devuelve la fecha de aprobación según el estado de la práctica.
+        /// Cada estado tiene su propia fecha de referencia (AvalApprovalDate, DevelopmentCompletionDate, etc.).
+        /// </summary>
         private string GetApprovalDate(string stateCode, AcademicPractice ap)
         {
             if (!Enum.TryParse<StateStageCodeEnum>(stateCode, out var code)) return string.Empty;

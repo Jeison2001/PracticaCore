@@ -3,8 +3,9 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Services.Notifications.Builders
 {
     /// <summary>
-    /// Builder específico para eventos de TeachingAssignment.
-    /// Single Responsibility: Solo construye datos para eventos de asignaciones docentes.
+    /// Construye placeholders para emails de TeachingAssignment: docente, tipo de
+    /// asignación, título del proyecto (desde Proposal o AcademicPractice),
+    /// estudiantes, fase actual y período académico.
     /// </summary>
     public interface ITeachingAssignmentEventDataBuilder : IScopedService
     {

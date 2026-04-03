@@ -5,6 +5,11 @@ using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.Handlers
 {
+    /// <summary>
+    /// Handler genérico para soft-delete y actualizaciones de solo estado. Actualiza
+    /// StatusRegister, OperationRegister, UpdatedAt e IdUserUpdatedAt sin modificar
+    /// otros campos de la entidad.
+    /// </summary>
     public class UpdateStatusEntityCommandHandler<T, TId> : IRequestHandler<UpdateStatusEntityCommand<T, TId>, bool>
         where T : BaseEntity<TId>
         where TId : struct

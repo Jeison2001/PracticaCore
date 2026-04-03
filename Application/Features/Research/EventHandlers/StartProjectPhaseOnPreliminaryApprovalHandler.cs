@@ -9,7 +9,6 @@ using Microsoft.Extensions.Logging;
 namespace Application.Features.Research.EventHandlers
 {
     /// <summary>
-    /// Reemplaza: trg_update_preliminary_to_project_phase
     /// Cuando el estado de un Anteproyecto cambia a AP_APROBADO, avanza la InscriptionModality
     /// a la fase de Proyecto Final y crea el registro ProjectFinal.
     /// </summary>

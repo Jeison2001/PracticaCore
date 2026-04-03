@@ -6,6 +6,11 @@ using Domain.Interfaces.Repositories;
 
 namespace Application.Shared.Commands.TeacherResearchProfiles.Handlers
 {
+    /// <summary>
+    /// Actualiza un TeacherResearchProfile. Valida unicidad excluyendo el registro actual
+    /// (mismo usuario + línea + subínea). Preserva campos immutables (CreatedAt, IdUserCreatedAt)
+    /// y establece UpdatedAt/IdUserUpdatedAt.
+    /// </summary>
     public class UpdateTeacherResearchProfileCommandHandler : IRequestHandler<UpdateTeacherResearchProfileCommand, TeacherResearchProfileDto>
     {
         private readonly IRepository<TeacherResearchProfile, int> _repository;

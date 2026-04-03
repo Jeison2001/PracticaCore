@@ -8,10 +8,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Features.MinorModalities.EventHandlers
 {
+    /// <summary>
+    /// Cuando se aprueba/rechaza una inscripción de modalidad menor (CoTerminal, Seminar,
+    /// ScientificArticle, AcademicAverage, SaberPro), crea el registro de extensión correspondiente
+    /// en Fase 1 y asigna los permisos iniciales al estudiante.
+    /// </summary>
     public class StartMinorModalityPhaseOnApprovalHandler : INotificationHandler<InscriptionStateChangedEvent>
     {
         // Mapa de código de Modalidad → permisos iniciales a asignar.
-        // Reflejo exacto de la lógica del trigger fn_minor_modalities_flow.
         private static readonly Dictionary<string, string[]> _permissionsByModality = new()
         {
             [ModalityCodes.CoTerminal]          = [PermissionCodes.CoTerminal.N1CT,  PermissionCodes.CoTerminal.N2CTC],
@@ -41,7 +45,6 @@ namespace Application.Features.MinorModalities.EventHandlers
             var stateInscription = await stateInscriptionRepo.GetByIdAsync(notification.NewStateInscriptionId);
             if (stateInscription == null) return;
 
-            // Lógica idéntica al trigger original:
             // RequiresApproval=TRUE → activa en UPDATE a APROBADO
             // RequiresApproval=FALSE → activa en INSERT/evento con NO_APLICA (modalidad sin proceso de aprobación formal)
             var expectedCode = modality.RequiresApproval ? StateInscriptionCodes.Aprobado : StateInscriptionCodes.NoAplica;

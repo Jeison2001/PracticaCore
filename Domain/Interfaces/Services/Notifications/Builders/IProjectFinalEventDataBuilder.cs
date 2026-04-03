@@ -3,7 +3,8 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Services.Notifications.Builders
 {
     /// <summary>
-    /// Constructor de datos de eventos para notificaciones de proyecto final
+    /// Construye placeholders para emails de Proyecto Final: título, estudiantes,
+    /// estado, fechas y observaciones (misma estructura que PreliminaryProject).
     /// </summary>
     public interface IProjectFinalEventDataBuilder : IScopedService
     {

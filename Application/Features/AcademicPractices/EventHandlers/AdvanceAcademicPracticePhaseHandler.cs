@@ -9,11 +9,10 @@ using Microsoft.Extensions.Logging;
 namespace Application.Features.AcademicPractices.EventHandlers
 {
     /// <summary>
-    /// Reemplaza: trg_assign_practice_phase_permissions + trg_academic_practice_phase_transitions + trg_academic_practice_dates
     /// Gestiona tres responsabilidades al cambiar el estado de AcademicPractice:
     ///   1. Transiciones automáticas de fase en InscriptionModality.
     ///   2. Asignación de permisos progresivos al estudiante.
-    ///   3. Estampado de fechas de aprobación automáticas (equivalente al trigger BEFORE UPDATE).
+    ///   3. Estampado de fechas de aprobación automáticas.
     /// </summary>
     public class AdvanceAcademicPracticePhaseHandler : INotificationHandler<AcademicPracticeStateChangedEvent>
     {
@@ -50,7 +49,7 @@ namespace Application.Features.AcademicPractices.EventHandlers
             var stageModalityRepo = _unitOfWork.GetRepository<StageModality, int>();
 
             // =========================================================================
-            // 1. ESTAMPADO DE FECHAS AUTOMÁTICAS (equivalente a trg_academic_practice_dates)
+            // 1. ESTAMPADO DE FECHAS AUTOMÁTICAS
             // =========================================================================
             switch (newState.Code)
             {

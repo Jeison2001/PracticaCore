@@ -11,6 +11,11 @@ using System.Linq.Expressions;
 
 namespace Application.Shared.Commands.Proposals.Handlers
 {
+    /// <summary>
+    /// Actualización parcial de Proposal: solo IdStateStage y Observation pueden ser modificados.
+    /// Encola HandleProposalChangeAsync cuando el estado cambia, que dispara notificaciones
+    /// PROPOSAL_APPROVED o PROPOSAL_REJECTED según el nuevo estado.
+    /// </summary>
     public class PatchProposalCommandHandler : IRequestHandler<PatchProposalCommand, ProposalDto>
     {
         private readonly IRepository<Proposal, int> _repository;

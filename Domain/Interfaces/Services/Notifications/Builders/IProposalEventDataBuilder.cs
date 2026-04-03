@@ -3,8 +3,8 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Services.Notifications.Builders
 {
     /// <summary>
-    /// Builder específico para datos de eventos de Proposal.
-    /// Single Responsibility: Solo construye datos para Proposal.
+    /// Construye el diccionario de placeholders para emails de Proposal:
+    /// título, objetivos, estado, línea de investigación, estudiantes, fechas.
     /// </summary>
     public interface IProposalEventDataBuilder : IScopedService
     {

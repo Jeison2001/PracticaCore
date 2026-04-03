@@ -11,6 +11,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Controlador de Prácticas Académicas. Override GetAll/GetById para retornar detalles completos
+    /// (queries con estudiantes, institución, fase). UpdateInstitutionInfo y UpdatePhaseApproval
+    /// son endpoints específicos para gestión de fase e institución.
+    /// </summary>
     public class AcademicPracticeController : GenericController<AcademicPractice, int, AcademicPracticeDto>
     {
         private readonly IMediator _mediator;

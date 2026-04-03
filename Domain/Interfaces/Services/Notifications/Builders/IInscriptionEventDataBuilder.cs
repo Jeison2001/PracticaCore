@@ -3,8 +3,8 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Services.Notifications.Builders
 {
     /// <summary>
-    /// Builder específico para datos de eventos de InscriptionModality.
-    /// Single Responsibility: Solo construye datos para InscriptionModality.
+    /// Construye placeholders para emails de InscriptionModality:
+    /// estado, modalidad, período académico, estudiantes, fechas y comentarios.
     /// </summary>
     public interface IInscriptionEventDataBuilder : IScopedService
     {

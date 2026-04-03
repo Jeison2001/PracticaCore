@@ -9,6 +9,11 @@ using MediatR;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Controlador de Anteproyectos de Grado. Override GetAll/GetById como [NonAction]
+    /// porque usa queries con details que retornan estudiantes, estado y evaluación.
+    /// GetAllWithDetails, GetByUserId, GetByTeacherId son los endpoints de consulta.
+    /// </summary>
     public class PreliminaryProjectController : GenericController<PreliminaryProject, int, PreliminaryProjectDto>
     {
         private readonly IMediator _mediator;

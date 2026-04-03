@@ -11,6 +11,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Controlador de Propuestas de Grado. Override de Create y GetAll del GenericController
+    /// (usa CreateProposalCommand con validaciones específicas y queries con details).
+    /// Patch cambia estado y encola notificaciones.
+    /// </summary>
     public class ProposalController : GenericController<Proposal, int, ProposalDto>
     {
         private readonly IMediator _mediator;

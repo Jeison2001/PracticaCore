@@ -8,6 +8,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Features.AcademicPractices.EventHandlers
 {
+    /// <summary>
+    /// Cuando se aprueba una inscripción de Práctica Académica, crea el registro AcademicPractice
+    /// en estado inicial (PA_INSCRIPCION_PENDIENTE_DOCUMENTOS) y asigna permisos de Fase 0 (F0).
+    /// </summary>
     public class CreateAcademicPracticeOnApprovalHandler : INotificationHandler<InscriptionStateChangedEvent>
     {
         private readonly IUnitOfWork _unitOfWork;

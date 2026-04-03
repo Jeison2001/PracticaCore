@@ -7,6 +7,11 @@ using Domain.Interfaces.Services.Storage;
 
 namespace Application.Shared.Commands.Documents.Handlers
 {
+    /// <summary>
+    /// Crea una entidad Document y guarda el archivo adjunto usando IFileStorageService.
+    /// Puede resolver IdDocumentType por Code si se provee CodeDocumentType en lugar del ID.
+    /// Dispara DocumentUploadedEvent vía TryDispatchEvent en los setters de la entidad Document.
+    /// </summary>
     public class CreateDocumentWithFileCommandHandler : IRequestHandler<CreateDocumentWithFileCommand, DocumentDto>
     {
         private readonly IRepository<Document, int> _repository;

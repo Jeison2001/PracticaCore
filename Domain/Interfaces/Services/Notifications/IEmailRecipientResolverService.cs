@@ -5,7 +5,9 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Services.Notifications
 {
     /// <summary>
-    /// Servicio para resolver destinatarios basado en reglas
+    /// Resuelve destinatarios de email desde EmailRecipientRule (BY_ROLE, BY_PERMISSION,
+    /// BY_ENTITY_RELATION, FIXED_EMAIL). Consulta BD para expandir grupos y devuelve
+    /// listas separadas de TO, CC y BCC.
     /// </summary>
     public interface IEmailRecipientResolverService : IScopedService
     {

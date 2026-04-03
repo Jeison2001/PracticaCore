@@ -7,8 +7,9 @@ using Microsoft.Extensions.Logging;
 namespace Application.Common.Services.Notifications.Builders
 {
     /// <summary>
-    /// Builder específico para eventos de TeachingAssignment.
-    /// Single Responsibility: Solo construye datos para eventos de asignaciones docentes.
+    /// Construye datos de notificación para TeachingAssignment extrayendo: docente,
+    /// tipo de asignación, título del proyecto (desde Proposal o AcademicPractice según modalidad),
+    /// estudiantes, fase actual y período académico.
     /// </summary>
     public class TeachingAssignmentEventDataBuilder : ITeachingAssignmentEventDataBuilder
     {

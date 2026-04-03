@@ -9,6 +9,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Shared.Commands.Proposals.Handlers
 {
+    /// <summary>
+    /// Crea una Proposal solo cuando la InscriptionModality está en fase PG_FASE_PROPUESTA.
+    /// Asigna el estado inicial (PROP_RADICADA) y encola notificación PROPOSAL_SUBMITTED.
+    /// Valida: inscripción existe, fase correcta, no existe propuesta previa, línea/subínea
+    /// de investigación existen, máximo de objetivos no excedido.
+    /// </summary>
     public class CreateProposalCommandHandler : IRequestHandler<CreateProposalCommand, ProposalDto>
     {
         private readonly IUnitOfWork _unitOfWork;
@@ -56,7 +62,7 @@ namespace Application.Shared.Commands.Proposals.Handlers
             if (inscription.IdStageModality != propuestaStage.Id)
                 throw new InvalidOperationException($"La inscripción no está en fase {StageModalityCodes.PgFasePropuesta}. Estado actual: {inscription.IdStageModality}");
 
-            // 3. Buscar el estado inicial para la fase PG_FASE_PROPUESTA (equivalente al trigger trg_set_initial_proposal_state)
+            // 3. Buscar el estado inicial para la fase PG_FASE_PROPUESTA
             var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
             var initialState = await stateStageRepo.GetFirstOrDefaultAsync(
                 x => x.IdStageModality == propuestaStage.Id && x.IsInitialState && x.StatusRegister, cancellationToken);
@@ -80,7 +86,7 @@ namespace Application.Shared.Commands.Proposals.Handlers
             if (researchSubLine == null)
                 throw new InvalidOperationException($"No se encontró la sublínea de investigación con ID {request.Dto.IdResearchSubLine}");
 
-            // 6. Crear la propuesta con el estado inicial (reemplaza el trigger trg_set_initial_proposal_state)
+            // 6. Crear la propuesta con el estado inicial
             var proposal = new Proposal
             {
                 Id = request.Dto.Id,

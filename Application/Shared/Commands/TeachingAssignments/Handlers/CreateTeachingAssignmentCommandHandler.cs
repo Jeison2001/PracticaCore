@@ -11,6 +11,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Shared.Commands.TeachingAssignments.Handlers
 {
+    /// <summary>
+    /// Crea una asignación docente tras validar el límite de MaxAssignments para la combinación
+    /// docente/cargo. Maneja race condition: si ocurre una violación de constraint única (23505),
+    /// retorna la asignación existente en lugar de fallar — previene notificaciones duplicadas
+    /// cuando dos solicitudes compiten. Encola HandleTeachingAssignmentCreationAsync tras creación.
+    /// </summary>
     public class CreateTeachingAssignmentCommandHandler : IRequestHandler<CreateTeachingAssignmentCommand, TeachingAssignmentDto>
     {
         private readonly ITeachingAssignmentRepository _repository;

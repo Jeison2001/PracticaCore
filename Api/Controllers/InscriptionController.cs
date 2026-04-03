@@ -10,6 +10,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Controlador de Inscripciones de Modalidad. No hereda de GenericController porque
+    /// usa queries específicas (InscriptionWithStudents) y el command CreateInscriptionWithStudents.
+    /// GetAll/GetById retornan estudiantes junto con la inscripción.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class InscriptionController : ControllerBase

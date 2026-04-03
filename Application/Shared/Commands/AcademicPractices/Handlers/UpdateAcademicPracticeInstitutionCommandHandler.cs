@@ -7,6 +7,12 @@ using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.AcademicPractices.Handlers
 {
+    /// <summary>
+    /// Actualiza campos de institución (título, nombre, contacto, fechas, horas, observaciones)
+    /// de una AcademicPractice. Opcionalmente transiciona a un nuevo estado si NewStateStageId
+    /// está presente (ej: después de radicar documentos). Encola HandleAcademicPracticeChangeAsync
+    /// si el estado cambia.
+    /// </summary>
     public class UpdateAcademicPracticeInstitutionCommandHandler : IRequestHandler<UpdateAcademicPracticeInstitutionCommand, bool>
     {
         private readonly IAcademicPracticeRepository _academicPracticeRepository;

@@ -9,7 +9,6 @@ using Microsoft.Extensions.Logging;
 namespace Application.Features.Proposals.EventHandlers
 {
     /// <summary>
-    /// Reemplaza: trg_update_proposal_to_preliminary_phase
     /// Cuando el estado de una Propuesta cambia a PERTINENTE, avanza la InscriptionModality
     /// a la fase de Anteproyecto y crea el registro PreliminaryProject.
     /// </summary>

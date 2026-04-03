@@ -6,6 +6,12 @@ using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.AcademicPractices.Handlers
 {
+    /// <summary>
+    /// Avanza AcademicPractice a una nueva fase/estado. Delega la transición al método
+    /// UpdateAcademicPracticeStateAsync del repositorio que aplica reglas de negocio y
+    /// establece fechas de fase (AvalApprovalDate, DevelopmentCompletionDate, etc.).
+    /// Encola HandleAcademicPracticeChangeAsync cuando el estado cambia para disparar notificaciones.
+    /// </summary>
     public class UpdateAcademicPracticePhaseCommandHandler : IRequestHandler<UpdateAcademicPracticePhaseCommand, bool>
     {
         private readonly IAcademicPracticeRepository _academicPracticeRepository;

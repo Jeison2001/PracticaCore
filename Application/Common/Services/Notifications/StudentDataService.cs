@@ -6,6 +6,10 @@ using System.Text;
 
 namespace Application.Common.Services.Notifications
 {
+    /// <summary>
+    /// Servicio centralizado para extraer datos de estudiantes (nombres, emails, count)
+    /// desde Proposal, InscriptionModality, o lista de UserIds.
+    /// </summary>
     public class StudentDataService : IStudentDataService
     {
         private readonly IUnitOfWork _unitOfWork;

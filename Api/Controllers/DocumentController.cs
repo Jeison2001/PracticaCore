@@ -10,6 +10,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Controlador de Documentos. No hereda de GenericController porque maneja upload/download
+    /// de archivos binarios via IFileStorageService (Local, Azure, GCP o S3).
+    /// Upload/Update usan multipart/form-data. Download retorna el archivo como blob.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class DocumentController : ControllerBase

@@ -12,6 +12,12 @@ using System.Linq.Expressions;
 
 namespace Application.Shared.Commands.InscriptionModalities.Handlers
 {
+    /// <summary>
+    /// Actualización parcial de InscriptionModality: estado, observaciones y fecha de aprobación.
+    /// Las observaciones son requeridas al rechazar. ApprovalDate se establece automáticamente
+    /// al transicionar al estado APROBADO. Encola HandleInscriptionChangeAsync al cambiar estado,
+    /// que dispara notificaciones INSCRIPTION_APPROVED o INSCRIPTION_REJECTED.
+    /// </summary>
     public class PatchInscriptionModalityCommandHandler : IRequestHandler<PatchInscriptionModalityCommand, InscriptionModalityDto>
     {
         private readonly IRepository<InscriptionModality, int> _repository;

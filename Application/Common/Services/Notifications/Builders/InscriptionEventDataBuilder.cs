@@ -7,8 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace Application.Common.Services.Notifications.Builders
 {
     /// <summary>
-    /// Builder específico para eventos de InscriptionModality.
-    /// Single Responsibility: Solo construye datos para eventos de InscriptionModality.
+    /// Construye datos de notificación para InscriptionModality extrayendo: estado,
+    /// modalidad, período académico, estudiantes, fechas y comentarios de aprobación/rechazo.
     /// </summary>
     public class InscriptionEventDataBuilder : IInscriptionEventDataBuilder
     {

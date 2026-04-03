@@ -9,8 +9,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace Api.Controllers
 {
     /// <summary>
-    /// Handles InscriptionModality operations, including partial updates (PATCH)
-    /// and status transitions via domain events.
+    /// Controlador de Inscripciones de Modalidad. Override Update como [NonAction]
+    /// porque las transiciones de estado usan Patch (no PUT). Patch dispara
+    /// PatchInscriptionModalityCommand que maneja aprobación/rechazo con validaciones
+    /// de observación obligatoria y encola notificaciones según el nuevo estado.
     /// </summary>
     public class InscriptionModalityController : GenericController<InscriptionModality, int, InscriptionModalityDto>
     {

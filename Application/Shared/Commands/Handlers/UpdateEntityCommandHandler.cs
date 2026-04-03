@@ -10,6 +10,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Shared.Commands.Handlers
 {
+    /// <summary>
+    /// Handler genérico para actualizar una entidad. Restaura campos de auditoría immutables
+    /// (CreatedAt, IdUserCreatedAt) después del mapeo de AutoMapper para prevenir sobreescrituras
+    /// accidentales. Encola jobs de notificación via Hangfire cuando Proposal, PreliminaryProject
+    /// o ProjectFinal cambia de estado.
+    /// </summary>
     public class UpdateEntityCommandHandler<T, TId, TDto> : IRequestHandler<UpdateEntityCommand<T, TId, TDto>, TDto>
         where T : BaseEntity<TId>
         where TId : struct

@@ -9,6 +9,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
+    /// <summary>
+    /// Controlador de Asignaciones Docentes. Override Create/Update del GenericController
+    /// para usar CreateTeachingAssignmentCommand (valida MaxAssignments por docente)
+    /// y UpdateTeachingAssignmentCommand (notifica al docente anterior en reassignments).
+    /// GetByInscription retorna docentes asignados a una inscripción.
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     public class TeachingAssignmentController : GenericController<TeachingAssignment, int, TeachingAssignmentDto>
