@@ -96,7 +96,7 @@ namespace Infrastructure.Repositories
         {
             var entry = _context.Entry(entity);
             if (entry.State == EntityState.Unchanged)
-                entry.State = EntityState.Unchanged;
+                entry.State = EntityState.Modified;
 
             foreach (var property in updatedProperties)
                 entry.Property(property).IsModified = true;

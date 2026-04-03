@@ -28,11 +28,11 @@ namespace Infrastructure.Services.Storage
                     return;
                 }
                 
-                // Si tenemos credenciales en configuración, usarlas
+                // Si tenemos credenciales en configuración, usarlas de forma limpia y por proceso aislado
                 if (!string.IsNullOrEmpty(credentialsPath) && File.Exists(credentialsPath))
                 {
-                    Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
-                    _client = StorageClient.Create();
+                    var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(credentialsPath);
+                    _client = StorageClient.Create(credential);
                     return;
                 }
 

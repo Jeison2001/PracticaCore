@@ -161,12 +161,6 @@ namespace Application.Common.Services.Notifications
             {
                 switch (rule.RuleValue.ToUpper())
                 {
-                    case "PROPOSAL_DIRECTOR":
-                        emails.AddRange(await GetProposalDirectorEmailsAsync(eventData));
-                        break;
-                    case "FACULTY_COORDINATOR":
-                        emails.AddRange(await GetFacultyCoordinatorEmailsAsync(eventData));
-                        break;
                     case "STUDENT_ASSIGNED":
                         emails.AddRange(await GetStudentAssignedEmailsAsync(eventData));
                         break;
@@ -302,38 +296,6 @@ namespace Application.Common.Services.Notifications
             {
                 return users; // Si hay error en condiciones, devolver todos los usuarios
             }
-        }
-
-        private async Task<List<string>> GetProposalDirectorEmailsAsync(Dictionary<string, object> eventData)
-        {
-            // Implementar lógica para obtener emails de directores de propuesta
-            var emails = new List<string>();
-            
-            if (eventData.ContainsKey("ProposalId"))
-            {
-                var proposalId = Convert.ToInt32(eventData["ProposalId"]);
-                // Consultar director(es) asignado(s) a la propuesta
-                // var directors = await GetDirectorsByProposalId(proposalId);
-                // emails.AddRange(directors.Select(d => d.Email));
-            }
-
-            return emails;
-        }
-
-        private async Task<List<string>> GetFacultyCoordinatorEmailsAsync(Dictionary<string, object> eventData)
-        {
-            // Implementar lógica para obtener emails de coordinadores de facultad
-            var emails = new List<string>();
-            
-            if (eventData.ContainsKey("FacultyId"))
-            {
-                var facultyId = Convert.ToInt32(eventData["FacultyId"]);
-                // Consultar coordinadores de la facultad
-                // var coordinators = await GetCoordinatorsByFacultyId(facultyId);
-                // emails.AddRange(coordinators.Select(c => c.Email));
-            }
-
-            return emails;
         }
 
         private async Task<List<string>> GetStudentAssignedEmailsAsync(Dictionary<string, object> eventData)

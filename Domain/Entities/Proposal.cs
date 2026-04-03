@@ -20,7 +20,7 @@ namespace Domain.Entities
             {
                 if (_idStateStage != value && _idStateStage != 0)
                 {
-                    AddDomainEvent(new ProposalStateChangedEvent(Id, 0, value, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
+                    AddDomainEvent(new ProposalStateChangedEvent(Id, value, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
                 }
                 _idStateStage = value;
             }

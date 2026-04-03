@@ -15,8 +15,8 @@ namespace Application.Common.Behaviors
             CancellationToken ct)
         {
             var context = new ValidationContext<TRequest>(request);
-            var failures = _validators
-                .Select(v => v.ValidateAsync(context).Result)
+            var validationResults = await Task.WhenAll(_validators.Select(v => v.ValidateAsync(context)));
+            var failures = validationResults
                 .SelectMany(result => result.Errors)
                 .Where(f => f != null)
                 .ToList();

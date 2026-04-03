@@ -12,7 +12,7 @@ namespace Domain.Entities
             {
                 if (_idStateStage != value && _idStateStage != 0)
                 {
-                    AddDomainEvent(new ScientificArticleStateChangedEvent(Id, 0, value, _idStateStage, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
+                    AddDomainEvent(new ScientificArticleStateChangedEvent(Id, value, _idStateStage, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
                 }
                 _idStateStage = value;
             }

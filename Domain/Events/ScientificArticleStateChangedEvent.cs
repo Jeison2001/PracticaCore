@@ -8,7 +8,6 @@ namespace Domain.Events
     /// </summary>
     public record ScientificArticleStateChangedEvent(
         int InscriptionModalityId,
-        int ModalityId,
         int NewStateStageId,
         int OldStateStageId,
         int TriggeredByUserId) : BaseEvent;

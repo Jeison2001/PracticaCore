@@ -4,8 +4,10 @@ using Application.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Api.Responses;
 using Domain.Common;
+using Domain.Common.Extensions;
 using Domain.Entities;
 using MediatR;
+using Application.Shared.Commands.PreliminaryProjects;
 
 namespace Api.Controllers
 {
@@ -13,11 +15,22 @@ namespace Api.Controllers
     /// Controlador de Anteproyectos de Grado. Override GetAll/GetById como [NonAction]
     /// porque usa queries con details que retornan estudiantes, estado y evaluación.
     /// GetAllWithDetails, GetByUserId, GetByTeacherId son los endpoints de consulta.
+    /// Patch cambia estado y encola notificaciones.
     /// </summary>
     public class PreliminaryProjectController : GenericController<PreliminaryProject, int, PreliminaryProjectDto>
     {
         private readonly IMediator _mediator;
         public PreliminaryProjectController(IMediator mediator) : base(mediator) { _mediator = mediator; }
+
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] PreliminaryProjectPatchDto dto)
+        {
+            var currentUser = User.GetCurrentUserInfo();
+            var command = new PatchPreliminaryProjectCommand(id, dto, currentUser);
+            var result = await _mediator.Send(command);
+            return Ok(new ApiResponse<PreliminaryProjectDto> { Success = true, Data = result });
+        }
+
 
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)

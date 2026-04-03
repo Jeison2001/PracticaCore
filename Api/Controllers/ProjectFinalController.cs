@@ -4,8 +4,10 @@ using Application.Shared.Queries.ProjectFinals;
 using Microsoft.AspNetCore.Mvc;
 using Api.Responses;
 using Domain.Common;
+using Domain.Common.Extensions;
 using Domain.Entities;
 using MediatR;
+using Application.Shared.Commands.ProjectFinals;
 
 namespace Api.Controllers
 {
@@ -13,11 +15,22 @@ namespace Api.Controllers
     /// Controlador de Proyectos Finales de Grado. Override GetAll/GetById como [NonAction]
     /// (usa queries con details). Es la fase final del flujo Propuesta→Anteproyecto→Proyecto.
     /// GetAllWithDetails, GetByUserId, GetByTeacherId retornan detalles completos con evaluación.
+    /// Patch cambia estado y encola notificaciones.
     /// </summary>
     public class ProjectFinalController : GenericController<ProjectFinal, int, ProjectFinalDto>
     {
         private readonly IMediator _mediator;
         public ProjectFinalController(IMediator mediator) : base(mediator) { _mediator = mediator; }
+
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] ProjectFinalPatchDto dto)
+        {
+            var currentUser = User.GetCurrentUserInfo();
+            var command = new PatchProjectFinalCommand(id, dto, currentUser);
+            var result = await _mediator.Send(command);
+            return Ok(new ApiResponse<ProjectFinalDto> { Success = true, Data = result });
+        }
+
 
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)

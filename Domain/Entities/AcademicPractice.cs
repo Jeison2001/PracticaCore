@@ -12,7 +12,7 @@ namespace Domain.Entities
             {
                 if (_idStateStage != value && _idStateStage != 0)
                 {
-                    AddDomainEvent(new AcademicPracticeStateChangedEvent(Id, 0, value, _idStateStage, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
+                    AddDomainEvent(new AcademicPracticeStateChangedEvent(Id, value, _idStateStage, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
                 }
                 _idStateStage = value;
             }
