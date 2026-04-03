@@ -8,6 +8,7 @@ namespace Infrastructure.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }        // DbSets se añaden dinámicamente mediante reflexión o configuración
          public DbSet<User> Users => Set<User>();
+         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
          public DbSet<PreliminaryProject> PreliminaryProjects => Set<PreliminaryProject>();
          public DbSet<ProjectFinal> ProjectFinals => Set<ProjectFinal>();
          public DbSet<AcademicPractice> AcademicPractices => Set<AcademicPractice>();

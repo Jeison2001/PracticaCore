@@ -28,9 +28,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -125,15 +126,12 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Configurar Hangfire Dashboard con manejo de errores mejorado
+app.MapControllers();
+
 if (!app.Environment.IsEnvironment("Testing"))
 {
-    app.UseHangfireConfiguration(app.Environment);
+    app.MapHangfireConfiguration(builder.Configuration, app.Environment);
 }
-
-
-
-app.MapControllers();
 
 app.Run();
 

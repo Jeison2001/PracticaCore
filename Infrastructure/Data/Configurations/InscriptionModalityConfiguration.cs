@@ -35,6 +35,12 @@ namespace Infrastructure.Data.Configurations
                 .WithMany(sm => sm.InscriptionModalities)
                 .HasForeignKey(rm => rm.IdStageModality)
                 .IsRequired(false);
+
+            // Relación explícita con UserInscriptionModality — sin navegación inversa
+            builder.HasMany(rm => rm.UserInscriptionModalities)
+                .WithOne()
+                .HasForeignKey(uim => uim.IdInscriptionModality)
+                .IsRequired(false);
         }
     }
 }

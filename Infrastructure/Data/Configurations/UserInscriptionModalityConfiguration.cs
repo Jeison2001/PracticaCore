@@ -15,15 +15,11 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IdUser).IsRequired().HasColumnName("IdUser");
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
-            // Configuración de relaciones
-            builder.HasOne(rms => rms.InscriptionModality)
-                .WithMany()
-                .HasForeignKey(rms => rms.IdInscriptionModality);
-
+            // Relación solo con User — la FK a InscriptionModality es via IdInscriptionModality (sin navegación)
             builder.HasOne(rms => rms.User)
                 .WithMany()
                 .HasForeignKey(rms => rms.IdUser);
-                
+
             // Definir unicidad para la relación
             builder.HasIndex(rms => new { rms.IdInscriptionModality, rms.IdUser }).IsUnique();
         }

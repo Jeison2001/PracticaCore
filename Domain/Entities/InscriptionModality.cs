@@ -39,5 +39,6 @@ namespace Domain.Entities
         public virtual AcademicAverage? AcademicAverage { get; set; }
         public virtual SaberPro? SaberPro { get; set; }
         public virtual ICollection<TeachingAssignment> TeachingAssignments { get; set; } = new List<TeachingAssignment>();
+        public virtual ICollection<UserInscriptionModality> UserInscriptionModalities { get; set; } = new List<UserInscriptionModality>();
     }
 }

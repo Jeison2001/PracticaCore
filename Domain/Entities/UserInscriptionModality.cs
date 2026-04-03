@@ -3,10 +3,9 @@
     public class UserInscriptionModality : BaseEntity<int>
     {
         public int IdInscriptionModality { get; set; }
-        public int IdUser { get; set; } 
+        public int IdUser { get; set; }
 
-        // Propiedades de navegacion
-        public virtual InscriptionModality? InscriptionModality { get; set; }
+        // Navegacion — solo la coleccion esta en InscriptionModality
         public virtual User? User { get; set; }
     }
 }

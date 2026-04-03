@@ -161,7 +161,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 if (initialState == null)
                     throw new InvalidOperationException($"No se encontró el estado inicial: {targetStateCode}");
 
-                // 1. Create the inscription record
+                // 1. Create the inscription record with students as navigation
                 var inscriptionModality = new InscriptionModality
                 {
                     IdModality = request.Dto.InscriptionModality.IdModality,
@@ -173,39 +173,37 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     StatusRegister = true,
                     OperationRegister = "INSERT"
                 };
-                await inscriptionModalityRepo.AddAsync(inscriptionModality);
 
-                var inscriptionModalityId = inscriptionModality.Id;
-
-                // 2. Link students to the newly created inscription
+                // 2. Link students via navigation — EF Core resuelve el orden automáticamente
                 foreach (var studentDto in request.Dto.Students)
                 {
                     var userIdentification = userDictionary[studentDto.Identification];
-
-                    var userInscription = new UserInscriptionModality
+                    inscriptionModality.UserInscriptionModalities.Add(new UserInscriptionModality
                     {
-                        IdInscriptionModality = inscriptionModalityId,
                         IdUser = userIdentification.Id,
                         IdUserCreatedAt = request.CurrentUser?.UserId,
                         CreatedAt = DateTimeOffset.UtcNow,
                         StatusRegister = true,
                         OperationRegister = "INSERT"
-                    };
-                    await userInscriptionRepo.AddAsync(userInscription);
+                    });
                 }
+
+                await inscriptionModalityRepo.AddAsync(inscriptionModality);
 
                 // 3. Dispatch initial domain event to trigger extension record creation
                 var primaryStudentId = userDictionary.Values.First().Id;
                 await _mediator.Publish(new Domain.Events.InscriptionStateChangedEvent(
-                    InscriptionModalityId: inscriptionModalityId,
+                    InscriptionModalityId: inscriptionModality.Id,
                     ModalityId: modality.Id,
                     NewStateInscriptionId: initialState.Id,
                     TriggeredByUserId: primaryStudentId
                 ), cancellationToken);
 
+                // 4. Un solo CommitAsync — atómico, sin huérfanos
                 await _unitOfWork.CommitAsync(cancellationToken);
 
-                // 4. Prepare response
+                // 5. Prepare response
+                var inscriptionModalityId = inscriptionModality.Id;
                 var students = request.Dto.Students.Select(s =>
                 {
                     var userIdentification = userDictionary[s.Identification];
@@ -223,7 +221,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     Students = students
                 };
 
-                // 5. Encolar job de notificación asíncrona (patrón consistente)
+                // 6. Encolar job de notificación asíncrona (patrón consistente)
                 try
                 {
                     _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x =>

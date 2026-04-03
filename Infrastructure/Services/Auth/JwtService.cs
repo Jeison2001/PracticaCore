@@ -16,21 +16,29 @@ namespace Infrastructure.Services.Auth
     public class JwtService : IJwtService, ISingletonService
     {
         private readonly IConfiguration _configuration;
-        private readonly HashSet<string> _revokedTokens;
         private readonly SigningCredentials _signingCredentials;
         private readonly TokenValidationParameters _validationParameters;
         private readonly string _issuer;
         private readonly string _audience;
+        private readonly int _expireMinutes;
         
         public JwtService(IConfiguration configuration)
         {
             _configuration = configuration;
-            _revokedTokens = new HashSet<string>();
             
-            // Obtener configuración
-            var jwtKey = _configuration["Jwt:Key"] ?? throw new ArgumentNullException("Jwt:Key no está configurado");
-            _issuer = _configuration["Jwt:Issuer"] ?? "default-issuer";
-            _audience = _configuration["Jwt:Audience"] ?? "default-audience";
+            // Obtener configuración — falla explícitamente si algún valor está ausente
+            var jwtKey = _configuration["Jwt:Key"]
+                ?? throw new InvalidOperationException("Jwt:Key no está configurado en appsettings.");
+            _issuer = _configuration["Jwt:Issuer"]
+                ?? throw new InvalidOperationException("Jwt:Issuer no está configurado en appsettings.");
+            _audience = _configuration["Jwt:Audience"]
+                ?? throw new InvalidOperationException("Jwt:Audience no está configurado en appsettings.");
+
+            var expireRaw = _configuration["Jwt:ExpireMinutes"]
+                ?? throw new InvalidOperationException("Jwt:ExpireMinutes no está configurado en appsettings.");
+            if (!int.TryParse(expireRaw, out _expireMinutes) || _expireMinutes <= 0)
+                throw new InvalidOperationException($"Jwt:ExpireMinutes tiene un valor inválido: '{expireRaw}'. Debe ser un entero positivo.");
+
             
             // Crear credenciales
             var key = Encoding.UTF8.GetBytes(jwtKey);
@@ -101,7 +109,7 @@ namespace Infrastructure.Services.Auth
                 issuer: _issuer,
                 audience: _audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(24),
+                expires: DateTime.UtcNow.AddMinutes(_expireMinutes),
                 signingCredentials: _signingCredentials
             );
 
@@ -215,31 +223,5 @@ namespace Infrastructure.Services.Auth
                            .Any(dict => dict.ContainsKey(permission));
         }
         
-        public ClaimsPrincipal? ValidateToken(string token)
-        {
-            if (IsTokenRevoked(token))
-                return null;
-                
-            try
-            {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var principal = tokenHandler.ValidateToken(token, _validationParameters, out _);
-                return principal;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-        
-        public void RevokeToken(string token)
-        {
-            _revokedTokens.Add(token);
-        }
-        
-        public bool IsTokenRevoked(string token)
-        {
-            return _revokedTokens.Contains(token);
-        }
     }
 }

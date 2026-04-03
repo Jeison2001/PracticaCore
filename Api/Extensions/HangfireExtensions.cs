@@ -1,12 +1,14 @@
 using Hangfire;
+using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
+using Api.Middlewares;
 
 namespace Api.Extensions
 {
     public static class HangfireExtensions
     {
         /// <summary>
-        /// Configuración recomendada de Hangfire
+        /// Registra Hangfire con PostgreSQL.
         /// </summary>
         public static IServiceCollection AddHangfireDefault(this IServiceCollection services, IConfiguration configuration)
         {
@@ -27,25 +29,30 @@ namespace Api.Extensions
             return services;
         }
 
-        public static IApplicationBuilder UseHangfireConfiguration(this IApplicationBuilder app, IWebHostEnvironment env)
+        /// <summary>
+        /// Registra el Dashboard de Hangfire como endpoint (compatible con AllowAnonymous).
+        /// - Localhost: acceso libre (sin pop-up de contraseña).
+        /// - Producción: Basic Auth con usuario/password de appsettings.
+        /// </summary>
+        public static IEndpointConventionBuilder MapHangfireConfiguration(
+            this IEndpointRouteBuilder endpoints,
+            IConfiguration configuration,
+            IWebHostEnvironment env)
         {
-            // OPCIÓN 1: Dashboard solo en Development (más seguro para producción)
-            // if (env.IsDevelopment())
-            // {
-            //     app.UseHangfireDashboard("/hangfire", new DashboardOptions
-            //     {
-            //         DashboardTitle = "PracticaCore - Hangfire Dashboard (Development)"
-            //     });
-            // }
+            var user = configuration["Hangfire:Dashboard:User"]
+                ?? throw new InvalidOperationException("Hangfire:Dashboard:User no está configurado en appsettings.");
+            var pass = configuration["Hangfire:Dashboard:Password"]
+                ?? throw new InvalidOperationException("Hangfire:Dashboard:Password no está configurado en appsettings.");
 
-            // OPCIÓN 2: Dashboard en todos los entornos (descomenta si quieres usarlo)
-            app.UseHangfireDashboard("/hangfire", new DashboardOptions
+            return endpoints.MapHangfireDashboard("/hangfire", new DashboardOptions
             {
-                Authorization = new[] { new Api.Middlewares.HangfireAuthorizationFilter() },
-                DashboardTitle = "PracticaCore - Hangfire Dashboard"
-            });
-
-            return app;
+                Authorization = new[]
+                {
+                    new HangfireAuthorizationFilter(configuration, env)
+                },
+                DashboardTitle = "PracticaCore - Hangfire Dashboard",
+                IgnoreAntiforgeryToken = true
+            }).AllowAnonymous();
         }
     }
 }
