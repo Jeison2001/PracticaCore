@@ -63,7 +63,7 @@ namespace Application.Features.Research.EventHandlers
             {
                 preliminaryProject.IdStateStage = radicadoState.Id;
                 preliminaryProject.UpdatedAt = DateTimeOffset.UtcNow;
-                preliminaryProject.IdUserUpdatedAt = notification.TriggeredByUserId;
+                preliminaryProject.IdUserUpdatedAt = notification.ChangedByUserId;
                 preliminaryProject.OperationRegister += " | Radicado automáticamente al cargar documento";
 
                 await preliminaryProjectRepo.UpdatePartialAsync(preliminaryProject, [
@@ -96,7 +96,7 @@ namespace Application.Features.Research.EventHandlers
             {
                 projectFinal.IdStateStage = radicadoState.Id;
                 projectFinal.UpdatedAt = DateTimeOffset.UtcNow;
-                projectFinal.IdUserUpdatedAt = notification.TriggeredByUserId;
+                projectFinal.IdUserUpdatedAt = notification.ChangedByUserId;
                 projectFinal.OperationRegister += " | Radicado automáticamente al cargar documento";
 
                 await projectFinalRepo.UpdatePartialAsync(projectFinal, [

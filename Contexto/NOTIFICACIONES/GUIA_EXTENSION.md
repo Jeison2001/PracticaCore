@@ -435,19 +435,19 @@ public class TestController : ControllerBase
 #### **📋 Eventos Configurados**
 
 ##### `ANTEPROYECTO_SUBMITTED`
-- **Trigger**: Cambio de estado a `AP_RADICADO_PEND_ASIG_EVAL` 
+- **Cuando**: Cambio de estado a `AP_RADICADO_PEND_ASIG_EVAL` 
 - **Destinatarios**: Comité (TO), con copia a secretaría
 
 ##### `ANTEPROYECTO_EVALUATION_RESULT`
-- **Trigger**: Cambio de estado a `AP_APROBADO` o `AP_CON_OBSERVACIONES`
+- **Cuando**: Cambio de estado a `AP_APROBADO` o `AP_CON_OBSERVACIONES`
 - **Destinatarios**: Estudiante (TO)
 
 ##### `PROYECTO_FINAL_SUBMITTED`  
-- **Trigger**: Cambio de estado a `PFINF_RADICADO_EN_EVALUACION`
+- **Cuando**: Cambio de estado a `PFINF_RADICADO_EN_EVALUACION`
 - **Destinatarios**: Evaluadores/Jurados (TO)
 
 ##### `PROYECTO_FINAL_EVALUATION_RESULT`
-- **Trigger**: Cambio de estado a `PFINF_INFORME_APROBADO` o `PFINF_INFORME_CON_OBSERVACIONES`
+- **Cuando**: Cambio de estado a `PFINF_INFORME_APROBADO` o `PFINF_INFORME_CON_OBSERVACIONES`
 - **Destinatarios**: Estudiante (TO)
 
 #### **🔧 Handlers Implementados**

@@ -27,12 +27,12 @@ namespace Tests.Integration.EventHandlers
                 _scope.ServiceProvider.GetRequiredService<ILogger<AdvanceAcademicPracticePhaseHandler>>());
 
         // ──────────────────────────────────────────────────────────────────────────────
-        // Scenario 1: PaInscripcionAprobada → advances to PaFaseDesarrollo + F1 perms
+        // Escenario 1: PaInscripcionAprobada → avanza a PaFaseDesarrollo + permisos F1
         // ──────────────────────────────────────────────────────────────────────────────
         [Fact]
         public async Task Handle_InscripcionAprobada_AdvancesToDesarrolloAndAssignsF1Permissions()
         {
-            // Arrange - use FRESH isolated database for this test
+            // Arrange - usar BD aislada FRESCA para este test
             var context = GetFreshDbContext();
             SeedingUtilities.SeedCatalogs(context);
             SeedingUtilities.SeedPermissions(context,
@@ -64,7 +64,7 @@ namespace Tests.Integration.EventHandlers
                 CreatedAt = DateTime.UtcNow, StatusRegister = true, OperationRegister = "Test"
             });
 
-            // Seed AcademicPractice for date stamping (handler updates it on state transitions)
+            // Seed de AcademicPractice para marca de fecha (el handler la actualiza en transiciones de estado)
             var academicPractice = new AcademicPractice
             {
                 Id = inscription.Id,
@@ -88,11 +88,11 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act - use the SAME context (with fresh DB)
+            // Act - usar el MISMO contexto (con BD fresca)
             await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert - use the SAME context
+            // Assert - usar el MISMO contexto
             var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
 
             updatedInscription.Should().NotBeNull();
@@ -114,12 +114,12 @@ namespace Tests.Integration.EventHandlers
         }
 
         // ──────────────────────────────────────────────────────────────────────────────
-        // Scenario 2: PaDesarrolloAprobada → advances to PaFaseEvaluacion + F2 perms
+        // Escenario 2: PaDesarrolloAprobada → avanza a PaFaseEvaluacion + permisos F2
         // ──────────────────────────────────────────────────────────────────────────────
         [Fact]
         public async Task Handle_DesarrolloAprobado_AdvancesToEvaluacionAndAssignsF2Permissions()
         {
-            // Arrange - use FRESH isolated database for this test
+            // Arrange - usar BD aislada FRESCA para este test
             var context = GetFreshDbContext();
             SeedingUtilities.SeedCatalogs(context);
             SeedingUtilities.SeedPermissions(context,
@@ -151,7 +151,7 @@ namespace Tests.Integration.EventHandlers
                 CreatedAt = DateTime.UtcNow, StatusRegister = true, OperationRegister = "Test"
             });
 
-            // Seed AcademicPractice for date stamping (handler updates it on state transitions)
+            // Seed de AcademicPractice para marca de fecha (el handler la actualiza en transiciones de estado)
             var academicPractice = new AcademicPractice
             {
                 Id = inscription.Id,
@@ -175,11 +175,11 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act - use the SAME context (with fresh DB)
+            // Act - usar el MISMO contexto (con BD fresca)
             await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert - use the SAME context
+            // Assert - usar el MISMO contexto
             var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
 
             updatedInscription.Should().NotBeNull();
@@ -201,12 +201,12 @@ namespace Tests.Integration.EventHandlers
         }
 
         // ──────────────────────────────────────────────────────────────────────────────
-        // Scenario 3: Guard: same old/new state → no advance
+        // Escenario 3: Guard: mismo estado old/new → no avanza
         // ──────────────────────────────────────────────────────────────────────────────
         [Fact]
         public async Task Handle_SameOldAndNewState_DoesNothing()
         {
-            // Arrange - use FRESH isolated database for this test
+            // Arrange - usar BD aislada FRESCA para este test
             var context = GetFreshDbContext();
             SeedingUtilities.SeedCatalogs(context);
 
@@ -238,15 +238,15 @@ namespace Tests.Integration.EventHandlers
                 InscriptionModalityId: inscription.Id,
                 ModalityId: paModalityId,
                 NewStateStageId: sameStateId,
-                OldStateStageId: sameStateId, // same → guard fires immediately
+                OldStateStageId: sameStateId, // igual → el guard se dispara inmediatamente
                 TriggeredByUserId: user.Id
             );
 
-            // Act - use the SAME context (with fresh DB)
+            // Act - usar el MISMO contexto (con BD fresca)
             await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert - phase should remain in PaFaseInscripcion
+            // Assert - la fase debe permanecer en PaFaseInscripcion
             var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
             updatedInscription!.IdStageModality.Should().Be(inscFaseId,
                 "si OldStateId == NewStateId, el handler no debe hacer nada");

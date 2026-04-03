@@ -53,7 +53,7 @@ namespace Tests.Integration.AcademicPractices
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // 1. Seed InscriptionModality Chain
+                // 1. Seed de cadena InscriptionModality
                 var modality = new Modality { Name = "Test Modality AP " + Guid.NewGuid(), Description = "Test" };
                 context.Set<Modality>().Add(modality);
                 var stateInscription = new StateInscription { Name = "Test State AP " + Guid.NewGuid() };
@@ -71,18 +71,18 @@ namespace Tests.Integration.AcademicPractices
                 context.Set<InscriptionModality>().Add(inscription);
                 context.SaveChanges();
 
-                // 2. Seed StateStage
+                // 2. Seed de StateStage
                 var stateStage = new StateStage { Name = "Stage AP " + Guid.NewGuid() };
                 context.Set<StateStage>().Add(stateStage);
                 context.SaveChanges();
 
-                // Set Entity ID and FKs
+                // Establecer ID de entidad y FKs
                 entity.Id = inscription.Id; // 1:1 with Inscription
                 entity.IdStateStage = stateStage.Id;
             }
         }
 
-        // Override GetAll because the controller uses a custom endpoint /GetAll (WithDetails)
+        // Override de GetAll porque el controlador usa un endpoint personalizado /GetAll (WithDetails)
         public override async Task GetAll_ReturnsOkAndList()
         {
             // Arrange
@@ -108,7 +108,7 @@ namespace Tests.Integration.AcademicPractices
             result.Data!.Items.Should().NotBeEmpty();
         }
 
-        // Override GetById because the controller uses /WithDetails/{id}
+        // Override de GetById porque el controlador usa /WithDetails/{id}
         public override async Task GetById_ReturnsOkAndEntity()
         {
             // Arrange
@@ -143,7 +143,7 @@ namespace Tests.Integration.AcademicPractices
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // Seed InscriptionModality
+                // Seed de InscriptionModality
                 var modality = new Modality { Name = "Test Modality AP Create " + Guid.NewGuid(), Description = "Test" };
                 context.Set<Modality>().Add(modality);
                 var stateInscription = new StateInscription { Name = "Test State AP Create " + Guid.NewGuid() };
@@ -161,12 +161,12 @@ namespace Tests.Integration.AcademicPractices
                 context.Set<InscriptionModality>().Add(inscription);
                 context.SaveChanges();
 
-                // Seed StateStage
+                // Seed de StateStage
                 var stateStage = new StateStage { Name = "Stage AP Create " + Guid.NewGuid() };
                 context.Set<StateStage>().Add(stateStage);
                 context.SaveChanges();
 
-                // Update DTO
+                // Actualizar DTO
                 dto.Id = inscription.Id;
                 dto.IdStateStage = stateStage.Id;
             }
@@ -217,7 +217,7 @@ namespace Tests.Integration.AcademicPractices
             result.Should().NotBeNull();
             result!.Success.Should().BeTrue();
 
-            // Verify DB
+            // Verificar en BD
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -245,7 +245,7 @@ namespace Tests.Integration.AcademicPractices
             var updateDto = new UpdatePhaseApprovalDto
             {
                 Id = entity.Id,
-                NewStateStageId = entity.IdStateStage, // Use existing stage or a new one
+                NewStateStageId = entity.IdStateStage, // Usar estado existente o uno nuevo
                 Observations = "Approved",
                 EvaluatorObservations = "Approved"
             };
@@ -273,7 +273,7 @@ namespace Tests.Integration.AcademicPractices
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 context.Set<AcademicPractice>().Add(entity);
                 
-                // Seed User and UserInscriptionModality
+                // Seed de User y UserInscriptionModality
                 var user = new User 
                 { 
                     Id = userId,
@@ -326,7 +326,7 @@ namespace Tests.Integration.AcademicPractices
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 context.Set<AcademicPractice>().Add(entity);
                 
-                // Seed Teacher (User) and TeachingAssignment
+                // Seed de Teacher (User) y TeachingAssignment
                 var teacher = new User 
                 { 
                     Id = teacherId,
@@ -340,7 +340,7 @@ namespace Tests.Integration.AcademicPractices
                 if (!context.Set<User>().Any(u => u.Id == teacherId))
                     context.Set<User>().Add(teacher);
 
-                // Seed TypeTeachingAssignment
+                // Seed de TypeTeachingAssignment
                 var typeAssignment = new TypeTeachingAssignment { Name = "Director", Description = "Director" };
                 context.Set<TypeTeachingAssignment>().Add(typeAssignment);
                 await context.SaveChangesAsync();

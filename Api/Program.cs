@@ -12,7 +12,7 @@ using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Agregar servicios al contenedor.
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplicationLayer();
 
@@ -23,7 +23,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHangfireServer();
 }
 
-// Add CORS configuration
+// Configurar CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -68,7 +68,7 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddControllers();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Más información sobre configuración de Swagger/OpenAPI en https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -103,7 +103,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configurar el pipeline de solicitudes HTTP.
 //if (app.Environment.IsDevelopment())
 //{
     app.UseSwagger();
@@ -118,7 +118,7 @@ var app = builder.Build();
 app.UseHttpsRedirection();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-// Add CORS middleware (must be before authentication and authorization middleware)
+// Agregar middleware de CORS (debe ir antes del middleware de autenticación y autorización)
 app.UseCors("AllowAll");
 
 // Añadir autenticación al pipeline
@@ -137,5 +137,5 @@ app.MapControllers();
 
 app.Run();
 
-// Deploy trigger: Azure sync
+// Disparador de deploy: sincronización Azure
 public partial class Program { }

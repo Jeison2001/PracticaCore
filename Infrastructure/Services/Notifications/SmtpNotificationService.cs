@@ -40,21 +40,21 @@ namespace Infrastructure.Services.Notifications
                 var username = smtpSettings["Username"];
                 var password = smtpSettings["Password"];
 
-                // Connect
-                // StartTls is generally recommended for port 587
+                // Conectar
+                // StartTls es generalmente recomendado para el puerto 587
                 var socketOptions = useSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
                 await client.ConnectAsync(host, port, socketOptions, cancellationToken);
 
-                // Authenticate
+                // Autenticar
                 if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
                 {
                     await client.AuthenticateAsync(username, password, cancellationToken);
                 }
 
-                // Send
+                // Enviar
                 await client.SendAsync(message, cancellationToken);
                 
-                // Disconnect
+                // Desconectar
                 await client.DisconnectAsync(true, cancellationToken);
                 
                 _logger.LogInformation("Email enviado exitosamente a {To}", notification.To);

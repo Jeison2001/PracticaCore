@@ -24,7 +24,7 @@ namespace Tests.Integration.Evaluations
             using var scope = _factory.Services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            // 1. Evaluation Type
+            // 1. Tipo de Evaluación
             var type = new EvaluationType 
             { 
                 Name = "Final Evaluation " + Guid.NewGuid(), 
@@ -33,7 +33,7 @@ namespace Tests.Integration.Evaluations
             };
             context.Set<EvaluationType>().Add(type);
 
-            // 2. Dependencies for User
+            // 2. Dependencias para User
             var idType = new IdentificationType { Name = "CC", Code = "CC", Description = "Cedula" };
             if (!context.Set<IdentificationType>().Any(x => x.Code == "CC"))
                 context.Set<IdentificationType>().Add(idType);
@@ -48,7 +48,7 @@ namespace Tests.Integration.Evaluations
 
             await context.SaveChangesAsync();
 
-            // 3. Evaluator User
+            // 3. Usuario Evaluador
             var evaluator = new User 
             { 
                 FirstName = "Evaluator", 
@@ -68,11 +68,11 @@ namespace Tests.Integration.Evaluations
 
         protected override EvaluationDto CreateValidDto()
         {
-            // We need to run this synchronously in this context, or pre-seed.
-            // Since CreateValidDto is called by the base class tests, we can't easily await here.
-            // Strategy: Use a "Lazy" seeding or seed in the test method.
-            // However, the base class calls CreateValidDto().
-            // We will override the Test methods instead to ensure seeding happens.
+            // Necesitamos ejecutar esto sincrónicamente en este contexto, o pre-seeder.
+            // Como CreateValidDto es llamado por los tests de la clase base, no podemos usar await fácilmente aquí.
+            // Estrategia: Usar seed "lazy" o seed en el método de test.
+            // Sin embargo, la clase base llama a CreateValidDto().
+            // Vamos a hacer override de los métodos de test en su lugar para asegurar que el seed ocurra.
             return new EvaluationDto(); // Placeholder
         }
 
@@ -81,7 +81,7 @@ namespace Tests.Integration.Evaluations
             return new Evaluation(); // Placeholder
         }
 
-        // Override tests to handle async seeding
+        // Override de tests para manejar seed asíncrono
 
         [Fact]
         public override async Task Create_ReturnsCreated()
@@ -92,7 +92,7 @@ namespace Tests.Integration.Evaluations
             var dto = new EvaluationDto
             {
                 EntityType = "PreliminaryProject",
-                EntityId = 1, // Mock ID
+                EntityId = 1, // ID simulado
                 IdEvaluationType = type.Id,
                 IdEvaluator = evaluator.Id,
                 Result = "Approved",

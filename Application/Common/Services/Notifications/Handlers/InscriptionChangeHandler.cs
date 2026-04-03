@@ -53,7 +53,7 @@ namespace Application.Common.Services.Notifications.Handlers
 
             try
             {
-                // Retrieve students linked to the new inscription
+                // Obtener estudiantes vinculados a la nueva inscripción
                 var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
                 var userInscriptions = await userInscriptionRepo.GetAllAsync(ui => ui.IdInscriptionModality == entity.Id && ui.StatusRegister);
                 var studentIds = userInscriptions.Select(ui => ui.IdUser).ToList();

@@ -23,7 +23,7 @@ namespace Tests.Integration
 
         public CustomWebApplicationFactory()
         {
-            // Set environment variable to signal Program.cs to skip Npgsql registration
+            // Establecer variable de entorno para indicar a Program.cs que omita el registro de Npgsql
             Environment.SetEnvironmentVariable("UseInMemoryDatabase", "true");
         }
 
@@ -31,7 +31,7 @@ namespace Tests.Integration
         {
             builder.ConfigureAppConfiguration((context, config) =>
             {
-                // Use test-specific configuration to avoid exposing real credentials
+                // Usar configuración específica de tests para evitar exponer credenciales reales
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     {"Jwt:Key", "test-key-for-integration-tests-minimum-32-characters-required"},
@@ -43,22 +43,22 @@ namespace Tests.Integration
 
             builder.ConfigureServices(services =>
             {
-                // Add AppDbContext using an in-memory database for testing
-                // Use a unique name for each factory instance to isolate tests
+                // Agregar AppDbContext usando una base de datos en memoria para tests
+                // Usar un nombre único para cada instancia de factory para aislar tests
                 _initialDbName = Guid.NewGuid().ToString();
                 services.AddDbContext<AppDbContext>(options =>
                 {
                     options.UseInMemoryDatabase(_initialDbName);
                     options.ConfigureWarnings(x => x.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
-                    // Disable proxy generation (lazy loading requires proxy package which is not installed)
+                    // Deshabilitar generación de proxy (lazy loading requiere el paquete proxy que no está instalado)
                     options.ConfigureWarnings(w => w.Throw(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
                 });
 
-                // Register the enqueued jobs list as a singleton so it can be accessed by TestJobEnqueuer
+                // Registrar la lista de jobs encolados como singleton para que TestJobEnqueuer pueda accederla
                 services.AddSingleton(EnqueuedJobs);
 
-                // Replace IJobEnqueuer with TestJobEnqueuer
-                // This prevents the application from trying to use Hangfire (which is not configured in tests)
+                // Reemplazar IJobEnqueuer con TestJobEnqueuer
+                // Esto evita que la aplicación intente usar Hangfire (que no está configurado en tests)
                 var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IJobEnqueuer));
                 if (descriptor != null)
                 {
@@ -66,17 +66,17 @@ namespace Tests.Integration
                 }
                 services.AddTransient<IJobEnqueuer, TestJobEnqueuer>();
 
-                // Disable FallbackPolicy for integration tests - tests use their own auth when needed
+                // Deshabilitar FallbackPolicy para tests de integración - los tests usan su propia autenticación cuando la necesitan
                 services.Configure<AuthorizationOptions>(options =>
                 {
                     options.FallbackPolicy = null;
                 });
 
-                // Add test authentication handler that auto-authenticates all requests
+                // Agregar handler de autenticación de test que auto-autentica todas las solicitudes
                 services.AddAuthentication("TestScheme")
                     .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("TestScheme", null);
 
-                // Set TestScheme as default for integration tests
+                // Establecer TestScheme como esquema por defecto para tests de integración
                 services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOptions>(options =>
                 {
                     options.DefaultScheme = "TestScheme";
@@ -84,13 +84,13 @@ namespace Tests.Integration
                 });
             });
 
-            // Use "Testing" environment to avoid Hangfire initialization and get specific test behavior
+            // Usar entorno "Testing" para evitar inicialización de Hangfire y obtener comportamiento específico de test
             builder.UseEnvironment("Testing");
         }
 
         /// <summary>
-        /// Creates a NEW in-memory database and returns a fresh AppDbContext.
-        /// Use this to ensure test isolation between test methods.
+        /// Crea una NUEVA base de datos en memoria y retorna un AppDbContext fresco.
+        /// Usar esto para asegurar el aislamiento de tests entre métodos de test.
         /// </summary>
         public AppDbContext CreateNewDbContext()
         {
@@ -100,14 +100,14 @@ namespace Tests.Integration
                 if (serviceProvider == null)
                     throw new InvalidOperationException("ServiceProvider not available");
 
-                // Create a new in-memory database with unique name
+                // Crear una nueva base de datos en memoria con nombre único
                 var newDbName = Guid.NewGuid().ToString();
 
-                // Create a new service scope
+                // Crear un nuevo scope de servicios
                 var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // Use the new database
+                // Usar la nueva base de datos
                 context.Database.EnsureDeleted();
                 context.Database.EnsureCreated();
 
@@ -117,7 +117,7 @@ namespace Tests.Integration
 
         protected override void Dispose(bool disposing)
         {
-            // Clean up in-memory database after tests
+            // Limpiar la base de datos en memoria después de los tests
             base.Dispose(disposing);
         }
     }

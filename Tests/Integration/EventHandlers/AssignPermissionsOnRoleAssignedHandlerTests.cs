@@ -24,7 +24,7 @@ namespace Tests.Integration.EventHandlers
             // Arrange
             var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            // Setup Role and Permissions
+            // Configurar Rol y Permisos
             var role = new Role { Id = 1, Code = "ROLE_TEST", Description = "Test Role", Name = "Test Role", StatusRegister = true, OperationRegister = "Test setup" };
             context.Set<Role>().Add(role);
 
@@ -36,7 +36,7 @@ namespace Tests.Integration.EventHandlers
             var rolePerm2 = new RolePermission { Id = 2, IdRole = role.Id, IdPermission = perm2.Id, StatusRegister = true, OperationRegister = "Test setup" };
             context.Set<RolePermission>().AddRange(rolePerm1, rolePerm2);
 
-            // Setup User
+            // Configurar Usuario
             var user = new User
             {
                 Id = 1,
@@ -49,7 +49,7 @@ namespace Tests.Integration.EventHandlers
             };
             context.Set<User>().Add(user);
 
-            // Give them the role initially to justify the event
+            // Darle el rol inicialmente para justificar el evento
             var userRole = new UserRole
             {
                 Id = 1,
@@ -63,7 +63,7 @@ namespace Tests.Integration.EventHandlers
             await context.SaveChangesAsync();
             context.ChangeTracker.Clear();
 
-            // Setup Handler
+            // Configurar Handler
             var handler = new AssignPermissionsOnRoleAssignedHandler(
                 _scope.ServiceProvider.GetRequiredService<IUnitOfWork>(),
                 _scope.ServiceProvider.GetRequiredService<ILogger<AssignPermissionsOnRoleAssignedHandler>>()
@@ -99,7 +99,7 @@ namespace Tests.Integration.EventHandlers
             // Arrange
             var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            // Setup Role and Permissions - use unique IDs to avoid conflicts with first test
+            // Configurar Rol y Permisos - usar IDs únicos para evitar conflictos con la primera prueba
             var role = new Role { Id = 20, Code = "ROLE_IDEM", Description = "Test", Name = "Test Role Idem", StatusRegister = true, OperationRegister = "Test setup" };
             context.Set<Role>().Add(role);
 
@@ -109,7 +109,7 @@ namespace Tests.Integration.EventHandlers
             var rolePerm1 = new RolePermission { Id = 20, IdRole = role.Id, IdPermission = perm1.Id, StatusRegister = true, OperationRegister = "Test setup" };
             context.Set<RolePermission>().Add(rolePerm1);
 
-            // Setup User
+            // Configurar Usuario
             var user = new User
             {
                 Id = 20,
@@ -122,7 +122,7 @@ namespace Tests.Integration.EventHandlers
             };
             context.Set<User>().Add(user);
 
-            // Give them the role initially to justify the event
+            // Darle el rol inicialmente para justificar el evento
             var userRole = new UserRole
             {
                 Id = 20,
@@ -133,7 +133,7 @@ namespace Tests.Integration.EventHandlers
             };
             context.Set<UserRole>().Add(userRole);
 
-            // *** Key Part for this test: The user ALREADY has the permission from previous run/event
+            // *** Parte clave de esta prueba: El usuario YA tiene el permiso de ejecución/evento previo
             var existingUserPerm = new UserPermission
             {
                 Id = 20,
@@ -147,7 +147,7 @@ namespace Tests.Integration.EventHandlers
             await context.SaveChangesAsync();
             context.ChangeTracker.Clear();
 
-            // Setup Handler
+            // Configurar Handler
             var handler = new AssignPermissionsOnRoleAssignedHandler(
                 _scope.ServiceProvider.GetRequiredService<IUnitOfWork>(),
                 _scope.ServiceProvider.GetRequiredService<ILogger<AssignPermissionsOnRoleAssignedHandler>>()
@@ -171,7 +171,7 @@ namespace Tests.Integration.EventHandlers
                 .Where(x => x.IdUser == user.Id && x.IdPermission == perm1.Id)
                 .ToListAsync();
 
-            // Should still only have ONE assigned permission record, not 2
+            // Debe seguir teniendo solo UN registro de permiso asignado, no 2
             assignedPermissions.Should().HaveCount(1);
         }
     }

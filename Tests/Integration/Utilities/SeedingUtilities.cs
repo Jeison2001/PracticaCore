@@ -8,10 +8,10 @@ namespace Tests.Integration.Utilities
     {
         public static void SeedCatalogs(AppDbContext context)
         {
-            // Check if already seeded to make idempotent
+            // Verificar si ya está seedeado para hacerlo idempotente
             if (context.Set<Modality>().Any()) return;
 
-            // Seed Modalities
+            // Seed de Modalities
             context.Set<Modality>().AddRange(
                 new Modality { Id = 1, Code = ModalityCodes.ProyectoGrado, Name = "Proyecto de Grado", RequiresApproval = true, StatusRegister = true, OperationRegister = "Seed" },
                 new Modality { Id = 2, Code = ModalityCodes.PracticaAcademica, Name = "Práctica Académica", RequiresApproval = true, StatusRegister = true, OperationRegister = "Seed" },
@@ -22,14 +22,14 @@ namespace Tests.Integration.Utilities
                 new Modality { Id = 7, Code = ModalityCodes.SaberPro, Name = "Saber Pro", RequiresApproval = false, StatusRegister = true, OperationRegister = "Seed" }
             );
 
-            // Seed StateInscriptions
+            // Seed de StateInscriptions
             context.Set<StateInscription>().AddRange(
                 new StateInscription { Id = 1, Code = StateInscriptionCodes.Pendiente, Name = "Pendiente", StatusRegister = true, OperationRegister = "Seed" },
                 new StateInscription { Id = 2, Code = StateInscriptionCodes.Aprobado, Name = "Aprobado", StatusRegister = true, OperationRegister = "Seed" },
                 new StateInscription { Id = 3, Code = StateInscriptionCodes.NoAplica, Name = "No Aplica", StatusRegister = true, OperationRegister = "Seed" }
             );
 
-            // Seed StageModalities
+            // Seed de StageModalities
             context.Set<StageModality>().AddRange(
                 new StageModality { Id = 1, Code = StageModalityCodes.PaFaseInscripcion, IdModality = 2, StageOrder = 1, StatusRegister = true, OperationRegister = "Seed" },
                 new StageModality { Id = 2, Code = StageModalityCodes.PaFaseDesarrollo, IdModality = 2, StageOrder = 2, StatusRegister = true, OperationRegister = "Seed" },
@@ -39,13 +39,13 @@ namespace Tests.Integration.Utilities
                 new StageModality { Id = 5, Code = StageModalityCodes.PgFaseAnteproyecto, IdModality = 1, StageOrder = 2, StatusRegister = true, OperationRegister = "Seed" },
                 new StageModality { Id = 6, Code = StageModalityCodes.PgFaseProyectoInforme, IdModality = 1, StageOrder = 3, StatusRegister = true, OperationRegister = "Seed" },
 
-                // StageModality for CoTerminal (Order 1)
+                // StageModality para CoTerminal (Orden 1)
                 new StageModality { Id = 7, Code = "CT_FASE_1", IdModality = 3, StageOrder = 1, StatusRegister = true, OperationRegister = "Seed" }
             );
 
-            // Seed StateStages
+            // Seed de StateStages
             context.Set<StateStage>().AddRange(
-                // Academic Practice
+                // Práctica Académica
                 new StateStage { Id = 1, Code = StateStageCodes.PaInscripcionAprobada, IdStageModality = 1, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 2, Code = StateStageCodes.PaDesarrolloAprobada, IdStageModality = 2, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 10, Code = StateStageCodes.PaInscripcionPendDoc, IdStageModality = 1, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
@@ -63,18 +63,18 @@ namespace Tests.Integration.Utilities
                 new StateStage { Id = 7, Code = StateStageCodes.PfinfPendienteInforme, IdStageModality = 6, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 8, Code = StateStageCodes.PfinfRadicadoEnEvaluacion, IdStageModality = 6, IsInitialState = false, StatusRegister = true, OperationRegister = "Seed" },
 
-                // CoTerminal Initial State
+                // Estado Inicial de CoTerminal
                 new StateStage { Id = 9, Code = "CT_INICIAL", IdStageModality = 7, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" }
             );
 
-            // Seed DocumentTypes
+            // Seed de DocumentTypes
             context.Set<DocumentType>().AddRange(
                 new DocumentType { Id = 1, Code = DocumentTypeCodes.AnteproyectoEntregable, Name = "Entregable Anteproyecto", StatusRegister = true, OperationRegister = "Seed" },
                 new DocumentType { Id = 2, Code = DocumentTypeCodes.ProyectoFinalEntregable, Name = "Entregable Proyecto", StatusRegister = true, OperationRegister = "Seed" }
             );
 
             // ── Minor Modalities ────────────────────────────────────────────────────
-            // StageModalities for minor modalities (Order 1)
+            // StageModalities para modalidades menores (Orden 1)
             context.Set<StageModality>().AddRange(
                 new StageModality { Id = 10, Code = "SA_FASE_1", IdModality = 4,  StageOrder = 1, StatusRegister = true, OperationRegister = "Seed", Name = "Seminario Fase 1" },
                 new StageModality { Id = 11, Code = "PA_FASE_1", IdModality = 5,  StageOrder = 1, StatusRegister = true, OperationRegister = "Seed", Name = "Artículo Fase 1" },
@@ -83,7 +83,7 @@ namespace Tests.Integration.Utilities
                 new StageModality { Id = 14, Code = "SP_FASE_1", IdModality = 7,  StageOrder = 1, StatusRegister = true, OperationRegister = "Seed", Name = "Saber Pro" }
             );
 
-            // Initial StateStages for minor modality phases
+            // StateStages iniciales para fases de modalidades menores
             context.Set<StateStage>().AddRange(
                 // Seminario Fase 1
                 new StateStage { Id = 20, Code = "SA_INICIAL", IdStageModality = 10, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed", Name = "Seminario Inicial" },
@@ -98,7 +98,7 @@ namespace Tests.Integration.Utilities
                 new StateStage { Id = 25, Code = "SP_INICIAL", IdStageModality = 14, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed", Name = "Saber Pro Inicial" }
             );
 
-            // Commit all seeded configuration data
+            // Confirmar todos los datos de configuración seedeados
             context.SaveChanges();
         }
 

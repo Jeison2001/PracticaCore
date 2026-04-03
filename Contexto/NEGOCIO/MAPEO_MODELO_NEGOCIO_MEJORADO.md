@@ -28,7 +28,7 @@ Este documento describe las entidades principales del esquema de base de datos, 
 | ThematicArea           | Define las áreas temáticas específicas dentro de una sub-línea de investigación, como "Arquitectura Empresarial" o "Machine Learning". | Es el nivel más granular de clasificación para la investigación.                                                   |
 | Role                   | Define los roles de los usuarios en el sistema, como Estudiante, Docente, Director de comité o Jefe de departamento. | Cada User puede tener uno o más roles asignados a través de UserRole.                                             |
 | StageModality          | Define las fases secuenciales que componen una modalidad de grado. Por ejemplo, para "Proyecto de Grado" las fases son: Propuesta, Anteproyecto, Informe Final y Sustentación. | Cada fase tiene un orden y agrupa un conjunto de estados (StateStage).                                            |
-| StateInscription       | Define los posibles estados de una inscripción inicial a una modalidad, como "Pendiente", "Aprobado" o "Rechazado". | Un EventHandler en C# asigna el estado inicial basándose en si la modalidad requiere aprobación (anteriormente manejado por un trigger). |
+| StateInscription       | Define los posibles estados de una inscripción inicial a una modalidad, como "Pendiente", "Aprobado" o "Rechazado". | Un EventHandler en C# asigna el estado inicial basándose en si la modalidad requiere aprobación. |
 | StateStage             | Tabla clave que define los estados específicos por los que pasa un proceso dentro de cada fase (StageModality), como "Radicada", "En Evaluación" o "Aprobado". | Es fundamental para la lógica de negocio, ya que los cambios de estado disparan transiciones automáticas mediante Domain Events. |
 | TeachingAssignment     | Registra la asignación de docentes a un trabajo de grado con un rol específico, como Director, Co-Director o Jurado Evaluador. | Vincula un User (docente) a una InscriptionModality con un TypeTeachingAssignment.                                |
 | TypeTeachingAssignment | Cataloga los roles que un docente puede desempeñar en una asignación académica.                     | Proporciona los tipos para TeachingAssignment.                                                                    |
@@ -43,7 +43,7 @@ El modelo de datos está diseñado para dar soporte completo al Acuerdo 015, ref
 
 La arquitectura es altamente modular y escalable, utilizando tablas de estado (StateStage) y fases (StageModality) para gestionar la lógica de negocio de manera centralizada.
 
-La automatización de procesos clave, **que anteriormente se basaba intensivamente en triggers de base de datos, ahora está implementada a nivel de código mediante Patrón Observer (Domain Events con MediatR)**. Esto incluye:
+La automatización de procesos clave se implementa a nivel de código mediante Patrón Observer (Domain Events con MediatR). Esto incluye:
 
 - Asignar el estado inicial a una inscripción.
 - Asignar permisos a los estudiantes a medida que avanzan de fase.
@@ -66,4 +66,4 @@ La gestión de roles y permisos es granular, permitiendo un control de acceso pr
 5. **Fases Subsiguientes:** El ciclo se repite. La aprobación del PreliminaryProject ("AP_APROBADO") inicia la fase de ProjectFinal ("PG_FASE_PROYECTO_INFORME"), y la aprobación de este último ("PFINF_INFORME_APROBADO") da paso a la fase de ProjectPresentation ("PG_FASE_SUSTENTACION").
 6. **Notificaciones:** Durante todo el proceso, el sistema envía correos automáticos (EmailNotificationConfig) al comité, a los docentes y a los estudiantes para informar sobre cada hito relevante.
 
-Este flujo, gobernado por la lógica en las tablas de estado y los triggers, asegura la correcta aplicación del Acuerdo 015 de manera automatizada y trazable.
+Este flujo, gobernado por la lógica en las tablas de estado y los Domain Events, asegura la correcta aplicación del Acuerdo 015 de manera automatizada y trazable.

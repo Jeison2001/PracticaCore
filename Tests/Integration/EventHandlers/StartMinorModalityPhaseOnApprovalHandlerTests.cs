@@ -26,18 +26,18 @@ namespace Tests.Integration.EventHandlers
                 _scope.ServiceProvider.GetRequiredService<ILogger<UnitOfWork>>()),
                 _scope.ServiceProvider.GetRequiredService<ILogger<StartMinorModalityPhaseOnApprovalHandler>>());
 
-        // Each Theory row: (userId, inscriptionId, modalityCode, requiresApproval, stateCode, permCodes[])
+        // Cada fila Theory: (userId, inscriptionId, modalityCode, requiresApproval, stateCode, permCodes[])
         public static TheoryData<int, int, string, bool, string, string[]> ModalityScenarios() => new()
         {
-            // CoTerminal (RequiresApproval=false) → triggers on NO_APLICA
+            // CoTerminal (RequiresApproval=false) → se dispara en NO_APLICA
             { 1, 1, ModalityCodes.CoTerminal,          false, StateInscriptionCodes.NoAplica, [PermissionCodes.CoTerminal.N1CT,            PermissionCodes.CoTerminal.N2CTC] },
-            // Seminario (RequiresApproval=true) → triggers on APROBADO
+            // Seminario (RequiresApproval=true) → se dispara en APROBADO
             { 2, 2, ModalityCodes.SeminarioAct,         true,  StateInscriptionCodes.Aprobado, [PermissionCodes.Seminario.N1SA,             PermissionCodes.Seminario.N2SAC] },
-            // Publicacion Articulo (RequiresApproval=true) → triggers on APROBADO
+            // Publicacion Articulo (RequiresApproval=true) → se dispara en APROBADO
             { 3, 3, ModalityCodes.PublicacionArticulo,  true,  StateInscriptionCodes.Aprobado, [PermissionCodes.PublicacionArticulo.N1PC,  PermissionCodes.PublicacionArticulo.N2PCC] },
-            // Grado Promedio (RequiresApproval=false) → triggers on NO_APLICA
+            // Grado Promedio (RequiresApproval=false) → se dispara en NO_APLICA
             { 4, 4, ModalityCodes.GradoPromedio,       false, StateInscriptionCodes.NoAplica, [PermissionCodes.GradoPromedio.N1GP,       PermissionCodes.GradoPromedio.N2GPES, PermissionCodes.GradoPromedio.N2GPR] },
-            // Saber Pro (RequiresApproval=false) → triggers on NO_APLICA
+            // Saber Pro (RequiresApproval=false) → se dispara en NO_APLICA
             { 5, 5, ModalityCodes.SaberPro,            false, StateInscriptionCodes.NoAplica, [PermissionCodes.SaberPro.N1SP,            PermissionCodes.SaberPro.N2SPC] },
         };
 
@@ -47,7 +47,7 @@ namespace Tests.Integration.EventHandlers
             int userId, int inscriptionId, string modalityCode, bool requiresApproval,
             string triggerStateCode, string[] expectedPermCodes)
         {
-            // Arrange - use FRESH isolated database for this test
+            // Arrange - usar BD aislada FRESCA para este test
             var context = GetFreshDbContext();
             SeedingUtilities.SeedCatalogs(context);
             SeedingUtilities.SeedPermissions(context, expectedPermCodes);
@@ -94,18 +94,18 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act - use the SAME context (with fresh DB)
+            // Act - usar el MISMO contexto (con BD fresca)
             await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert - use the SAME context
-            // 1. The inscription must have a phase assigned (Phase 1 of its modality)
+            // Assert - usar el MISMO contexto
+            // 1. La inscripción debe tener una fase asignada (Fase 1 de su modalidad)
             var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
             updatedInscription.Should().NotBeNull();
             updatedInscription!.IdStageModality.Should().NotBeNull(
                 $"la modalidad {modalityCode} debe asignar la Fase 1 al activarse");
 
-            // 2. Assigned permissions must include expected ones
+            // 2. Los permisos asignados deben incluir los esperados
             var assignedPermCodes = context.Set<UserPermission>()
                 .Where(up => up.IdUser == user.Id && up.StatusRegister)
                 .Join(context.Set<Permission>(),
@@ -117,7 +117,7 @@ namespace Tests.Integration.EventHandlers
             assignedPermCodes.Should().Contain(expectedPermCodes,
                 $"los permisos iniciales de {modalityCode} deben asignarse al activarse");
 
-            // 3. The extension record must be created according to the modality
+            // 3. El registro de extensión debe crearse según la modalidad
             switch (modalityCode)
             {
                 case ModalityCodes.CoTerminal:
@@ -141,7 +141,7 @@ namespace Tests.Integration.EventHandlers
         [Fact]
         public async Task Handle_ProyectoGradoModality_IsIgnored()
         {
-            // Arrange — PG is NOT a minor modality → handler should do nothing
+            // Arrange — PG NO es una modalidad menor → el handler no debe hacer nada
             var context = GetFreshDbContext();
             SeedingUtilities.SeedCatalogs(context);
 
@@ -173,11 +173,11 @@ namespace Tests.Integration.EventHandlers
                 TriggeredByUserId: user.Id
             );
 
-            // Act - use the SAME context
+            // Act - usar el MISMO contexto
             await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert - IdStageModality should remain null
+            // Assert - IdStageModality debe permanecer null
             var updatedInscription = context.Set<InscriptionModality>().Find(inscription.Id);
             updatedInscription!.IdStageModality.Should().BeNull(
                 "Proyecto de Grado no es una modalidad menor y debe ser ignorado por este handler");

@@ -19,7 +19,7 @@ namespace Tests.Integration.AcademicAverages
         {
         }
 
-        // Override GetById because it is [NonAction]
+        // Override de GetById porque es [NonAction]
         public override Task GetById_ReturnsOkAndEntity()
         {
             return Task.CompletedTask;

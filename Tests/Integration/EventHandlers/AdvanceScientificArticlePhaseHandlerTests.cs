@@ -69,7 +69,7 @@ namespace Tests.Integration.EventHandlers
             await context.SaveChangesAsync();
             context.ChangeTracker.Clear();
 
-            // The "trigger state" is PC_FASE1_APROBADO: IsFinalStateForStage=true, IsFinalStateForModalityOverall=false
+            // The "state that advances phase" is PC_FASE1_APROBADO: IsFinalStateForStage=true, IsFinalStateForModalityOverall=false
             var fase1AprobadoStateId = context.Set<StateStage>().First(s => s.Code == "PC_FASE1_APROBADO").Id;
 
             var domainEvent = new ScientificArticleStateChangedEvent(

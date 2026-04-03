@@ -19,7 +19,7 @@ namespace Tests.Integration.CoTerminals
         {
         }
 
-        // Override GetAll because it is [NonAction]
+        // Override de GetAll porque es [NonAction]
         public override async Task GetAll_ReturnsOkAndList()
         {
             // Arrange
@@ -45,7 +45,7 @@ namespace Tests.Integration.CoTerminals
             result.Data!.Items.Should().NotBeEmpty();
         }
 
-        // Override GetById because it is [NonAction]
+        // Override de GetById porque es [NonAction]
         public override Task GetById_ReturnsOkAndEntity()
         {
             return Task.CompletedTask;
@@ -80,7 +80,7 @@ namespace Tests.Integration.CoTerminals
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // 1. Seed InscriptionModality Chain
+                // 1. Seed de cadena InscriptionModality
                 var modality = new Modality { Name = "Test Modality CT " + Guid.NewGuid(), Description = "Test" };
                 context.Set<Modality>().Add(modality);
                 var stateInscription = new StateInscription { Name = "Test State CT " + Guid.NewGuid() };
@@ -98,13 +98,13 @@ namespace Tests.Integration.CoTerminals
                 context.Set<InscriptionModality>().Add(inscription);
                 context.SaveChanges();
 
-                // 2. Seed StateStage
+                // 2. Seed de StateStage
                 var stateStage = new StateStage { Name = "Stage CT " + Guid.NewGuid() };
                 context.Set<StateStage>().Add(stateStage);
                 context.SaveChanges();
 
-                // Set Entity ID and FKs
-                entity.Id = inscription.Id; // 1:1 with Inscription
+                // Establecer ID de entidad y FKs
+                entity.Id = inscription.Id; // 1:1 con Inscription
                 entity.IdStateStage = stateStage.Id;
             }
         }
@@ -120,7 +120,7 @@ namespace Tests.Integration.CoTerminals
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // Seed dependencies
+                // Seed de dependencias
                 var modality = new Modality { Name = "Test Modality CT Create " + Guid.NewGuid(), Description = "Test" };
                 context.Set<Modality>().Add(modality);
                 var stateInscription = new StateInscription { Name = "Test State CT Create " + Guid.NewGuid() };
@@ -148,7 +148,7 @@ namespace Tests.Integration.CoTerminals
 
             var dto = new CoTerminalDto
             {
-                Id = inscriptionId, // Must match InscriptionModality
+                Id = inscriptionId, // Debe coincidir con InscriptionModality
                 IdStateStage = stateStageId,
                 PostgraduateProgramName = "Test Program",
                 UniversityName = "Test University",

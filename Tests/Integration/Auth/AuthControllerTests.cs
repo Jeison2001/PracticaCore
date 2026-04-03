@@ -31,7 +31,7 @@ namespace Tests.Integration.Auth
             var email = "test@unicesar.edu.co";
             var validToken = "valid-google-token";
             
-            // Mock Token Validator
+            // Simular Token Validator
             var payload = new TokenPayload
             {
                 Email = email,
@@ -52,7 +52,7 @@ namespace Tests.Integration.Auth
 
             var client = customFactory.CreateClient();
 
-            // Seed dependencies in the NEW context created by WithWebHostBuilder
+            // Seed de dependencias en el NUEVO contexto creado por WithWebHostBuilder
             using (var scope = customFactory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -90,7 +90,7 @@ namespace Tests.Integration.Auth
                 context.Set<AcademicProgram>().Add(academicProgram);
                 await context.SaveChangesAsync();
 
-                // Seed user
+                // Seed de usuario
                 var user = new User
                 {
                     Email = email,

@@ -17,8 +17,8 @@ namespace Tests.Integration.EventHandlers
     {
         public AdvancePhaseOnDocumentUploadedHandlerTests(CustomWebApplicationFactory factory) : base(factory)
         {
-            // Seed catalogs once for all tests in this class.
-            // The shared in-memory DB persists across tests within the same collection.
+            // Seed de catálogos una sola vez para todas las pruebas de esta clase.
+            // La BD en memoria compartida persiste entre las pruebas de la misma colección.
             var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
             if (!context.Set<DocumentType>().Any())
                 SeedingUtilities.SeedCatalogs(context);
@@ -30,8 +30,8 @@ namespace Tests.Integration.EventHandlers
                 _scope.ServiceProvider.GetRequiredService<IJobEnqueuer>());
 
         // ──────────────────────────────────────────────────────────────────────────────
-        // Scenario 1: Uploading AnteproyectoEntregable while in AP_PENDIENTE_DOCUMENTO
-        //             → advances PreliminaryProject to AP_RADICADO_PEND_ASIG_EVAL
+        // Escenario 1: Subir AnteproyectoEntregable mientras está en AP_PENDIENTE_DOCUMENTO
+        //             → avanza PreliminaryProject a AP_RADICADO_PEND_ASIG_EVAL
         // ──────────────────────────────────────────────────────────────────────────────
         [Fact]
         public async Task Handle_AnteproyectoDocumentUploaded_AdvancesPreliminaryProjectToRadicado()
@@ -46,7 +46,7 @@ namespace Tests.Integration.EventHandlers
             };
             context.Set<User>().Add(user);
 
-            // Create PreliminaryProject in AP_PENDIENTE_DOCUMENTO
+            // Crear PreliminaryProject en AP_PENDIENTE_DOCUMENTO
             var pendienteDocStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApPendienteDocumento).Id;
             var preliminaryProject = new PreliminaryProject
             {
@@ -66,7 +66,7 @@ namespace Tests.Integration.EventHandlers
             var domainEvent = new DocumentUploadedEvent(
                 InscriptionModalityId: preliminaryProject.Id,
                 DocumentTypeId: documentTypeId,
-                TriggeredByUserId: user.Id
+                ChangedByUserId: user.Id
             );
 
             // Act
@@ -84,8 +84,8 @@ namespace Tests.Integration.EventHandlers
         }
 
         // ──────────────────────────────────────────────────────────────────────────────
-        // Scenario 2: Uploading AnteproyectoEntregable while NOT in AP_PENDIENTE_DOCUMENTO
-        //             → should NOT advance (guard clause)
+        // Escenario 2: Subir AnteproyectoEntregable cuando NO está en AP_PENDIENTE_DOCUMENTO
+        //             → NO debe avanzar (cláusula guard)
         // ──────────────────────────────────────────────────────────────────────────────
         [Fact]
         public async Task Handle_AnteproyectoDocumentUploaded_DoesNotAdvance_WhenNotInPendienteDocumento()
@@ -93,7 +93,7 @@ namespace Tests.Integration.EventHandlers
             // Arrange
             var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            // States already seeded by the previous test (shared in-memory DB), just reference them
+            // Estados ya seedeados por la prueba anterior (BD en memoria compartida), solo referenciarlos
             var radicadoStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApRadicadoPendAsigEval).Id;
 
             var user = new User
@@ -103,7 +103,7 @@ namespace Tests.Integration.EventHandlers
             };
             context.Set<User>().Add(user);
 
-            // Create PreliminaryProject already in RADICADO state (not PENDIENTE_DOC)
+            // Crear PreliminaryProject ya en estado RADICADO (no PENDIENTE_DOC)
             var preliminaryProject = new PreliminaryProject
             {
                 Id = 2,
@@ -121,14 +121,14 @@ namespace Tests.Integration.EventHandlers
             var domainEvent = new DocumentUploadedEvent(
                 InscriptionModalityId: preliminaryProject.Id,
                 DocumentTypeId: documentTypeId,
-                TriggeredByUserId: user.Id
+                ChangedByUserId: user.Id
             );
 
             // Act
             await CreateHandler().Handle(domainEvent, CancellationToken.None);
             await context.SaveChangesAsync();
 
-            // Assert - state should remain RADICADO (unchanged)
+            // Assert - el estado debe permanecer RADICADO (sin cambios)
             var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
             var updatedProject = await actContext.Set<PreliminaryProject>().FindAsync(preliminaryProject.Id);
 
@@ -138,8 +138,8 @@ namespace Tests.Integration.EventHandlers
         }
 
         // ──────────────────────────────────────────────────────────────────────────────
-        // Scenario 3: Uploading ProyectoFinalEntregable while in PFINF_PENDIENTE_INFORME
-        //             → advances ProjectFinal to PFINF_RADICADO_EN_EVALUACION
+        // Escenario 3: Subir ProyectoFinalEntregable mientras está en PFINF_PENDIENTE_INFORME
+        //             → avanza ProjectFinal a PFINF_RADICADO_EN_EVALUACION
         // ──────────────────────────────────────────────────────────────────────────────
         [Fact]
         public async Task Handle_ProyectoFinalDocumentUploaded_AdvancesProjectFinalToRadicado()
@@ -173,7 +173,7 @@ namespace Tests.Integration.EventHandlers
             var domainEvent = new DocumentUploadedEvent(
                 InscriptionModalityId: projectFinal.Id,
                 DocumentTypeId: documentTypeId,
-                TriggeredByUserId: user.Id
+                ChangedByUserId: user.Id
             );
 
             // Act

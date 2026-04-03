@@ -12,15 +12,15 @@ using Xunit;
 namespace Tests.Integration
 {
     /// <summary>
-    /// Base class for integration tests of controllers inheriting from GenericController.
-    /// All test methods are virtual, allowing derived classes to override them when
-    /// the controller disables specific endpoints with [NonAction].
-    /// 
-    /// Example: If a controller has [NonAction] on GetById, override the test to skip it:
+    /// Clase base para tests de integración de controladores que heredan de GenericController.
+    /// Todos los métodos de test son virtuales, permitiendo que las clases derivadas hagan override
+    /// cuando el controlador deshabilita endpoints específicos con [NonAction].
+    ///
+    /// Ejemplo: Si un controlador tiene [NonAction] en GetById, hacer override del test para omitirlo:
     /// <code>
     /// public override Task GetById_ReturnsOkAndEntity()
     /// {
-    ///     return Task.CompletedTask; // Skip this test
+    ///     return Task.CompletedTask; // Omitir este test
     /// }
     /// </code>
     /// </summary>
@@ -40,7 +40,7 @@ namespace Tests.Integration
         protected virtual void SeedAdditionalData(TEntity entity) { }
 
         /// <summary>
-        /// Override in derived classes if the controller disables PUT via [NonAction].
+        /// Hacer override en clases derivadas si el controlador deshabilita PUT via [NonAction].
         /// </summary>
         protected virtual bool SupportsUpdate => true;
 
@@ -117,7 +117,7 @@ namespace Tests.Integration
         [Fact]
         public virtual async Task Update_ReturnsOk()
         {
-            // Skip if the controller has disabled PUT via [NonAction]
+            // Omitir si el controlador ha deshabilitado PUT via [NonAction]
             if (!SupportsUpdate)
             {
                 return;

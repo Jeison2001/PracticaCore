@@ -7,7 +7,7 @@ El sistema de notificaciones utiliza un enfoque desacoplado basado en eventos, i
 ### Diagrama Conceptual
 ```mermaid
 graph TD
-    A[Entidad Modificada/Creada] -->|Trigger| B(CommandHandler)
+    A[Entidad Modificada/Creada] --> B(CommandHandler)
     B -->|Llama| C(NotificationDispatcher)
     C -->|Resuelve| D{EntityChangeHandler}
     D -->|User| E[UserChangeHandler]
@@ -34,7 +34,7 @@ graph TD
 
 ## 🔄 Flujo de Ejecución
 
-1. **Trigger**: Un CommandHandler (ej. `UpdateProposalHandler`) invoca al `NotificationDispatcher` después de persistir cambios.
+1. **Origen**: Un CommandHandler (ej. `UpdateProposalHandler`) invoca al `NotificationDispatcher` después de persistir cambios.
 2. **Dispatch**: El Dispatcher identifica el tipo de entidad y busca en el contenedor de inyección de dependencias un `IEntityChangeHandler` compatible.
 3. **Handling**: El Handler específico evalúa las condiciones (ej. `oldState != newState`).
 4. **Data Building**: Si se requiere notificación, se usa un `EventDataBuilder` para recopilar información (nombres, fechas, correos).

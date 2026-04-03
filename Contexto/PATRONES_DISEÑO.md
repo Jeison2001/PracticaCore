@@ -195,7 +195,7 @@ public async Task<IActionResult> Create([FromBody] ProposalDto dto)
 
 ## Domain Events Pattern (Patrón Observer)
 
-Se han reemplazado los triggers de base de datos por Eventos de Dominio gestionados por MediatR. Esto permite acoplamiento débil entre el cambio de estado de una entidad y las reglas de negocio que se disparan como resultado.
+Los Domain Events gestionados por MediatR implementan el Patrón Observer a nivel de código. Esto permite acoplamiento débil entre el cambio de estado de una entidad y las reglas de negocio que se ejecutan como resultado.
 
 ### Definición del Evento (Dominio)
 
@@ -208,7 +208,7 @@ public record InscriptionStateChangedEvent(
     int InscriptionModalityId, 
     int ModalityId, 
     int NewStateInscriptionId, 
-    int TriggeredByUserId) : BaseEvent;
+    int ChangedByUserId) : BaseEvent;
 ```
 
 ### Agregando el Evento (Entidad)

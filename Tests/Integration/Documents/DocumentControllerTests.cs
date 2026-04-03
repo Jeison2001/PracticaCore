@@ -255,7 +255,7 @@ namespace Tests.Integration.Documents
             result!.Success.Should().BeTrue();
             result.Data.Should().BeTrue();
 
-            // Verify in DB
+            // Verificar en BD
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();

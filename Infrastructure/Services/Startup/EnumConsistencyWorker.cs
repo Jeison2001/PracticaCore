@@ -24,7 +24,7 @@ namespace Infrastructure.Services.Startup
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            // Ensure database is created (optional, depending on strategy)
+            // Asegurar que la base de datos esté creada (opcional, dependiendo de la estrategia)
             // await dbContext.Database.EnsureCreatedAsync(cancellationToken);
 
             _logger.LogInformation("Verifying consistency between StateStageCodeEnum and Database...");
@@ -42,7 +42,7 @@ namespace Infrastructure.Services.Startup
             {
                 var error = $"CRITICAL: The following Enum codes are missing in the Database (StateStage table): {string.Join(", ", missingInDb)}";
                 _logger.LogCritical(error);
-                // Uncomment to enforce fail-fast
+                // Descomentar para forzar fail-fast
                 // throw new Exception(error); 
             }
 
