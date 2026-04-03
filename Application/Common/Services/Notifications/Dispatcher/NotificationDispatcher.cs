@@ -27,7 +27,7 @@ namespace Application.Common.Services.Notifications.Dispatcher
         {
             try
             {
-                // ✅ CRÍTICO: Usar IServiceScopeFactory para crear scope independiente
+                // CRÍTICO: Usar IServiceScopeFactory para crear scope independiente
                 using var scope = _serviceScopeFactory.CreateScope();
                 var handler = scope.ServiceProvider.GetService<IEntityChangeHandler<T, TId>>();
                 
@@ -55,7 +55,7 @@ namespace Application.Common.Services.Notifications.Dispatcher
         {
             try
             {
-                // ✅ CRÍTICO: Usar IServiceScopeFactory para crear scope independiente
+                // CRÍTICO: Usar IServiceScopeFactory para crear scope independiente
                 using var scope = _serviceScopeFactory.CreateScope();
                 var handler = scope.ServiceProvider.GetService<IEntityChangeHandler<T, TId>>();
                 

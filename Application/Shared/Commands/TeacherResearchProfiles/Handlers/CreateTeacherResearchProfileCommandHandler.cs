@@ -33,6 +33,7 @@ namespace Application.Shared.Commands.TeacherResearchProfiles.Handlers
                 throw new InvalidOperationException("Ya existe un perfil de investigación para este docente con la misma línea y sublínea.");
 
             var entity = _mapper.Map<TeacherResearchProfile>(dto);
+            entity.IdUserCreatedAt = request.CurrentUser.UserId;
             await _repository.AddAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
             return _mapper.Map<TeacherResearchProfileDto>(entity);

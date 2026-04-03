@@ -67,6 +67,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
             // Crear nueva asignación directamente
             var entity = _mapper.Map<TeachingAssignment>(dto);
+            entity.IdUserCreatedAt = request.CurrentUser.UserId;
             
             try
             {

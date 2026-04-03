@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Authorization;
 using Api.Extensions;
 using Api.Middlewares;
 using Api.SwaggerFilters;
@@ -55,13 +56,17 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 });
-builder.Services.AddControllers();
-
-// Configurar límites para permitir subida de archivos con nombres o cabeceras muy grandes
-builder.Services.Configure<FormOptions>(options =>
+builder.Services.AddAuthorization(options =>
 {
-    options.MultipartHeadersLengthLimit = 1024;
+    var policy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+
+    options.DefaultPolicy = policy;
+    options.FallbackPolicy = policy;
 });
+
+builder.Services.AddControllers();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

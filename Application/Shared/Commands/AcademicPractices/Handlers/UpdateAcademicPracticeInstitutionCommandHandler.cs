@@ -46,7 +46,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             }
 
             // Tracking
-            UpdateTrackingFields(academicPractice, dto);
+            UpdateTrackingFields(academicPractice, dto, request.CurrentUser.UserId);
 
             await _academicPracticeRepository.UpdateAsync(academicPractice);
             await _unitOfWork.CommitAsync(cancellationToken);
@@ -87,10 +87,10 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 academicPractice.Observations = dto.Observations;
         }
 
-        private static void UpdateTrackingFields(AcademicPractice academicPractice, UpdateInstitutionInfoDto dto)
+        private static void UpdateTrackingFields(AcademicPractice academicPractice, UpdateInstitutionInfoDto dto, int? userId)
         {
             academicPractice.UpdatedAt = DateTimeOffset.UtcNow;
-            academicPractice.IdUserUpdatedAt = dto.IdUserUpdatedAt;
+            academicPractice.IdUserUpdatedAt = userId;
         }
 
     }

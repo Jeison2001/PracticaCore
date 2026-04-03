@@ -13,8 +13,11 @@ public static class ClaimsPrincipalExtensions
     /// </summary>
     /// <param name="principal">The ClaimsPrincipal from the HTTP context.</param>
     /// <returns>A CurrentUserInfo object containing all user data from the token.</returns>
-    public static CurrentUserInfo GetCurrentUserInfo(this ClaimsPrincipal principal)
+    public static CurrentUserInfo GetCurrentUserInfo(this ClaimsPrincipal? principal)
     {
+        if (principal == null)
+            return new CurrentUserInfo { UserId = null };
+
         var userIdClaim = principal.FindFirst("sub")?.Value
                        ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -40,7 +43,7 @@ public static class ClaimsPrincipalExtensions
     /// </summary>
     /// <param name="principal">The ClaimsPrincipal from the HTTP context.</param>
     /// <returns>The user ID as an integer, or null if not found or not parseable.</returns>
-    public static int? GetUserId(this ClaimsPrincipal principal)
+    public static int? GetUserId(this ClaimsPrincipal? principal)
     {
         return principal.GetCurrentUserInfo().UserId;
     }

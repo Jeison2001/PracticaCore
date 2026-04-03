@@ -1,7 +1,6 @@
 using Application.Shared.DTOs;
 using AutoMapper;
 using Domain.Entities;
-using Domain.Interfaces.Services.Notifications.Dispatcher;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -43,6 +42,7 @@ namespace Application.Shared.Commands.Handlers
             try
             {
                 entity = _mapper.Map<T>(request.Dto);
+                entity.IdUserCreatedAt = request.CurrentUser.UserId;
             }
             catch (Exception ex)
             {
@@ -62,7 +62,7 @@ namespace Application.Shared.Commands.Handlers
                             ct);
                         if (existingEntity != null)
                         {
-                            throw new InvalidOperationException($"Ya existe un registro con el c�digo '{codeValue}'.");
+                            throw new InvalidOperationException($"Ya existe un registro con el código '{codeValue}'.");
                         }
                     }
                     catch (InvalidOperationException)
@@ -71,7 +71,7 @@ namespace Application.Shared.Commands.Handlers
                     }
                     catch (Exception ex)
                     {
-                        throw new InvalidOperationException("Error al verificar la unicidad del c�digo.", ex);
+                        throw new InvalidOperationException("Error al verificar la unicidad del código.", ex);
                     }
                 }
             }
@@ -79,10 +79,7 @@ namespace Application.Shared.Commands.Handlers
             {
                 await _repository.AddAsync(entity);
                 await _unitOfWork.CommitAsync(ct);
-                
-                // Procesar notificaciones en background
-                ProcessNotificationsAsync(entity);
-                
+
                 return _mapper.Map<TDto>(entity);
             }
             catch (DbUpdateException ex)
@@ -91,26 +88,26 @@ namespace Application.Shared.Commands.Handlers
 
                 if (innerExceptionMessage != null)
                 {
-                    // Intentar identificar violaciones de llaves for�neas de forma gen�rica
-                    // Esto es menos robusto que usar las propiedades espec�ficas del proveedor de BD
+                    // Intentar identificar violaciones de llaves foráneas de forma genérica
+                    // Esto es menos robusto que usar las propiedades específicas del proveedor de BD
                     if (innerExceptionMessage.Contains("violates foreign key constraint") ||
                         innerExceptionMessage.Contains("FOREIGN KEY constraint") ||
-                        innerExceptionMessage.Contains("referential integrity constraint")) // A�adir otras variaciones comunes
+                        innerExceptionMessage.Contains("referential integrity constraint")) // Añadir otras variaciones comunes
                     {
-                        // Intentar extraer el nombre de la restricci�n si est� disponible en el mensaje
+                        // Intentar extraer el nombre de la restricción si está disponible en el mensaje
                         var constraintName = ExtractConstraintName(innerExceptionMessage);
                         if (!string.IsNullOrEmpty(constraintName) && constraintName.Equals("fkteachingassignmentinscriptionmodality", StringComparison.OrdinalIgnoreCase))
                         {
-                            throw new InvalidOperationException("Error de llave for�nea: El valor de 'idInscriptionModality' no es v�lido o no existe.", ex);
+                            throw new InvalidOperationException("Error de llave foránea: El valor de 'idInscriptionModality' no es válido o no existe.", ex);
                         }
                         else if (!string.IsNullOrEmpty(constraintName))
                         {
-                             throw new InvalidOperationException($"Error de llave for�nea: La restricci�n '{constraintName}' ha sido violada. Verifique los datos relacionados.", ex);
+                             throw new InvalidOperationException($"Error de llave foránea: La restricción '{constraintName}' ha sido violada. Verifique los datos relacionados.", ex);
                         }
-                        throw new InvalidOperationException("Error de llave for�nea: Uno de los valores proporcionados no existe en las tablas relacionadas.", ex);
+                        throw new InvalidOperationException("Error de llave foránea: Uno de los valores proporcionados no existe en las tablas relacionadas.", ex);
                     }
 
-                    // Mantener la l�gica existente para otras violaciones comunes
+                    // Mantener la lógica existente para otras violaciones comunes
                     if (innerExceptionMessage.Contains("duplicate") == true ||
                         innerExceptionMessage.Contains("unique") == true ||
                         innerExceptionMessage.Contains("violation of primary key") == true)
@@ -128,13 +125,12 @@ namespace Application.Shared.Commands.Handlers
         }
 private string ExtractConstraintName(string errorMessage)
         {
-            // Ejemplo de patrones para extraer el nombre de la restricci�n.
+            // Ejemplo de patrones para extraer el nombre de la restricción.
             // Estos patrones pueden necesitar ajustes dependiendo del formato exacto del mensaje de error de tu proveedor de base de datos.
             var patterns = new[]
             {
                 @"constraint ""([^""]+)""", // Para PostgreSQL: constraint "constraint_name"
                 @"constraint '([^']+)'",    // Para SQL Server: constraint 'constraint_name'
-                // A�ade m�s patrones aqu� si es necesario para otros proveedores de BD o formatos de mensaje.
             };
 
             foreach (var pattern in patterns)
@@ -146,10 +142,6 @@ private string ExtractConstraintName(string errorMessage)
                 }
             }
             return string.Empty;
-        }
-
-        private void ProcessNotificationsAsync(T entity)
-        {
         }
     }
 }

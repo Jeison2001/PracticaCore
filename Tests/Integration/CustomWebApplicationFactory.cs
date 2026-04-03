@@ -1,11 +1,17 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Infrastructure.Data;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
 using Domain.Interfaces.Services.Jobs;
 using Tests.Integration.Utilities;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 
 namespace Tests.Integration
 {
@@ -59,6 +65,23 @@ namespace Tests.Integration
                     services.Remove(descriptor);
                 }
                 services.AddTransient<IJobEnqueuer, TestJobEnqueuer>();
+
+                // Disable FallbackPolicy for integration tests - tests use their own auth when needed
+                services.Configure<AuthorizationOptions>(options =>
+                {
+                    options.FallbackPolicy = null;
+                });
+
+                // Add test authentication handler that auto-authenticates all requests
+                services.AddAuthentication("TestScheme")
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("TestScheme", null);
+
+                // Set TestScheme as default for integration tests
+                services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOptions>(options =>
+                {
+                    options.DefaultScheme = "TestScheme";
+                    options.DefaultAuthenticateScheme = "TestScheme";
+                });
             });
 
             // Use "Testing" environment to avoid Hangfire initialization and get specific test behavior

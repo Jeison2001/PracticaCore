@@ -50,7 +50,6 @@ namespace Application.Common.Services.Notifications.Builders
                     return new Dictionary<string, object>();
                 }
 
-                // Asegurar que sea PRACTICA_ACADEMICA
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
                 var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
                 if (modality?.Code != "PRACTICA_ACADEMICA")
@@ -59,27 +58,19 @@ namespace Application.Common.Services.Notifications.Builders
                     return new Dictionary<string, object>();
                 }
 
-                // Datos estudiantes
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByInscriptionAsync(inscription.Id);
 
-                // Título del proyecto
                 var projectTitle = await GetProjectTitleAsync(inscription, academicPractice);
 
-                // Info de estado
                 var stateInfo = await GetStateInfoAsync(academicPractice.IdStateStage);
 
-                // Determinar la fase actual basada en el código de estado
                 var phaseInfo = GetPhaseInfo(stateInfo.StateCode);
 
-                // Fechas
                 var submissionDate = academicPractice.UpdatedAt?.ToString("dd/MM/yyyy HH:mm") ?? academicPractice.CreatedAt.ToString("dd/MM/yyyy HH:mm");
                 var approvalDate = GetApprovalDate(stateInfo.StateCode, academicPractice);
 
-                // Construir datos del evento con placeholders dinámicos para templates genéricos
                 var eventData = new Dictionary<string, object>
                 {
-                    // Datos básicos
-                    ["AcademicPracticeId"] = academicPractice.Id,
                     ["InscriptionModalityId"] = inscription.Id,
                     ["ProjectTitle"] = projectTitle,
                     ["StudentNames"] = studentNames,
@@ -92,7 +83,6 @@ namespace Application.Common.Services.Notifications.Builders
                     ["ApprovalDate"] = approvalDate,
                     ["Observations"] = academicPractice.Observations ?? string.Empty,
 
-                    // PLACEHOLDERS DINÁMICOS PARA TEMPLATES GENÉRICOS
                     ["Phase"] = phaseInfo.Phase,
                     ["PhaseDescription"] = phaseInfo.PhaseDescription,
                     ["NextSteps"] = phaseInfo.NextSteps,
@@ -105,8 +95,8 @@ namespace Application.Common.Services.Notifications.Builders
                     ["AvailableOptions"] = phaseInfo.AvailableOptions,
                     ["ImportantMessage"] = phaseInfo.ImportantMessage,
                     ["AdministrativeNextSteps"] = phaseInfo.AdministrativeNextSteps,
-                    
-                    // OBSERVACIONES ESPECÍFICAS DE LA BD (para templates de OBSERVACIONES)
+
+                    // BD-specific observations for OBSERVACIONES templates
                     ["SpecificObservations"] = academicPractice.Observations ?? string.Empty,
                     ["EvaluatorObservations"] = academicPractice.EvaluatorObservations ?? string.Empty
                 };
@@ -261,7 +251,6 @@ namespace Application.Common.Services.Notifications.Builders
             };
         }
 
-        // Clase auxiliar para info de fases
         private class PhaseInfo
         {
             public string Phase { get; set; } = string.Empty;
@@ -283,7 +272,7 @@ namespace Application.Common.Services.Notifications.Builders
             if (!Enum.TryParse<StateStageCodeEnum>(stateCode, out var code)) return string.Empty;
             DateTimeOffset? date = code switch
             {
-                // Fechas por fase (modelo híbrido CORREGIDO)
+                // Fechas por fase
                 StateStageCodeEnum.PA_INSCRIPCION_APROBADA => ap.PlanApprovalDate ?? ap.AvalApprovalDate,
                 StateStageCodeEnum.PA_DESARROLLO_EN_REVISION => ap.DevelopmentCompletionDate,
                 StateStageCodeEnum.PA_DESARROLLO_OBSERVACIONES => ap.DevelopmentCompletionDate,

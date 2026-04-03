@@ -4,6 +4,7 @@ using Application.Shared.DTOs;
 using Application.Shared.DTOs.AcademicPractices;
 using Application.Shared.Queries.AcademicPractices;
 using Domain.Common;
+using Domain.Common.Extensions;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -73,7 +74,7 @@ namespace Api.Controllers
         public async Task<IActionResult> UpdateInstitutionInfo(int id, [FromBody] UpdateInstitutionInfoDto request)
         {
             request.Id = id;
-            var result = await _mediator.Send(new UpdateAcademicPracticeInstitutionCommand(request));
+            var result = await _mediator.Send(new UpdateAcademicPracticeInstitutionCommand(request, User.GetCurrentUserInfo()));
             
             if (!result)
                 return NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { $"No se encontró la práctica académica con ID {id}" } });
@@ -85,7 +86,7 @@ namespace Api.Controllers
         public async Task<IActionResult> UpdatePhaseApproval(int id, [FromBody] UpdatePhaseApprovalDto request)
         {
             request.Id = id;
-            var result = await _mediator.Send(new UpdateAcademicPracticePhaseCommand(request));
+            var result = await _mediator.Send(new UpdateAcademicPracticePhaseCommand(request, User.GetCurrentUserInfo()));
             
             if (!result)
                 return NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { $"No se encontró la práctica académica con ID {id} o el estado es inválido" } });

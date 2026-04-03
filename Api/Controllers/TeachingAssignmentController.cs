@@ -2,6 +2,7 @@ using Api.Responses;
 using Application.Shared.Commands.TeachingAssignments;
 using Application.Shared.DTOs.TeachingAssignments;
 using Application.Shared.Queries.TeachingAssignments;
+using Domain.Common.Extensions;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -29,14 +30,14 @@ namespace Api.Controllers
         [HttpPost]
         public override async Task<IActionResult> Create([FromBody] TeachingAssignmentDto dto)
         {
-            var result = await _mediator.Send(new CreateTeachingAssignmentCommand(dto));
+            var result = await _mediator.Send(new CreateTeachingAssignmentCommand(dto, User.GetCurrentUserInfo()));
             return CreatedAtAction(nameof(GetByIdInscription), new { id = result.IdInscriptionModality }, new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });
         }
 
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] TeachingAssignmentDto dto)
         {
-            var result = await _mediator.Send(new UpdateTeachingAssignmentCommand(id, dto));
+            var result = await _mediator.Send(new UpdateTeachingAssignmentCommand(id, dto, User.GetCurrentUserInfo()));
             return Ok(new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });
         }
     }

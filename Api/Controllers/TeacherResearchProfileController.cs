@@ -1,9 +1,10 @@
 using Api.Responses;
 using Application.Shared.Commands.TeacherResearchProfiles;
 using Application.Shared.DTOs.TeacherResearchProfiles;
+using Domain.Common.Extensions;
+using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Domain.Entities;
 
 namespace Api.Controllers
 {
@@ -23,14 +24,14 @@ namespace Api.Controllers
         [HttpPost]
         public override async Task<IActionResult> Create([FromBody] TeacherResearchProfileDto dto)
         {
-            var result = await _mediator.Send(new CreateTeacherResearchProfileCommand(dto));
+            var result = await _mediator.Send(new CreateTeacherResearchProfileCommand(dto, User.GetCurrentUserInfo()));
             return CreatedAtAction(nameof(GetAll), new { idUser = result.IdUser }, new ApiResponse<TeacherResearchProfileDto> { Success = true, Data = result });
         }
 
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] TeacherResearchProfileDto dto)
         {
-            var result = await _mediator.Send(new UpdateTeacherResearchProfileCommand(id, dto));
+            var result = await _mediator.Send(new UpdateTeacherResearchProfileCommand(id, dto, User.GetCurrentUserInfo()));
             return Ok(new ApiResponse<TeacherResearchProfileDto> { Success = true, Data = result });
         }
     }

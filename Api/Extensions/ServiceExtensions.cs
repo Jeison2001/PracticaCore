@@ -39,29 +39,21 @@ namespace Api.Extensions
                 services.AddDbContext<AppDbContext>(options =>
                     options.UseNpgsql(config.GetConnectionString("Default")));
             }
-            //options.UseSqlServer(config.GetConnectionString("Default")));
 
-            // Registrar el repositorio genérico
             services.AddScoped(typeof(IRepository<,>), typeof(BaseRepository<,>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-            // Configurar el servicio de almacenamiento de archivos según la configuración
             ConfigureFileStorageService(services, config);
-
-            // Configurar el servicio de notificaciones según la configuración
             ConfigureNotificationService(services, config);
 
-            // Auto-registro basado en interfaces marcadoras para otros servicios de infraestructura
+            // Auto-registro basado en interfaces marcadoras para servicios de infraestructura
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
 
-            // Registrar ManualAuthService explícitamente para E2E testing
-            // Este servicio permite login sin Google OAuth usando email + secret compartido
+            // ManualAuthService para E2E testing (login sin Google OAuth)
             services.AddScoped<IAuthService, ManualAuthService>();
 
-            // Registrar GoogleAuthService para login con Google OAuth
             services.AddScoped<GoogleAuthService>();
 
-            // Registrar Worker de consistencia de Enums (Fail Fast)
             services.AddHostedService<EnumConsistencyWorker>();
         }
 

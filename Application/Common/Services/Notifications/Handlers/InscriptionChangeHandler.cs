@@ -49,7 +49,7 @@ namespace Application.Common.Services.Notifications.Handlers
 
         public async Task HandleCreationAsync(InscriptionModality entity, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("🔄 Iniciando procesamiento de notificaciones para nueva inscripción ID: {InscriptionId}", entity.Id);
+            _logger.LogInformation("Iniciando procesamiento de notificaciones para nueva inscripción ID: {InscriptionId}", entity.Id);
 
             try
             {
@@ -66,7 +66,7 @@ namespace Application.Common.Services.Notifications.Handlers
 
                 var jobId = _queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
 
-                _logger.LogInformation("✅ Inscription creation notification enqueued - Inscription ID: {InscriptionId}, JobId: {JobId}", entity.Id, jobId);
+                _logger.LogInformation("Inscription creation notification enqueued - Inscription ID: {InscriptionId}, JobId: {JobId}", entity.Id, jobId);
             }
             catch (Exception ex)
             {

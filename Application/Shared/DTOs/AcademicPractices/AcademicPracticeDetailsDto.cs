@@ -3,7 +3,7 @@ namespace Application.Shared.DTOs.AcademicPractices
     public record AcademicPracticeDetailsDto
     {
         public int Id { get; set; }
-        public string? Title { get; set; }                   // ✅ AÑADIDO
+        public string? Title { get; set; }                   // AÑADIDO
         public string? InstitutionName { get; set; }
         public string? InstitutionContact { get; set; }
         public DateTimeOffset? PracticeStartDate { get; set; }

@@ -23,7 +23,7 @@ namespace Application.Shared.Commands.Documents.Handlers
                 return false;
 
             entity.StatusRegister = request.StatusRegister;
-            entity.IdUserUpdatedAt = request.IdUserUpdateAt;
+            entity.IdUserUpdatedAt = request.CurrentUser.UserId;
             entity.OperationRegister = request.OperationRegister ?? string.Empty;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
 

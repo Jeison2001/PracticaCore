@@ -30,19 +30,16 @@ namespace Application.Common.Services.Notifications.Builders
         {
             try
             {
-                // Obtener la propuesta
                 var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
                 var proposal = await proposalRepo.GetByIdAsync(proposalId);
-                
+
                 if (proposal == null)
                     throw new ArgumentException($"Proposal with ID {proposalId} not found");
 
-                // Obtener la InscriptionModality asociada a la propuesta
                 var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
                 var inscriptionModality = await inscriptionModalityRepo
                     .GetFirstOrDefaultAsync(im => im.Proposal != null && im.Proposal.Id == proposalId, CancellationToken.None);
 
-                // Obtener datos relacionados
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
                 var academicPeriodRepo = _unitOfWork.GetRepository<AcademicPeriod, int>();
                 var researchLineRepo = _unitOfWork.GetRepository<ResearchLine, int>();
@@ -51,22 +48,19 @@ namespace Application.Common.Services.Notifications.Builders
 
                 Modality? modality = null;
                 AcademicPeriod? academicPeriod = null;
-                
+
                 if (inscriptionModality != null)
                 {
                     modality = await modalityRepo.GetByIdAsync(inscriptionModality.IdModality);
                     academicPeriod = await academicPeriodRepo.GetByIdAsync(inscriptionModality.IdAcademicPeriod);
                 }
 
-                // Obtener líneas de investigación
                 var researchLine = await researchLineRepo.GetByIdAsync(proposal.IdResearchLine);
                 var researchSubLine = await researchSubLineRepo.GetByIdAsync(proposal.IdResearchSubLine);
                 var stateStage = await stateStageRepo.GetByIdAsync(proposal.IdStateStage);
 
-                // Obtener datos de estudiantes asociados
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByProposalAsync(proposalId);
 
-                // Construir diccionario de datos
                 var eventData = new Dictionary<string, object>
                 {
                     ["ProposalId"] = proposal.Id,
@@ -84,7 +78,7 @@ namespace Application.Common.Services.Notifications.Builders
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
-                    ["StudentsCount"] = studentCount, // Alias para templates que usan StudentsCount
+                    ["StudentsCount"] = studentCount,
                     ["SubmissionDate"] = proposal.CreatedAt.ToString("dd/MM/yyyy"),
                     ["ApprovalDate"] = proposal.UpdatedAt?.ToString("dd/MM/yyyy") ?? string.Empty,
                     ["Observation"] = proposal.Observation ?? string.Empty,

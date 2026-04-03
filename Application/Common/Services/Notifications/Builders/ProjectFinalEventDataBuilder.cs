@@ -33,45 +33,39 @@ namespace Application.Common.Services.Notifications.Builders
 
             try
             {
-                // Obtener el ProjectFinal
                 var projectFinalRepo = _unitOfWork.GetRepository<ProjectFinal, int>();
                 var projectFinal = await projectFinalRepo.GetByIdAsync(projectFinalId);
-                
+
                 if (projectFinal == null)
                 {
                     _logger.LogWarning("ProjectFinal not found with ID: {ProjectFinalId}", projectFinalId);
                     return new Dictionary<string, object>();
                 }
 
-                // Obtener la InscriptionModality (el ID es el mismo)
                 var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
                 var inscriptionModality = await inscriptionModalityRepo.GetByIdAsync(projectFinalId);
-                
+
                 if (inscriptionModality == null)
                 {
                     _logger.LogWarning("InscriptionModality not found with ID: {InscriptionModalityId}", projectFinalId);
                     return new Dictionary<string, object>();
                 }
 
-                // Verificar que sea modalidad PROYECTO_GRADO
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
                 var modality = await modalityRepo.GetByIdAsync(inscriptionModality.IdModality);
-                
+
                 if (modality?.Code != "PROYECTO_GRADO")
                 {
-                    _logger.LogInformation("ProjectFinal is not for PROYECTO_GRADO modality (Modality: {Modality}). Skipping notification.", 
+                    _logger.LogInformation("ProjectFinal is not for PROYECTO_GRADO modality (Modality: {Modality}). Skipping notification.",
                         modality?.Code);
                     return new Dictionary<string, object>();
                 }
 
-                // Obtener datos del estudiante
-                var (studentNames, studentEmails, studentCount) = 
+                var (studentNames, studentEmails, studentCount) =
                     await _studentDataService.GetStudentDataByInscriptionAsync(inscriptionModality.Id);
 
-                // Obtener información del proyecto
                 var projectTitle = await GetProjectTitleAsync(inscriptionModality);
-                
-                // Obtener información del estado actual
+
                 var stateInfo = await GetStateInfoAsync(projectFinal.IdStateStage);
 
                 var eventData = new Dictionary<string, object>
@@ -88,8 +82,7 @@ namespace Application.Common.Services.Notifications.Builders
                                        projectFinal.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
                     ["EventType"] = eventType,
                     ["Phase"] = "Proyecto Final",
-                    
-                    // Campos adicionales para templates de notificación
+
                     ["EvaluationResult"] = GetEvaluationResultText(stateInfo.StateCode),
                     ["Observations"] = projectFinal.Observations ?? "Sin observaciones registradas",
                     ["ReportApprovalDate"] = projectFinal.ReportApprovalDate?.ToString("dd/MM/yyyy") ?? string.Empty,

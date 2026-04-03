@@ -46,6 +46,7 @@ namespace Application.Shared.Commands.TeacherResearchProfiles.Handlers
             entity.CreatedAt = originalCreatedAt;
             entity.IdUserCreatedAt = originalIdUserCreatedAt;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
+            entity.IdUserUpdatedAt = request.CurrentUser.UserId;
 
             await _repository.UpdateAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);

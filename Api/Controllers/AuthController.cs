@@ -11,6 +11,7 @@ namespace Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [AllowAnonymous]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -34,7 +35,6 @@ namespace Api.Controllers
         }
 
         [HttpPost("google")]
-        [AllowAnonymous]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthRequest request)
         {
             if (string.IsNullOrEmpty(request.IdToken))
@@ -48,7 +48,6 @@ namespace Api.Controllers
 
         //Testing
         [HttpPost("manual")]
-        [AllowAnonymous]
         public async Task<IActionResult> ManualLogin([FromBody] ManualAuthRequest request)
         {
             if (string.IsNullOrEmpty(request.Email))
@@ -68,7 +67,6 @@ namespace Api.Controllers
         }
 
         [HttpPost("register")]
-        [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             var errors = new List<string>();
@@ -91,23 +89,19 @@ namespace Api.Controllers
 
             try
             {
-                // Verificar si el email ya existe
                 var existingUser = await _userInfoRepository.FindUserByEmailAsync(request.Email);
                 if (existingUser != null)
                     return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El email ya está registrado" } });
 
-                // Verificar si la identificación ya existe
                 var existingByIdentification = await _userInfoRepository.FindUserByIdentificationAsync(request.Identification);
                 if (existingByIdentification != null)
                     return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "La identificación ya está registrada" } });
 
-                // Obtener el rol
                 var roleRepo = _unitOfWork.GetRepository<Domain.Entities.Role, int>();
                 var role = await roleRepo.GetByIdAsync(request.RoleId);
                 if (role == null)
                     return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Rol no encontrado" } });
 
-                // Crear usuario
                 var user = new Domain.Entities.User
                 {
                     IdIdentificationType = request.IdIdentificationType,
@@ -125,7 +119,6 @@ namespace Api.Controllers
                 await userRepo.AddAsync(user);
                 await _unitOfWork.CommitAsync();
 
-                // Asignar rol
                 var userRole = new Domain.Entities.UserRole
                 {
                     IdUser = user.Id,

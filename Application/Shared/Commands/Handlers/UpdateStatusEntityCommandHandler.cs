@@ -22,10 +22,10 @@ namespace Application.Shared.Commands.Handlers
         {
             var existingEntity = await _repository.GetByIdAsync(request.Id) ?? throw new KeyNotFoundException($"Entity with ID {request.Id} not found.");
 
-            // Actualizar los campos para el borrado lógico
+            // Actualizar los campos para el borrado lÃ³gico
             existingEntity.StatusRegister = request.StatusRegister;
             existingEntity.UpdatedAt = DateTimeOffset.UtcNow;
-            existingEntity.IdUserUpdatedAt = request.IdUserUpdateAt;
+            existingEntity.IdUserUpdatedAt = request.CurrentUser.UserId;
             existingEntity.OperationRegister = request.OperationRegister;
 
             await _repository.UpdatePartialAsync(existingEntity, new Expression<Func<T, object?>>[] {

@@ -1,6 +1,7 @@
 using Application.Shared.DTOs.InscriptionModalities;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using Application.Shared.DTOs.InscriptionWithStudents;
+using AutoMapper;
 using Domain.Entities;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -19,6 +20,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
     public class CreateInscriptionWithStudentsHandler : IRequestHandler<CreateInscriptionWithStudentsCommand, InscriptionWithStudentsDto>
     {
         private readonly IMediator _mediator;
+        private readonly IMapper _mapper;
         private readonly ILogger<CreateInscriptionWithStudentsHandler> _logger;
         private readonly IUserService _userService;
         private readonly IAcademicPeriodService _academicPeriodService;
@@ -27,6 +29,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
         public CreateInscriptionWithStudentsHandler(
             IMediator mediator,
+            IMapper mapper,
             ILogger<CreateInscriptionWithStudentsHandler> logger,
             IUserService userService,
             IAcademicPeriodService academicPeriodService,
@@ -34,6 +37,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             IJobEnqueuer jobEnqueuer)
         {
             _mediator = mediator;
+            _mapper = mapper;
             _logger = logger;
             _userService = userService;
             _academicPeriodService = academicPeriodService;
@@ -158,34 +162,36 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     throw new InvalidOperationException($"No se encontró el estado inicial: {targetStateCode}");
 
                 // 1. Create the inscription record
-                var inscriptionModalityDto = await _mediator.Send(
-                    new CreateEntityCommand<InscriptionModality, int, InscriptionModalityDto>(
-                        new InscriptionModalityDto
-                        {
-                            IdModality = request.Dto.InscriptionModality.IdModality,
-                            IdAcademicPeriod = academicPeriodId,
-                            IdStateInscription = initialState.Id,
-                            Observations = request.Dto.InscriptionModality.Observations,
-                            IdUserCreatedAt = request.CurrentUser?.UserId
-                        }),
-                    cancellationToken);
+                var inscriptionModality = new InscriptionModality
+                {
+                    IdModality = request.Dto.InscriptionModality.IdModality,
+                    IdAcademicPeriod = academicPeriodId,
+                    IdStateInscription = initialState.Id,
+                    Observations = request.Dto.InscriptionModality.Observations,
+                    IdUserCreatedAt = request.CurrentUser?.UserId,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    StatusRegister = true,
+                    OperationRegister = "INSERT"
+                };
+                await inscriptionModalityRepo.AddAsync(inscriptionModality);
 
-                var inscriptionModalityId = inscriptionModalityDto.Id;
+                var inscriptionModalityId = inscriptionModality.Id;
 
                 // 2. Link students to the newly created inscription
                 foreach (var studentDto in request.Dto.Students)
                 {
                     var userIdentification = userDictionary[studentDto.Identification];
-                    
-                    await _mediator.Send(
-                        new CreateEntityCommand<UserInscriptionModality, int, UserInscriptionModalityDto>(
-                            new UserInscriptionModalityDto
-                            {
-                                IdInscriptionModality = inscriptionModalityId,
-                                IdUser = userIdentification.Id,
-                                UserName = userIdentification.UserName
-                            }),
-                        cancellationToken);
+
+                    var userInscription = new UserInscriptionModality
+                    {
+                        IdInscriptionModality = inscriptionModalityId,
+                        IdUser = userIdentification.Id,
+                        IdUserCreatedAt = request.CurrentUser?.UserId,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        StatusRegister = true,
+                        OperationRegister = "INSERT"
+                    };
+                    await userInscriptionRepo.AddAsync(userInscription);
                 }
 
                 // 3. Dispatch initial domain event to trigger extension record creation
@@ -213,7 +219,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
                 var result = new InscriptionWithStudentsDto
                 {
-                    InscriptionModality = inscriptionModalityDto,
+                    InscriptionModality = _mapper.Map<InscriptionModalityDto>(inscriptionModality),
                     Students = students
                 };
 

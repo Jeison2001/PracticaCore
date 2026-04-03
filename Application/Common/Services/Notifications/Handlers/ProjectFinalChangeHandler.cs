@@ -33,7 +33,7 @@ namespace Application.Common.Services.Notifications.Handlers
 
         public async Task HandleChangeAsync(ProjectFinal oldEntity, ProjectFinal newEntity, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("🔄 Iniciando procesamiento de notificaciones para cambio en ProjectFinal ID: {ProjectFinalId}", newEntity.Id);
+            _logger.LogInformation("Iniciando procesamiento de notificaciones para cambio en ProjectFinal ID: {ProjectFinalId}", newEntity.Id);
 
             // Solo procesar si cambió el estado
             if (oldEntity.IdStateStage != newEntity.IdStateStage)
@@ -47,12 +47,12 @@ namespace Application.Common.Services.Notifications.Handlers
                     if (eventData.Count > 0)
                     {
                         var jobId = _queueService.EnqueueEventNotification(eventName, eventData);
-                        _logger.LogInformation("📧 Evento {EventName} encolado para proyecto final ID: {ProjectFinalId}, JobId: {JobId}", 
+                        _logger.LogInformation("Evento {EventName} encolado para proyecto final ID: {ProjectFinalId}, JobId: {JobId}", 
                             eventName, newEntity.Id, jobId);
                     }
                     else
                     {
-                        _logger.LogInformation("⚠️ No se encoló notificación para proyecto final ID: {ProjectFinalId} - datos de evento vacíos", 
+                        _logger.LogInformation("No se encoló notificación para proyecto final ID: {ProjectFinalId} - datos de evento vacíos", 
                             newEntity.Id);
                     }
                 }
@@ -63,12 +63,12 @@ namespace Application.Common.Services.Notifications.Handlers
                 }
             }
 
-            _logger.LogInformation("✅ Procesamiento de notificaciones completado para ProjectFinal ID: {ProjectFinalId}", newEntity.Id);
+            _logger.LogInformation("Procesamiento de notificaciones completado para ProjectFinal ID: {ProjectFinalId}", newEntity.Id);
         }
 
         public async Task HandleCreationAsync(ProjectFinal entity, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("🔄 Iniciando procesamiento de notificaciones para nuevo ProjectFinal ID: {ProjectFinalId}", entity.Id);
+            _logger.LogInformation("Iniciando procesamiento de notificaciones para nuevo ProjectFinal ID: {ProjectFinalId}", entity.Id);
 
             // Para nuevos proyectos finales, considerar notificar según el estado inicial
             var eventName = await GetProjectFinalEventNameAsync(entity.IdStateStage, cancellationToken);
@@ -79,12 +79,12 @@ namespace Application.Common.Services.Notifications.Handlers
                 if (eventData.Count > 0)
                 {
                     var jobId = _queueService.EnqueueEventNotification(eventName, eventData);
-                    _logger.LogInformation("📧 Evento {EventName} encolado para nuevo proyecto final ID: {ProjectFinalId}, JobId: {JobId}", 
+                    _logger.LogInformation("Evento {EventName} encolado para nuevo proyecto final ID: {ProjectFinalId}, JobId: {JobId}", 
                         eventName, entity.Id, jobId);
                 }
             }
 
-            _logger.LogInformation("✅ Procesamiento de notificaciones completado para nuevo ProjectFinal ID: {ProjectFinalId}", entity.Id);
+            _logger.LogInformation("Procesamiento de notificaciones completado para nuevo ProjectFinal ID: {ProjectFinalId}", entity.Id);
         }
 
         /// <summary>

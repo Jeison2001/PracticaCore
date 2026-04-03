@@ -6,6 +6,7 @@ using Application.Shared.Commands;
 using Api.Responses;
 using Application.Shared.DTOs;
 using Domain.Common;
+using Domain.Common.Extensions;
 
 namespace Api.Controllers
 {
@@ -46,7 +47,7 @@ namespace Api.Controllers
         [HttpPost]
         public virtual async Task<IActionResult> Create([FromBody] TDto dto)
         {
-            var result = await _mediator.Send(new CreateEntityCommand<T, TId, TDto>(dto));
+            var result = await _mediator.Send(new CreateEntityCommand<T, TId, TDto>(dto, User.GetCurrentUserInfo()));
             return StatusCode(StatusCodes.Status201Created, new ApiResponse<TDto> { Success = true, Data = result });
         }
 
@@ -56,14 +57,14 @@ namespace Api.Controllers
             if (dtos == null || !dtos.Any())
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Debe proporcionar al menos un elemento." } });
 
-            var result = await _mediator.Send(new CreateEntitiesCommand<T, TId, TDto>(dtos));
+            var result = await _mediator.Send(new CreateEntitiesCommand<T, TId, TDto>(dtos, User.GetCurrentUserInfo()));
             return Ok(new ApiResponse<List<TDto>> { Success = true, Data = result });
         }
 
         [HttpPut("{id}")]
         public virtual async Task<IActionResult> Update(TId id, [FromBody] TDto dto)
         {
-            var result = await _mediator.Send(new UpdateEntityCommand<T, TId, TDto>(id, dto));
+            var result = await _mediator.Send(new UpdateEntityCommand<T, TId, TDto>(id, dto, User.GetCurrentUserInfo()));
             return Ok(new ApiResponse<TDto> { Success = true, Data = result });
         }
 
@@ -73,7 +74,7 @@ namespace Api.Controllers
             var command = new UpdateStatusEntityCommand<T, TId>(
                 id,
                 dto.StatusRegister,
-                dto.IdUserUpdateAt,
+                User.GetCurrentUserInfo(),
                 dto.OperationRegister
             );
 

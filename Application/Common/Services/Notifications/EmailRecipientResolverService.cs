@@ -230,7 +230,7 @@ namespace Application.Common.Services.Notifications
                                                        .ToList();
                             emails.AddRange(emailList);
                             
-                            _logger.LogInformation("📧 Resolviendo emails de estudiantes: {Count} emails encontrados", emailList.Count);
+                            _logger.LogInformation("Resolviendo emails de estudiantes: {Count} emails encontrados", emailList.Count);
                             foreach (var email in emailList)
                             {
                                 _logger.LogInformation("  → {Email}", email);
@@ -245,7 +245,7 @@ namespace Application.Common.Services.Notifications
                         if (!string.IsNullOrEmpty(email))
                         {
                             emails.Add(email);
-                            _logger.LogInformation("📧 Usando email individual de estudiante: {Email}", email);
+                            _logger.LogInformation("Usando email individual de estudiante: {Email}", email);
                         }
                     }
                 }
@@ -352,7 +352,7 @@ namespace Application.Common.Services.Notifications
                                                .ToList();
                     emails.AddRange(emailList);
                     
-                    _logger.LogInformation("📧 Emails de estudiantes asignados: {Count} emails encontrados", emailList.Count);
+                    _logger.LogInformation("Emails de estudiantes asignados: {Count} emails encontrados", emailList.Count);
                     foreach (var email in emailList)
                     {
                         _logger.LogInformation("  → {Email}", email);
@@ -370,7 +370,7 @@ namespace Application.Common.Services.Notifications
                 if (student != null && !string.IsNullOrEmpty(student.Email))
                 {
                     emails.Add(student.Email);
-                    _logger.LogInformation("📧 Email individual de estudiante por ID: {Email}", student.Email);
+                    _logger.LogInformation("Email individual de estudiante por ID: {Email}", student.Email);
                 }
             }
             
@@ -381,7 +381,7 @@ namespace Application.Common.Services.Notifications
                 if (!string.IsNullOrEmpty(email))
                 {
                     emails.Add(email);
-                    _logger.LogInformation("📧 Email individual de estudiante (fallback): {Email}", email);
+                    _logger.LogInformation("Email individual de estudiante (fallback): {Email}", email);
                 }
             }
 
@@ -399,7 +399,7 @@ namespace Application.Common.Services.Notifications
                 if (!string.IsNullOrEmpty(teacherEmail))
                 {
                     emails.Add(teacherEmail);
-                    _logger.LogInformation("📧 Email del docente asignado: {Email}", teacherEmail);
+                    _logger.LogInformation("Email del docente asignado: {Email}", teacherEmail);
                 }
             }
 
@@ -417,7 +417,7 @@ namespace Application.Common.Services.Notifications
                 if (!string.IsNullOrEmpty(teacherEmail))
                 {
                     emails.Add(teacherEmail);
-                    _logger.LogInformation("📧 Email del docente desasignado: {Email}", teacherEmail);
+                    _logger.LogInformation("Email del docente desasignado: {Email}", teacherEmail);
                 }
             }
             // Fallback usando TeacherEmail para compatibilidad
@@ -427,7 +427,7 @@ namespace Application.Common.Services.Notifications
                 if (!string.IsNullOrEmpty(teacherEmail))
                 {
                     emails.Add(teacherEmail);
-                    _logger.LogInformation("📧 Email del docente (fallback): {Email}", teacherEmail);
+                    _logger.LogInformation("Email del docente (fallback): {Email}", teacherEmail);
                 }
             }
 
@@ -449,7 +449,7 @@ namespace Application.Common.Services.Notifications
             {
                 if (!eventData.ContainsKey("InscriptionModalityId"))
                 {
-                    _logger.LogWarning("⚠️ No se encontró InscriptionModalityId en eventData para obtener docentes del tipo: {AssignmentType}", assignmentTypeCode);
+                    _logger.LogWarning("No se encontró InscriptionModalityId en eventData para obtener docentes del tipo: {AssignmentType}", assignmentTypeCode);
                     return emails;
                 }
 
@@ -466,7 +466,7 @@ namespace Application.Common.Services.Notifications
 
                 if (assignmentType == null)
                 {
-                    _logger.LogWarning("⚠️ No se encontró TypeTeachingAssignment con código: {AssignmentTypeCode}", assignmentTypeCode);
+                    _logger.LogWarning("No se encontró TypeTeachingAssignment con código: {AssignmentTypeCode}", assignmentTypeCode);
                     return emails;
                 }
 
@@ -478,7 +478,7 @@ namespace Application.Common.Services.Notifications
 
                 if (!assignments.Any())
                 {
-                    _logger.LogWarning("⚠️ No se encontraron asignaciones del tipo {AssignmentType} para InscriptionModalityId: {Id}", 
+                    _logger.LogWarning("No se encontraron asignaciones del tipo {AssignmentType} para InscriptionModalityId: {Id}", 
                         assignmentTypeCode, inscriptionModalityId);
                     return emails;
                 }
@@ -489,7 +489,7 @@ namespace Application.Common.Services.Notifications
 
                 emails.AddRange(teachers.Select(t => t.Email).Where(email => !string.IsNullOrEmpty(email)));
                 
-                _logger.LogInformation("📧 Docentes del tipo {AssignmentType} encontrados: {Count} emails", 
+                _logger.LogInformation("Docentes del tipo {AssignmentType} encontrados: {Count} emails", 
                     assignmentTypeCode, emails.Count);
                 
                 foreach (var email in emails)
@@ -499,7 +499,7 @@ namespace Application.Common.Services.Notifications
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error obteniendo emails de docentes del tipo: {AssignmentType}", assignmentTypeCode);
+                _logger.LogError(ex, "Error obteniendo emails de docentes del tipo: {AssignmentType}", assignmentTypeCode);
             }
 
             return emails;

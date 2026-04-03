@@ -59,6 +59,7 @@ namespace Application.Shared.Commands.Handlers
 
             // UpdatedAt se genera globalmente
             existingEntity.UpdatedAt = DateTimeOffset.UtcNow;
+            existingEntity.IdUserUpdatedAt = request.CurrentUser.UserId;
 
             // Nullificar navegaciones para evitar validaciones cruzadas EF Core
             NullifyNavigations(existingEntity);

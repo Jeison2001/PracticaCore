@@ -1,6 +1,7 @@
 using Application.Shared.Commands;
 using Application.Shared.DTOs.Proposals;
 using Application.Validations.SpecificValidators.Proposals;
+using Domain.Common.Users;
 using Domain.Entities;
 using Xunit;
 
@@ -21,15 +22,16 @@ namespace Tests.UnitTests.Application.Validations
             // Arrange
             var command = new UpdateEntityCommand<Proposal, int, ProposalDto>(
                 1,
-                new ProposalDto 
-                { 
+                new ProposalDto
+                {
                     Id = 1,
                     Title = "Test Proposal",
                     IdResearchLine = 1,
                     IdResearchSubLine = 1,
                     IdStateStage = 0, // Valor inválido
                     StatusRegister = true
-                });
+                },
+                new CurrentUserInfo());
 
             // Act
             var result = _validator.Validate(command);
@@ -45,15 +47,16 @@ namespace Tests.UnitTests.Application.Validations
             // Arrange
             var command = new UpdateEntityCommand<Proposal, int, ProposalDto>(
                 1,
-                new ProposalDto 
-                { 
+                new ProposalDto
+                {
                     Id = 1,
                     Title = "Test Proposal",
                     IdResearchLine = 1,
                     IdResearchSubLine = 1,
                     IdStateStage = -1, // Valor inválido
                     StatusRegister = true
-                });
+                },
+                new CurrentUserInfo());
 
             // Act
             var result = _validator.Validate(command);
@@ -69,15 +72,16 @@ namespace Tests.UnitTests.Application.Validations
             // Arrange
             var command = new UpdateEntityCommand<Proposal, int, ProposalDto>(
                 1,
-                new ProposalDto 
-                { 
+                new ProposalDto
+                {
                     Id = 1,
                     Title = "Test Proposal",
                     IdResearchLine = 1,
                     IdResearchSubLine = 1,
                     IdStateStage = 1, // Valor válido
                     StatusRegister = true
-                });
+                },
+                new CurrentUserInfo());
 
             // Act
             var result = _validator.Validate(command);
@@ -92,15 +96,16 @@ namespace Tests.UnitTests.Application.Validations
             // Arrange
             var command = new UpdateEntityCommand<Proposal, int, ProposalDto>(
                 1,
-                new ProposalDto 
-                { 
+                new ProposalDto
+                {
                     Id = 1,
                     Title = "", // Título vacío - debe fallar
                     IdResearchLine = 1,
                     IdResearchSubLine = 1,
                     IdStateStage = 1,
                     StatusRegister = true
-                });
+                },
+                new CurrentUserInfo());
 
             // Act
             var result = _validator.Validate(command);

@@ -63,6 +63,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             // Restaurar campos inmutables y asegurar UTC
             entity.CreatedAt = originalCreatedAt;
             entity.IdUserCreatedAt = originalIdUserCreatedAt;
+            entity.IdUserUpdatedAt = request.CurrentUser.UserId;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
 
             await _repository.UpdateAsync(entity);
@@ -76,7 +77,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
         private void ProcessNotificationsAsync(TeachingAssignment updatedEntity, int originalTeacherId)
         {
-            // ✅ Fire-and-forget seguro usando Hangfire
+            // Fire-and-forget seguro usando Hangfire
             _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleTeachingAssignmentChangeAsync(updatedEntity.Id, originalTeacherId));
         }
     }

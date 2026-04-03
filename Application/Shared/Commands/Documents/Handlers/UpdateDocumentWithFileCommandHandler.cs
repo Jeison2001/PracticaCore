@@ -42,9 +42,9 @@ namespace Application.Shared.Commands.Documents.Handlers
                 idDocumentType = docType.Id;
             }
 
-            // Campos de auditoría (asignarlos PRIMERO para que el Domain Event 
+            // Campos de auditoría (asignarlos PRIMERO para que el Domain Event
             // incrustado en los setters capture al usuario que actualiza)
-            entity.IdUserUpdatedAt = request.Dto.IdUserUpdatedAt; // Puede ser null
+            entity.IdUserUpdatedAt = request.CurrentUser.UserId;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
             entity.OperationRegister = "UPDATE";
             entity.StatusRegister = request.Dto.StatusRegister;

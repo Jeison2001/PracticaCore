@@ -139,7 +139,7 @@ namespace Api.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Update(int id, [FromForm] DocumentUpdateDto dto)
         {
-            var command = new UpdateDocumentWithFileCommand(id, dto);
+            var command = new UpdateDocumentWithFileCommand(id, dto, User.GetCurrentUserInfo());
             var result = await _mediator.Send(command);
             return Ok(new Responses.ApiResponse<DocumentDto>
             {
@@ -156,7 +156,7 @@ namespace Api.Controllers
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
         {
-            var command = new UpdateDocumentStatusCommand(id, dto.StatusRegister, dto.IdUserUpdateAt, dto.OperationRegister);
+            var command = new UpdateDocumentStatusCommand(id, dto.StatusRegister, User.GetCurrentUserInfo(), dto.OperationRegister);
             var result = await _mediator.Send(command);
             
             if (!result)

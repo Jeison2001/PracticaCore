@@ -28,6 +28,13 @@ namespace Application.Shared.Commands.Handlers
                 throw new ArgumentException("Debe proporcionar al menos un elemento.");
 
             var entities = _mapper.Map<List<T>>(request.Dtos);
+            foreach (var entity in entities)
+            {
+                if (entity is BaseEntity<TId> baseEntity)
+                {
+                    baseEntity.IdUserCreatedAt = request.CurrentUser.UserId;
+                }
+            }
             await _repository.AddRangeAsync(entities);
             await _unitOfWork.CommitAsync(cancellationToken);
             return _mapper.Map<List<TDto>>(entities);

@@ -1,3 +1,4 @@
+using Domain.Common.Users;
 using Domain.Entities;
 using MediatR;
 
@@ -6,7 +7,7 @@ namespace Application.Shared.Commands
     public record UpdateStatusEntityCommand<T, TId>(
         TId Id,
         bool StatusRegister,
-        int IdUserUpdateAt,
+        CurrentUserInfo CurrentUser,
         string OperationRegister
     ) : IRequest<bool>
         where T : BaseEntity<TId>

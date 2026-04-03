@@ -1,3 +1,4 @@
+using Domain.Common.Users;
 using MediatR;
 
 namespace Application.Shared.Commands.Documents
@@ -6,14 +7,14 @@ namespace Application.Shared.Commands.Documents
     {
         public int Id { get; }
         public bool StatusRegister { get; }
-        public int? IdUserUpdateAt { get; }
+        public CurrentUserInfo CurrentUser { get; }
         public string? OperationRegister { get; }
 
-        public UpdateDocumentStatusCommand(int id, bool statusRegister, int? idUserUpdateAt, string? operationRegister)
+        public UpdateDocumentStatusCommand(int id, bool statusRegister, CurrentUserInfo currentUser, string? operationRegister)
         {
             Id = id;
             StatusRegister = statusRegister;
-            IdUserUpdateAt = idUserUpdateAt;
+            CurrentUser = currentUser;
             OperationRegister = operationRegister;
         }
     }

@@ -30,14 +30,12 @@ namespace Application.Common.Services.Notifications.Builders
         {
             try
             {
-                // Obtener la inscripción
                 var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
                 var inscription = await inscriptionModalityRepo.GetByIdAsync(inscriptionId);
-                
+
                 if (inscription == null)
                     throw new ArgumentException($"InscriptionModality with ID {inscriptionId} not found");
 
-                // Obtener datos relacionados
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
                 var academicPeriodRepo = _unitOfWork.GetRepository<AcademicPeriod, int>();
                 var stateInscriptionRepo = _unitOfWork.GetRepository<StateInscription, int>();
@@ -46,10 +44,8 @@ namespace Application.Common.Services.Notifications.Builders
                 var academicPeriod = await academicPeriodRepo.GetByIdAsync(inscription.IdAcademicPeriod);
                 var stateInscription = await stateInscriptionRepo.GetByIdAsync(inscription.IdStateInscription);
 
-                // Obtener datos de estudiantes asociados
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByInscriptionAsync(inscriptionId);
 
-                // Construir diccionario de datos
                 var eventData = new Dictionary<string, object>
                 {
                     ["InscriptionId"] = inscription.Id,
@@ -57,7 +53,7 @@ namespace Application.Common.Services.Notifications.Builders
                     ["EventType"] = eventType,
                     ["ModalityName"] = modality?.Name ?? string.Empty,
                     ["ModalityCode"] = modality?.Code ?? string.Empty,
-                    ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty, // AcademicPeriod solo tiene Code
+                    ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty,
                     ["AcademicPeriodCode"] = academicPeriod?.Code ?? string.Empty,
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
@@ -87,14 +83,12 @@ namespace Application.Common.Services.Notifications.Builders
         {
             try
             {
-                // Versión simplificada para creación con datos mínimos disponibles
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
                 var academicPeriodRepo = _unitOfWork.GetRepository<AcademicPeriod, int>();
 
                 var modality = await modalityRepo.GetByIdAsync(modalityId);
                 var academicPeriod = await academicPeriodRepo.GetByIdAsync(academicPeriodId);
 
-                // Obtener datos de estudiantes por IDs
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByUserIdsAsync(studentIds);
 
                 var eventData = new Dictionary<string, object>
@@ -108,7 +102,7 @@ namespace Application.Common.Services.Notifications.Builders
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
-                    ["StudentsCount"] = studentCount, // Alias para templates
+                    ["StudentsCount"] = studentCount,
                     ["InscriptionDate"] = DateTime.UtcNow.ToString("dd/MM/yyyy"),
                     ["ApprovalDate"] = string.Empty,
                     ["ReviewDate"] = string.Empty,

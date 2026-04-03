@@ -30,14 +30,12 @@ namespace Application.Common.Services.Notifications.Builders
         {
             try
             {
-                // Obtener la asignación docente
                 var assignmentRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
                 var assignment = await assignmentRepo.GetByIdAsync(assignmentId);
-                
+
                 if (assignment == null)
                     throw new ArgumentException($"TeachingAssignment with ID {assignmentId} not found");
 
-                // Obtener datos relacionados
                 var teacherRepo = _unitOfWork.GetRepository<User, int>();
                 var typeAssignmentRepo = _unitOfWork.GetRepository<TypeTeachingAssignment, int>();
                 var inscriptionRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
@@ -45,36 +43,28 @@ namespace Application.Common.Services.Notifications.Builders
                 var academicPeriodRepo = _unitOfWork.GetRepository<AcademicPeriod, int>();
                 var stageModalityRepo = _unitOfWork.GetRepository<StageModality, int>();
 
-                // Obtener el docente asignado
                 var teacher = await teacherRepo.GetByIdAsync(assignment.IdTeacher);
-                
-                // Obtener el tipo de asignación
+
                 var typeAssignment = await typeAssignmentRepo.GetByIdAsync(assignment.IdTypeTeachingAssignment);
-                
-                // Obtener la inscripción
+
                 var inscription = await inscriptionRepo.GetByIdAsync(assignment.IdInscriptionModality);
-                
+
                 if (inscription == null)
                     throw new ArgumentException($"InscriptionModality with ID {assignment.IdInscriptionModality} not found");
 
-                // Obtener modalidad y período académico
                 var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
                 var academicPeriod = await academicPeriodRepo.GetByIdAsync(inscription.IdAcademicPeriod);
-                
-                // Obtener la fase actual (StageModality)
+
                 StageModality? currentStage = null;
                 if (inscription.IdStageModality.HasValue)
                 {
                     currentStage = await stageModalityRepo.GetByIdAsync(inscription.IdStageModality.Value);
                 }
 
-                // Obtener el título del proyecto según la fase
                 string projectTitle = await GetProjectTitleAsync(inscription);
 
-                // Obtener datos de estudiantes asociados
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByInscriptionAsync(assignment.IdInscriptionModality);
 
-                // Construir diccionario de datos
                 var eventData = new Dictionary<string, object>
                 {
                     ["AssignmentId"] = assignment.Id,
@@ -111,9 +101,10 @@ namespace Application.Common.Services.Notifications.Builders
         {
             try
             {
-                // Si la modalidad es PRACTICA_ACADEMICA intentar obtener el título directamente de AcademicPractice
                 var modalityRepoLocal = _unitOfWork.GetRepository<Modality, int>();
                 var modalityLocal = await modalityRepoLocal.GetByIdAsync(inscription.IdModality);
+
+                // PRACTICA_ACADEMICA: obtener título directamente de AcademicPractice
                 if (modalityLocal?.Code == "PRACTICA_ACADEMICA")
                 {
                     var practiceRepo = _unitOfWork.GetRepository<AcademicPractice, int>();
@@ -124,37 +115,16 @@ namespace Application.Common.Services.Notifications.Builders
                     }
                 }
 
-                // Verificar si tiene propuesta
+                // Obtener título de la propuesta
                 var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
                 var proposal = await proposalRepo.GetFirstOrDefaultAsync(p => p.InscriptionModality.Id == inscription.Id, CancellationToken.None);
-                
+
                 if (proposal != null && !string.IsNullOrEmpty(proposal.Title))
                 {
                     return proposal.Title;
                 }
 
-                // Si no hay propuesta, verificar anteproyecto
-                // NOTA: El ID de PreliminaryProject es el mismo que el ID de InscriptionModality
-                var preliminaryRepo = _unitOfWork.GetRepository<PreliminaryProject, int>();
-                var preliminary = await preliminaryRepo.GetByIdAsync(inscription.Id);
-                
-                if (preliminary != null)
-                {
-                    return $"Anteproyecto - Inscripción #{inscription.Id}";
-                }
-
-                // Si no hay anteproyecto, verificar proyecto final
-                // NOTA: El ID de ProjectFinal es el mismo que el ID de InscriptionModality
-                var projectRepo = _unitOfWork.GetRepository<ProjectFinal, int>();
-                var project = await projectRepo.GetByIdAsync(inscription.Id);
-                
-                if (project != null)
-                {
-                    return $"Proyecto Final - Inscripción #{inscription.Id}";
-                }
-
-                // Si no tiene ningún proyecto específico, usar información de la modalidad
-                // Reusar modalidad ya obtenida (o recargar si no estaba)
+                // Sin propuesta o título: usar información de la modalidad
                 var modalityFallback = modalityLocal ?? await modalityRepoLocal.GetByIdAsync(inscription.IdModality);
                 return $"Trabajo de {modalityFallback?.Name ?? "modalidad"} - Inscripción #{inscription.Id}";
             }

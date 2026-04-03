@@ -32,7 +32,7 @@ namespace Application.Common.Services.Notifications.Handlers
 
         public async Task HandleChangeAsync(TeachingAssignment oldEntity, TeachingAssignment newEntity, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("🔄 Iniciando procesamiento de notificaciones para cambio en TeachingAssignment ID: {AssignmentId}", newEntity.Id);
+            _logger.LogInformation("Iniciando procesamiento de notificaciones para cambio en TeachingAssignment ID: {AssignmentId}", newEntity.Id);
 
             // Si cambió el docente asignado
             if (oldEntity.IdTeacher != newEntity.IdTeacher)
@@ -40,13 +40,13 @@ namespace Application.Common.Services.Notifications.Handlers
                 // Notificar al nuevo docente asignado
                 var newTeacherEventData = await _eventDataBuilder.BuildTeachingAssignmentEventDataAsync(newEntity.Id, "TEACHING_ASSIGNMENT_ASSIGNED");
                 var newTeacherJobId = _queueService.EnqueueEventNotification("TEACHING_ASSIGNMENT_ASSIGNED", newTeacherEventData);
-                _logger.LogInformation("📧 Evento TEACHING_ASSIGNMENT_ASSIGNED encolado para nuevo docente. ID: {AssignmentId}, JobId: {JobId}", 
+                _logger.LogInformation("Evento TEACHING_ASSIGNMENT_ASSIGNED encolado para nuevo docente. ID: {AssignmentId}, JobId: {JobId}", 
                     newEntity.Id, newTeacherJobId);
 
                 // Notificar a los estudiantes sobre el nuevo docente
                 var studentsEventData = await _eventDataBuilder.BuildTeachingAssignmentEventDataAsync(newEntity.Id, "STUDENT_TEACHER_ASSIGNED");
                 var studentsJobId = _queueService.EnqueueEventNotification("STUDENT_TEACHER_ASSIGNED", studentsEventData);
-                _logger.LogInformation("📧 Evento STUDENT_TEACHER_ASSIGNED encolado para estudiantes. ID: {AssignmentId}, JobId: {JobId}", 
+                _logger.LogInformation("Evento STUDENT_TEACHER_ASSIGNED encolado para estudiantes. ID: {AssignmentId}, JobId: {JobId}", 
                     newEntity.Id, studentsJobId);
 
                 // Notificar al docente anterior (desasignado)
@@ -54,7 +54,7 @@ namespace Application.Common.Services.Notifications.Handlers
                 {
                     var oldTeacherEventData = await BuildUnassignedTeacherEventDataAsync(oldEntity, newEntity);
                     var oldTeacherJobId = _queueService.EnqueueEventNotification("TEACHER_UNASSIGNED", oldTeacherEventData);
-                    _logger.LogInformation("📧 Evento TEACHER_UNASSIGNED encolado para docente anterior. ID: {AssignmentId}, JobId: {JobId}", 
+                    _logger.LogInformation("Evento TEACHER_UNASSIGNED encolado para docente anterior. ID: {AssignmentId}, JobId: {JobId}", 
                         newEntity.Id, oldTeacherJobId);
                 }
             }
@@ -64,36 +64,36 @@ namespace Application.Common.Services.Notifications.Handlers
                 // Notificar al docente sobre el cambio de tipo
                 var eventData = await _eventDataBuilder.BuildTeachingAssignmentEventDataAsync(newEntity.Id, "TEACHING_ASSIGNMENT_ASSIGNED");
                 var jobId = _queueService.EnqueueEventNotification("TEACHING_ASSIGNMENT_ASSIGNED", eventData);
-                _logger.LogInformation("📧 Evento TEACHING_ASSIGNMENT_ASSIGNED encolado por cambio de tipo. ID: {AssignmentId}, JobId: {JobId}", 
+                _logger.LogInformation("Evento TEACHING_ASSIGNMENT_ASSIGNED encolado por cambio de tipo. ID: {AssignmentId}, JobId: {JobId}", 
                     newEntity.Id, jobId);
 
                 // Notificar a los estudiantes sobre el cambio
                 var studentsEventData = await _eventDataBuilder.BuildTeachingAssignmentEventDataAsync(newEntity.Id, "STUDENT_TEACHER_ASSIGNED");
                 var studentsJobId = _queueService.EnqueueEventNotification("STUDENT_TEACHER_ASSIGNED", studentsEventData);
-                _logger.LogInformation("📧 Evento STUDENT_TEACHER_ASSIGNED encolado por cambio de tipo. ID: {AssignmentId}, JobId: {JobId}", 
+                _logger.LogInformation("Evento STUDENT_TEACHER_ASSIGNED encolado por cambio de tipo. ID: {AssignmentId}, JobId: {JobId}", 
                     newEntity.Id, studentsJobId);
             }
 
-            _logger.LogInformation("✅ Procesamiento de notificaciones completado para TeachingAssignment ID: {AssignmentId}", newEntity.Id);
+            _logger.LogInformation("Procesamiento de notificaciones completado para TeachingAssignment ID: {AssignmentId}", newEntity.Id);
         }
 
         public async Task HandleCreationAsync(TeachingAssignment entity, CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("🔄 Iniciando procesamiento de notificaciones para nueva TeachingAssignment ID: {AssignmentId}", entity.Id);
+            _logger.LogInformation("Iniciando procesamiento de notificaciones para nueva TeachingAssignment ID: {AssignmentId}", entity.Id);
 
             // Para nuevas asignaciones, notificar al docente asignado
             var teacherEventData = await _eventDataBuilder.BuildTeachingAssignmentEventDataAsync(entity.Id, "TEACHING_ASSIGNMENT_ASSIGNED");
             var teacherJobId = _queueService.EnqueueEventNotification("TEACHING_ASSIGNMENT_ASSIGNED", teacherEventData);
-            _logger.LogInformation("📧 Evento TEACHING_ASSIGNMENT_ASSIGNED encolado para nuevo docente. ID: {AssignmentId}, JobId: {JobId}", 
+            _logger.LogInformation("Evento TEACHING_ASSIGNMENT_ASSIGNED encolado para nuevo docente. ID: {AssignmentId}, JobId: {JobId}", 
                 entity.Id, teacherJobId);
 
             // Notificar a los estudiantes sobre la nueva asignación
             var studentsEventData = await _eventDataBuilder.BuildTeachingAssignmentEventDataAsync(entity.Id, "STUDENT_TEACHER_ASSIGNED");
             var studentsJobId = _queueService.EnqueueEventNotification("STUDENT_TEACHER_ASSIGNED", studentsEventData);
-            _logger.LogInformation("📧 Evento STUDENT_TEACHER_ASSIGNED encolado para estudiantes. ID: {AssignmentId}, JobId: {JobId}", 
+            _logger.LogInformation("Evento STUDENT_TEACHER_ASSIGNED encolado para estudiantes. ID: {AssignmentId}, JobId: {JobId}", 
                 entity.Id, studentsJobId);
 
-            _logger.LogInformation("✅ Procesamiento de notificaciones completado para nueva TeachingAssignment ID: {AssignmentId}", entity.Id);
+            _logger.LogInformation("Procesamiento de notificaciones completado para nueva TeachingAssignment ID: {AssignmentId}", entity.Id);
         }
 
         /// <summary>
