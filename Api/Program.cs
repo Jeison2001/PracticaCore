@@ -24,14 +24,15 @@ if (!builder.Environment.IsEnvironment("Testing"))
 }
 
 // Configurar CORS
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowedOrigins", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true)
-              .AllowAnyMethod()
+        policy.WithOrigins(allowedOrigins)
+              .AllowCredentials()
               .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowAnyMethod();
     });
 });
 
@@ -131,7 +132,7 @@ app.UseHttpsRedirection();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // Agregar middleware de CORS (debe ir antes del middleware de autenticación y autorización)
-app.UseCors("AllowAll");
+app.UseCors("AllowedOrigins");
 
 // Añadir autenticación al pipeline
 app.UseAuthentication();
