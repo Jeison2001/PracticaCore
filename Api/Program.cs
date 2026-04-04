@@ -56,6 +56,17 @@ builder.Services.AddAuthentication(options =>
         ),
         ClockSkew = TimeSpan.Zero
     };
+
+    // Leer access token desde cookie cuando no hay Authorization header ( Swagger y Postman usan header).
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            if (string.IsNullOrEmpty(context.Token))
+                context.Token = context.Request.Cookies["accessToken"];
+            return Task.CompletedTask;
+        }
+    };
 });
 builder.Services.AddAuthorization(options =>
 {

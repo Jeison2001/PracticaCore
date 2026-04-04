@@ -26,6 +26,7 @@ namespace Api.Controllers
         private readonly IJwtService _jwtService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IConfiguration _configuration;
 
         public AuthController(
             IAuthService authService,
@@ -34,7 +35,8 @@ namespace Api.Controllers
             IRefreshTokenService refreshTokenService,
             IJwtService jwtService,
             IUnitOfWork unitOfWork,
-            IMapper mapper)
+            IMapper mapper,
+            IConfiguration configuration)
         {
             _authService = authService;
             _googleAuthService = googleAuthService;
@@ -43,6 +45,7 @@ namespace Api.Controllers
             _jwtService = jwtService;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _configuration = configuration;
         }
 
         [HttpPost("google")]
@@ -57,6 +60,7 @@ namespace Api.Controllers
             await _refreshTokenService.PurgeExpiredAsync(response.User.Id);
             var refreshToken = await _refreshTokenService.GenerateAsync(response.User.Id);
             SetRefreshTokenCookie(refreshToken.Token);
+            SetAccessTokenCookie(response.Token);
 
             return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
         }
@@ -76,6 +80,7 @@ namespace Api.Controllers
                 await _refreshTokenService.PurgeExpiredAsync(response.User.Id);
                 var refreshToken = await _refreshTokenService.GenerateAsync(response.User.Id);
                 SetRefreshTokenCookie(refreshToken.Token);
+                SetAccessTokenCookie(response.Token);
 
                 return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
             }
@@ -216,6 +221,7 @@ namespace Api.Controllers
             };
 
             var response = _mapper.Map<AuthResponse>(authResult);
+            SetAccessTokenCookie(response.Token);
             return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
         }
 
@@ -227,6 +233,7 @@ namespace Api.Controllers
             {
                 await _refreshTokenService.RevokeAsync(refreshTokenString);
                 Response.Cookies.Delete("refreshToken");
+                Response.Cookies.Delete("accessToken");
             }
 
             return Ok(new ApiResponse<object> { Success = true, Data = "Sesión cerrada correctamente." });
@@ -237,11 +244,23 @@ namespace Api.Controllers
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true, // Requiere HTTPS - Cambiar localmente si falla, pero Playwright asume modern web
-                SameSite = SameSiteMode.None, // Permitir cross-origin
+                Secure = true,
+                SameSite = SameSiteMode.None,
                 Expires = DateTimeOffset.UtcNow.AddDays(7)
             };
             Response.Cookies.Append("refreshToken", token, cookieOptions);
+        }
+
+        private void SetAccessTokenCookie(string token)
+        {
+            var expireMinutes = _configuration["Jwt:ExpireMinutes"] is string raw && int.TryParse(raw, out var m) ? m : 15;
+            Response.Cookies.Append("accessToken", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTimeOffset.UtcNow.AddMinutes(expireMinutes)
+            });
         }
 
         private Dictionary<string, object> BuildPermissionHierarchy(List<Domain.Common.Auth.PermissionInfo> permissions)
