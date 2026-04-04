@@ -3,6 +3,7 @@ using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Auth;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
 
 namespace Infrastructure.Services.Auth
@@ -14,14 +15,22 @@ namespace Infrastructure.Services.Auth
     {
         private readonly AppDbContext _context;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly int _tokenExpirationDays;
 
-        private const int TokenExpirationDays = 7;
         private const int TokenByteLength = 64; // 512 bits → 86 chars en Base64
 
-        public RefreshTokenService(AppDbContext context, IUnitOfWork unitOfWork)
+        public RefreshTokenService(
+            AppDbContext context,
+            IUnitOfWork unitOfWork,
+            IConfiguration configuration)
         {
             _context = context;
             _unitOfWork = unitOfWork;
+
+            var expireRaw = configuration["Jwt:RefreshTokenExpirationDays"];
+            _tokenExpirationDays = int.TryParse(expireRaw, out var days) && days > 0
+                ? days
+                : throw new InvalidOperationException($"Jwt:RefreshTokenExpirationDays tiene un valor inválido: '{expireRaw}'. Debe ser un entero positivo.");
         }
 
         /// <inheritdoc />
@@ -33,7 +42,7 @@ namespace Infrastructure.Services.Auth
             {
                 IdUser = userId,
                 Token = tokenValue,
-                ExpiresAt = DateTimeOffset.UtcNow.AddDays(TokenExpirationDays),
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(_tokenExpirationDays),
                 CreatedAt = DateTimeOffset.UtcNow,
                 StatusRegister = true,
                 OperationRegister = "Generación Token"
