@@ -182,6 +182,7 @@ namespace Api.Controllers
 
             // Revocar el actual y generar uno nuevo (Token Rotation)
             await _refreshTokenService.RevokeAsync(refreshTokenString);
+            await _refreshTokenService.PurgeExpiredAsync(rtEntity.IdUser);
             var newRefreshToken = await _refreshTokenService.GenerateAsync(rtEntity.IdUser);
             SetRefreshTokenCookie(newRefreshToken.Token);
 
