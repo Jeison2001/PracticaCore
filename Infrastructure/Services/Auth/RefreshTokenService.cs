@@ -95,7 +95,27 @@ namespace Infrastructure.Services.Auth
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────────
+        /// <inheritdoc />
+        public async Task<RefreshToken?> ValidateTokenForReuseAsync(string token, CancellationToken ct = default)
+        {
+            return await _context.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == token, ct);
+        }
+
+        /// <inheritdoc />
+        public async Task RevokeAllTokensForUserAsync(int userId, CancellationToken ct = default)
+        {
+            var userTokens = await _context.RefreshTokens
+                .Where(rt => rt.IdUser == userId)
+                .ToListAsync(ct);
+
+            if (userTokens.Any())
+            {
+                _context.RefreshTokens.RemoveRange(userTokens);
+                await _unitOfWork.CommitAsync(ct);
+            }
+        }
+
         private static string GenerateSecureToken()
         {
             var bytes = RandomNumberGenerator.GetBytes(TokenByteLength);

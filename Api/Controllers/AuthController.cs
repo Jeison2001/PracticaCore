@@ -27,6 +27,7 @@ namespace Api.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IConfiguration _configuration;
+        private readonly int _refreshTokenExpirationDays;
 
         public AuthController(
             IAuthService authService,
@@ -46,6 +47,11 @@ namespace Api.Controllers
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _configuration = configuration;
+
+            var rtExpireRaw = _configuration["Jwt:RefreshTokenExpirationDays"];
+            _refreshTokenExpirationDays = int.TryParse(rtExpireRaw, out var days) && days > 0
+                ? days
+                : throw new InvalidOperationException($"Jwt:RefreshTokenExpirationDays tiene un valor inválido: '{rtExpireRaw}'. Debe ser un entero positivo.");
         }
 
         [HttpPost("google")]
@@ -176,11 +182,23 @@ namespace Api.Controllers
             if (string.IsNullOrEmpty(refreshTokenString))
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "No se proporcionó refresh token." } });
 
-            var rtEntity = await _refreshTokenService.ValidateAsync(refreshTokenString);
-            if (rtEntity == null)
-                return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Refresh token inválido o expirado." } });
+            var rtEntity = await _refreshTokenService.ValidateTokenForReuseAsync(refreshTokenString);
 
-            // Revocar el actual y generar uno nuevo (Token Rotation)
+            if (rtEntity == null)
+                return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Refresh token inválido." } });
+
+            if (rtEntity.IsExpired)
+                return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Refresh token expirado." } });
+
+            if (rtEntity.RevokedAt != null)
+            {
+                await _refreshTokenService.RevokeAllTokensForUserAsync(rtEntity.IdUser);
+                Response.Cookies.Delete("accessToken");
+                Response.Cookies.Delete("refreshToken");
+                return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Fraude o reúso de sesión detectado. Todas las sesiones han sido revocadas." } });
+            }
+
+            await _refreshTokenService.RevokeAsync(refreshTokenString);
             await _refreshTokenService.RevokeAsync(refreshTokenString);
             await _refreshTokenService.PurgeExpiredAsync(rtEntity.IdUser);
             var newRefreshToken = await _refreshTokenService.GenerateAsync(rtEntity.IdUser);
@@ -247,7 +265,7 @@ namespace Api.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddDays(7)
+                Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenExpirationDays)
             };
             Response.Cookies.Append("refreshToken", token, cookieOptions);
         }
