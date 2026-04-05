@@ -199,7 +199,6 @@ namespace Api.Controllers
             }
 
             await _refreshTokenService.RevokeAsync(refreshTokenString);
-            await _refreshTokenService.RevokeAsync(refreshTokenString);
             await _refreshTokenService.PurgeExpiredAsync(rtEntity.IdUser);
             var newRefreshToken = await _refreshTokenService.GenerateAsync(rtEntity.IdUser);
             SetRefreshTokenCookie(newRefreshToken.Token);

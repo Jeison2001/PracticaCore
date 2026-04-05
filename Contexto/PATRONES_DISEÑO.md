@@ -145,33 +145,6 @@ public class UnitOfWork : IUnitOfWork
 }
 ```
 
-## Decorator Pattern (Cache)
-
-```csharp
-// Infrastructure/Repositories/Cache/CachedRepository.cs
-public class CachedRepository<T, TId> : IRepository<T, TId> 
-    where T : BaseEntity<TId> where TId : struct
-{
-    private readonly IRepository<T, TId> _innerRepository;
-    private readonly ICacheService _cacheService;
-    
-    public async Task<T?> GetByIdAsync(TId id, CancellationToken ct = default)
-    {
-        var cacheKey = $"{typeof(T).Name}_{id}";
-        var cached = await _cacheService.GetAsync<T>(cacheKey);
-        
-        if (cached != null) return cached;
-        
-        var entity = await _innerRepository.GetByIdAsync(id, ct);
-        if (entity != null)
-        {
-            await _cacheService.SetAsync(cacheKey, entity, TimeSpan.FromMinutes(10));
-        }
-        return entity;
-    }
-}
-```
-
 ## Mediator Pattern (MediatR)
 
 ```csharp
@@ -325,7 +298,6 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
 | **CQRS** | Application/Shared | Separar lectura/escritura |
 | **Repository** | Domain/Interfaces, Infrastructure | Abstracción de acceso a datos |
 | **Unit of Work** | Domain/Interfaces, Infrastructure | Transacciones |
-| **Decorator** | Infrastructure/Repositories/Cache | Agregar funcionalidad (cache) |
 | **Mediator** | Application (MediatR) | Desacoplar requests/handlers |
 | **Notification** | Application/Common/Services | Eventos de dominio |
 | **Dependency Injection** | Api/Extensions | Inversión de control |
