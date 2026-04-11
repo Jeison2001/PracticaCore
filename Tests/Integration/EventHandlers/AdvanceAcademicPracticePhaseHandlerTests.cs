@@ -82,7 +82,6 @@ namespace Tests.Integration.EventHandlers
 
             var domainEvent = new AcademicPracticeStateChangedEvent(
                 InscriptionModalityId: inscription.Id,
-                ModalityId: paModalityId,
                 NewStateStageId: newStateId,
                 OldStateStageId: oldStateId,
                 TriggeredByUserId: user.Id
@@ -169,7 +168,6 @@ namespace Tests.Integration.EventHandlers
 
             var domainEvent = new AcademicPracticeStateChangedEvent(
                 InscriptionModalityId: inscription.Id,
-                ModalityId: paModalityId,
                 NewStateStageId: newStateId,
                 OldStateStageId: oldStateId,
                 TriggeredByUserId: user.Id
@@ -236,9 +234,8 @@ namespace Tests.Integration.EventHandlers
 
             var domainEvent = new AcademicPracticeStateChangedEvent(
                 InscriptionModalityId: inscription.Id,
-                ModalityId: paModalityId,
                 NewStateStageId: sameStateId,
-                OldStateStageId: sameStateId, // igual → el guard se dispara inmediatamente
+                OldStateStageId: sameStateId,
                 TriggeredByUserId: user.Id
             );
 

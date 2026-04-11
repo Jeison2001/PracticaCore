@@ -81,7 +81,6 @@ namespace Tests.Integration.EventHandlers
             var aprobadoStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApAprobado).Id;
             var domainEvent = new PreliminaryProjectStateChangedEvent(
                 InscriptionModalityId: inscription.Id,
-                ModalityId: pgModalityId,
                 NewStateStageId: aprobadoStateId,
                 TriggeredByUserId: user.Id
             );

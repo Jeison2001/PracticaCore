@@ -74,7 +74,6 @@ namespace Tests.Integration.EventHandlers
 
             var domainEvent = new ScientificArticleStateChangedEvent(
                 InscriptionModalityId: inscription.Id,
-                ModalityId: artModalityId,
                 NewStateStageId: fase1AprobadoStateId,
                 OldStateStageId: fase1InicialStateId,
                 TriggeredByUserId: user.Id
@@ -161,8 +160,7 @@ namespace Tests.Integration.EventHandlers
 
             var domainEvent = new ScientificArticleStateChangedEvent(
                 InscriptionModalityId: inscription.Id,
-                ModalityId: artModalityId,
-                NewStateStageId: finalOverallState.Id, // FinalForStage=true AND FinalOverall=true → guard blocks
+                NewStateStageId: finalOverallState.Id,
                 OldStateStageId: fase2InicialStateId,
                 TriggeredByUserId: user.Id
             );

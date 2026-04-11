@@ -81,7 +81,6 @@ namespace Tests.Integration.EventHandlers
             var pertinenteStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropPertinente).Id;
             var domainEvent = new ProposalStateChangedEvent(
                 InscriptionModalityId: inscription.Id,
-                ModalityId: pgModalityId,
                 NewStateStageId: pertinenteStateId,
                 TriggeredByUserId: user.Id
             );
