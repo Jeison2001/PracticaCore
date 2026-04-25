@@ -24,11 +24,6 @@ namespace Domain.Entities
         public string BodyTemplate { get; set; } = string.Empty;
 
         /// <summary>
-        /// Indica si está activa esta configuración
-        /// </summary>
-        public bool IsActive { get; set; } = true;
-
-        /// <summary>
         /// Reglas de destinatarios para este evento
         /// </summary>
         public List<EmailRecipientRule> RecipientRules { get; set; } = new();

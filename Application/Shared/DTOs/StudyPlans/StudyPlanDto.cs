@@ -7,6 +7,5 @@ namespace Application.Shared.DTOs.StudyPlans
         public int IdAcademicProgram { get; set; }
         public int StartYear { get; set; }
         public int? EndYear { get; set; }
-        public bool IsActive { get; set; }
     }
 }

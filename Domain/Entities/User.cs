@@ -14,10 +14,12 @@ namespace Domain.Entities
         public int? ApprovedCredits { get; set; }
         public int? TotalAcademicCredits { get; set; }
         public string? Observation { get; set; }
+        public int? IdStudyPlan { get; set; }
 
         // Relaciones
         public virtual IdentificationType IdentificationType { get; set; } = null!;
         public virtual AcademicProgram AcademicProgram { get; set; } = null!;
+        public virtual StudyPlan? StudyPlan { get; set; }
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
         public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
         public virtual ICollection<TeachingAssignment> TeachingAssignments { get; set; } = new List<TeachingAssignment>();

@@ -39,7 +39,7 @@ namespace Application.Common.Services.Notifications
                 // Obtener configuraciones activas para el evento
                 var configRepo = _unitOfWork.GetRepository<EmailNotificationConfig, int>();
                 var configs = await configRepo.GetAllAsync(
-                    filter: c => c.EventName == eventName && c.IsActive,
+                    filter: c => c.EventName == eventName && c.StatusRegister,
                     orderBy: q => q.OrderBy(c => c.Id)
                 );
 
@@ -64,7 +64,7 @@ namespace Application.Common.Services.Notifications
         {
             var configRepo = _unitOfWork.GetRepository<EmailNotificationConfig, int>();
             var config = await configRepo.GetFirstOrDefaultAsync(
-                c => c.EventName == eventName && c.IsActive,
+                c => c.EventName == eventName && c.StatusRegister,
                 CancellationToken.None
             );
             return config != null;

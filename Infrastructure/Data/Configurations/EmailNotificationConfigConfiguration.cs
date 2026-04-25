@@ -34,11 +34,6 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.BodyTemplate)
                 .HasColumnName("BodyTemplate")
                 .IsRequired();
-                
-            builder.Property(e => e.IsActive)
-                .HasColumnName("IsActive")
-                .IsRequired()
-                .HasDefaultValue(true);
 
             // Configuración base heredada
             builder.Property(e => e.IdUserCreatedAt)
@@ -70,9 +65,6 @@ namespace Infrastructure.Data.Configurations
             builder.HasIndex(e => e.EventName)
                 .IsUnique()
                 .HasDatabaseName("IX_EmailNotificationConfig_EventName");
-                
-            builder.HasIndex(e => new { e.IsActive, e.StatusRegister })
-                .HasDatabaseName("IX_EmailNotificationConfig_Active_Status");
 
             // Relaciones
             builder.HasMany(e => e.RecipientRules)

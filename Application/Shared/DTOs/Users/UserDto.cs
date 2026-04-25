@@ -14,5 +14,6 @@
         public int? ApprovedCredits { get; set; }
         public int? TotalAcademicCredits { get; set; }
         public string? Observation { get; set; }
+        public int? IdStudyPlan { get; set; }
     }
 }

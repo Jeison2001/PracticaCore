@@ -33,6 +33,12 @@ namespace Infrastructure.Data.Configurations
             builder.HasOne(u => u.AcademicProgram)
                    .WithMany()
                    .HasForeignKey(u => u.IdAcademicProgram);
+
+            // Configuración explícita de la relación con StudyPlan
+            builder.HasOne(u => u.StudyPlan)
+                   .WithMany()
+                   .HasForeignKey(u => u.IdStudyPlan)
+                   .IsRequired(false);
         }
     }
 }

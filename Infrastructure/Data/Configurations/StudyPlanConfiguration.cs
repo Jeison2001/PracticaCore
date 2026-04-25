@@ -15,7 +15,6 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.Name).IsRequired(false).HasMaxLength(200).HasColumnName("Name");
             builder.Property(e => e.StartYear).IsRequired().HasColumnName("StartYear");
             builder.Property(e => e.EndYear).IsRequired(false).HasColumnName("EndYear");
-            builder.Property(e => e.IsActive).IsRequired().HasDefaultValue(true).HasColumnName("IsActive");
 
             builder.HasOne(e => e.AcademicProgram)
                    .WithMany()
