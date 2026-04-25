@@ -82,13 +82,13 @@ Este proyecto sigue los principios de **Clean Architecture** para garantizar la 
 **Responsabilidades:**
 - Implementar interfaces definidas en Domain
 - Acceso a datos con Entity Framework Core
-- Servicios externos (Email, Storage, Cache, Auth)
+- Servicios externos (Email, Storage, Auth)
 - Configuración de persistencia
 
 **Contiene:**
 - `Data/` - DbContext y configuraciones de EF Core
 - `Repositories/` - Implementaciones de repositorios
-- `Services/` - Implementaciones de servicios (Auth, Cache, Storage, Notifications, Startup)
+- `Services/` - Implementaciones de servicios (Auth, Storage, Notifications, Startup)
 - `Extensions/` - Métodos de extensión para configuración
 
 > 📖 **Detalles:** Ver [ORGANIZACION_CARPETAS.md](ORGANIZACION_CARPETAS.md) para estructura completa
@@ -147,12 +147,57 @@ El proyecto implementa los siguientes patrones de diseño:
 - **CQRS** - Separación de comandos y consultas
 - **Repository Pattern** - Abstracción de acceso a datos
 - **Unit of Work** - Gestión de transacciones
-- **Decorator Pattern** - Cache sobre repositorios
 - **Mediator Pattern** - Desacoplamiento con MediatR
 - **Dependency Injection** - Inversión de control
 - **Validation Pipeline** - Validación centralizada
 
 > 📖 **Detalles:** Ver [PATRONES_DISEÑO.md](PATRONES_DISEÑO.md) para ejemplos de implementación
+
+---
+
+## ⚠️ Problemas de Arquitectura
+
+### 1. Domain Layer
+
+El proyecto `Domain.csproj` contiene exclusivamente `MediatR.Contracts` (contratos puros, no implementación).
+
+```xml
+<PackageReference Include="MediatR.Contracts" Version="2.0.1" />
+```
+
+---
+
+### 2. Handlers de Domain Events
+
+| Evento | Handler(s) | Estado |
+|--------|------------|--------|
+| `InscriptionStateChangedEvent` | 3 handlers: `StartProposalPhaseOnApprovalHandler` (PG), `CreateAcademicPracticeOnApprovalHandler` (PA), `StartMinorModalityPhaseOnApprovalHandler` (minor) | Implementado |
+| `UserRoleAssignedEvent` | `AssignPermissionsOnRoleAssignedHandler` | Implementado |
+| `ProjectFinalStateChangedEvent` | [PROBLEMA] No existe handler para este evento - es código huérfano | Sin implementar |
+| `AcademicPracticeStateChangedEvent` | `AdvanceAcademicPracticePhaseHandler` | Implementado |
+| `DocumentUploadedEvent` | `AdvancePhaseOnDocumentUploadedHandler` | Implementado |
+| `PreliminaryProjectStateChangedEvent` | `StartProjectPhaseOnPreliminaryApprovalHandler` | Implementado |
+| `ProposalStateChangedEvent` | `StartPreliminaryPhaseOnProposalApprovalHandler` | Implementado |
+| `ScientificArticleStateChangedEvent` | `AdvanceScientificArticlePhaseHandler` | Implementado |
+
+**Impacto:**
+- `ProjectFinalStateChangedEvent` **no tiene handler** - se dispara pero no ejecuta acción alguna
+- Las modalidades menores (CoTerminal, Seminar, SaberPro, AcademicAverage) **no tienen eventos de cambio de estado propios** - solo reciben creación automática via `StartMinorModalityPhaseOnApprovalHandler`
+
+---
+
+### 3. Actualización Parcial con Expression<Func>
+
+El método `UpdatePartialAsync` en `BaseRepository` expone internals de Entity Framework Core mediante `Expression<Func>`:
+
+```csharp
+Task UpdatePartialAsync(TEntity entity, Expression<Func<TEntity, object>> updatedFields);
+```
+
+**Implicaciones:**
+- Acopla el dominio a la implementación de EF Core
+- Dificulta unit testing
+- Exposición de detalles de infraestructura
 
 ---
 

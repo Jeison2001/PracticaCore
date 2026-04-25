@@ -37,8 +37,8 @@ Clase base para todos los tests de integración. Proporciona:
 - Acceso al Scope de servicios para consultar la base de datos en memoria (`_factory`).
 - Métodos de utilidad comunes.
 
-### 3.3. Fix de Estabilidad (ServiceExtensions)
-Se implementó un filtro en `Api/Extensions/ServiceExtensions.cs` para ignorar ensamblados dinámicos (proxies de Moq/Castle) durante el escaneo de tipos. Esto previene errores `ReflectionTypeLoadException` que causaban fallos intermitentes en los tests.
+### 3.3. Estabilidad (ServiceExtensions)
+Un filtro en `Api/Extensions/ServiceExtensions.cs` ignora ensamblados dinámicos (proxies de Moq/Castle) durante el escaneo de tipos.
 
 ## 4. Estrategia de Pruebas
 

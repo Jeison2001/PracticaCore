@@ -18,6 +18,7 @@ namespace Domain.Entities
         public DateTimeOffset? FinalPhaseApprovalDate { get; set; }
         public string? Observations { get; set; }
 
+        public virtual InscriptionModality InscriptionModality { get; set; } = null!;
         public virtual StateStage? StateStage { get; set; }
     }
 }

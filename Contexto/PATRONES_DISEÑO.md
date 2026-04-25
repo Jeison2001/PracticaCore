@@ -170,6 +170,21 @@ public async Task<IActionResult> Create([FromBody] ProposalDto dto)
 
 Los Domain Events gestionados por MediatR implementan el Patrón Observer a nivel de código. Esto permite acoplamiento débil entre el cambio de estado de una entidad y las reglas de negocio que se ejecutan como resultado.
 
+### Handlers de Eventos
+
+| Evento | Handler(s) | Estado |
+|--------|------------|--------|
+| `InscriptionStateChangedEvent` | 3 handlers: `StartProposalPhaseOnApprovalHandler`, `CreateAcademicPracticeOnApprovalHandler`, `StartMinorModalityPhaseOnApprovalHandler` | Implementado |
+| `UserRoleAssignedEvent` | `AssignPermissionsOnRoleAssignedHandler` | Implementado |
+| `ProjectFinalStateChangedEvent` | — | Pendiente |
+| `AcademicPracticeStateChangedEvent` | `AdvanceAcademicPracticePhaseHandler` | Implementado |
+| `DocumentUploadedEvent` | `AdvancePhaseOnDocumentUploadedHandler` | Implementado |
+| `PreliminaryProjectStateChangedEvent` | `StartProjectPhaseOnPreliminaryApprovalHandler` | Implementado |
+| `ProposalStateChangedEvent` | `StartPreliminaryPhaseOnProposalApprovalHandler` | Implementado |
+| `ScientificArticleStateChangedEvent` | `AdvanceScientificArticlePhaseHandler` | Implementado |
+
+**Nota:** `ProjectFinalStateChangedEvent` aún no tiene handler definido — queda pendiente para futura implementación.
+
 ### Definición del Evento (Dominio)
 
 ```csharp

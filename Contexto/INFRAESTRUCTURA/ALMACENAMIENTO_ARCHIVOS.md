@@ -2,14 +2,14 @@
 
 El sistema implementa una abstracción `IFileStorageService` que permite cambiar el proveedor de almacenamiento mediante configuración, sin modificar el código de la aplicación.
 
-## Proveedores Soportados
+## Proveedores Disponibles
 
 | Proveedor | Estado | Clave Configuración |
 |-----------|--------|---------------------|
 | **Local** | ✅ Activo | `Local` |
 | **Google Cloud** | ✅ Activo | `Google` |
 | **Azure Blob** | ✅ Activo | `Azure` |
-| **AWS S3** | ⚠️ Pendiente | `AWS` |
+| **AWS S3** | No implementado | Todos los métodos lanzan `NotImplementedException` |
 
 ## Configuración (`appsettings.json`)
 

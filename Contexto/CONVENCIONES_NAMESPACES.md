@@ -44,8 +44,6 @@ Domain.Interfaces.Services
   ├── Auth/
   │   ├── IAuthService.cs
   │   └── IJwtService.cs
-  ├── Cache/
-  │   └── ICacheService.cs
   ├── Notifications/
   │   ├── INotificationService.cs
   │   ├── Builders/
@@ -103,12 +101,10 @@ Infrastructure.Data
   └── Configurations/
 
 Infrastructure.Repositories
-  ├── UnitOfWork.cs
-  └── Cache/
+  └── UnitOfWork.cs
 
 Infrastructure.Services
   ├── Auth/
-  ├── Cache/
   ├── Notifications/
   └── Storage/
 
@@ -129,14 +125,11 @@ Api.Responses
 Api.SwaggerFilters
 ```
 
-## Migración de Namespaces Obsoletos
-
-### Cambios Recientes (2025)
+## Namespaces Obsoletos
 
 | Obsoleto | Actual |
 |----------|--------|
 | `Domain.Interfaces.Auth` | `Domain.Interfaces.Services.Auth` |
-| `Domain.Interfaces.Cache` | `Domain.Interfaces.Services.Cache` |
 | `Domain.Interfaces.Notifications` | `Domain.Interfaces.Services.Notifications` |
 | `Domain.Interfaces.Storage` | `Domain.Interfaces.Services.Storage` |
 | `Domain.Interfaces.Services.Notifications.Services` | `Domain.Interfaces.Services.Notifications` |

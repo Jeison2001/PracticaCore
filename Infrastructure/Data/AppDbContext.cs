@@ -22,7 +22,8 @@ namespace Infrastructure.Data
          public DbSet<DocumentClass> DocumentClasses => Set<DocumentClass>();
          public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
          public DbSet<Document> Documents => Set<Document>();
-         
+         public DbSet<StudyPlan> StudyPlans => Set<StudyPlan>();
+
 
          // Email Notification entities
          public DbSet<EmailNotificationConfig> EmailNotificationConfigs => Set<EmailNotificationConfig>();

@@ -16,6 +16,12 @@ namespace Infrastructure.Data.Configurations
             builder.HasOne(e => e.StateStage)
                 .WithMany()
                 .HasForeignKey(e => e.IdStateStage);
+
+            // Relación 1:1 con InscriptionModality (patrón tabla extensión)
+            builder.HasOne(e => e.InscriptionModality)
+                .WithOne()
+                .HasForeignKey<PreliminaryProject>(e => e.Id)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

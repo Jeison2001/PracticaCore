@@ -72,7 +72,6 @@ Domain/
         ├── Auth/
 │       │   ├── IAuthService.cs
 │       │   └── ITokenValidator.cs
-        ├── Cache/
         ├── Notifications/
         └── Storage/
 ```
@@ -155,11 +154,7 @@ Infrastructure/
 ├── Repositories/
 │   ├── BaseRepository.cs
 │   ├── UnitOfWork.cs
-│   ├── {Entity}Repository.cs
-│   └── Cache/
-│       ├── CachedRepository.cs
-│       ├── CachedRepositoryFactory.cs
-│       └── CachedUnitOfWork.cs
+│   └── {Entity}Repository.cs
 ├── Services/
 │   ├── AcademicPeriodService.cs
 │   ├── UserService.cs
@@ -167,8 +162,6 @@ Infrastructure/
 │   │   ├── GoogleAuthService.cs
 │   │   ├── GoogleTokenValidator.cs
 │   │   └── JwtService.cs
-│   ├── Cache/
-│   │   └── MemoryCacheService.cs
 │   ├── Notifications/
 │   │   ├── EmailNotificationQueueService.cs
 │   │   └── SmtpNotificationService.cs
@@ -180,7 +173,6 @@ Infrastructure/
 │       ├── AzureBlobFileStorageService.cs
 │       └── AwsS3FileStorageService.cs
 └── Extensions/
-    ├── CacheServiceExtensions.cs
     ├── EmailNotificationServiceExtensions.cs
     └── QueryableExtensions.cs
 ```

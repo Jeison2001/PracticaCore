@@ -80,6 +80,57 @@ namespace Application.Validations.SpecificValidators.Course
 
 ---
 
+## ⚠️ Reglas de Validación de Auditoría
+
+**Importante:** Los campos de auditoría son generados por el backend y **NO deben validarse** en los FluentValidation validators.
+
+### Campos Prohibidos de Validar
+
+| Campo | Razón |
+|-------|-------|
+| `IdUserCreatedAt` | Generado automáticamente |
+| `IdUserUpdatedAt` | Generado automáticamente |
+| `CreatedAt` | Timestamp del servidor |
+| `UpdatedAt` | Timestamp del servidor |
+| `OperationRegister` | Generado por el sistema |
+
+### Excepción
+
+Validaciones de reglas de negocio que involucren fechas relacionadas **SÍ aplican**. Ejemplo válido:
+
+```csharp
+RuleFor(x => x.RevocationDate)
+    .GreaterThan(x => x.CreatedAt)
+    .When(x => x.RevocationDate.HasValue)
+    .WithMessage("La fecha de revocación debe ser posterior a la fecha de asignación.");
+```
+
+Esto es una **regla de negocio**, no auditoría.
+
+---
+
+## 🔒 Advertencias de Seguridad
+
+### 1. NO hardcodear credenciales
+
+**Nunca** commitear valores como:
+- Passwords de base de datos
+- JWT Secret Keys
+- API Keys de servicios externos (Azure, AWS, Google Cloud)
+- Credenciales SMTP
+
+**Alternativa:** Usar variables de entorno o archivos de configuración externos ignorados por git.
+
+### 2. Validación de DTOs en Commands
+
+Si creas un Command personalizado (no genérico), **DEBES** crear un validador FluentValidation asociado. NO usar validación manual en el Controller.
+
+### 3. CreateProposalDto con propiedad Id
+
+`CreateProposalDto` tiene una propiedad `Id` que no debería existir en un DTO de creación, ya que el ID es generado por la base de datos.
+
+---
+
 ### 3. Capa de Infraestructura (Infrastructure)
 
 **Crear configuración EF Core** en `Infrastructure/Data/Configurations/`

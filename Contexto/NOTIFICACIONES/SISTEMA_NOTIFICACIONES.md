@@ -58,3 +58,31 @@ Para agregar notificaciones a una nueva entidad, consulte la **[Guía de Extensi
 ### Correos no enviados
 - **Causa**: Fallo en SMTP o Hangfire.
 - **Solución**: Revise el Dashboard de Hangfire (`/hangfire`) y los logs de la aplicación.
+
+---
+
+## 🚨 Brechas Detectadas
+
+### 1. Modalidades Menores sin Domain Events
+
+| Modalidad | Entidad | Domain Event | Handler | Estado |
+|-----------|---------|--------------|---------|--------|
+| **CoTerminal** | `CoTerminal` | No definido | N/A | [BRECHA] |
+| **Seminar** | `Seminar` | No definido | N/A | [BRECHA] |
+| **SaberPro** | `SaberPro` | No definido | N/A | [BRECHA] |
+| **AcademicAverage** | `AcademicAverage` | No definido | N/A | [BRECHA] |
+| **ScientificArticle** | `ScientificArticle` | Definido | `AdvanceScientificArticlePhaseHandler` | Implementado |
+
+**Impacto:**
+- CoTerminal, Seminar, SaberPro, AcademicAverage **no tienen eventos de cambio de estado** - no hay trazabilidad de cambios
+- `ProjectFinalStateChangedEvent` **no tiene handler**
+
+### 2. Relación PreliminaryProject → InscriptionModality
+
+`PreliminaryProject` mantiene relación 1:1 con `InscriptionModality` a través de su clave primaria (el ID del proyecto coincide con el ID de la inscripción).
+
+### 3. Sin Jobs de Mantenimiento en Hangfire
+
+- No hay jobs recurrentes para limpiar tablas antiguas
+- No hay jobs de respaldo o mantenimiento
+- Las tablas de Hangfire crecen indefinidamente
