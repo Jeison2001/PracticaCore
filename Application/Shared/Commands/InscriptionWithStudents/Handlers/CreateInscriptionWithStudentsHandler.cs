@@ -190,7 +190,12 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
                 await inscriptionModalityRepo.AddAsync(inscriptionModality);
 
-                // 3. Dispatch initial domain event to trigger extension record creation
+                // 3. Commit para generar IDs antes de publicar el evento de dominio.
+                //    Esto es necesario para modalidades con RequiresApproval=false (GP, SP)
+                //    cuyo handler necesita el ID real para crear el registro de extensión.
+                await _unitOfWork.CommitAsync(cancellationToken);
+
+                // 4. Dispatch domain event para activar creación de registro de extensión
                 var primaryStudentId = userDictionary.Values.First().Id;
                 await _mediator.Publish(new Domain.Events.InscriptionStateChangedEvent(
                     InscriptionModalityId: inscriptionModality.Id,
@@ -199,7 +204,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     TriggeredByUserId: primaryStudentId
                 ), cancellationToken);
 
-                // 4. Un solo CommitAsync — atómico, sin huérfanos
+                // 5. Commit para persistir cambios del handler (permisos, registro extensión)
                 await _unitOfWork.CommitAsync(cancellationToken);
 
                 // 5. Prepare response
