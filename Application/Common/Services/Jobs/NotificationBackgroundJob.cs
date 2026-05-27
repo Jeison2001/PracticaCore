@@ -240,5 +240,60 @@ namespace Application.Common.Services.Jobs
 
         public Task HandleInscriptionCreationAsync(int inscriptionId) => HandleEntityCreationAsync<InscriptionModality, int>(inscriptionId);
 
+        public async Task HandleCoTerminalChangeAsync(int entityId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<CoTerminal, int>>();
+                if (repository == null) return;
+                var entity = await repository.GetByIdAsync(entityId);
+                if (entity == null) return;
+                var oldEntity = new CoTerminal { Id = entityId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<CoTerminal, int>(oldEntity, entity);
+            }
+            catch (Exception ex) { _logger.LogError(ex, "Error processing CoTerminal change job"); throw; }
+        }
+
+        public async Task HandleSeminarChangeAsync(int entityId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<Seminar, int>>();
+                if (repository == null) return;
+                var entity = await repository.GetByIdAsync(entityId);
+                if (entity == null) return;
+                var oldEntity = new Seminar { Id = entityId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<Seminar, int>(oldEntity, entity);
+            }
+            catch (Exception ex) { _logger.LogError(ex, "Error processing Seminar change job"); throw; }
+        }
+
+        public async Task HandleSaberProChangeAsync(int entityId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<SaberPro, int>>();
+                if (repository == null) return;
+                var entity = await repository.GetByIdAsync(entityId);
+                if (entity == null) return;
+                var oldEntity = new SaberPro { Id = entityId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<SaberPro, int>(oldEntity, entity);
+            }
+            catch (Exception ex) { _logger.LogError(ex, "Error processing SaberPro change job"); throw; }
+        }
+
+        public async Task HandleScientificArticleChangeAsync(int entityId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<ScientificArticle, int>>();
+                if (repository == null) return;
+                var entity = await repository.GetByIdAsync(entityId);
+                if (entity == null) return;
+                var oldEntity = new ScientificArticle { Id = entityId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<ScientificArticle, int>(oldEntity, entity);
+            }
+            catch (Exception ex) { _logger.LogError(ex, "Error processing ScientificArticle change job"); throw; }
+        }
     }
 }

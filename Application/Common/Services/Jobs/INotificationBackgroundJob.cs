@@ -15,5 +15,9 @@ namespace Application.Common.Services.Jobs
         Task HandleProjectFinalChangeAsync(int projectFinalId, int oldStateId);
         Task HandleInscriptionCreationAsync(int inscriptionId);
         Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId);
+        Task HandleCoTerminalChangeAsync(int entityId, int oldStateId);
+        Task HandleSeminarChangeAsync(int entityId, int oldStateId);
+        Task HandleSaberProChangeAsync(int entityId, int oldStateId);
+        Task HandleScientificArticleChangeAsync(int entityId, int oldStateId);
     }
 }

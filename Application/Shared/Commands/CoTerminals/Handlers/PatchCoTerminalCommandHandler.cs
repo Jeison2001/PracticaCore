@@ -1,9 +1,11 @@
 using Application.Common.Services;
+using Application.Common.Services.Jobs;
 using Application.Shared.DTOs.CoTerminals;
 using AutoMapper;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Linq.Expressions;
@@ -15,17 +17,20 @@ namespace Application.Shared.Commands.CoTerminals.Handlers
         private readonly IRepository<CoTerminal, int> _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IJobEnqueuer _jobEnqueuer;
         private readonly ILogger<PatchCoTerminalCommandHandler> _logger;
 
         public PatchCoTerminalCommandHandler(
             IRepository<CoTerminal, int> repository,
             IUnitOfWork unitOfWork,
             IMapper mapper,
+            IJobEnqueuer jobEnqueuer,
             ILogger<PatchCoTerminalCommandHandler> logger)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _jobEnqueuer = jobEnqueuer;
             _logger = logger;
         }
 
@@ -34,6 +39,8 @@ namespace Application.Shared.Commands.CoTerminals.Handlers
             var entity = await _repository.GetByIdAsync(request.Id);
             if (entity == null)
                 throw new KeyNotFoundException($"CoTerminal with ID {request.Id} not found.");
+
+            var originalStateId = entity.IdStateStage;
 
             _logger.LogInformation("Patching CoTerminal Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
@@ -71,6 +78,9 @@ namespace Application.Shared.Commands.CoTerminals.Handlers
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);
+
+            if (request.Dto.IdStateStage.HasValue && request.Dto.IdStateStage.Value != originalStateId)
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleCoTerminalChangeAsync(request.Id, originalStateId));
 
             return _mapper.Map<CoTerminalDto>(entity);
         }

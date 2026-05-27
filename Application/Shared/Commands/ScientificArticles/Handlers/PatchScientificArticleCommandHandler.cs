@@ -1,4 +1,6 @@
 using Application.Common.Services;
+using Application.Common.Services.Jobs;
+using Domain.Interfaces.Services.Jobs;
 using Application.Shared.DTOs.ScientificArticles;
 using AutoMapper;
 using Domain.Constants;
@@ -15,17 +17,21 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
         private readonly IRepository<ScientificArticle, int> _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IJobEnqueuer _jobEnqueuer;
         private readonly ILogger<PatchScientificArticleCommandHandler> _logger;
 
         public PatchScientificArticleCommandHandler(
             IRepository<ScientificArticle, int> repository,
             IUnitOfWork unitOfWork,
             IMapper mapper,
+            IJobEnqueuer jobEnqueuer,
             ILogger<PatchScientificArticleCommandHandler> logger)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _jobEnqueuer = jobEnqueuer;
+            _jobEnqueuer = jobEnqueuer;
             _logger = logger;
         }
 
@@ -34,6 +40,8 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
             var entity = await _repository.GetByIdAsync(request.Id);
             if (entity == null)
                 throw new KeyNotFoundException($"ScientificArticle with ID {request.Id} not found.");
+
+            var originalStateId = entity.IdStateStage;
 
             _logger.LogInformation("Patching ScientificArticle Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
@@ -71,6 +79,9 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);
+
+            if (request.Dto.IdStateStage.HasValue && request.Dto.IdStateStage.Value != originalStateId)
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleScientificArticleChangeAsync(request.Id, originalStateId));
 
             return _mapper.Map<ScientificArticleDto>(entity);
         }
