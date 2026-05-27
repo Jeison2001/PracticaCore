@@ -16,13 +16,16 @@ namespace Application.Features.MinorModalities.EventHandlers
     public class StartMinorModalityPhaseOnApprovalHandler : INotificationHandler<InscriptionStateChangedEvent>
     {
         // Mapa de código de Modalidad → permisos iniciales a asignar.
+        // Permisos iniciales asignados al ESTUDIANTE cuando su inscripción es aprobada.
+        // El estudiante recibe: acceso al módulo (N1), registrar documentos (N2xxR) y estado de solicitud (N2xxES).
+        // Los permisos de gestión (N2xxSG) y revisión (N3xxSGR) se asignan vía roles de coordinador/evaluador.
         private static readonly Dictionary<string, string[]> _permissionsByModality = new()
         {
-            [ModalityCodes.CoTerminal]          = [PermissionCodes.CoTerminal.N1CT,  PermissionCodes.CoTerminal.N2CTC],
-            [ModalityCodes.SeminarioAct]        = [PermissionCodes.Seminario.N1SA,   PermissionCodes.Seminario.N2SAC],
-            [ModalityCodes.PublicacionArticulo] = [PermissionCodes.PublicacionArticulo.N1PC, PermissionCodes.PublicacionArticulo.N2PCC],
+            [ModalityCodes.CoTerminal]          = [PermissionCodes.CoTerminal.N1CT,  PermissionCodes.CoTerminal.N2CTR, PermissionCodes.CoTerminal.N2CTC],
+            [ModalityCodes.SeminarioAct]        = [PermissionCodes.Seminario.N1SA,   PermissionCodes.Seminario.N2SAR, PermissionCodes.Seminario.N2SAC],
+            [ModalityCodes.PublicacionArticulo] = [PermissionCodes.PublicacionArticulo.N1PC, PermissionCodes.PublicacionArticulo.N2PCR, PermissionCodes.PublicacionArticulo.N2PCC],
             [ModalityCodes.GradoPromedio]       = [PermissionCodes.GradoPromedio.N1GP, PermissionCodes.GradoPromedio.N2GPES, PermissionCodes.GradoPromedio.N2GPR],
-            [ModalityCodes.SaberPro]            = [PermissionCodes.SaberPro.N1SP,   PermissionCodes.SaberPro.N2SPC],
+            [ModalityCodes.SaberPro]            = [PermissionCodes.SaberPro.N1SP,   PermissionCodes.SaberPro.N2SPR, PermissionCodes.SaberPro.N2SPC],
         };
 
         private readonly IUnitOfWork _unitOfWork;

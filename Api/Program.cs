@@ -128,11 +128,12 @@ var app = builder.Build();
     });
 //}
 
-app.UseHttpsRedirection();
-app.UseMiddleware<GlobalExceptionMiddleware>();
-
-// Agregar middleware de CORS (debe ir antes del middleware de autenticación y autorización)
 app.UseCors("AllowedOrigins");
+
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
+
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // Añadir autenticación al pipeline
 app.UseAuthentication();

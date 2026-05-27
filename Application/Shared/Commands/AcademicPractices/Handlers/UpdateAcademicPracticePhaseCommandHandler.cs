@@ -1,7 +1,9 @@
+using Domain.Constants;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Application.Common.Services;
 using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.AcademicPractices.Handlers
@@ -45,6 +47,31 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 cancellationToken);
 
             if (!result) return false;
+
+            // Registrar historial de observaciones (general y del evaluador)
+            var userId = request.CurrentUser.UserId ?? 0;
+            if (!string.IsNullOrWhiteSpace(dto.Observations))
+            {
+                await ObservationHistoryHelper.CreateAsync(
+                    _unitOfWork,
+                    entityType: nameof(AcademicPractice),
+                    entityId: entity.Id,
+                    evaluatorId: userId,
+                    evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
+                    observations: dto.Observations,
+                    cancellationToken);
+            }
+            if (!string.IsNullOrWhiteSpace(dto.EvaluatorObservations))
+            {
+                await ObservationHistoryHelper.CreateAsync(
+                    _unitOfWork,
+                    entityType: nameof(AcademicPractice),
+                    entityId: entity.Id,
+                    evaluatorId: userId,
+                    evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
+                    observations: dto.EvaluatorObservations,
+                    cancellationToken);
+            }
 
             await _unitOfWork.CommitAsync(cancellationToken);
 

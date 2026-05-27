@@ -29,16 +29,16 @@ namespace Tests.Integration.EventHandlers
         // Cada fila Theory: (userId, inscriptionId, modalityCode, requiresApproval, stateCode, permCodes[])
         public static TheoryData<int, int, string, bool, string, string[]> ModalityScenarios() => new()
         {
-            // CoTerminal (RequiresApproval=false) → se dispara en NO_APLICA
-            { 1, 1, ModalityCodes.CoTerminal,          false, StateInscriptionCodes.NoAplica, [PermissionCodes.CoTerminal.N1CT,            PermissionCodes.CoTerminal.N2CTC] },
+            // CoTerminal (RequiresApproval=false) → se dispara en NO_APLICA; estudiante recibe N1CT + registrar + estado
+            { 1, 1, ModalityCodes.CoTerminal,          false, StateInscriptionCodes.NoAplica, [PermissionCodes.CoTerminal.N1CT, PermissionCodes.CoTerminal.N2CTR, PermissionCodes.CoTerminal.N2CTC] },
             // Seminario (RequiresApproval=true) → se dispara en APROBADO
-            { 2, 2, ModalityCodes.SeminarioAct,         true,  StateInscriptionCodes.Aprobado, [PermissionCodes.Seminario.N1SA,             PermissionCodes.Seminario.N2SAC] },
+            { 2, 2, ModalityCodes.SeminarioAct,         true,  StateInscriptionCodes.Aprobado, [PermissionCodes.Seminario.N1SA,  PermissionCodes.Seminario.N2SAR,  PermissionCodes.Seminario.N2SAC] },
             // Publicacion Articulo (RequiresApproval=true) → se dispara en APROBADO
-            { 3, 3, ModalityCodes.PublicacionArticulo,  true,  StateInscriptionCodes.Aprobado, [PermissionCodes.PublicacionArticulo.N1PC,  PermissionCodes.PublicacionArticulo.N2PCC] },
+            { 3, 3, ModalityCodes.PublicacionArticulo,  true,  StateInscriptionCodes.Aprobado, [PermissionCodes.PublicacionArticulo.N1PC, PermissionCodes.PublicacionArticulo.N2PCR, PermissionCodes.PublicacionArticulo.N2PCC] },
             // Grado Promedio (RequiresApproval=false) → se dispara en NO_APLICA
-            { 4, 4, ModalityCodes.GradoPromedio,       false, StateInscriptionCodes.NoAplica, [PermissionCodes.GradoPromedio.N1GP,       PermissionCodes.GradoPromedio.N2GPES, PermissionCodes.GradoPromedio.N2GPR] },
+            { 4, 4, ModalityCodes.GradoPromedio,       false, StateInscriptionCodes.NoAplica, [PermissionCodes.GradoPromedio.N1GP, PermissionCodes.GradoPromedio.N2GPES, PermissionCodes.GradoPromedio.N2GPR] },
             // Saber Pro (RequiresApproval=false) → se dispara en NO_APLICA
-            { 5, 5, ModalityCodes.SaberPro,            false, StateInscriptionCodes.NoAplica, [PermissionCodes.SaberPro.N1SP,            PermissionCodes.SaberPro.N2SPC] },
+            { 5, 5, ModalityCodes.SaberPro,            false, StateInscriptionCodes.NoAplica, [PermissionCodes.SaberPro.N1SP,   PermissionCodes.SaberPro.N2SPR,   PermissionCodes.SaberPro.N2SPC] },
         };
 
         [Theory]

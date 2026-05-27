@@ -1,6 +1,8 @@
+using Application.Common.Services;
 using Application.Common.Services.Jobs;
 using Application.Shared.DTOs.PreliminaryProjects;
 using AutoMapper;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
@@ -79,6 +81,18 @@ namespace Application.Shared.Commands.PreliminaryProjects.Handlers
             {
                 entity.Observations = request.Dto.Observations;
                 updatedProperties.Add(x => x.Observations);
+            }
+
+            // Registrar historial de observaciones
+            if (!string.IsNullOrWhiteSpace(request.Dto.Observations))
+            {
+                await ObservationHistoryHelper.CreateAsync(_unitOfWork,
+                    entityType: nameof(PreliminaryProject),
+                    entityId: entity.Id,
+                    evaluatorId: request.CurrentUser.UserId ?? 0,
+                    evaluationTypeCode: EvaluationTypeCodes.PreliminaryProject,
+                    observations: request.Dto.Observations,
+                    cancellationToken);
             }
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());

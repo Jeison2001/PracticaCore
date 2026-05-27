@@ -1,8 +1,10 @@
 using Application.Shared.DTOs.AcademicPractices;
+using Domain.Constants;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Application.Common.Services;
 using Application.Common.Services.Jobs;
 
 namespace Application.Shared.Commands.AcademicPractices.Handlers
@@ -44,6 +46,19 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
 
             // Actualizar campos de institución
             UpdateInstitutionFields(academicPractice, dto);
+
+            // Registrar historial de observaciones
+            if (!string.IsNullOrWhiteSpace(dto.Observations))
+            {
+                await ObservationHistoryHelper.CreateAsync(
+                    _unitOfWork,
+                    entityType: nameof(AcademicPractice),
+                    entityId: academicPractice.Id,
+                    evaluatorId: request.CurrentUser.UserId ?? 0,
+                    evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
+                    observations: dto.Observations,
+                    cancellationToken);
+            }
 
             // Cambiar de estado si se especifica (ej: pasar a PA_PEND_APROBACION_DOCUMENTOS después de radicar docs)
             if (hasStateChange)

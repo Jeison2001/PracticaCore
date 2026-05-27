@@ -1,9 +1,11 @@
 using Api.Responses;
+using Application.Shared.Commands.CoTerminals;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.CoTerminals;
 using Application.Shared.Queries.CoTerminals;
 using Domain.Entities;
 using Domain.Common;
+using Domain.Common.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +18,15 @@ namespace Api.Controllers
         public CoTerminalController(IMediator mediator) : base(mediator)
         {
             _mediator = mediator;
+        }
+
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] CoTerminalPatchDto dto)
+        {
+            var currentUser = User.GetCurrentUserInfo();
+            var command = new PatchCoTerminalCommand(id, dto, currentUser);
+            var result = await _mediator.Send(command);
+            return Ok(new ApiResponse<CoTerminalDto> { Success = true, Data = result });
         }
 
         [HttpGet("GetAll")]

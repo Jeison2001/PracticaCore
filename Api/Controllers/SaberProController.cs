@@ -1,9 +1,11 @@
 using Api.Responses;
+using Application.Shared.Commands.SaberPros;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.SaberPros;
 using Application.Shared.Queries.SaberPros;
 using Domain.Entities;
 using Domain.Common;
+using Domain.Common.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +18,15 @@ namespace Api.Controllers
         public SaberProController(IMediator mediator) : base(mediator)
         {
             _mediator = mediator;
+        }
+
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] SaberProPatchDto dto)
+        {
+            var currentUser = User.GetCurrentUserInfo();
+            var command = new PatchSaberProCommand(id, dto, currentUser);
+            var result = await _mediator.Send(command);
+            return Ok(new ApiResponse<SaberProDto> { Success = true, Data = result });
         }
 
         [HttpGet("GetAll")]

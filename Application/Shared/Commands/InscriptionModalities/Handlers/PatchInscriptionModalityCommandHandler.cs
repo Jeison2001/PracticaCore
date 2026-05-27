@@ -1,7 +1,9 @@
 using Application.Shared.Commands.InscriptionModalities;
 using Application.Shared.DTOs.InscriptionModalities;
 using AutoMapper;
+using Domain.Constants;
 using Domain.Entities;
+using Application.Common.Services;
 using Application.Common.Services.Jobs;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
@@ -95,6 +97,18 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
             {
                 entity.Observations = request.Dto.Observations;
                 updatedProperties.Add(x => x.Observations);
+            }
+
+            // Registrar historial de observaciones
+            if (!string.IsNullOrWhiteSpace(request.Dto.Observations))
+            {
+                await ObservationHistoryHelper.CreateAsync(_unitOfWork,
+                    entityType: nameof(InscriptionModality),
+                    entityId: entity.Id,
+                    evaluatorId: request.CurrentUser.UserId ?? 0,
+                    evaluationTypeCode: EvaluationTypeCodes.InscriptionModality,
+                    observations: request.Dto.Observations,
+                    cancellationToken);
             }
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());

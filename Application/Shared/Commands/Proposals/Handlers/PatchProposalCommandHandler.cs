@@ -1,7 +1,9 @@
 using Application.Shared.Commands.Proposals;
 using Application.Shared.DTOs.Proposals;
+using Application.Common.Services;
 using Application.Common.Services.Jobs;
 using AutoMapper;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
@@ -72,6 +74,18 @@ namespace Application.Shared.Commands.Proposals.Handlers
             {
                 entity.Observation = request.Dto.Observation;
                 updatedProperties.Add(x => x.Observation);
+            }
+
+            // Registrar historial de observaciones
+            if (!string.IsNullOrWhiteSpace(request.Dto.Observation))
+            {
+                await ObservationHistoryHelper.CreateAsync(_unitOfWork,
+                    entityType: nameof(Proposal),
+                    entityId: entity.Id,
+                    evaluatorId: request.CurrentUser.UserId ?? 0,
+                    evaluationTypeCode: EvaluationTypeCodes.Proposal,
+                    observations: request.Dto.Observation,
+                    cancellationToken);
             }
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());

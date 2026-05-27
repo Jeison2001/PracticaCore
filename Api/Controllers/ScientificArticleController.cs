@@ -1,9 +1,11 @@
 using Api.Responses;
+using Application.Shared.Commands.ScientificArticles;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.ScientificArticles;
 using Application.Shared.Queries.ScientificArticles;
 using Domain.Entities;
 using Domain.Common;
+using Domain.Common.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +18,15 @@ namespace Api.Controllers
         public ScientificArticleController(IMediator mediator) : base(mediator)
         {
             _mediator = mediator;
+        }
+
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] ScientificArticlePatchDto dto)
+        {
+            var currentUser = User.GetCurrentUserInfo();
+            var command = new PatchScientificArticleCommand(id, dto, currentUser);
+            var result = await _mediator.Send(command);
+            return Ok(new ApiResponse<ScientificArticleDto> { Success = true, Data = result });
         }
 
         [HttpGet("GetAll")]
