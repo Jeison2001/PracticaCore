@@ -2,6 +2,7 @@ using MediatR;
 using System.Linq.Expressions;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Documents;
 
 namespace Application.Shared.Commands.Documents.Handlers
 {
@@ -14,11 +15,16 @@ namespace Application.Shared.Commands.Documents.Handlers
     {
         private readonly IRepository<Document, int> _repository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDocumentAccessGuard _accessGuard;
 
-        public UpdateDocumentStatusCommandHandler(IRepository<Document, int> repository, IUnitOfWork unitOfWork)
+        public UpdateDocumentStatusCommandHandler(
+            IRepository<Document, int> repository,
+            IUnitOfWork unitOfWork,
+            IDocumentAccessGuard accessGuard)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
+            _accessGuard = accessGuard;
         }
 
         public async Task<bool> Handle(UpdateDocumentStatusCommand request, CancellationToken cancellationToken)
@@ -26,6 +32,11 @@ namespace Application.Shared.Commands.Documents.Handlers
             var entity = await _repository.GetByIdAsync(request.Id);
             if (entity == null)
                 return false;
+
+            // Seguridad (anti-IDOR): solo usuarios vinculados a la inscripcion pueden modificar
+            // el documento. Logica centralizada y fail-closed en IDocumentAccessGuard. Ante fallo
+            // lanza ForbiddenAccessException (403), NO devuelve false (que se confundiria con NotFound).
+            await _accessGuard.EnsureUserCanModifyAsync(entity, request.CurrentUser.UserId ?? 0, cancellationToken);
 
             entity.StatusRegister = request.StatusRegister;
             entity.IdUserUpdatedAt = request.CurrentUser.UserId;

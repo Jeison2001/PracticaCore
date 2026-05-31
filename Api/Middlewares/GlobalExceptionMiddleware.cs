@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Api.Responses;
+using Domain.Exceptions;
 
 namespace Api.Middlewares
 {
@@ -50,6 +51,13 @@ namespace Api.Middlewares
             else if (exception is KeyNotFoundException)
             {
                 context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                response.Errors.Add(exception.Message);
+            }
+            else if (exception is ForbiddenAccessException)
+            {
+                // 403: usuario AUTENTICADO pero sin permiso sobre el recurso (autorizacion a
+                // nivel de dato). Distinto de UnauthorizedAccessException (401, no autenticado).
+                context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
                 response.Errors.Add(exception.Message);
             }
             else if (exception is UnauthorizedAccessException)

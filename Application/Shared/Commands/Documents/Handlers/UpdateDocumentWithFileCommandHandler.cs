@@ -3,7 +3,9 @@ using AutoMapper;
 using MediatR;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Documents;
 using Domain.Interfaces.Services.Storage;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Shared.Commands.Documents.Handlers
 {
@@ -18,17 +20,20 @@ namespace Application.Shared.Commands.Documents.Handlers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IDocumentAccessGuard _accessGuard;
 
         public UpdateDocumentWithFileCommandHandler(
             IRepository<Document, int> repository,
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            IFileStorageService fileStorageService)
+            IFileStorageService fileStorageService,
+            IDocumentAccessGuard accessGuard)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _fileStorageService = fileStorageService;
+            _accessGuard = accessGuard;
         }
 
         public async Task<DocumentDto> Handle(UpdateDocumentWithFileCommand request, CancellationToken cancellationToken)
@@ -36,6 +41,10 @@ namespace Application.Shared.Commands.Documents.Handlers
             var entity = await _repository.GetByIdAsync(request.Id);
             if (entity == null)
                 throw new KeyNotFoundException($"Documento con id {request.Id} no encontrado.");
+
+            // Seguridad (anti-IDOR): solo usuarios vinculados a la inscripcion pueden modificar
+            // el documento. Logica centralizada y fail-closed en IDocumentAccessGuard.
+            await _accessGuard.EnsureUserCanModifyAsync(entity, request.CurrentUser.UserId ?? 0, cancellationToken);
 
             int idDocumentType = request.Dto.IdDocumentType;
             if (!string.IsNullOrWhiteSpace(request.Dto.CodeDocumentType))

@@ -1,31 +1,31 @@
 using Application.Common.Services;
 using Application.Common.Services.Jobs;
-using Domain.Interfaces.Services.Jobs;
-using Application.Shared.DTOs.SaberPros;
+using Application.Shared.DTOs.AcademicAverages;
 using AutoMapper;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Linq.Expressions;
 
-namespace Application.Shared.Commands.SaberPros.Handlers
+namespace Application.Shared.Commands.AcademicAverages.Handlers
 {
-    public class PatchSaberProCommandHandler : IRequestHandler<PatchSaberProCommand, SaberProDto>
+    public class PatchAcademicAverageCommandHandler : IRequestHandler<PatchAcademicAverageCommand, AcademicAverageDto>
     {
-        private readonly IRepository<SaberPro, int> _repository;
+        private readonly IRepository<AcademicAverage, int> _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IJobEnqueuer _jobEnqueuer;
-        private readonly ILogger<PatchSaberProCommandHandler> _logger;
+        private readonly ILogger<PatchAcademicAverageCommandHandler> _logger;
 
-        public PatchSaberProCommandHandler(
-            IRepository<SaberPro, int> repository,
+        public PatchAcademicAverageCommandHandler(
+            IRepository<AcademicAverage, int> repository,
             IUnitOfWork unitOfWork,
             IMapper mapper,
             IJobEnqueuer jobEnqueuer,
-            ILogger<PatchSaberProCommandHandler> logger)
+            ILogger<PatchAcademicAverageCommandHandler> logger)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
@@ -34,18 +34,18 @@ namespace Application.Shared.Commands.SaberPros.Handlers
             _logger = logger;
         }
 
-        public async Task<SaberProDto> Handle(PatchSaberProCommand request, CancellationToken cancellationToken)
+        public async Task<AcademicAverageDto> Handle(PatchAcademicAverageCommand request, CancellationToken cancellationToken)
         {
             var entity = await _repository.GetByIdAsync(request.Id);
             if (entity == null)
-                throw new KeyNotFoundException($"SaberPro with ID {request.Id} not found.");
+                throw new KeyNotFoundException($"AcademicAverage with ID {request.Id} not found.");
 
             var originalStateId = entity.IdStateStage;
 
-            _logger.LogInformation("Patching SaberPro Id={Id}. StateStage={State}, Observations={Obs}",
+            _logger.LogInformation("Patching AcademicAverage Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
 
-            var updatedProperties = new List<Expression<Func<SaberPro, object?>>>();
+            var updatedProperties = new List<Expression<Func<AcademicAverage, object?>>>();
 
             entity.IdUserUpdatedAt = request.CurrentUser.UserId;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
@@ -68,10 +68,10 @@ namespace Application.Shared.Commands.SaberPros.Handlers
             {
                 await ObservationHistoryHelper.CreateAsync(
                     _unitOfWork,
-                    entityType: nameof(SaberPro),
+                    entityType: nameof(AcademicAverage),
                     entityId: entity.Id,
                     evaluatorId: request.CurrentUser.UserId ?? 0,
-                    evaluationTypeCode: EvaluationTypeCodes.SaberPro,
+                    evaluationTypeCode: EvaluationTypeCodes.AcademicAverage,
                     observations: request.Dto.Observations,
                     cancellationToken);
             }
@@ -80,9 +80,9 @@ namespace Application.Shared.Commands.SaberPros.Handlers
             await _unitOfWork.CommitAsync(cancellationToken);
 
             if (request.Dto.IdStateStage.HasValue && request.Dto.IdStateStage.Value != originalStateId)
-                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleSaberProChangeAsync(request.Id, originalStateId));
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleAcademicAverageChangeAsync(request.Id, originalStateId));
 
-            return _mapper.Map<SaberProDto>(entity);
+            return _mapper.Map<AcademicAverageDto>(entity);
         }
     }
 }

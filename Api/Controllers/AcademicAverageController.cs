@@ -1,9 +1,11 @@
 using Api.Responses;
+using Application.Shared.Commands.AcademicAverages;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.AcademicAverages;
 using Application.Shared.Queries.AcademicAverages;
 using Domain.Entities;
 using Domain.Common;
+using Domain.Common.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +18,15 @@ namespace Api.Controllers
         public AcademicAverageController(IMediator mediator) : base(mediator)
         {
             _mediator = mediator;
+        }
+
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] AcademicAveragePatchDto dto)
+        {
+            var currentUser = User.GetCurrentUserInfo();
+            var command = new PatchAcademicAverageCommand(id, dto, currentUser);
+            var result = await _mediator.Send(command);
+            return Ok(new ApiResponse<AcademicAverageDto> { Success = true, Data = result });
         }
 
         [HttpGet("GetAll")]

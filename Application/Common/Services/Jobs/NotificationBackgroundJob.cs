@@ -295,5 +295,19 @@ namespace Application.Common.Services.Jobs
             }
             catch (Exception ex) { _logger.LogError(ex, "Error processing ScientificArticle change job"); throw; }
         }
+
+        public async Task HandleAcademicAverageChangeAsync(int entityId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<AcademicAverage, int>>();
+                if (repository == null) return;
+                var entity = await repository.GetByIdAsync(entityId);
+                if (entity == null) return;
+                var oldEntity = new AcademicAverage { Id = entityId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<AcademicAverage, int>(oldEntity, entity);
+            }
+            catch (Exception ex) { _logger.LogError(ex, "Error processing AcademicAverage change job"); throw; }
+        }
     }
 }

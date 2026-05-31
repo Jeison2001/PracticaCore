@@ -19,5 +19,6 @@ namespace Application.Common.Services.Jobs
         Task HandleSeminarChangeAsync(int entityId, int oldStateId);
         Task HandleSaberProChangeAsync(int entityId, int oldStateId);
         Task HandleScientificArticleChangeAsync(int entityId, int oldStateId);
+        Task HandleAcademicAverageChangeAsync(int entityId, int oldStateId);
     }
 }
