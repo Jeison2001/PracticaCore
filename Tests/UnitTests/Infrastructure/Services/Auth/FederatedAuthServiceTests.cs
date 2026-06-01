@@ -8,28 +8,29 @@ using Xunit;
 
 namespace Tests.UnitTests.Infrastructure.Services.Auth
 {
-    public class GoogleAuthServiceTests
+    public class FederatedAuthServiceTests
     {
         private readonly Mock<IJwtService> _jwtServiceMock;
         private readonly Mock<IUserInfoRepository> _userInfoRepositoryMock;
         private readonly Mock<ITokenValidator> _tokenValidatorMock;
-        private readonly GoogleAuthService _service;
+        private readonly FederatedAuthService _service;
 
-        public GoogleAuthServiceTests()
+        public FederatedAuthServiceTests()
         {
             _jwtServiceMock = new Mock<IJwtService>();
             _userInfoRepositoryMock = new Mock<IUserInfoRepository>();
             _tokenValidatorMock = new Mock<ITokenValidator>();
+            _tokenValidatorMock.SetupGet(x => x.Provider).Returns("google");
 
-            _service = new GoogleAuthService(
+            _service = new FederatedAuthService(
                 _jwtServiceMock.Object,
                 _userInfoRepositoryMock.Object,
-                _tokenValidatorMock.Object
+                new[] { _tokenValidatorMock.Object }
             );
         }
 
         [Fact]
-        public async Task AuthenticateWithGoogleAsync_ValidToken_ReturnsResult()
+        public async Task AuthenticateWithTokenAsync_ValidToken_ReturnsResult()
         {
             var token = "valid_token";
             var email = "test@unicesar.edu.co";
@@ -73,7 +74,7 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 It.IsAny<string>()))
                 .Returns("jwt_token");
 
-            var result = await _service.AuthenticateWithGoogleAsync(token);
+            var result = await _service.AuthenticateWithTokenAsync(token, "google");
 
             Assert.NotNull(result);
             Assert.Equal("jwt_token", result.Token);
@@ -81,18 +82,18 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
         }
 
         [Fact]
-        public async Task AuthenticateWithGoogleAsync_InvalidToken_ThrowsUnauthorizedAccessException()
+        public async Task AuthenticateWithTokenAsync_InvalidToken_ThrowsUnauthorizedAccessException()
         {
             var token = "invalid_token";
             _tokenValidatorMock.Setup(x => x.ValidateAsync(token))
                 .ThrowsAsync(new Exception("Invalid token"));
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => 
-                _service.AuthenticateWithGoogleAsync(token));
+                _service.AuthenticateWithTokenAsync(token, "google"));
         }
 
         [Fact]
-        public async Task AuthenticateWithGoogleAsync_NewUser_CreatesUser()
+        public async Task AuthenticateWithTokenAsync_NewUser_CreatesUser()
         {
             var token = "valid_token";
             var email = "new@unicesar.edu.co";
@@ -139,11 +140,18 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 It.IsAny<string>()))
                 .Returns("jwt_token");
 
-            var result = await _service.AuthenticateWithGoogleAsync(token);
+            var result = await _service.AuthenticateWithTokenAsync(token, "google");
 
             Assert.NotNull(result);
             Assert.Equal(newUser.Email, result.User.Email);
             _userInfoRepositoryMock.Verify(x => x.CreateUserIfNotExistsAsync(email, "New", "User"), Times.Once);
+        }
+
+        [Fact]
+        public async Task AuthenticateWithTokenAsync_UnregisteredProvider_ThrowsUnauthorizedAccessException()
+        {
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                _service.AuthenticateWithTokenAsync("any_token", "azure"));
         }
     }
 }

@@ -1,6 +1,7 @@
 using Domain.Configuration;
 using Domain.Interfaces.Common;
 using Domain.Interfaces.Services.Storage;
+using Google.Apis.Auth.OAuth2;
 using Google.Cloud.Storage.V1;
 using Microsoft.Extensions.Options;
 
@@ -31,8 +32,11 @@ namespace Infrastructure.Services.Storage
                 // Si tenemos credenciales en configuración, usarlas de forma limpia y por proceso aislado
                 if (!string.IsNullOrEmpty(credentialsPath) && File.Exists(credentialsPath))
                 {
-                    var credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromFile(credentialsPath);
-                    _client = StorageClient.Create(credential);
+                    // Construye la credencial de cuenta de servicio desde el archivo JSON.
+                    using var keyStream = File.OpenRead(credentialsPath);
+                    var serviceAccount = ServiceAccountCredential.FromServiceAccountData(keyStream);
+                    var credential = GoogleCredential.FromServiceAccountCredential(serviceAccount);
+                    _client = new StorageClientBuilder { GoogleCredential = credential }.Build();
                     return;
                 }
 

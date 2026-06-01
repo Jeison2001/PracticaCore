@@ -45,14 +45,11 @@ namespace Api.Extensions
 
             ConfigureFileStorageService(services, config);
             ConfigureNotificationService(services, config);
+            ConfigureAuthenticationService(services, config);
 
-            // Auto-registro basado en interfaces marcadoras para servicios de infraestructura
+            // Auto-registro basado en interfaces marcadoras para servicios de infraestructura.
+            // Registra IAuthService -> FederatedAuthService y IManualAuthService -> ManualAuthService.
             RegisterByLifetime(services, typeof(UnitOfWork).Assembly);
-
-            // ManualAuthService para E2E testing (login sin Google OAuth)
-            services.AddScoped<IAuthService, ManualAuthService>();
-
-            services.AddScoped<GoogleAuthService>();
 
             services.AddHostedService<EnumConsistencyWorker>();
         }
@@ -339,6 +336,43 @@ namespace Api.Extensions
                     });
                     services.AddSingleton<IFileStorageService, LocalFileStorageService>();
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Configura los validadores de tokens de los proveedores de identidad habilitados.
+        /// Lee Authentication:Providers (lista) y registra todas las implementaciones de
+        /// ITokenValidator correspondientes, permitiendo varios proveedores concurrentes.
+        /// Falla rápido si la lista está vacía o incluye un proveedor no soportado.
+        /// </summary>
+        private static void ConfigureAuthenticationService(IServiceCollection services, IConfiguration config)
+        {
+            var providers = config.GetSection("Authentication:Providers").Get<string[]>();
+
+            if (providers == null || providers.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "Authentication:Providers no está configurado. Defina al menos un proveedor (ej: [\"google\", \"azure\"]).");
+            }
+
+            foreach (var raw in providers)
+            {
+                var provider = raw?.ToLowerInvariant();
+                switch (provider)
+                {
+                    case "google":
+                        services.Configure<GoogleAuthOptions>(config.GetSection("Authentication:Google"));
+                        services.AddScoped<ITokenValidator, GoogleTokenValidator>();
+                        break;
+                    case "azure":
+                        services.Configure<AzureAdAuthOptions>(config.GetSection("Authentication:AzureAd"));
+                        services.AddScoped<ITokenValidator, AzureAdTokenValidator>();
+                        break;
+                    default:
+                        throw new NotSupportedException(
+                            $"Proveedor de autenticación '{raw}' no soportado. " +
+                            $"Proveedores disponibles: google, azure");
+                }
             }
         }
 

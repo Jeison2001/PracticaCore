@@ -4,32 +4,45 @@ using Domain.Interfaces.Services.Auth;
 
 namespace Infrastructure.Services.Auth
 {
-    public class GoogleAuthService : IAuthService
+    /// <summary>
+    /// Orquestador de autenticación federada agnóstico del proveedor.
+    /// Valida el id_token a través de ITokenValidator (cuya implementación concreta
+    /// se selecciona por configuración), resuelve el usuario y emite el JWT propio.
+    /// </summary>
+    public class FederatedAuthService : IAuthService
     {
         private readonly IJwtService _jwtService;
         private readonly IUserInfoRepository _userInfoRepository;
-        private readonly ITokenValidator _tokenValidator;
+        private readonly IReadOnlyDictionary<string, ITokenValidator> _validators;
 
-        public GoogleAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, ITokenValidator tokenValidator)
+        public FederatedAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, IEnumerable<ITokenValidator> tokenValidators)
         {
             _jwtService = jwtService;
             _userInfoRepository = userInfoRepository;
-            _tokenValidator = tokenValidator;
+
+            // Indexa por proveedor; ante claves duplicadas, prevalece el último registrado.
+            var map = new Dictionary<string, ITokenValidator>(StringComparer.OrdinalIgnoreCase);
+            foreach (var validator in tokenValidators)
+            {
+                map[validator.Provider] = validator;
+            }
+            _validators = map;
         }
 
-        public Task<AuthenticationResult> AuthenticateManualAsync(string email, string? password)
+        public async Task<AuthenticationResult> AuthenticateWithTokenAsync(string idToken, string provider)
         {
-            throw new NotImplementedException("Use ManualAuthService para login manual");
-        }
+            if (string.IsNullOrWhiteSpace(provider) || !_validators.TryGetValue(provider, out var tokenValidator))
+            {
+                throw new UnauthorizedAccessException(
+                    $"Proveedor de autenticación '{provider}' no habilitado. Habilitados: {string.Join(", ", _validators.Keys)}");
+            }
 
-        public async Task<AuthenticationResult> AuthenticateWithGoogleAsync(string idToken)
-        {
             try
             {
-                var payload = await _tokenValidator.ValidateAsync(idToken);
-                
+                var payload = await tokenValidator.ValidateAsync(idToken);
+
                 var user = await _userInfoRepository.FindUserByEmailAsync(payload.Email);
-                
+
                 if (user == null)
                 {
                     user = await _userInfoRepository.CreateUserIfNotExistsAsync(
@@ -44,8 +57,8 @@ namespace Infrastructure.Services.Auth
                 var hierarchicalPermissions = BuildPermissionHierarchy(loginData.Permissions);
 
                 string token = _jwtService.GenerateTokenWithClaims(
-                    user.Id.ToString(), 
-                    user.Email, 
+                    user.Id.ToString(),
+                    user.Email,
                     loginData.Roles.Select(r => r.Name).ToList(),
                     permissionCodes,
                     user.FirstName,
@@ -71,7 +84,7 @@ namespace Infrastructure.Services.Auth
             }
             catch (Exception ex)
             {
-                throw new UnauthorizedAccessException("Error al autenticar con Google: " + ex.Message);
+                throw new UnauthorizedAccessException("Error al autenticar con el proveedor de identidad: " + ex.Message);
             }
         }
 
@@ -82,31 +95,31 @@ namespace Infrastructure.Services.Auth
             var rootPermissions = permissions
                 .Where(p => string.IsNullOrEmpty(p.ParentCode) || !permissionsByCode.ContainsKey(p.ParentCode))
                 .ToList();
-            
+
             foreach (var rootPermission in rootPermissions)
             {
                 result[rootPermission.Code] = BuildChildrenHierarchy(rootPermission.Code, permissions, permissionsByCode);
             }
-            
+
             return result;
         }
-        
+
         private object BuildChildrenHierarchy(string parentCode, List<PermissionInfo> allPermissions, Dictionary<string, PermissionInfo> permissionsByCode)
         {
             var children = allPermissions.Where(p => p.ParentCode == parentCode).ToList();
-            
+
             if (!children.Any())
             {
                 return new List<string>();
             }
-            
+
             var childrenDict = new Dictionary<string, object>();
-            
+
             foreach (var child in children)
             {
                 childrenDict[child.Code] = BuildChildrenHierarchy(child.Code, allPermissions, permissionsByCode);
             }
-            
+
             return childrenDict;
         }
     }

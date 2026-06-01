@@ -3,7 +3,6 @@ using Application.Shared.DTOs.Auth;
 using AutoMapper;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Auth;
-using Infrastructure.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
@@ -20,7 +19,7 @@ namespace Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
-        private readonly GoogleAuthService _googleAuthService;
+        private readonly IManualAuthService _manualAuthService;
         private readonly IUserInfoRepository _userInfoRepository;
         private readonly IRefreshTokenService _refreshTokenService;
         private readonly IJwtService _jwtService;
@@ -31,7 +30,7 @@ namespace Api.Controllers
 
         public AuthController(
             IAuthService authService,
-            GoogleAuthService googleAuthService,
+            IManualAuthService manualAuthService,
             IUserInfoRepository userInfoRepository,
             IRefreshTokenService refreshTokenService,
             IJwtService jwtService,
@@ -40,7 +39,7 @@ namespace Api.Controllers
             IConfiguration configuration)
         {
             _authService = authService;
-            _googleAuthService = googleAuthService;
+            _manualAuthService = manualAuthService;
             _userInfoRepository = userInfoRepository;
             _refreshTokenService = refreshTokenService;
             _jwtService = jwtService;
@@ -54,21 +53,34 @@ namespace Api.Controllers
                 : throw new InvalidOperationException($"Jwt:RefreshTokenExpirationDays tiene un valor inválido: '{rtExpireRaw}'. Debe ser un entero positivo.");
         }
 
-        [HttpPost("google")]
-        public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthRequest request)
+        /// <summary>
+        /// Login federado con el proveedor de identidad configurado (Google, Azure AD, etc.).
+        /// </summary>
+        [HttpPost("token")]
+        public async Task<IActionResult> TokenLogin([FromBody] TokenAuthRequest request)
         {
             if (string.IsNullOrEmpty(request.IdToken))
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Token de autenticación requerido" } });
 
-            var authResult = await _googleAuthService.AuthenticateWithGoogleAsync(request.IdToken);
-            var response = _mapper.Map<AuthResponse>(authResult);
+            if (string.IsNullOrEmpty(request.Provider))
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Proveedor de autenticación requerido" } });
 
-            await _refreshTokenService.PurgeExpiredAsync(response.User.Id);
-            var refreshToken = await _refreshTokenService.GenerateAsync(response.User.Id);
-            SetRefreshTokenCookie(refreshToken.Token);
-            SetAccessTokenCookie(response.Token);
+            try
+            {
+                var authResult = await _authService.AuthenticateWithTokenAsync(request.IdToken, request.Provider);
+                var response = _mapper.Map<AuthResponse>(authResult);
 
-            return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
+                await _refreshTokenService.PurgeExpiredAsync(response.User.Id);
+                var refreshToken = await _refreshTokenService.GenerateAsync(response.User.Id);
+                SetRefreshTokenCookie(refreshToken.Token);
+                SetAccessTokenCookie(response.Token);
+
+                return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { ex.Message } });
+            }
         }
 
         //Testing
@@ -80,7 +92,7 @@ namespace Api.Controllers
 
             try
             {
-                var authResult = await _authService.AuthenticateManualAsync(request.Email, null);
+                var authResult = await _manualAuthService.AuthenticateManualAsync(request.Email, null);
                 var response = _mapper.Map<AuthResponse>(authResult);
 
                 await _refreshTokenService.PurgeExpiredAsync(response.User.Id);

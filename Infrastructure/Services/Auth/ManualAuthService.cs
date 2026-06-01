@@ -10,7 +10,7 @@ namespace Infrastructure.Services.Auth
     /// Usa un secret compartido para validar credenciales de test.
     /// NO usar en producción.
     /// </summary>
-    public class ManualAuthService : IAuthService
+    public class ManualAuthService : IManualAuthService
     {
         private readonly IJwtService _jwtService;
         private readonly IUserInfoRepository _userInfoRepository;
@@ -27,11 +27,6 @@ namespace Infrastructure.Services.Auth
             _jwtService = jwtService;
             _userInfoRepository = userInfoRepository;
             _logger = logger;
-        }
-
-        public async Task<AuthenticationResult> AuthenticateWithGoogleAsync(string idToken)
-        {
-            throw new NotImplementedException("Use AuthenticateManualAsync para login manual");
         }
 
         public async Task<AuthenticationResult> AuthenticateManualAsync(string email, string? password)

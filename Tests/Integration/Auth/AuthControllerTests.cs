@@ -22,10 +22,11 @@ namespace Tests.Integration.Auth
         public AuthControllerTests(CustomWebApplicationFactory factory) : base(factory)
         {
             _tokenValidatorMock = new Mock<ITokenValidator>();
+            _tokenValidatorMock.SetupGet(x => x.Provider).Returns("google");
         }
 
         [Fact]
-        public async Task GoogleLogin_WithValidToken_ReturnsOkAndToken()
+        public async Task TokenLogin_WithValidToken_ReturnsOkAndToken()
         {
             // Arrange
             var email = "test@unicesar.edu.co";
@@ -108,10 +109,10 @@ namespace Tests.Integration.Auth
                 await context.SaveChangesAsync();
             }
 
-            var request = new GoogleAuthRequest { IdToken = validToken };
+            var request = new TokenAuthRequest { IdToken = validToken, Provider = "google" };
 
             // Act
-            var response = await client.PostAsJsonAsync("/api/auth/google", request);
+            var response = await client.PostAsJsonAsync("/api/auth/token", request);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -124,20 +125,20 @@ namespace Tests.Integration.Auth
         }
 
         [Fact]
-        public async Task GoogleLogin_WithEmptyToken_ReturnsBadRequest()
+        public async Task TokenLogin_WithEmptyToken_ReturnsBadRequest()
         {
             // Arrange
-            var request = new GoogleAuthRequest { IdToken = "" };
+            var request = new TokenAuthRequest { IdToken = "" };
 
             // Act
-            var response = await _client.PostAsJsonAsync("/api/auth/google", request);
+            var response = await _client.PostAsJsonAsync("/api/auth/token", request);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
 
         [Fact]
-        public async Task GoogleLogin_WhenGoogleValidationFails_ReturnsUnauthorized()
+        public async Task TokenLogin_WhenValidationFails_ReturnsUnauthorized()
         {
             // Arrange
             var invalidToken = "invalid-token";
@@ -152,10 +153,10 @@ namespace Tests.Integration.Auth
                 });
             }).CreateClient();
 
-            var request = new GoogleAuthRequest { IdToken = invalidToken };
+            var request = new TokenAuthRequest { IdToken = invalidToken, Provider = "google" };
 
             // Act
-            var response = await client.PostAsJsonAsync("/api/auth/google", request);
+            var response = await client.PostAsJsonAsync("/api/auth/token", request);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
