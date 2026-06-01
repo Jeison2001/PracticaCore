@@ -3,7 +3,6 @@ using Domain.Common;
 using Infrastructure.Data;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
-using Domain.Enums;
 using Domain.Interfaces.Repositories;
 using Domain.Common.AcademicPractice;
 
@@ -261,6 +260,12 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         return items;
     }
 
+    /// <summary>
+    /// Asigna el nuevo estado (IdStateStage) a la práctica académica y, opcionalmente,
+    /// sus observaciones generales y del evaluador; luego persiste los cambios.
+    /// El cambio de IdStateStage encola AcademicPracticeStateChangedEvent, que se despacha
+    /// en el CommitAsync del UnitOfWork para el avance de fase, permisos y estampado de fechas.
+    /// </summary>
     public async Task<bool> UpdateAcademicPracticeStateAsync(
         int id, 
         int newStateStageId, 
@@ -274,22 +279,6 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         if (academicPractice == null) return false;
 
         academicPractice.IdStateStage = newStateStageId;
-
-        // Asigna la(s) fecha(s) relevante(s) automáticamente según el estado destino
-        switch ((AcademicPracticeStateStageEnum)newStateStageId)
-        {
-            case AcademicPracticeStateStageEnum.InscriptionApproved: // 21 - PA_INSCRIPCION_APROBADA
-                academicPractice.AvalApprovalDate = DateTimeOffset.UtcNow;
-                academicPractice.PlanApprovalDate = DateTimeOffset.UtcNow;
-                break;
-            case AcademicPracticeStateStageEnum.DevelopmentApproved: // 26 - PA_DESARROLLO_APROBADA
-                academicPractice.DevelopmentCompletionDate = DateTimeOffset.UtcNow;
-                break;
-            case AcademicPracticeStateStageEnum.FinalApproved: // 31 - PA_APROBADO
-                academicPractice.FinalApprovalDate = DateTimeOffset.UtcNow;
-                break;
-            // Si se agregan más fechas/estados, añadir aquí
-        }
 
         if (!string.IsNullOrEmpty(observations))
         {
