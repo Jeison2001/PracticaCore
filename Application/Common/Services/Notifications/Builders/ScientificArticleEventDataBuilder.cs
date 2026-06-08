@@ -22,7 +22,9 @@ namespace Application.Common.Services.Notifications.Builders
                 var entity = await entityRepo.GetByIdAsync(entityId);
                 if (entity == null) return [];
 
-                var phaseLabel = GetPhaseLabel(entity.IdStateStage);
+                var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
+                var stateStage = await stateStageRepo.GetByIdAsync(entity.IdStateStage);
+                var phaseLabel = GetPhaseLabel(stateStage?.Code ?? string.Empty);
                 var data = await BuildBaseDataAsync(inscription, entity.IdStateStage, eventType, phaseLabel);
                 data["Observations"] = entity.Observations ?? "Sin observaciones registradas";
                 data["ArticleTitle"] = entity.ArticleTitle ?? "-";
@@ -35,14 +37,11 @@ namespace Application.Common.Services.Notifications.Builders
             catch (Exception ex) { _logger.LogError(ex, "Error building ScientificArticle event data"); return []; }
         }
 
-        private static string GetPhaseLabel(int stateStageId)
+        private static string GetPhaseLabel(string stateStageCode)
         {
-            return stateStageId switch
-            {
-                >= 28 and <= 32 => "Artículo - Fase 1: Inscripción",
-                >= 33 and <= 37 => "Artículo - Fase 2: Publicación",
-                _ => "Artículo Científico"
-            };
+            if (stateStageCode.StartsWith("ART_INS_")) return "Artículo - Fase 1: Inscripción";
+            if (stateStageCode.StartsWith("ART_PUB_")) return "Artículo - Fase 2: Publicación";
+            return "Artículo Científico";
         }
     }
 }
