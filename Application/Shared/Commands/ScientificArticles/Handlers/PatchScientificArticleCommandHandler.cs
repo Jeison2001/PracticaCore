@@ -31,7 +31,6 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _jobEnqueuer = jobEnqueuer;
-            _jobEnqueuer = jobEnqueuer;
             _logger = logger;
         }
 
