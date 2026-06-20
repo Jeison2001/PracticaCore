@@ -4,7 +4,7 @@
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
+        public string? Description { get; set; }
 
         // Add this property to fix the error
         public virtual ICollection<UserRole> UserRole { get; set; } = new List<UserRole>();

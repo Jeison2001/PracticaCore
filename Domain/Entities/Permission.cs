@@ -8,7 +8,7 @@
 
         // Relacion virtual para representar jerarquia
         public virtual Permission? ParentPermission { get; set; }
-        public virtual ICollection<Permission>? ChildPermissions { get; set; }
+        public virtual ICollection<Permission> ChildPermissions { get; set; } = new List<Permission>();
         public virtual ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
         public virtual ICollection<UserPermission> UserPermissions { get; set; } = new List<UserPermission>();
     }

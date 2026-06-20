@@ -12,8 +12,8 @@ namespace Infrastructure.Data.Configurations
             builder.ToTable("Proposal");
             builder.Property(e => e.Title).IsRequired().HasMaxLength(500).HasColumnName("Title");
             builder.Property(e => e.Description).HasColumnName("Description").IsRequired(false);
-            builder.Property(e => e.GeneralObjective).HasColumnName("GeneralObjective").IsRequired();
-            builder.Property(e => e.SpecificObjectives).HasColumnName("SpecificObjectives").HasColumnType("text[]").IsRequired();
+            builder.Property(e => e.GeneralObjective).HasColumnName("GeneralObjective").IsRequired(false);
+            builder.Property(e => e.SpecificObjectives).HasColumnName("SpecificObjectives").HasColumnType("text[]").IsRequired(false);
             builder.Property(e => e.Observation).HasColumnName("Observation").IsRequired(false);
             builder.Property(e => e.IdResearchLine).HasColumnName("IdResearchLine");
             builder.Property(e => e.IdResearchSubLine).HasColumnName("IdResearchSubLine");

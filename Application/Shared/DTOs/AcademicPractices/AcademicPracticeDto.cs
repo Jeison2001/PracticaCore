@@ -3,7 +3,7 @@ namespace Application.Shared.DTOs.AcademicPractices
     public record AcademicPracticeDto : BaseDto<int>
     {
         public int IdStateStage { get; set; }
-        public string? Title { get; set; }
+        public string Title { get; set; } = string.Empty;
         public string? InstitutionName { get; set; }
         public string? InstitutionContact { get; set; }
         public DateTimeOffset? PracticeStartDate { get; set; }

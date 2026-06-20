@@ -8,8 +8,8 @@
         public int StageOrder { get; set; }
         public string? Description { get; set; }
         // Navigation properties
-        public virtual Modality? Modality { get; set; }
-        public virtual ICollection<StateStage>? StateStages { get; set; }
-        public virtual ICollection<InscriptionModality>? InscriptionModalities { get; set; }
+        public virtual Modality Modality { get; set; } = null!;
+        public virtual ICollection<StateStage> StateStages { get; set; } = new List<StateStage>();
+        public virtual ICollection<InscriptionModality> InscriptionModalities { get; set; } = new List<InscriptionModality>();
     }
 }

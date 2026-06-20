@@ -7,6 +7,6 @@
         public string? Description { get; set; }
 
         // Navigation properties
-        public virtual ICollection<DocumentType>? DocumentTypes { get; set; }
+        public virtual ICollection<DocumentType> DocumentTypes { get; set; } = new List<DocumentType>();
     }
 }
