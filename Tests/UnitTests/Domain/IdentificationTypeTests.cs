@@ -14,7 +14,7 @@ namespace Tests.UnitTests.Domain
             // Assert
             Assert.Equal(string.Empty, idType.Code);
             Assert.Equal(string.Empty, idType.Name);
-            Assert.Equal(string.Empty, idType.Description);
+            Assert.Null(idType.Description);
         }
 
         [Fact]

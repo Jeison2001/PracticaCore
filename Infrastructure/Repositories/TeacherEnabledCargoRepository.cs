@@ -23,6 +23,15 @@ namespace Infrastructure.Repositories
                 .ToListAsync(ct);
         }
 
+        public async Task<List<TeacherEnabledCargo>> GetByCargoIdAsync(int cargoId, CancellationToken ct = default)
+        {
+            return await _context.Set<TeacherEnabledCargo>()
+                .Include(t => t.User)
+                .Where(t => t.IdTypeTeachingAssignment == cargoId && t.StatusRegister && t.User.StatusRegister)
+                .AsNoTracking()
+                .ToListAsync(ct);
+        }
+
         /// <summary>
         /// Upsert semántico: activa los cargos solicitados, desactiva los que ya no están
         /// en la lista (StatusRegister = false) y conserva el resto. Idempotente.

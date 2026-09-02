@@ -14,7 +14,7 @@ namespace Tests.UnitTests.Domain
             // Assert
             Assert.Equal(string.Empty, role.Code);
             Assert.Equal(string.Empty, role.Name);
-            Assert.Equal(string.Empty, role.Description);
+            Assert.Null(role.Description);
         }
 
         [Fact]

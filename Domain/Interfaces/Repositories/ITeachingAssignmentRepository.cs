@@ -17,5 +17,23 @@ namespace Domain.Interfaces.Repositories
             int proposalId,
             bool? statusRegister = null, 
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Obtiene las asignaciones de un docente para un cargo específico con detalles de modalidad y estado.
+        /// </summary>
+        Task<List<TeachingAssignment>> GetAssignmentsByTeacherAndCargoAsync(
+            int teacherId,
+            int cargoId,
+            bool includeRevoked = false,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Obtiene las asignaciones de un docente con detalles de modalidad y estado, opcionalmente filtradas por cargo.
+        /// </summary>
+        Task<List<TeachingAssignment>> GetAssignmentsByTeacherAsync(
+            int teacherId,
+            int? cargoId = null,
+            bool includeRevoked = false,
+            CancellationToken cancellationToken = default);
     }
 }

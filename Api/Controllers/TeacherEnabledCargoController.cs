@@ -40,6 +40,20 @@ namespace Api.Controllers
         }
 
         /// <summary>
+        /// Obtiene los docentes activos que tienen habilitado un cargo específico.
+        /// </summary>
+        /// <param name="idCargo">ID del tipo de asignación docente (TypeTeachingAssignment)</param>
+        [HttpGet("ByCargo/{idCargo}")]
+        public async Task<IActionResult> GetTeachersByCargo(int idCargo)
+        {
+            if (idCargo <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El ID de cargo debe ser válido." } });
+
+            var result = await _mediator.Send(new GetTeachersByCargoQuery { CargoId = idCargo });
+            return Ok(new ApiResponse<List<TeacherByCargoDto>> { Success = true, Data = result });
+        }
+
+        /// <summary>
         /// Asigna los cargos habilitados a un docente (lista completa: upsert semántico).
         /// </summary>
         /// <param name="request">UserId del docente y array de ids de TypeTeachingAssignment habilitados</param>

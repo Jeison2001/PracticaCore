@@ -58,5 +58,18 @@ namespace Infrastructure.Repositories
                 cancellationToken
             );
         }
+
+        public async Task<List<UserRole>> GetRolesByUserIdsAsync(IEnumerable<int> userIds, CancellationToken ct = default)
+        {
+            var idList = userIds.Distinct().ToList();
+            if (!idList.Any())
+                return new List<UserRole>();
+
+            return await _context.Set<UserRole>()
+                .Include(ur => ur.Role)
+                .Where(ur => idList.Contains(ur.IdUser) && ur.StatusRegister && ur.Role.StatusRegister)
+                .AsNoTracking()
+                .ToListAsync(ct);
+        }
     }
 }

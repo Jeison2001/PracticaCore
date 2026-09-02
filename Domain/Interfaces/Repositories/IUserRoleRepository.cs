@@ -14,5 +14,10 @@ namespace Domain.Interfaces.Repositories
             bool isDescending,
             Dictionary<string, string>? filters,
             CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Obtiene en lote los roles activos con su entidad Role para una colección de IDs de usuario.
+        /// </summary>
+        Task<List<UserRole>> GetRolesByUserIdsAsync(IEnumerable<int> userIds, CancellationToken ct = default);
     }
 }

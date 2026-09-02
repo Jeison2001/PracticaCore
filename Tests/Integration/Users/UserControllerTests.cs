@@ -241,5 +241,59 @@ namespace Tests.Integration.Users
             result.Should().NotBeNull();
             result!.Success.Should().BeTrue();
         }
+
+        [Fact]
+        public async Task GetAll_ReturnsUsers_WithPopulatedRoles()
+        {
+            // Arrange
+            var (idType, program) = await SeedDependenciesAsync();
+            int userId;
+            Role role;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                
+                role = new Role { Code = "TEST_ROLE_" + Guid.NewGuid().ToString("N").Substring(0, 5), Name = "Test Role", StatusRegister = true };
+                context.Set<Role>().Add(role);
+                await context.SaveChangesAsync();
+
+                var user = new User
+                {
+                    FirstName = "WithRole",
+                    LastName = "User",
+                    Email = $"role_{Guid.NewGuid():N}@test.com",
+                    Identification = Guid.NewGuid().ToString("N").Substring(0, 10),
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(user);
+                await context.SaveChangesAsync();
+                userId = user.Id;
+
+                var userRole = new UserRole
+                {
+                    IdUser = userId,
+                    IdRole = role.Id,
+                    StatusRegister = true
+                };
+                context.Set<UserRole>().Add(userRole);
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var response = await _client.GetAsync($"{BaseUrl}?PageNumber=1&PageSize=50");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<UserDto>>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+            var targetUser = result.Data!.Items.FirstOrDefault(u => u.Id == userId);
+            targetUser.Should().NotBeNull();
+            targetUser!.Roles.Should().NotBeNull();
+            targetUser.Roles.Should().Contain(r => r.Id == role.Id && r.Code == role.Code && r.Name == role.Name);
+        }
     }
 }

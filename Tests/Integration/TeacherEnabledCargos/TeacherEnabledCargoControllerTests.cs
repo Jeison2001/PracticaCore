@@ -179,5 +179,102 @@ namespace Tests.Integration.TeacherEnabledCargos
 
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
+
+        [Fact]
+        public async Task GetByCargo_ReturnsOkAndOnlyEnabledTeachersForThatCargo()
+        {
+            var (teacher1, cargos) = await SeedDataAsync();
+            var targetCargoId = cargos[0].Id;
+
+            // Crear segundo docente habilitado para otro cargo
+            int teacher2Id;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var teacher2 = new User
+                {
+                    FirstName = "Second",
+                    LastName = "Teacher",
+                    Email = $"teacher2_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString().Substring(0, 10),
+                    IdIdentificationType = teacher1.IdIdentificationType,
+                    IdAcademicProgram = teacher1.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(teacher2);
+                await context.SaveChangesAsync();
+                teacher2Id = teacher2.Id;
+
+                // teacher1 habilitado para targetCargoId
+                context.Set<TeacherEnabledCargo>().Add(new TeacherEnabledCargo
+                {
+                    IdUser = teacher1.Id,
+                    IdTypeTeachingAssignment = targetCargoId,
+                    StatusRegister = true
+                });
+
+                // teacher2 habilitado para otro cargo
+                context.Set<TeacherEnabledCargo>().Add(new TeacherEnabledCargo
+                {
+                    IdUser = teacher2Id,
+                    IdTypeTeachingAssignment = cargos[1].Id,
+                    StatusRegister = true
+                });
+
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var response = await _client.GetAsync($"/api/TeacherEnabledCargo/ByCargo/{targetCargoId}");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<TeacherByCargoDto>>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+            result.Data.Should().ContainSingle(t => t.IdUser == teacher1.Id);
+            var teacherDto = result.Data!.First(t => t.IdUser == teacher1.Id);
+            teacherDto.FullName.Should().Be($"{teacher1.FirstName} {teacher1.LastName}");
+            teacherDto.Email.Should().Be(teacher1.Email);
+            teacherDto.Identification.Should().Be(teacher1.Identification);
+            teacherDto.IdTypeTeachingAssignment.Should().Be(targetCargoId);
+        }
+
+        [Fact]
+        public async Task GetByCargo_IgnoresInactiveTeachers()
+        {
+            var (teacher, cargos) = await SeedDataAsync();
+            var targetCargoId = cargos[0].Id;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                // Inactivar el docente
+                var user = await context.Set<User>().FindAsync(teacher.Id);
+                user!.StatusRegister = false;
+
+                context.Set<TeacherEnabledCargo>().Add(new TeacherEnabledCargo
+                {
+                    IdUser = teacher.Id,
+                    IdTypeTeachingAssignment = targetCargoId,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            var response = await _client.GetAsync($"/api/TeacherEnabledCargo/ByCargo/{targetCargoId}");
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<TeacherByCargoDto>>>();
+            result!.Data.Should().NotContain(t => t.IdUser == teacher.Id);
+        }
+
+        [Fact]
+        public async Task GetByCargo_WithInvalidId_ReturnsBadRequest()
+        {
+            var response = await _client.GetAsync("/api/TeacherEnabledCargo/ByCargo/0");
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
     }
 }
