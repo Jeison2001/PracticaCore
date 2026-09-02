@@ -8,5 +8,6 @@
         
         // Navigation property for relationship
         public virtual ICollection<TeachingAssignment> TeachingAssignments { get; set; } = new List<TeachingAssignment>();
+        public virtual ICollection<TeacherEnabledCargo> TeacherEnabledCargos { get; set; } = new List<TeacherEnabledCargo>();
     }
 }

@@ -12,8 +12,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Application.Shared.Commands.TeachingAssignments.Handlers
 {
     /// <summary>
-    /// Crea una asignación docente tras validar el límite de MaxAssignments para la combinación
-    /// docente/cargo. Maneja race condition: si ocurre una violación de constraint única (23505),
+    /// Crea una asignación docente tras validar que el docente tiene habilitado el cargo
+    /// (TeacherEnabledCargo) y el límite de MaxAssignments para la combinación docente/cargo.
+    /// Maneja race condition: si ocurre una violación de constraint única (23505),
     /// retorna la asignación existente en lugar de fallar — previene notificaciones duplicadas
     /// cuando dos solicitudes compiten. Encola HandleTeachingAssignmentCreationAsync tras creación.
     /// </summary>
@@ -21,6 +22,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
     {
         private readonly ITeachingAssignmentRepository _repository;
         private readonly IRepository<TypeTeachingAssignment, int> _typeRepository;
+        private readonly IRepository<TeacherEnabledCargo, int> _teacherEnabledCargoRepository;
         private readonly IMapper _mapper;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IJobEnqueuer _jobEnqueuer;
@@ -29,6 +31,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
         public CreateTeachingAssignmentCommandHandler(
             ITeachingAssignmentRepository repository,
             IRepository<TypeTeachingAssignment, int> typeRepository,
+            IRepository<TeacherEnabledCargo, int> teacherEnabledCargoRepository,
             IMapper mapper,
             IUnitOfWork unitOfWork,
             IJobEnqueuer jobEnqueuer,
@@ -36,6 +39,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
         {
             _repository = repository;
             _typeRepository = typeRepository;
+            _teacherEnabledCargoRepository = teacherEnabledCargoRepository;
             _mapper = mapper;
             _unitOfWork = unitOfWork;
             _jobEnqueuer = jobEnqueuer;
@@ -49,6 +53,15 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             var type = await _typeRepository.GetByIdAsync(dto.IdTypeTeachingAssignment);
             if (type == null)
                 throw new InvalidOperationException("Tipo de asignación docente no encontrado.");
+
+            // Validar que el docente tiene habilitado este cargo (TeacherEnabledCargo)
+            var cargoHabilitado = await _teacherEnabledCargoRepository.AnyAsync(
+                x => x.IdUser == dto.IdTeacher &&
+                     x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
+                     x.StatusRegister,
+                cancellationToken);
+            if (!cargoHabilitado)
+                throw new InvalidOperationException($"El docente no tiene habilitado el cargo '{type.Name}' para asignaciones docentes.");
 
             if (type.MaxAssignments.HasValue)
             {

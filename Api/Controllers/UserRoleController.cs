@@ -1,8 +1,10 @@
 using Api.Responses;
+using Application.Shared.Commands.UserRoles;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.UserRoles;
 using Application.Shared.Queries.UserRoles;
 using Domain.Common;
+using Domain.Common.Extensions;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +18,21 @@ namespace Api.Controllers
         public UserRoleController(IMediator mediator) : base(mediator)
         {
             _mediator = mediator;
+        }
+
+        /// <summary>
+        /// Override del Create genérico: si el DTO trae cargos habilitados (TypeTeachingAssignmentIds)
+        /// y el rol es TEACHER, los asigna en el mismo commit (operación atómica con el rol y sus permisos).
+        /// </summary>
+        [HttpPost]
+        public override async Task<IActionResult> Create([FromBody] UserRoleDto dto)
+        {
+            var result = await _mediator.Send(new CreateUserRoleWithCargosCommand
+            {
+                Dto = dto,
+                CurrentUser = User.GetCurrentUserInfo()
+            });
+            return StatusCode(StatusCodes.Status201Created, new ApiResponse<UserRoleDto> { Success = true, Data = result });
         }
 
         /// <summary>

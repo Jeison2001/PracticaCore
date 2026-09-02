@@ -28,6 +28,9 @@ namespace Infrastructure.Data
          // Email Notification entities
          public DbSet<EmailNotificationConfig> EmailNotificationConfigs => Set<EmailNotificationConfig>();
          public DbSet<EmailRecipientRule> EmailRecipientRules => Set<EmailRecipientRule>();
+
+         // Teacher enabled cargos
+         public DbSet<TeacherEnabledCargo> TeacherEnabledCargos => Set<TeacherEnabledCargo>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(BaseEntityConfiguration<,>).Assembly);

@@ -65,6 +65,15 @@ namespace Tests.Integration.TeachingAssignments
             context.Set<InscriptionModality>().Add(inscriptionModality);
             await context.SaveChangesAsync();
 
+            // Habilitar el cargo para el docente (TeacherEnabledCargo) — requerido por CreateTeachingAssignmentCommandHandler
+            context.Set<TeacherEnabledCargo>().Add(new TeacherEnabledCargo
+            {
+                IdUser = teacher.Id,
+                IdTypeTeachingAssignment = typeTeaching.Id,
+                StatusRegister = true
+            });
+            await context.SaveChangesAsync();
+
             return (teacher, inscriptionModality, typeTeaching);
         }
 
@@ -93,6 +102,49 @@ namespace Tests.Integration.TeachingAssignments
             result.Data.Should().NotBeNull();
             result.Data!.IdInscriptionModality.Should().Be(dto.IdInscriptionModality);
             result.Data.IdTeacher.Should().Be(dto.IdTeacher);
+        }
+
+        [Fact]
+        public async Task Create_ShouldReturnBadRequest_WhenCargoNotEnabledForTeacher()
+        {
+            // Arrange
+            var (teacher, inscriptionModality, _) = await SeedDataAsync();
+
+            // Cargo adicional que NO está habilitado para el docente
+            int notEnabledCargoId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var jurado = new TypeTeachingAssignment
+                {
+                    Code = "JURADO_EVALUADOR",
+                    Name = "Jurado Evaluador",
+                    Description = "Jurado",
+                    MaxAssignments = 20,
+                    StatusRegister = true
+                };
+                context.Set<TypeTeachingAssignment>().Add(jurado);
+                await context.SaveChangesAsync();
+                notEnabledCargoId = jurado.Id;
+            }
+
+            var dto = new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = notEnabledCargoId,
+                StatusRegister = true
+            };
+
+            // Act
+            var response = await _client.PostAsJsonAsync("/api/TeachingAssignment", dto);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeFalse();
+            result.Errors.Should().Contain(e => e.Contains("no tiene habilitado el cargo"));
         }
 
         [Fact]
