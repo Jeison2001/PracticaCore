@@ -63,6 +63,8 @@ namespace Application.Common.Services.Jobs
         
         public Task HandleTeachingAssignmentCreationAsync(int assignmentId) => HandleEntityCreationAsync<TeachingAssignment, int>(assignmentId);
 
+        public Task HandleUserCreationAsync(int userId) => HandleEntityCreationAsync<User, int>(userId);
+
         public async Task HandleProposalChangeAsync(int proposalId, int oldStateId)
         {
             try

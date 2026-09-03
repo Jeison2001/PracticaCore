@@ -250,6 +250,8 @@ namespace Application.Common.Services.Notifications
                     {
                         "DIRECTOR" => "DirectorEmail",
                         "COORDINATOR" => "CoordinatorEmail",
+                        "USER" => "UserEmail",
+                        "NEW_USER" => "UserEmail",
                         _ => rule.RuleValue
                     };
 

@@ -1,9 +1,13 @@
 using Api.Responses;
+using Application.Common.Services.Jobs;
+using Application.Shared.Commands;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Users;
 using Application.Shared.Queries.Users;
 using Domain.Common;
+using Domain.Common.Extensions;
 using Domain.Entities;
+using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,8 +15,11 @@ namespace Api.Controllers
 {
     public class UserController : GenericController<User, int, UserDto>
     {
-        public UserController(IMediator mediator) : base(mediator)
+        private readonly IJobEnqueuer _jobEnqueuer;
+
+        public UserController(IMediator mediator, IJobEnqueuer jobEnqueuer) : base(mediator)
         {
+            _jobEnqueuer = jobEnqueuer;
         }
 
         /// <summary>
@@ -32,6 +39,20 @@ namespace Api.Controllers
 
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<UserDto>> { Success = true, Data = result });
+        }
+
+        /// <summary>
+        /// Crea un usuario y encola la notificación institucional de bienvenida (USER_CREATED).
+        /// </summary>
+        [HttpPost]
+        public override async Task<IActionResult> Create([FromBody] UserDto dto)
+        {
+            var result = await _mediator.Send(new CreateEntityCommand<User, int, UserDto>(dto, User.GetCurrentUserInfo()));
+
+            // Encolar job de notificación en segundo plano
+            _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleUserCreationAsync(result.Id));
+
+            return StatusCode(StatusCodes.Status201Created, new ApiResponse<UserDto> { Success = true, Data = result });
         }
     }
 }
