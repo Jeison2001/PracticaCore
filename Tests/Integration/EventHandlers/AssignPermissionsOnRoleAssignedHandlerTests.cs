@@ -174,5 +174,71 @@ namespace Tests.Integration.EventHandlers
             // Debe seguir teniendo solo UN registro de permiso asignado, no 2
             assignedPermissions.Should().HaveCount(1);
         }
+
+        [Fact]
+        public async Task Handle_UserRoleAssigned_ReactivatesExistingInactivePermission()
+        {
+            // Arrange
+            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var role = new Role { Id = 30, Code = "ROLE_REACTIVATE", Description = "Test", Name = "Test Role Reactivate", StatusRegister = true, OperationRegister = "Test setup" };
+            context.Set<Role>().Add(role);
+
+            var perm1 = new Permission { Id = 30, Code = "PERM_REACTIVATE_1", Description = "Test", StatusRegister = true, OperationRegister = "Test setup" };
+            context.Set<Permission>().Add(perm1);
+
+            var rolePerm1 = new RolePermission { Id = 30, IdRole = role.Id, IdPermission = perm1.Id, StatusRegister = true, OperationRegister = "Test setup" };
+            context.Set<RolePermission>().Add(rolePerm1);
+
+            var user = new User
+            {
+                Id = 30,
+                Email = "testuser.reactivate@test.edu.co",
+                FirstName = "Test",
+                LastName = "Reactivate",
+                Identification = "987654",
+                StatusRegister = true,
+                OperationRegister = "Test setup"
+            };
+            context.Set<User>().Add(user);
+
+            // Permiso preexistente pero INACTIVO (StatusRegister = false)
+            var inactiveUp = new UserPermission
+            {
+                Id = 30,
+                IdUser = user.Id,
+                IdPermission = perm1.Id,
+                StatusRegister = false,
+                OperationRegister = "Inactivado previamente"
+            };
+            context.Set<UserPermission>().Add(inactiveUp);
+
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            var handler = new AssignPermissionsOnRoleAssignedHandler(
+                _scope.ServiceProvider.GetRequiredService<IUnitOfWork>(),
+                _scope.ServiceProvider.GetRequiredService<ILogger<AssignPermissionsOnRoleAssignedHandler>>()
+            );
+
+            var domainEvent = new UserRoleAssignedEvent(
+                UserId: user.Id,
+                RoleId: role.Id,
+                TriggeredByUserId: 1
+            );
+
+            // Act
+            await handler.Handle(domainEvent, CancellationToken.None);
+            await context.SaveChangesAsync();
+
+            // Assert
+            var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
+            var upResult = await actContext.Set<UserPermission>()
+                .FirstOrDefaultAsync(x => x.IdUser == user.Id && x.IdPermission == perm1.Id);
+
+            upResult.Should().NotBeNull();
+            upResult!.StatusRegister.Should().BeTrue();
+            upResult.OperationRegister.Should().Contain("Reactivación por asignación de Rol ID: 30");
+        }
     }
 }
