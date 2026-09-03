@@ -53,7 +53,7 @@ namespace Application.Common.Services.Notifications.Handlers
                     { "AcademicProgram", program?.Name ?? "No asignado" },
                     { "PhoneNumber", entity.PhoneNumber ?? "" },
                     { "CreatedDate", DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm") },
-                    { "LoginUrl", "http://localhost:4200/login" }
+                    { "LoginUrl", "https://sigepro-five.vercel.app/login" }
                 };
 
                 var jobId = _queueService.EnqueueEventNotification("USER_CREATED", eventData);
