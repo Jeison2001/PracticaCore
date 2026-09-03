@@ -36,12 +36,11 @@ namespace Application.Features.Security.EventHandlers
 
             foreach (var rolePermission in rolePermissions)
             {
-                // Idempotencia: no duplicar si el permiso ya existe para el usuario
-                var exists = await userPermissionRepo.AnyAsync(
-                    x => x.IdUser == notification.UserId && x.IdPermission == rolePermission.IdPermission,
-                    cancellationToken);
+                var existingUserPermission = (await userPermissionRepo.GetAllAsync(
+                    x => x.IdUser == notification.UserId && x.IdPermission == rolePermission.IdPermission))
+                    .FirstOrDefault();
 
-                if (!exists)
+                if (existingUserPermission == null)
                 {
                     await userPermissionRepo.AddAsync(new UserPermission
                     {
@@ -52,6 +51,15 @@ namespace Application.Features.Security.EventHandlers
                         StatusRegister = true,
                         CreatedAt = DateTimeOffset.UtcNow
                     });
+                }
+                else if (!existingUserPermission.StatusRegister)
+                {
+                    // El nuevo rol asignado reactiva el permiso para el usuario
+                    existingUserPermission.StatusRegister = true;
+                    existingUserPermission.IdUserUpdatedAt = notification.TriggeredByUserId;
+                    existingUserPermission.UpdatedAt = DateTimeOffset.UtcNow;
+                    existingUserPermission.OperationRegister = $"Reactivación por asignación de Rol ID: {notification.RoleId}";
+                    await userPermissionRepo.UpdateAsync(existingUserPermission);
                 }
             }
         }
