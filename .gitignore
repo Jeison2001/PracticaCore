@@ -367,3 +367,6 @@ docker-compose.yml
 
 .vscode/
 publish_clean.bat
+
+# Estado de orquestacion DSH (efimero)
+.orquestacion/
