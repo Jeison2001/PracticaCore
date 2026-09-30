@@ -38,6 +38,7 @@ namespace Tests.Integration.Utilities
                 new StageModality { Id = 4, Code = StageModalityCodes.PgFasePropuesta, IdModality = 1, StageOrder = 1, StatusRegister = true, OperationRegister = "Seed" },
                 new StageModality { Id = 5, Code = StageModalityCodes.PgFaseAnteproyecto, IdModality = 1, StageOrder = 2, StatusRegister = true, OperationRegister = "Seed" },
                 new StageModality { Id = 6, Code = StageModalityCodes.PgFaseProyectoInforme, IdModality = 1, StageOrder = 3, StatusRegister = true, OperationRegister = "Seed" },
+                new StageModality { Id = 15, Code = StageModalityCodes.PgFaseSustentacion, IdModality = 1, StageOrder = 4, StatusRegister = true, OperationRegister = "Seed" },
 
                 // StageModality para CoTerminal (Orden 1)
                 new StageModality { Id = 7, Code = "CT_FASE_1", IdModality = 3, StageOrder = 1, StatusRegister = true, OperationRegister = "Seed" }
@@ -62,6 +63,11 @@ namespace Tests.Integration.Utilities
                 // Proyecto de Grado - Proyecto Final
                 new StateStage { Id = 7, Code = StateStageCodes.PfinfPendienteInforme, IdStageModality = 6, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 8, Code = StateStageCodes.PfinfRadicadoEnEvaluacion, IdStageModality = 6, IsInitialState = false, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 11, Code = StateStageCodes.PfinfInformeConObservaciones, IdStageModality = 6, IsInitialState = false, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 12, Code = StateStageCodes.PfinfInformeAprobado, IdStageModality = 6, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
+
+                // Proyecto de Grado - Sustentación
+                new StateStage { Id = 13, Code = StateStageCodes.SustPendienteProgramacion, IdStageModality = 15, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
 
                 // Estado Inicial de CoTerminal
                 new StateStage { Id = 9, Code = "CT_INICIAL", IdStageModality = 7, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" }

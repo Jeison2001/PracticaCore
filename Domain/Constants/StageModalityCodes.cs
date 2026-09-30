@@ -15,5 +15,6 @@ namespace Domain.Constants
         public const string PgFaseAnteproyecto    = "PG_FASE_ANTEPROYECTO";
         public const string PgFaseProyectoInforme = "PG_FASE_PROYECTO_INFORME";
         public const string PgFaseProyecto        = "PG_FASE_PROYECTO";
+        public const string PgFaseSustentacion    = "PG_FASE_SUSTENTACION";
     }
 }

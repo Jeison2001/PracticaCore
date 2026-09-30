@@ -24,5 +24,10 @@ namespace Domain.Constants
         // Proyecto Final
         public const string PfinfPendienteInforme      = "PFINF_PENDIENTE_INFORME";
         public const string PfinfRadicadoEnEvaluacion  = "PFINF_RADICADO_EN_EVALUACION";
+        public const string PfinfInformeConObservaciones = "PFINF_INFORME_CON_OBSERVACIONES";
+        public const string PfinfInformeAprobado       = "PFINF_INFORME_APROBADO";
+
+        // Sustentación (Proyecto de Grado — Fase Sustentación)
+        public const string SustPendienteProgramacion = "SUST_PENDIENTE_PROGRAMACION";
     }
 }
