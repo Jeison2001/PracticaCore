@@ -76,16 +76,19 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                         { "IdInscriptionModality", request.Id.ToString() }
                     },
                     PageNumber = 1,
-                    PageSize = int.MaxValue // Obtiene todos los registros sin paginar
+                    PageSize = 0 // Contrato: PageSize <= 0 = sin paginación (los de esta inscripción)
                 };
 
                 var studentsResult = await _mediator.Send(studentsQuery, cancellationToken);
 
-                // 4. Obtener los nombres de los estudiantes
+                // 4. Obtener los nombres de los estudiantes (una sola consulta por lote)
                 var students = studentsResult.Items.ToList();
+                var studentUserIds = students.Select(s => s.IdUser).Distinct().ToList();
+                var usersById = (await _userRepository.GetAllAsync(u => studentUserIds.Contains(u.Id)))
+                    .ToDictionary(u => u.Id);
                 foreach (var student in students)
                 {
-                    var user = await _userRepository.GetByIdAsync(student.IdUser);
+                    usersById.TryGetValue(student.IdUser, out var user);
                     if (user == null) _logger.LogWarning("No se encontró el usuario con Id: {IdUser}", student.IdUser);
                     if (user != null)
                     {

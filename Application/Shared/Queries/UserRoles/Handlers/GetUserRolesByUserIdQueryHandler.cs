@@ -25,7 +25,7 @@ namespace Application.Shared.Queries.UserRoles.Handlers
             var userRoles = await _userRoleRepository.GetUserRolesWithUserDetailsAsync(
                 roleCode: null,
                 pageNumber: 1,
-                pageSize: int.MaxValue,
+                pageSize: 0, // Contrato: PageSize <= 0 = sin paginación
                 sortBy: null,
                 isDescending: false,
                 filters: new Dictionary<string, string> { { "IdUser", request.UserId.ToString() } },
@@ -33,10 +33,13 @@ namespace Application.Shared.Queries.UserRoles.Handlers
             );
 
             var result = new List<UserRoleInfoDto>();
+            // Una sola consulta por lote para todos los roles del usuario
+            var roleIds = userRoles.Items.Select(ur => ur.IdRole).Distinct().ToList();
+            var rolesById = (await _roleRepository.GetAllAsync(r => roleIds.Contains(r.Id)))
+                .ToDictionary(r => r.Id);
             foreach (var userRole in userRoles.Items)
             {
-                // Obtener la información del rol
-                var role = await _roleRepository.GetByIdAsync(userRole.IdRole);
+                rolesById.TryGetValue(userRole.IdRole, out var role);
 
                 if (role != null)
                 {

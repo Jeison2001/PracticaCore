@@ -1,4 +1,5 @@
 using Application.Shared.DTOs.Proposals;
+using Application.Shared.DTOs.Teachers;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using AutoMapper;
 using Domain.Common;
@@ -80,7 +81,18 @@ namespace Application.Shared.Queries.Proposals.Handlers
                         StateStageCode = item.Proposal.StateStage?.Code ?? string.Empty,
                         ResearchLineName = item.Proposal.ResearchLine?.Name ?? string.Empty,
                         ResearchSubLineName = item.Proposal.ResearchSubLine?.Name ?? "No aplica",
-                        Students = studentDtosForProposal
+                        Students = studentDtosForProposal,
+                        Teachers = item.Teachers.Select(t => new AssignedTeacherDto
+                        {
+                            Id = t.Id,
+                            IdTeacher = t.IdTeacher,
+                            FullName = t.FullName,
+                            Email = t.Email,
+                            CargoId = t.CargoId,
+                            CargoCode = t.CargoCode,
+                            CargoName = t.CargoName,
+                            RevocationDate = t.RevocationDate
+                        }).ToList()
                     });
                 }
 

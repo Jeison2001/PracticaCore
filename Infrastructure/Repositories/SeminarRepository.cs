@@ -68,9 +68,11 @@ namespace Infrastructure.Repositories
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
 
             var resultItems = new List<SeminarWithDetails>();
+            var detailsBatch = await ModalityDetailsBatch.LoadAsync(
+                _context, items.Select(i => i.Id).ToList(), cancellationToken);
             foreach (var item in items)
             {
-                resultItems.Add(await PopulateDetails(item, cancellationToken));
+                resultItems.Add(PopulateDetails(item, detailsBatch));
             }
 
             return new PaginatedResult<SeminarWithDetails>
@@ -107,9 +109,11 @@ namespace Infrastructure.Repositories
 
             var items = await query.ToListAsync(cancellationToken);
             var resultItems = new List<SeminarWithDetails>();
+            var detailsBatch = await ModalityDetailsBatch.LoadAsync(
+                _context, items.Select(i => i.Id).ToList(), cancellationToken);
             foreach (var item in items)
             {
-                resultItems.Add(await PopulateDetails(item, cancellationToken));
+                resultItems.Add(PopulateDetails(item, detailsBatch));
             }
 
             return resultItems;
@@ -151,9 +155,11 @@ namespace Infrastructure.Repositories
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
 
             var resultItems = new List<SeminarWithDetails>();
+            var detailsBatch = await ModalityDetailsBatch.LoadAsync(
+                _context, items.Select(i => i.Id).ToList(), cancellationToken);
             foreach (var item in items)
             {
-                resultItems.Add(await PopulateDetails(item, cancellationToken));
+                resultItems.Add(PopulateDetails(item, detailsBatch));
             }
 
             return new PaginatedResult<SeminarWithDetails>
@@ -183,6 +189,28 @@ namespace Infrastructure.Repositories
                 .Include(d => d.DocumentType)
                 .ToListAsync(cancellationToken);
 
+            return new SeminarWithDetails
+            {
+                Seminar = entity,
+                InscriptionModality = entity.InscriptionModality,
+                StateStage = entity.StateStage,
+                StageModality = entity.InscriptionModality?.StageModality,
+                Modality = entity.InscriptionModality?.Modality,
+                StateInscription = entity.InscriptionModality?.StateInscription,
+                AcademicPeriod = entity.InscriptionModality?.AcademicPeriod,
+                UserInscriptionModalities = userInscriptionModalities,
+                TeachingAssignments = teachingAssignments,
+                Documents = documents
+            };
+        }
+
+
+        /// <summary>Variante sin consultas: usa los detalles ya cargados de la página (anti N+1).</summary>
+        private SeminarWithDetails PopulateDetails(Seminar entity, ModalityDetailsBatch batch)
+        {
+            var userInscriptionModalities = batch.GetUsers(entity.Id);
+            var teachingAssignments = batch.GetAssignments(entity.Id);
+            var documents = batch.GetDocuments(entity.Id);
             return new SeminarWithDetails
             {
                 Seminar = entity,

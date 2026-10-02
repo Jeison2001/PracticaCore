@@ -107,6 +107,56 @@ namespace Domain.Common
             return Expression.Lambda<Func<T, bool>>(finalExpression, parameter);
         }
 
+        /// <summary>
+        /// Devuelve las claves cuyo VALOR (u operador) no es válido para la entidad y que
+        /// BuildFilter ignoraría en silencio. Es solo diagnóstico: no altera el filtrado.
+        /// </summary>
+        public static List<string> GetInvalidFilterKeys<T, TId>(Dictionary<string, string>? filters)
+            where T : BaseEntity<TId>
+            where TId : struct
+        {
+            var invalid = new List<string>();
+            if (filters == null)
+                return invalid;
+
+            foreach (var filter in filters)
+            {
+                var key = filter.Key;
+                string propertyName = key;
+                string operatorName = "eq";
+
+                if (key.Contains('@'))
+                {
+                    var parts = key.Split('@', 2);
+                    propertyName = parts[0];
+                    operatorName = parts[1].ToLower();
+                }
+
+                PropertyInfo? propertyInfo = typeof(T).GetProperty(propertyName,
+                    BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+
+                // Clave desconocida: la reporta el handler aparte.
+                if (propertyInfo == null)
+                    continue;
+
+                // Operador desconocido: BuildFilter caería a igualdad sin avisar.
+                if (operatorName is not ("eq" or "ne" or "gt" or "ge" or "lt" or "le" or "like" or "startswith" or "endswith"))
+                {
+                    invalid.Add(key);
+                    continue;
+                }
+
+                // Texto libre: cualquier valor es válido.
+                if (operatorName is "like" or "startswith" or "endswith")
+                    continue;
+
+                if (ConvertValue(filter.Value, propertyInfo.PropertyType) == null)
+                    invalid.Add(key);
+            }
+
+            return invalid;
+        }
+
         private static object? ConvertValue(string value, Type targetType)
         {
             try
@@ -116,6 +166,10 @@ namespace Domain.Common
                 
                 if (targetType == typeof(DateTime))
                     return DateTime.Parse(value);
+
+                // Las fechas del dominio son DateTimeOffset (CreatedAt/UpdatedAt, etc.)
+                if (targetType == typeof(DateTimeOffset))
+                    return DateTimeOffset.Parse(value);
                 
                 if (targetType == typeof(bool))
                     return bool.Parse(value);

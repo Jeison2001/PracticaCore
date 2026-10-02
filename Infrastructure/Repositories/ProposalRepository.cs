@@ -1,5 +1,6 @@
 using Domain.Common;
 using Domain.Common.Proposals;
+using Domain.Common.Teachers;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Infrastructure.Data;
@@ -216,6 +217,32 @@ namespace Infrastructure.Repositories
             // Consulta principal para obtener propuestas
             var proposalsQuery = _dbContext.Set<Proposal>()
                 .AsQueryable();            // Aplicar filtro de estado si se proporciona
+
+            // Filtros por docente/cargo (claves enriquecidas) -> UN único EXISTS sobre la
+            // asignación activa: si se combinan (p. ej. nombre + cargo), deben coincidir en
+            // el MISMO docente (un docente puede tener varios cargos: director/jurado/asesor).
+            var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
+            var remainingFilters = tf.Remaining;
+            if (tf.HasAny)
+            {
+                var namePattern = tf.Name != null ? TeacherAssignmentLoader.LikePattern(tf.Name) : null;
+                var emailPattern = tf.Email != null ? TeacherAssignmentLoader.LikePattern(tf.Email) : null;
+                var teacherId = tf.Id;
+                var cargoId = tf.CargoId;
+                var cargoCode = tf.CargoCode;
+                var cargoName = tf.CargoName;
+                proposalsQuery = proposalsQuery.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
+                    ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
+                    (namePattern == null || (ta.Teacher != null &&
+                        (EF.Functions.ILike(ta.Teacher.FirstName + " " + ta.Teacher.LastName, namePattern) ||
+                         EF.Functions.ILike(ta.Teacher.FirstName, namePattern) ||
+                         EF.Functions.ILike(ta.Teacher.LastName, namePattern)))) &&
+                    (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
+                    (teacherId == null || ta.IdTeacher == teacherId) &&
+                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
+                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
+                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
+            }
             if (status.HasValue)
             {
                 proposalsQuery = proposalsQuery.Where(p => p.StatusRegister == status.Value);
@@ -253,7 +280,7 @@ namespace Infrastructure.Repositories
             var paginatedResult = await proposalsQuery
                 .AsSplitQuery()
                 .ToPaginatedResultAsync<Proposal, int>(
-                    filters ?? new Dictionary<string, string>(),
+                    remainingFilters,
                      orderByField,
                      isDescending,
                      pageNumber,
@@ -287,12 +314,18 @@ namespace Infrastructure.Repositories
                 .ToDictionary(g => g.Key, g => g.ToList());
 
             // Construir el resultado final
+            var teachersByInscription = await TeacherAssignmentLoader
+                .LoadActiveByInscriptionIdsAsync(_dbContext, proposalIds, cancellationToken);
+
             var result = proposals.Select(proposal => new ProposalWithDetails
             {
                 Proposal = proposal,
                 UserInscriptionModalities = usersByModality.ContainsKey(proposal.Id)
                     ? usersByModality[proposal.Id]
-                    : new List<UserInscriptionModality>()
+                    : new List<UserInscriptionModality>(),
+                Teachers = teachersByInscription.TryGetValue(proposal.Id, out var teachers)
+                    ? teachers
+                    : new List<AssignedTeacher>()
             }).ToList();
 
             // Retornar resultado paginado
