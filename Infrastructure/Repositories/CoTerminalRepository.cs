@@ -67,6 +67,8 @@ namespace Infrastructure.Repositories
             };
 
             var totalCount = await query.CountAsync(cancellationToken);
+                // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
+                if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
 
             var resultItems = new List<CoTerminalWithDetails>();
@@ -150,6 +152,8 @@ namespace Infrastructure.Repositories
             };
 
             var totalCount = await query.CountAsync(cancellationToken);
+                // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
+                if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
 
             var resultItems = new List<CoTerminalWithDetails>();

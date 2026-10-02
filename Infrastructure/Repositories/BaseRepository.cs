@@ -48,7 +48,7 @@ namespace Infrastructure.Repositories
             if (orderBy != null)
                 query = orderBy(query);
 
-            if (pageNumber.HasValue && pageSize.HasValue)
+            if (pageNumber.HasValue && pageSize.HasValue && pageSize.Value > 0)
                 query = query.Skip((pageNumber.Value - 1) * pageSize.Value).Take(pageSize.Value);
 
             return await query.ToListAsync();
@@ -69,6 +69,8 @@ namespace Infrastructure.Repositories
                 query = orderBy(query);
 
             var totalRecords = await query.CountAsync();
+            // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
+            if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalRecords, 1); }
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
 
             return new PaginatedResult<T>

@@ -48,6 +48,8 @@ namespace Infrastructure.Repositories
             }
 
             var totalRecords = await query.CountAsync(cancellationToken);
+                // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
+                if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalRecords, 1); }
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
 
             return new PaginatedResult<Document>

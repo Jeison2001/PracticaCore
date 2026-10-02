@@ -115,8 +115,9 @@ namespace Infrastructure.Extensions
         {
             if (pageNumber <= 0)
                 pageNumber = 1;
+            // PageSize <= 0: sin paginación (el consumidor pide explícitamente todo el dataset)
             if (pageSize <= 0)
-                pageSize = 10;
+                return query;
 
             return query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
         }
@@ -150,13 +151,15 @@ namespace Infrastructure.Extensions
             // Obtener resultados paginados
             var items = await pagedQuery.ToListAsync(cancellationToken);
             
-            // Construir resultado
+            // Construir resultado. PageSize <= 0: sin paginación, todo se entrega
+            // en una sola página (PageSize = total entregado) para que TotalPages = 1.
+            var deliveredPageSize = pageSize > 0 ? pageSize : Math.Max(items.Count, 1);
             return new PaginatedResult<T>
             {
                 Items = items,
                 TotalRecords = totalCount,
-                PageNumber = pageNumber,
-                PageSize = pageSize
+                PageNumber = pageSize > 0 ? pageNumber : 1,
+                PageSize = deliveredPageSize
             };
         }
     }
