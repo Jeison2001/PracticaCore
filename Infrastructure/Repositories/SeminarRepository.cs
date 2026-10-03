@@ -65,6 +65,8 @@ namespace Infrastructure.Repositories
             };
 
             var totalCount = await query.CountAsync(cancellationToken);
+                // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
+                if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
 
             var resultItems = new List<SeminarWithDetails>();
@@ -152,6 +154,8 @@ namespace Infrastructure.Repositories
             };
 
             var totalCount = await query.CountAsync(cancellationToken);
+                // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
+                if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
             var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
 
             var resultItems = new List<SeminarWithDetails>();
@@ -260,9 +264,39 @@ namespace Infrastructure.Repositories
                             query = query.Where(x => x.IdStateStage == stateStageId);
                         }
                         break;
+
+                    case "studentname":
+                    case "studentname@like":
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            var pattern = LikePattern(value);
+                            query = query.Where(x => _context.Set<UserInscriptionModality>().Any(uim =>
+                                uim.IdInscriptionModality == x.Id &&
+                                uim.StatusRegister &&
+                                uim.User != null &&
+                                (EF.Functions.ILike(uim.User.FirstName + " " + uim.User.LastName, pattern) ||
+                                 EF.Functions.ILike(uim.User.FirstName, pattern) ||
+                                 EF.Functions.ILike(uim.User.LastName, pattern) ||
+                                 EF.Functions.ILike(uim.User.Identification, pattern))));
+                        }
+                        break;
+
+                    case "academicperiodcode":
+                    case "academicperiodcode@eq":
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            query = query.Where(x => x.InscriptionModality != null &&
+                                                    x.InscriptionModality.AcademicPeriod != null &&
+                                                    x.InscriptionModality.AcademicPeriod.Code == value);
+                        }
+                        break;
                 }
             }
             return query;
         }
+
+        /// <summary>Patrón ILIKE con escapes básicos de comodines.</summary>
+        private static string LikePattern(string value) =>
+            "%" + value.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
     }
 }

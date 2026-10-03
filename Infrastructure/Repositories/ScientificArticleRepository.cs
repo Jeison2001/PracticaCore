@@ -55,6 +55,7 @@ namespace Infrastructure.Repositories
                 .AsQueryable();
 
             query = query.ApplyFilters<ScientificArticle, int>(filters);
+            query = ApplySpecificFilters(query, filters);
 
             // Sorting
             query = (sortBy?.ToLower() ?? "default") switch
@@ -143,6 +144,7 @@ namespace Infrastructure.Repositories
                 .AsQueryable();
 
             query = query.ApplyFilters<ScientificArticle, int>(filters);
+            query = ApplySpecificFilters(query, filters);
 
              // Sorting
             query = (sortBy?.ToLower() ?? "default") switch
@@ -226,5 +228,48 @@ namespace Infrastructure.Repositories
                 Documents = documents
             };
         }
+
+        private IQueryable<ScientificArticle> ApplySpecificFilters(IQueryable<ScientificArticle> query, Dictionary<string, string> filters)
+        {
+            foreach (var filter in filters)
+            {
+                var key = filter.Key.ToLower();
+                var value = filter.Value;
+
+                switch (key)
+                {
+                    case "studentname":
+                    case "studentname@like":
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            var pattern = LikePattern(value);
+                            query = query.Where(x => _context.Set<UserInscriptionModality>().Any(uim =>
+                                uim.IdInscriptionModality == x.Id &&
+                                uim.StatusRegister &&
+                                uim.User != null &&
+                                (EF.Functions.ILike(uim.User.FirstName + " " + uim.User.LastName, pattern) ||
+                                 EF.Functions.ILike(uim.User.FirstName, pattern) ||
+                                 EF.Functions.ILike(uim.User.LastName, pattern) ||
+                                 EF.Functions.ILike(uim.User.Identification, pattern))));
+                        }
+                        break;
+
+                    case "academicperiodcode":
+                    case "academicperiodcode@eq":
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            query = query.Where(x => x.InscriptionModality != null &&
+                                                    x.InscriptionModality.AcademicPeriod != null &&
+                                                    x.InscriptionModality.AcademicPeriod.Code == value);
+                        }
+                        break;
+                }
+            }
+            return query;
+        }
+
+        /// <summary>Patrón ILIKE con escapes básicos de comodines.</summary>
+        private static string LikePattern(string value) =>
+            "%" + value.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
     }
 }

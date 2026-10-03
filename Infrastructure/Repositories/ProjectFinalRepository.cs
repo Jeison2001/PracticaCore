@@ -27,7 +27,8 @@ namespace Infrastructure.Repositories
             // asignación activa: si se combinan (p. ej. nombre + cargo), deben coincidir en
             // el MISMO docente (un docente puede tener varios cargos: director/jurado/asesor).
             var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
-            var remainingFilters = tf.Remaining;
+            var pf = ProposalFilterLoader.ExtractProjectFilters(tf.Remaining);
+            var remainingFilters = pf.Remaining;
             if (tf.HasAny)
             {
                 var namePattern = tf.Name != null ? TeacherAssignmentLoader.LikePattern(tf.Name) : null;
@@ -47,6 +48,23 @@ namespace Infrastructure.Repositories
                     (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
                     (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
                     (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
+            }
+
+            // Filtros sobre Proposal (comparte Id con la entidad raíz) -> EXISTS por propuesta:
+            // title@like y researchline@like no son propiedades de ProjectFinal y
+            // FilterBuilder las ignoraría si llegaran a ToPaginatedResultAsync.
+            if (!string.IsNullOrWhiteSpace(pf.Title))
+            {
+                var titlePattern = TeacherAssignmentLoader.LikePattern(pf.Title);
+                projectFinalsQuery = projectFinalsQuery.Where(x => _context.Set<Proposal>().Any(p =>
+                    p.Id == x.Id && EF.Functions.ILike(p.Title, titlePattern)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
+            {
+                var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
+                projectFinalsQuery = projectFinalsQuery.Where(x => _context.Set<Proposal>().Any(p =>
+                    p.Id == x.Id && EF.Functions.ILike(p.ResearchLine.Name, linePattern)));
             }
 
             // Aquí podrías aplicar filtros adicionales si lo deseas
@@ -168,9 +186,27 @@ namespace Infrastructure.Repositories
                 .Where(p => proposalIds.Contains(p.Id))
                 .AsQueryable();
 
+            // Filtros sobre Proposal (comparte Id con la entidad raíz) -> EXISTS por propuesta:
+            // title@like y researchline@like se extraen para que no lleguen a FilterBuilder,
+            // que los ignoraría por no ser propiedades de ProjectFinal.
+            var pf = ProposalFilterLoader.ExtractProjectFilters(filters);
+            if (!string.IsNullOrWhiteSpace(pf.Title))
+            {
+                var titlePattern = TeacherAssignmentLoader.LikePattern(pf.Title);
+                projectFinalsQuery = projectFinalsQuery.Where(x => _context.Set<Proposal>().Any(p =>
+                    p.Id == x.Id && EF.Functions.ILike(p.Title, titlePattern)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
+            {
+                var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
+                projectFinalsQuery = projectFinalsQuery.Where(x => _context.Set<Proposal>().Any(p =>
+                    p.Id == x.Id && EF.Functions.ILike(p.ResearchLine.Name, linePattern)));
+            }
+
             var paginatedResult = await projectFinalsQuery
                 .ToPaginatedResultAsync<ProjectFinal, int>(
-                    filters ?? new Dictionary<string, string>(),
+                    pf.Remaining,
                     orderByField,
                     isDescending,
                     pageNumber,

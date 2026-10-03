@@ -81,11 +81,27 @@ namespace Infrastructure.Repositories
             // Preparar campo de ordenamiento dinámico
             var orderByField = sortBy ?? string.Empty;
 
+            // Filtros sobre navegaciones de Proposal (FilterBuilder solo resuelve
+            // propiedades directas de la entidad): researchlinename@like y statestagename@eq.
+            // `title` sigue su curso normal: es propiedad directa de Proposal.
+            var pf = ProposalFilterLoader.ExtractProposalDetailFilters(filters);
+            if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
+            {
+                var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
+                proposalsQuery = proposalsQuery.Where(p => EF.Functions.ILike(p.ResearchLine.Name, linePattern));
+            }
+
+            if (!string.IsNullOrWhiteSpace(pf.StateStageName))
+            {
+                var stateStageName = pf.StateStageName;
+                proposalsQuery = proposalsQuery.Where(p => p.StateStage.Name == stateStageName);
+            }
+
             // Aplicar paginación, filtrado y ordenamiento con la extensión genérica
             var paginatedResult = await proposalsQuery
                 .AsSplitQuery()
                 .ToPaginatedResultAsync<Proposal, int>(
-                    filters ?? new Dictionary<string, string>(),
+                    pf.Remaining,
                      orderByField,
                      isDescending,
                      pageNumber,
@@ -222,7 +238,8 @@ namespace Infrastructure.Repositories
             // asignación activa: si se combinan (p. ej. nombre + cargo), deben coincidir en
             // el MISMO docente (un docente puede tener varios cargos: director/jurado/asesor).
             var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
-            var remainingFilters = tf.Remaining;
+            var pf = ProposalFilterLoader.ExtractProposalDetailFilters(tf.Remaining);
+            var remainingFilters = pf.Remaining;
             if (tf.HasAny)
             {
                 var namePattern = tf.Name != null ? TeacherAssignmentLoader.LikePattern(tf.Name) : null;
@@ -243,6 +260,21 @@ namespace Infrastructure.Repositories
                     (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
                     (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
             }
+
+            // Filtros sobre navegaciones de Proposal (FilterBuilder solo resuelve
+            // propiedades directas de la entidad): researchlinename@like y statestagename@eq.
+            if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
+            {
+                var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
+                proposalsQuery = proposalsQuery.Where(p => EF.Functions.ILike(p.ResearchLine.Name, linePattern));
+            }
+
+            if (!string.IsNullOrWhiteSpace(pf.StateStageName))
+            {
+                var stateStageName = pf.StateStageName;
+                proposalsQuery = proposalsQuery.Where(p => p.StateStage.Name == stateStageName);
+            }
+
             if (status.HasValue)
             {
                 proposalsQuery = proposalsQuery.Where(p => p.StatusRegister == status.Value);

@@ -15,20 +15,36 @@ namespace Domain.Common
             ["ge"] = Expression.GreaterThanOrEqual,     // Mayor o igual que
             ["lt"] = Expression.LessThan,               // Menor que
             ["le"] = Expression.LessThanOrEqual,        // Menor o igual que
-            ["like"] = (property, value) =>             // Contiene (LIKE)
+            // Operadores de texto insensibles a mayúsculas/minúsculas: la comparación se
+            // hace sobre ToLower(col) y ToLower(valor), que en PostgreSQL traduce a
+            // LOWER(col) LIKE '%valor%' (el LIKE crudo es sensible con la collation
+            // por defecto y rompía la paridad con el filtrado local del frontend).
+            ["like"] = (property, value) =>             // Contiene
             {
+                MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
-                return Expression.Call(property, containsMethod, value);
+                return Expression.Call(
+                    Expression.Call(property, toLowerMethod),
+                    containsMethod,
+                    Expression.Call(value, toLowerMethod));
             },
             ["startswith"] = (property, value) =>       // Comienza con
             {
+                MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo method = typeof(string).GetMethod("StartsWith", new[] { typeof(string) })!;
-                return Expression.Call(property, method, value);
+                return Expression.Call(
+                    Expression.Call(property, toLowerMethod),
+                    method,
+                    Expression.Call(value, toLowerMethod));
             },
             ["endswith"] = (property, value) =>         // Termina con
             {
+                MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo method = typeof(string).GetMethod("EndsWith", new[] { typeof(string) })!;
-                return Expression.Call(property, method, value);
+                return Expression.Call(
+                    Expression.Call(property, toLowerMethod),
+                    method,
+                    Expression.Call(value, toLowerMethod));
             }
         };
 
