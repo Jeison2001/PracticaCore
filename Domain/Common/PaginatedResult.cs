@@ -9,5 +9,9 @@ namespace Domain.Common
         public int TotalPages => (int)Math.Ceiling(TotalRecords / (double)PageSize);
         public bool HasPreviousPage => PageNumber > 1;
         public bool HasNextPage => PageNumber < TotalPages;
+
+        /// <summary>Solo paginación keyset: true si la consulta trajo pageSize+1 filas
+        /// (hay más páginas sin ejecutar COUNT). Null en modo OFFSET clásico.</summary>
+        public bool? HasMoreRows { get; set; }
     }
 }

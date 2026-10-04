@@ -69,7 +69,10 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 request.SortBy,
                 request.IsDescending,
                 filters,
-                cancellationToken);
+                cancellationToken,
+                request.CursorId,
+                request.CursorCreatedAt,
+                request.SkipTotalCount);
 
             var items = page.Items.Select(MapToDto).ToList();
 
@@ -79,6 +82,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 TotalRecords = page.TotalRecords,
                 PageNumber = page.PageNumber,
                 PageSize = page.PageSize,
+                HasMoreRows = page.HasMoreRows,
             };
         }
 

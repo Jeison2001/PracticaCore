@@ -23,6 +23,9 @@ namespace Domain.Interfaces.Repositories
             string? sortBy,
             bool isDescending,
             Dictionary<string, string>? filters,
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false);
     }
 }

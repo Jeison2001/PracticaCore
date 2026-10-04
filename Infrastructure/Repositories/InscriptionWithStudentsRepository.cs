@@ -26,7 +26,10 @@ namespace Infrastructure.Repositories
             string? sortBy,
             bool isDescending,
             Dictionary<string, string>? filters,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false)
         {
             var remainingFilters = new Dictionary<string, string>();
             string? studentName = null, modalityName = null, stateName = null, periodCode = null;
@@ -80,25 +83,46 @@ namespace Infrastructure.Repositories
             if (!string.IsNullOrWhiteSpace(periodCode))
                 query = query.Where(im => im.AcademicPeriod != null && im.AcademicPeriod.Code == periodCode);
 
-            // Ordenamiento (lista blanca de campos de la entidad; por defecto CreatedAt desc)
-            query = (sortBy ?? string.Empty).Trim().ToLowerInvariant() switch
+            // Modo keyset (cursor (CreatedAt, Id)): coste constante en cualquier
+            // profundidad de página. El orden queda forzado a (CreatedAt DESC, Id DESC)
+            // para que el cursor sea estable; se ignora el SortBy recibido.
+            var usingKeyset = cursorId.HasValue && cursorCreatedAt.HasValue && pageSize > 0;
+            if (usingKeyset)
             {
-                "updatedat" => isDescending ? query.OrderByDescending(im => im.UpdatedAt) : query.OrderBy(im => im.UpdatedAt),
-                "id" => isDescending ? query.OrderByDescending(im => im.Id) : query.OrderBy(im => im.Id),
-                "approvaldate" => isDescending ? query.OrderByDescending(im => im.ApprovalDate) : query.OrderBy(im => im.ApprovalDate),
-                "createdat" => isDescending ? query.OrderByDescending(im => im.CreatedAt) : query.OrderBy(im => im.CreatedAt),
-                _ => query.OrderByDescending(im => im.CreatedAt),
-            };
+                var anchorCreatedAt = cursorCreatedAt!.Value;
+                query = query
+                    .Where(im => im.CreatedAt < anchorCreatedAt ||
+                                 (im.CreatedAt == anchorCreatedAt && im.Id < cursorId!.Value))
+                    .OrderByDescending(im => im.CreatedAt)
+                    .ThenByDescending(im => im.Id);
+            }
+            else
+            {
+                // Ordenamiento (lista blanca de campos de la entidad; por defecto CreatedAt desc)
+                query = (sortBy ?? string.Empty).Trim().ToLowerInvariant() switch
+                {
+                    "updatedat" => isDescending ? query.OrderByDescending(im => im.UpdatedAt) : query.OrderBy(im => im.UpdatedAt),
+                    "id" => isDescending ? query.OrderByDescending(im => im.Id) : query.OrderBy(im => im.Id),
+                    "approvaldate" => isDescending ? query.OrderByDescending(im => im.ApprovalDate) : query.OrderBy(im => im.ApprovalDate),
+                    "createdat" => isDescending ? query.OrderByDescending(im => im.CreatedAt) : query.OrderBy(im => im.CreatedAt),
+                    _ => query.OrderByDescending(im => im.CreatedAt),
+                };
+            }
 
-            // Conteo y página en la base de datos (sin traer tablas completas)
-            var totalRecords = await query.CountAsync(cancellationToken);
+            // Conteo y página en la base de datos (sin traer tablas completas).
+            // En keyset con SkipTotalCount se omite el COUNT (el frontend conserva el
+            // total de la primera página): el COUNT con filtro escala igual de mal.
+            var totalRecords = usingKeyset && skipTotalCount ? -1 : await query.CountAsync(cancellationToken);
 
             if (pageNumber <= 0) pageNumber = 1;
             if (pageSize <= 0) pageSize = Math.Max(totalRecords, 1); // contrato: PageSize <= 0 = sin paginación
 
-            var pageRows = await query
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
+            // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
+            var pagedQuery = usingKeyset
+                ? query.Take(pageSize + 1)
+                : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+
+            var pageRows = await pagedQuery
                 .Select(im => new
                 {
                     Inscription = im,
@@ -110,6 +134,14 @@ namespace Infrastructure.Repositories
                     StageOrder = im.StageModality != null ? (int?)im.StageModality.StageOrder : null,
                 })
                 .ToListAsync(cancellationToken);
+
+            bool? hasMoreRows = null;
+            if (usingKeyset)
+            {
+                hasMoreRows = pageRows.Count > pageSize;
+                if (hasMoreRows.Value)
+                    pageRows = pageRows.Take(pageSize).ToList();
+            }
 
             // Estudiantes SOLO de la página (una sola consulta extra con la navegación User)
             var pageIds = pageRows.Select(r => r.Inscription.Id).ToList();
@@ -143,6 +175,7 @@ namespace Infrastructure.Repositories
                 TotalRecords = totalRecords,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
+                HasMoreRows = hasMoreRows,
             };
         }
 
