@@ -29,7 +29,10 @@ namespace Application.Shared.Queries.AcademicPractices.Handlers
                 request.SortBy,
                 request.IsDescending,
                 request.Filters,
-                cancellationToken);
+                cancellationToken,
+                request.CursorId,
+                request.CursorCreatedAt,
+                request.SkipTotalCount);
 
             // 2. Mapear cada resultado a DTO usando AutoMapper
             var mappedItems = new List<AcademicPracticeWithDetailsResponseDto>();
@@ -92,7 +95,8 @@ namespace Application.Shared.Queries.AcademicPractices.Handlers
                 Items = mappedItems,
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
-                PageSize = paginatedResult.PageSize
+                PageSize = paginatedResult.PageSize,
+                HasMoreRows = paginatedResult.HasMoreRows
             };
 
             return result;

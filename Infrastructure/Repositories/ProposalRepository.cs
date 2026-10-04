@@ -25,7 +25,10 @@ namespace Infrastructure.Repositories
             string sortBy,
             bool isDescending,
             Dictionary<string, string> filters,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false)
         {
             // Consulta optimizada que inicia con las asignaciones de docentes
             var query = _dbContext.Set<TeachingAssignment>()
@@ -46,7 +49,8 @@ namespace Infrastructure.Repositories
                     Items = new List<ProposalWithDetails>(),
                     TotalRecords = 0,
                     PageNumber = pageNumber,
-                    PageSize = pageSize
+                    PageSize = pageSize,
+                    HasMoreRows = false
                 };
             }
               // Consulta principal para obtener propuestas
@@ -97,7 +101,9 @@ namespace Infrastructure.Repositories
                 proposalsQuery = proposalsQuery.Where(p => p.StateStage.Name == stateStageName);
             }
 
-            // Aplicar paginación, filtrado y ordenamiento con la extensión genérica
+            // Aplicar paginación, filtrado y ordenamiento con la extensión genérica.
+            // Con cursor (cursorId + cursorCreatedAt) la paginación es keyset
+            // (CreatedAt DESC, Id DESC) con coste constante; skipTotalCount omite el COUNT.
             var paginatedResult = await proposalsQuery
                 .AsSplitQuery()
                 .ToPaginatedResultAsync<Proposal, int>(
@@ -106,7 +112,10 @@ namespace Infrastructure.Repositories
                      isDescending,
                      pageNumber,
                      pageSize,
-                     cancellationToken);
+                     cancellationToken,
+                     cursorId,
+                     cursorCreatedAt,
+                     skipTotalCount);
 
             var proposals = paginatedResult.Items.ToList();
             
@@ -138,7 +147,8 @@ namespace Infrastructure.Repositories
                 Items = result,
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = pageNumber,
-                PageSize = pageSize
+                PageSize = pageSize,
+                HasMoreRows = paginatedResult.HasMoreRows
             };
         }
 
@@ -228,7 +238,10 @@ namespace Infrastructure.Repositories
             bool isDescending,
             Dictionary<string, string> filters,
             bool? status = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false)
         {
             // Consulta principal para obtener propuestas
             var proposalsQuery = _dbContext.Set<Proposal>()
@@ -308,7 +321,9 @@ namespace Infrastructure.Repositories
             // Preparar campo de ordenamiento dinámico
             var orderByField = sortBy ?? string.Empty;
 
-            // Aplicar paginación, filtrado y ordenamiento con la extensión genérica
+            // Aplicar paginación, filtrado y ordenamiento con la extensión genérica.
+            // Con cursor (cursorId + cursorCreatedAt) la paginación es keyset
+            // (CreatedAt DESC, Id DESC) con coste constante; skipTotalCount omite el COUNT.
             var paginatedResult = await proposalsQuery
                 .AsSplitQuery()
                 .ToPaginatedResultAsync<Proposal, int>(
@@ -317,7 +332,10 @@ namespace Infrastructure.Repositories
                      isDescending,
                      pageNumber,
                      pageSize,
-                     cancellationToken);
+                     cancellationToken,
+                     cursorId,
+                     cursorCreatedAt,
+                     skipTotalCount);
 
             var proposals = paginatedResult.Items.ToList();
 
@@ -326,9 +344,10 @@ namespace Infrastructure.Repositories
                 return new PaginatedResult<ProposalWithDetails>
                 {
                     Items = new List<ProposalWithDetails>(),
-                    TotalRecords = 0,
+                    TotalRecords = paginatedResult.TotalRecords,
                     PageNumber = pageNumber,
-                    PageSize = pageSize
+                    PageSize = pageSize,
+                    HasMoreRows = paginatedResult.HasMoreRows
                 };
             }
             
@@ -366,7 +385,8 @@ namespace Infrastructure.Repositories
                 Items = result,
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = pageNumber,
-                PageSize = pageSize
+                PageSize = pageSize,
+                HasMoreRows = paginatedResult.HasMoreRows
             };
         }
     }

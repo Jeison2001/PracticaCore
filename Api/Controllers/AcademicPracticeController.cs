@@ -34,7 +34,10 @@ namespace Api.Controllers
                 PageSize = request.PageSize,
                 SortBy = request.SortBy ?? string.Empty,
                 IsDescending = request.IsDescending,
-                Filters = request.Filters ?? new Dictionary<string, string>()
+                Filters = request.Filters ?? new Dictionary<string, string>(),
+                CursorId = request.CursorId,
+                CursorCreatedAt = request.CursorCreatedAt,
+                SkipTotalCount = request.SkipTotalCount
             };
 
             var result = await _mediator.Send(query);
@@ -68,7 +71,10 @@ namespace Api.Controllers
                 request.PageSize,
                 request.SortBy ?? string.Empty,
                 request.IsDescending,
-                request.Filters ?? new Dictionary<string, string>()
+                request.Filters ?? new Dictionary<string, string>(),
+                request.CursorId,
+                request.CursorCreatedAt,
+                request.SkipTotalCount
             );
 
             var result = await _mediator.Send(query);

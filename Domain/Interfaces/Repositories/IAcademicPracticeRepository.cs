@@ -25,7 +25,10 @@ namespace Domain.Interfaces.Repositories
             string sortBy,
             bool isDescending,
             Dictionary<string, string> filters,
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false);
 
         /// <summary>
         /// Obtiene prácticas académicas con sus detalles para un usuario, evitando operaciones paralelas en el DbContext
@@ -44,7 +47,10 @@ namespace Domain.Interfaces.Repositories
             string sortBy,
             bool isDescending, 
             Dictionary<string, string> filters,
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false);
 
         /// <summary>
         /// Obtiene una práctica académica con todos sus detalles

@@ -26,7 +26,10 @@ namespace Application.Shared.Queries.CoTerminals.Handlers
                 request.SortBy,
                 request.IsDescending,
                 request.Filters ?? new Dictionary<string, string>(),
-                cancellationToken
+                cancellationToken,
+                request.CursorId,
+                request.CursorCreatedAt,
+                request.SkipTotalCount
             );
 
             return new PaginatedResult<CoTerminalWithDetailsDto>
@@ -34,7 +37,8 @@ namespace Application.Shared.Queries.CoTerminals.Handlers
                 Items = _mapper.Map<List<CoTerminalWithDetailsDto>>(result.Items),
                 TotalRecords = result.TotalRecords,
                 PageNumber = result.PageNumber,
-                PageSize = result.PageSize
+                PageSize = result.PageSize,
+                HasMoreRows = result.HasMoreRows
             };
         }
     }

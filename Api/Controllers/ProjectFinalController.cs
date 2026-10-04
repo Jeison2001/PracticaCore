@@ -41,7 +41,10 @@ namespace Api.Controllers
                 PageSize = request.PageSize,
                 SortBy = request.SortBy,
                 IsDescending = request.IsDescending,
-                Filters = request.Filters
+                Filters = request.Filters,
+                CursorId = request.CursorId,
+                CursorCreatedAt = request.CursorCreatedAt,
+                SkipTotalCount = request.SkipTotalCount
             };
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<ProjectFinalWithDetailsResponseDto>> { Success = true, Data = result });
@@ -65,7 +68,12 @@ namespace Api.Controllers
                 request.SortBy ?? string.Empty,
                 request.IsDescending,
                 request.Filters ?? new Dictionary<string, string>()
-            );
+            )
+            {
+                CursorId = request.CursorId,
+                CursorCreatedAt = request.CursorCreatedAt,
+                SkipTotalCount = request.SkipTotalCount
+            };
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<ProjectFinalWithDetailsResponseDto>> { Success = true, Data = result });
         }

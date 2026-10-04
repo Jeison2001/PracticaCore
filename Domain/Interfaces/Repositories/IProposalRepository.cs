@@ -17,15 +17,21 @@ namespace Domain.Interfaces.Repositories
         /// <param name="isDescending">Indica si el ordenamiento es descendente</param>
         /// <param name="filters">Filtros adicionales que pueden incluir el estado</param>
         /// <param name="cancellationToken">Token de cancelación</param>
+        /// <param name="cursorId">Id del cursor keyset (con cursorCreatedAt activa paginación por cursor)</param>
+        /// <param name="cursorCreatedAt">CreatedAt del cursor keyset</param>
+        /// <param name="skipTotalCount">En keyset, omite el COUNT (TotalRecords = -1)</param>
         /// <returns>Resultado paginado de propuestas con todos sus detalles relacionados</returns>
         Task<PaginatedResult<ProposalWithDetails>> GetProposalsByTeacherWithDetailsPaginatedAsync(
             int teacherId,
-            int pageNumber, 
+            int pageNumber,
             int pageSize,
             string sortBy,
             bool isDescending,
             Dictionary<string, string> filters,
-            CancellationToken cancellationToken = default);/// <summary>
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false);/// <summary>
         /// Obtiene propuestas con sus detalles para un usuario, evitando operaciones paralelas en el DbContext
         /// </summary>
         Task<List<ProposalWithDetails>> GetProposalsByUserWithDetailsAsync(
@@ -52,14 +58,20 @@ namespace Domain.Interfaces.Repositories
         /// <param name="filters">Filtros adicionales</param>
         /// <param name="status">Estado opcional para filtrar resultados</param>
         /// <param name="cancellationToken">Token de cancelación</param>
+        /// <param name="cursorId">Id del cursor keyset (con cursorCreatedAt activa paginación por cursor)</param>
+        /// <param name="cursorCreatedAt">CreatedAt del cursor keyset</param>
+        /// <param name="skipTotalCount">En keyset, omite el COUNT (TotalRecords = -1)</param>
         /// <returns>Resultado paginado de propuestas con todos sus detalles relacionados</returns>
         Task<PaginatedResult<ProposalWithDetails>> GetAllProposalsWithDetailsPaginatedAsync(
-            int pageNumber, 
+            int pageNumber,
             int pageSize,
             string sortBy,
             bool isDescending,
             Dictionary<string, string> filters,
             bool? status = null,
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false);
     }
 }

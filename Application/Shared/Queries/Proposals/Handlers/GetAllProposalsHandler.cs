@@ -39,16 +39,20 @@ namespace Application.Shared.Queries.Proposals.Handlers
                     request.IsDescending,
                     request.Filters ?? new Dictionary<string, string>(),
                     null,
-                    cancellationToken);
+                    cancellationToken,
+                    request.CursorId,
+                    request.CursorCreatedAt,
+                    request.SkipTotalCount);
 
                 if (!result.Items.Any())
                 {
                     return new PaginatedResult<ProposalWithDetailsResponseDto>
                     {
                         Items = new List<ProposalWithDetailsResponseDto>(),
-                        TotalRecords = 0,
+                        TotalRecords = result.TotalRecords,
                         PageNumber = request.PageNumber,
-                        PageSize = request.PageSize
+                        PageSize = request.PageSize,
+                        HasMoreRows = result.HasMoreRows
                     };
                 }
 
@@ -102,7 +106,8 @@ namespace Application.Shared.Queries.Proposals.Handlers
                     Items = resultItems,
                     TotalRecords = result.TotalRecords,
                     PageNumber = request.PageNumber,
-                    PageSize = request.PageSize
+                    PageSize = request.PageSize,
+                    HasMoreRows = result.HasMoreRows
                 };
             }
             catch (Exception ex)

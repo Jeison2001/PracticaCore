@@ -39,7 +39,10 @@ namespace Infrastructure.Repositories
             string sortBy, 
             bool isDescending, 
             Dictionary<string, string> filters, 
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false)
         {
             filters ??= new Dictionary<string, string>();
             var query = _context.SaberPros
@@ -57,17 +60,49 @@ namespace Infrastructure.Repositories
             query = query.ApplyFilters<SaberPro, int>(filters);
             query = ApplySpecificFilters(query, filters);
 
-            // Sorting
-            query = (sortBy?.ToLower() ?? "default") switch
+            // Modo keyset (cursor (CreatedAt, Id)): coste constante en cualquier
+            // profundidad de página. El orden queda forzado a (CreatedAt DESC, Id DESC)
+            // para que el cursor sea estable; se ignora el SortBy recibido.
+            var usingKeyset = cursorId.HasValue && cursorCreatedAt.HasValue && pageSize > 0;
+            if (usingKeyset)
             {
-                "createdat" => isDescending ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
-                _ => isDescending ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
-            };
+                var anchorCreatedAt = cursorCreatedAt!.Value;
+                query = query
+                    .Where(x => x.CreatedAt < anchorCreatedAt ||
+                                (x.CreatedAt == anchorCreatedAt && x.Id < cursorId!.Value))
+                    .OrderByDescending(x => x.CreatedAt)
+                    .ThenByDescending(x => x.Id);
+            }
+            else
+            {
+                // Sorting
+                query = (sortBy?.ToLower() ?? "default") switch
+                {
+                    "createdat" => isDescending ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
+                    _ => isDescending ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
+                };
+                // Desempate estable por Id (páginas deterministas con CreatedAt repetido)
+                query = ((System.Linq.IOrderedQueryable<SaberPro>)query).ThenByDescending(x => x.Id);
+            }
 
-            var totalCount = await query.CountAsync(cancellationToken);
+            // En keyset con SkipTotalCount se omite el COUNT (el frontend conserva el
+            // total de la primera página): el COUNT con filtro escala igual de mal.
+            var totalCount = usingKeyset && skipTotalCount ? -1 : await query.CountAsync(cancellationToken);
                 // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
                 if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
-            var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+            // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
+            var pagedQuery = usingKeyset
+                ? query.Take(pageSize + 1)
+                : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+            var items = await pagedQuery.ToListAsync(cancellationToken);
+
+            bool? hasMoreRows = null;
+            if (usingKeyset)
+            {
+                hasMoreRows = items.Count > pageSize;
+                if (hasMoreRows.Value)
+                    items = items.Take(pageSize).ToList();
+            }
 
             var resultItems = new List<SaberProWithDetails>();
             var detailsBatch = await ModalityDetailsBatch.LoadAsync(
@@ -82,7 +117,8 @@ namespace Infrastructure.Repositories
                 Items = resultItems,
                 TotalRecords = totalCount,
                 PageNumber = pageNumber,
-                PageSize = pageSize
+                PageSize = pageSize,
+                HasMoreRows = hasMoreRows
             };
         }
 
@@ -128,7 +164,10 @@ namespace Infrastructure.Repositories
             string sortBy, 
             bool isDescending, 
             Dictionary<string, string> filters, 
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false)
         {
             filters ??= new Dictionary<string, string>();
             var query = _context.SaberPros
@@ -146,17 +185,49 @@ namespace Infrastructure.Repositories
             query = query.ApplyFilters<SaberPro, int>(filters);
             query = ApplySpecificFilters(query, filters);
 
-            // Sorting
-            query = (sortBy?.ToLower() ?? "default") switch
+            // Modo keyset (cursor (CreatedAt, Id)): coste constante en cualquier
+            // profundidad de página. El orden queda forzado a (CreatedAt DESC, Id DESC)
+            // para que el cursor sea estable; se ignora el SortBy recibido.
+            var usingKeyset = cursorId.HasValue && cursorCreatedAt.HasValue && pageSize > 0;
+            if (usingKeyset)
             {
-                "createdat" => isDescending ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
-                _ => isDescending ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
-            };
+                var anchorCreatedAt = cursorCreatedAt!.Value;
+                query = query
+                    .Where(x => x.CreatedAt < anchorCreatedAt ||
+                                (x.CreatedAt == anchorCreatedAt && x.Id < cursorId!.Value))
+                    .OrderByDescending(x => x.CreatedAt)
+                    .ThenByDescending(x => x.Id);
+            }
+            else
+            {
+                // Sorting
+                query = (sortBy?.ToLower() ?? "default") switch
+                {
+                    "createdat" => isDescending ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
+                    _ => isDescending ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
+                };
+                // Desempate estable por Id (páginas deterministas con CreatedAt repetido)
+                query = ((System.Linq.IOrderedQueryable<SaberPro>)query).ThenByDescending(x => x.Id);
+            }
 
-            var totalCount = await query.CountAsync(cancellationToken);
+            // En keyset con SkipTotalCount se omite el COUNT (el frontend conserva el
+            // total de la primera página): el COUNT con filtro escala igual de mal.
+            var totalCount = usingKeyset && skipTotalCount ? -1 : await query.CountAsync(cancellationToken);
                 // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
                 if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
-            var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+            // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
+            var pagedQuery = usingKeyset
+                ? query.Take(pageSize + 1)
+                : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+            var items = await pagedQuery.ToListAsync(cancellationToken);
+
+            bool? hasMoreRows = null;
+            if (usingKeyset)
+            {
+                hasMoreRows = items.Count > pageSize;
+                if (hasMoreRows.Value)
+                    items = items.Take(pageSize).ToList();
+            }
 
             var resultItems = new List<SaberProWithDetails>();
             var detailsBatch = await ModalityDetailsBatch.LoadAsync(
@@ -171,7 +242,8 @@ namespace Infrastructure.Repositories
                 Items = resultItems,
                 TotalRecords = totalCount,
                 PageNumber = pageNumber,
-                PageSize = pageSize
+                PageSize = pageSize,
+                HasMoreRows = hasMoreRows
             };
         }
 

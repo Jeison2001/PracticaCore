@@ -123,7 +123,11 @@ namespace Infrastructure.Extensions
         }
 
         /// <summary>
-        /// Método que aplica filtrado, ordenamiento y paginación y retorna un resultado paginado
+        /// Método que aplica filtrado, ordenamiento y paginación y retorna un resultado paginado.
+        /// Modo keyset opcional: con cursor (CursorCreatedAt, CursorId) la paginación es por
+        /// cursor (CreatedAt DESC, Id DESC) con coste constante en cualquier profundidad;
+        /// el SortBy recibido se ignora y SkipTotalCount omite el COUNT (TotalRecords = -1).
+        /// Sin cursor el comportamiento es el clásico (OFFSET + COUNT), retrocompatible.
         /// </summary>
         public static async Task<PaginatedResult<T>> ToPaginatedResultAsync<T, TId>(
             this IQueryable<T> query,
@@ -132,25 +136,77 @@ namespace Infrastructure.Extensions
             bool isDescending,
             int pageNumber,
             int pageSize,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false)
             where T : BaseEntity<TId>
             where TId : struct
         {
             // Aplicar filtros
             var filteredQuery = query.ApplyFilters<T, TId>(filters);
-            
-            // Contar total antes de paginar
-            var totalCount = await filteredQuery.CountAsync(cancellationToken);
-            
-            // Aplicar ordenamiento
-            var orderedQuery = filteredQuery.ApplyOrder(sortBy, isDescending);
-            
-            // Aplicar paginación
-            var pagedQuery = orderedQuery.ApplyPaging(pageNumber, pageSize);
-            
+
+            // Modo keyset (cursor (CreatedAt, Id)): coste constante en cualquier profundidad.
+            // El orden queda forzado a (CreatedAt DESC, Id DESC) para que el cursor sea estable.
+            var usingKeyset = cursorId.HasValue && cursorCreatedAt.HasValue && pageSize > 0;
+            IQueryable<T> orderedQuery;
+            if (usingKeyset)
+            {
+                var anchorCreatedAt = cursorCreatedAt!.Value;
+                // Comparación de tupla (CreatedAt, Id) < (ancla): Id es TId (genérico),
+                // así que el predicado se construye con el tipo real. Un Where con las dos
+                // condiciones por separado (CreatedAt < a AND Id < c) excluiría filas con
+                // CreatedAt anterior al ancla e Id mayor — filas que SÍ siguen en el orden.
+                var xParam = System.Linq.Expressions.Expression.Parameter(typeof(T), "x");
+                var createdMember = System.Linq.Expressions.Expression.Property(xParam, nameof(BaseEntity<TId>.CreatedAt));
+                var idMember = System.Linq.Expressions.Expression.Property(xParam, nameof(BaseEntity<TId>.Id));
+                var anchorConstant = System.Linq.Expressions.Expression.Constant(anchorCreatedAt, typeof(DateTimeOffset));
+                var cursorConstant = System.Linq.Expressions.Expression.Constant(
+                    Convert.ChangeType(cursorId!.Value, typeof(TId)));
+                var ltCreated = System.Linq.Expressions.Expression.LessThan(createdMember, anchorConstant);
+                var eqCreated = System.Linq.Expressions.Expression.Equal(createdMember, anchorConstant);
+                var ltId = System.Linq.Expressions.Expression.LessThan(
+                    idMember, System.Linq.Expressions.Expression.Convert(cursorConstant, typeof(TId)));
+                var rowPredicate = System.Linq.Expressions.Expression.Lambda<Func<T, bool>>(
+                    System.Linq.Expressions.Expression.OrElse(ltCreated, System.Linq.Expressions.Expression.AndAlso(eqCreated, ltId)),
+                    xParam);
+                orderedQuery = filteredQuery
+                    .Where(rowPredicate)
+                    .OrderByDescending(x => x.CreatedAt)
+                    .ThenByDescending(x => x.Id);
+            }
+            else
+            {
+                // Aplicar ordenamiento
+                orderedQuery = filteredQuery.ApplyOrder(sortBy, isDescending);
+                // Desempate estable por Id: sin él, filas con el mismo valor de orden
+                // hacen las páginas no deterministas (duplicados/saltos entre páginas).
+                if (orderedQuery is System.Linq.IOrderedQueryable<T> orderedId)
+                    orderedQuery = orderedId.ThenByDescending(x => Microsoft.EntityFrameworkCore.EF.Property<object>(x, "Id"));
+            }
+
+            // Contar total antes de paginar (en keyset con SkipTotalCount se omite:
+            // el COUNT con filtro escala igual de mal que el OFFSET).
+            var totalCount = usingKeyset && skipTotalCount
+                ? -1
+                : await filteredQuery.CountAsync(cancellationToken);
+
+            // Aplicar paginación (keyset trae pageSize+1 filas para detectar HasMoreRows sin COUNT)
+            var pagedQuery = usingKeyset
+                ? orderedQuery.Take(pageSize + 1)
+                : orderedQuery.ApplyPaging(pageNumber, pageSize);
+
             // Obtener resultados paginados
             var items = await pagedQuery.ToListAsync(cancellationToken);
-            
+
+            bool? hasMoreRows = null;
+            if (usingKeyset)
+            {
+                hasMoreRows = items.Count > pageSize;
+                if (hasMoreRows.Value)
+                    items = items.Take(pageSize).ToList();
+            }
+
             // Construir resultado. PageSize <= 0: sin paginación, todo se entrega
             // en una sola página (PageSize = total entregado) para que TotalPages = 1.
             var deliveredPageSize = pageSize > 0 ? pageSize : Math.Max(items.Count, 1);
@@ -159,7 +215,8 @@ namespace Infrastructure.Extensions
                 Items = items,
                 TotalRecords = totalCount,
                 PageNumber = pageSize > 0 ? pageNumber : 1,
-                PageSize = deliveredPageSize
+                PageSize = deliveredPageSize,
+                HasMoreRows = hasMoreRows
             };
         }
     }

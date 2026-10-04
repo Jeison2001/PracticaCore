@@ -107,6 +107,8 @@ namespace Infrastructure.Repositories
                     "createdat" => isDescending ? query.OrderByDescending(im => im.CreatedAt) : query.OrderBy(im => im.CreatedAt),
                     _ => query.OrderByDescending(im => im.CreatedAt),
                 };
+                // Desempate estable por Id (páginas deterministas con CreatedAt repetido)
+                query = ((System.Linq.IOrderedQueryable<InscriptionModality>)query).ThenByDescending(im => im.Id);
             }
 
             // Conteo y página en la base de datos (sin traer tablas completas).

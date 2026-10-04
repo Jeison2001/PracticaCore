@@ -12,5 +12,8 @@ namespace Application.Shared.Queries.CoTerminals
         public string SortBy { get; set; } = string.Empty;
         public bool IsDescending { get; set; }
         public Dictionary<string, string>? Filters { get; set; }
+        public long? CursorId { get; set; }
+        public DateTimeOffset? CursorCreatedAt { get; set; }
+        public bool SkipTotalCount { get; set; }
     }
 }

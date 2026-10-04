@@ -28,7 +28,10 @@ namespace Application.Shared.Queries.AcademicPractices.Handlers
                 request.SortBy,
                 request.IsDescending,
                 request.Filters,
-                cancellationToken);
+                cancellationToken,
+                request.CursorId,
+                request.CursorCreatedAt,
+                request.SkipTotalCount);
 
             var mappedItems = _mapper.Map<List<AcademicPracticeWithDetailsResponseDto>>(result.Items);
 
@@ -37,7 +40,8 @@ namespace Application.Shared.Queries.AcademicPractices.Handlers
                 Items = mappedItems,
                 TotalRecords = result.TotalRecords,
                 PageNumber = result.PageNumber,
-                PageSize = result.PageSize
+                PageSize = result.PageSize,
+                HasMoreRows = result.HasMoreRows
             };
         }
     }

@@ -12,6 +12,9 @@ namespace Application.Shared.Queries.PreliminaryProjects
         public string? SortBy { get; set; }
         public bool IsDescending { get; set; }
         public Dictionary<string, string>? Filters { get; set; }
+        public long? CursorId { get; set; }
+        public DateTimeOffset? CursorCreatedAt { get; set; }
+        public bool SkipTotalCount { get; set; }
         public GetPreliminaryProjectsByTeacherQuery(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
         {
             TeacherId = teacherId;

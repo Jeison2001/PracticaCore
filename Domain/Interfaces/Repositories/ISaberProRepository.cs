@@ -15,7 +15,10 @@ namespace Domain.Interfaces.Repositories
             string sortBy, 
             bool isDescending, 
             Dictionary<string, string> filters, 
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false);
 
         Task<List<SaberProWithDetails>> GetByUserAsync(int userId, bool? status = null, CancellationToken cancellationToken = default);
         
@@ -26,6 +29,9 @@ namespace Domain.Interfaces.Repositories
             string sortBy, 
             bool isDescending, 
             Dictionary<string, string> filters, 
-            CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false);
     }
 }

@@ -27,7 +27,10 @@ namespace Application.Shared.Queries.SaberPros.Handlers
                 request.SortBy,
                 request.IsDescending,
                 request.Filters ?? new Dictionary<string, string>(),
-                cancellationToken
+                cancellationToken,
+                request.CursorId,
+                request.CursorCreatedAt,
+                request.SkipTotalCount
             );
 
             return new PaginatedResult<SaberProWithDetailsDto>
@@ -35,7 +38,8 @@ namespace Application.Shared.Queries.SaberPros.Handlers
                 Items = _mapper.Map<List<SaberProWithDetailsDto>>(result.Items),
                 TotalRecords = result.TotalRecords,
                 PageNumber = result.PageNumber,
-                PageSize = result.PageSize
+                PageSize = result.PageSize,
+                HasMoreRows = result.HasMoreRows
             };
         }
     }

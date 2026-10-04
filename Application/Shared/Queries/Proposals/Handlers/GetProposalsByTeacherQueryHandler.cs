@@ -30,7 +30,7 @@ namespace Application.Shared.Queries.Proposals.Handlers
         {
             try
             {
-                // Obtener las propuestas con una consulta optimizada en el repositorio                
+                // Obtener las propuestas con una consulta optimizada en el repositorio
                 var proposalsWithDetailsPaginated = await _proposalRepository.GetProposalsByTeacherWithDetailsPaginatedAsync(
                     request.TeacherId,
                     request.PageNumber,
@@ -38,16 +38,20 @@ namespace Application.Shared.Queries.Proposals.Handlers
                     request.SortBy,
                     request.IsDescending,
                     request.Filters,
-                    cancellationToken);
+                    cancellationToken,
+                    request.CursorId,
+                    request.CursorCreatedAt,
+                    request.SkipTotalCount);
 
                 if (!proposalsWithDetailsPaginated.Items.Any())
                 {
                     return new PaginatedResult<ProposalWithDetailsResponseDto>
                     {
                         Items = new List<ProposalWithDetailsResponseDto>(),
-                        TotalRecords = 0,
+                        TotalRecords = proposalsWithDetailsPaginated.TotalRecords,
                         PageNumber = request.PageNumber,
-                        PageSize = request.PageSize
+                        PageSize = request.PageSize,
+                        HasMoreRows = proposalsWithDetailsPaginated.HasMoreRows
                     };
                 }
 
@@ -87,7 +91,8 @@ namespace Application.Shared.Queries.Proposals.Handlers
                     Items = resultItems,
                     TotalRecords = proposalsWithDetailsPaginated.TotalRecords,
                     PageNumber = request.PageNumber,
-                    PageSize = request.PageSize
+                    PageSize = request.PageSize,
+                    HasMoreRows = proposalsWithDetailsPaginated.HasMoreRows
                 };
             }
             catch (Exception ex)

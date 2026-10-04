@@ -12,6 +12,9 @@ namespace Application.Shared.Queries.AcademicPractices
         public string SortBy { get; set; } = string.Empty;
         public bool IsDescending { get; set; } = false;
         public Dictionary<string, string> Filters { get; set; } = new Dictionary<string, string>();
+        public long? CursorId { get; set; }
+        public DateTimeOffset? CursorCreatedAt { get; set; }
+        public bool SkipTotalCount { get; set; }
 
         public GetAcademicPracticesByTeacherQuery(
             int teacherId,
@@ -19,7 +22,10 @@ namespace Application.Shared.Queries.AcademicPractices
             int pageSize = 10,
             string sortBy = "",
             bool isDescending = false,
-            Dictionary<string, string>? filters = null)
+            Dictionary<string, string>? filters = null,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false)
         {
             TeacherId = teacherId;
             PageNumber = pageNumber;
@@ -27,6 +33,9 @@ namespace Application.Shared.Queries.AcademicPractices
             SortBy = sortBy;
             IsDescending = isDescending;
             Filters = filters ?? new Dictionary<string, string>();
+            CursorId = cursorId;
+            CursorCreatedAt = cursorCreatedAt;
+            SkipTotalCount = skipTotalCount;
         }
     }
 }

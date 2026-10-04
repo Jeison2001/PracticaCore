@@ -16,7 +16,7 @@ namespace Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>> GetAllWithProposalAndStudentsAsync(int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
+        public async Task<PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>> GetAllWithProposalAndStudentsAsync(int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters, long? cursorId = null, DateTimeOffset? cursorCreatedAt = null, bool skipTotalCount = false)
         {
             var orderByField = sortBy ?? string.Empty;            // 1. Paginar ProjectFinals primero
             var projectFinalsQuery = _context.ProjectFinals
@@ -70,13 +70,19 @@ namespace Infrastructure.Repositories
             // Aquí podrías aplicar filtros adicionales si lo deseas
             // projectFinalsQuery = ...
 
+            // Con cursor (cursorId + cursorCreatedAt) la paginación es keyset
+            // (CreatedAt DESC, Id DESC) con coste constante; skipTotalCount omite el COUNT.
             var paginatedResult = await projectFinalsQuery
                 .ToPaginatedResultAsync<ProjectFinal, int>(
                     remainingFilters,
                     orderByField,
                     isDescending,
                     pageNumber,
-                    pageSize);
+                    pageSize,
+                    default,
+                    cursorId,
+                    cursorCreatedAt,
+                    skipTotalCount);
 
             var finals = paginatedResult.Items.ToList();
             if (!finals.Any())
@@ -86,7 +92,8 @@ namespace Infrastructure.Repositories
                     Items = new List<(ProjectFinal, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>(),
                     TotalRecords = paginatedResult.TotalRecords,
                     PageNumber = paginatedResult.PageNumber,
-                    PageSize = paginatedResult.PageSize
+                    PageSize = paginatedResult.PageSize,
+                    HasMoreRows = paginatedResult.HasMoreRows
                 };
             }
 
@@ -124,7 +131,8 @@ namespace Infrastructure.Repositories
                 Items = items,
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
-                PageSize = paginatedResult.PageSize
+                PageSize = paginatedResult.PageSize,
+                HasMoreRows = paginatedResult.HasMoreRows
             };
         }
 
@@ -172,7 +180,7 @@ namespace Infrastructure.Repositories
             )).ToList();
         }
 
-        public async Task<PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByTeacherIdWithProposalAndStudentsAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters)
+        public async Task<PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByTeacherIdWithProposalAndStudentsAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters, long? cursorId = null, DateTimeOffset? cursorCreatedAt = null, bool skipTotalCount = false)
         {
             var proposalIds = await _context.Set<TeachingAssignment>()
                 .Where(ta => ta.IdTeacher == teacherId)
@@ -204,13 +212,19 @@ namespace Infrastructure.Repositories
                     p.Id == x.Id && EF.Functions.ILike(p.ResearchLine.Name, linePattern)));
             }
 
+            // Con cursor (cursorId + cursorCreatedAt) la paginación es keyset
+            // (CreatedAt DESC, Id DESC) con coste constante; skipTotalCount omite el COUNT.
             var paginatedResult = await projectFinalsQuery
                 .ToPaginatedResultAsync<ProjectFinal, int>(
                     pf.Remaining,
                     orderByField,
                     isDescending,
                     pageNumber,
-                    pageSize);
+                    pageSize,
+                    default,
+                    cursorId,
+                    cursorCreatedAt,
+                    skipTotalCount);
 
             var finals = paginatedResult.Items.ToList();
             if (!finals.Any())
@@ -220,7 +234,8 @@ namespace Infrastructure.Repositories
                     Items = new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>(),
                     TotalRecords = paginatedResult.TotalRecords,
                     PageNumber = paginatedResult.PageNumber,
-                    PageSize = paginatedResult.PageSize
+                    PageSize = paginatedResult.PageSize,
+                    HasMoreRows = paginatedResult.HasMoreRows
                 };
             }
 
@@ -249,7 +264,8 @@ namespace Infrastructure.Repositories
                 Items = items,
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
-                PageSize = paginatedResult.PageSize
+                PageSize = paginatedResult.PageSize,
+                HasMoreRows = paginatedResult.HasMoreRows
             };
         }
     }

@@ -70,7 +70,10 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         string sortBy, 
         bool isDescending, 
         Dictionary<string, string> filters, 
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        long? cursorId = null,
+        DateTimeOffset? cursorCreatedAt = null,
+        bool skipTotalCount = false)
     {
         filters ??= new Dictionary<string, string>(); // Previene null reference
         var query = _context.AcademicPractices
@@ -91,22 +94,51 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // Aplicar filtros específicos para entidades relacionadas
         query = ApplySpecificFilters(query, filters);
 
-        // Apply sorting
-        query = (sortBy?.ToLower() ?? "defaultSortField") switch
+        // Modo keyset (cursor (CreatedAt, Id)): coste constante en cualquier
+        // profundidad de página. El orden queda forzado a (CreatedAt DESC, Id DESC)
+        // para que el cursor sea estable; se ignora el SortBy recibido.
+        var usingKeyset = cursorId.HasValue && cursorCreatedAt.HasValue && pageSize > 0;
+        if (usingKeyset)
         {
-            "createdat" => isDescending ? query.OrderByDescending(ap => ap.CreatedAt) : query.OrderBy(ap => ap.CreatedAt),
-            "startdate" => isDescending ? query.OrderByDescending(ap => ap.PracticeStartDate) : query.OrderBy(ap => ap.PracticeStartDate),
-            "institution" => isDescending ? query.OrderByDescending(ap => ap.InstitutionName) : query.OrderBy(ap => ap.InstitutionName),
-            _ => query.OrderByDescending(ap => ap.CreatedAt)
-        };
+            var anchorCreatedAt = cursorCreatedAt!.Value;
+            query = query
+                .Where(ap => ap.CreatedAt < anchorCreatedAt ||
+                             (ap.CreatedAt == anchorCreatedAt && ap.Id < cursorId!.Value))
+                .OrderByDescending(ap => ap.CreatedAt)
+                .ThenByDescending(ap => ap.Id);
+        }
+        else
+        {
+            // Apply sorting
+            query = (sortBy?.ToLower() ?? "defaultSortField") switch
+            {
+                "createdat" => isDescending ? query.OrderByDescending(ap => ap.CreatedAt) : query.OrderBy(ap => ap.CreatedAt),
+                "startdate" => isDescending ? query.OrderByDescending(ap => ap.PracticeStartDate) : query.OrderBy(ap => ap.PracticeStartDate),
+                "institution" => isDescending ? query.OrderByDescending(ap => ap.InstitutionName) : query.OrderBy(ap => ap.InstitutionName),
+                _ => query.OrderByDescending(ap => ap.CreatedAt)
+            };
+            // Desempate estable por Id (páginas deterministas con CreatedAt repetido)
+            query = ((System.Linq.IOrderedQueryable<AcademicPractice>)query).ThenByDescending(ap => ap.Id);
+        }
 
-        var totalCount = await query.CountAsync(cancellationToken);
+        // En keyset con SkipTotalCount se omite el COUNT (el frontend conserva el
+        // total de la primera página): el COUNT con filtro escala igual de mal.
+        var totalCount = usingKeyset && skipTotalCount ? -1 : await query.CountAsync(cancellationToken);
         // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
         if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
-        var academicPractices = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
+        var pagedQuery = usingKeyset
+            ? query.Take(pageSize + 1)
+            : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        var academicPractices = await pagedQuery.ToListAsync(cancellationToken);
+
+        bool? hasMoreRows = null;
+        if (usingKeyset)
+        {
+            hasMoreRows = academicPractices.Count > pageSize;
+            if (hasMoreRows.Value)
+                academicPractices = academicPractices.Take(pageSize).ToList();
+        }
 
         // Get academic practice IDs for efficient student loading
         var academicPracticeIds = academicPractices.Select(ap => ap.Id).ToList();
@@ -137,7 +169,8 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             Items = items,
             TotalRecords = totalCount,
             PageNumber = pageNumber,
-            PageSize = pageSize
+            PageSize = pageSize,
+            HasMoreRows = hasMoreRows
         };
     }
 
@@ -148,7 +181,10 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         string sortBy, 
         bool isDescending, 
         Dictionary<string, string> filters, 
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        long? cursorId = null,
+        DateTimeOffset? cursorCreatedAt = null,
+        bool skipTotalCount = false)
     {
         filters ??= new Dictionary<string, string>(); // Previene null reference
         // Get academic practices assigned to a teacher through teaching assignments
@@ -174,22 +210,51 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // Aplicar filtros específicos para entidades relacionadas
         query = ApplySpecificFilters(query, filters);
 
-        // Apply sorting
-        query = (sortBy?.ToLower() ?? "defaultSortField") switch
+        // Modo keyset (cursor (CreatedAt, Id)): coste constante en cualquier
+        // profundidad de página. El orden queda forzado a (CreatedAt DESC, Id DESC)
+        // para que el cursor sea estable; se ignora el SortBy recibido.
+        var usingKeyset = cursorId.HasValue && cursorCreatedAt.HasValue && pageSize > 0;
+        if (usingKeyset)
         {
-            "createdat" => isDescending ? query.OrderByDescending(ap => ap.CreatedAt) : query.OrderBy(ap => ap.CreatedAt),
-            "startdate" => isDescending ? query.OrderByDescending(ap => ap.PracticeStartDate) : query.OrderBy(ap => ap.PracticeStartDate),
-            "institution" => isDescending ? query.OrderByDescending(ap => ap.InstitutionName) : query.OrderBy(ap => ap.InstitutionName),
-            _ => query.OrderByDescending(ap => ap.CreatedAt)
-        };
+            var anchorCreatedAt = cursorCreatedAt!.Value;
+            query = query
+                .Where(ap => ap.CreatedAt < anchorCreatedAt ||
+                             (ap.CreatedAt == anchorCreatedAt && ap.Id < cursorId!.Value))
+                .OrderByDescending(ap => ap.CreatedAt)
+                .ThenByDescending(ap => ap.Id);
+        }
+        else
+        {
+            // Apply sorting
+            query = (sortBy?.ToLower() ?? "defaultSortField") switch
+            {
+                "createdat" => isDescending ? query.OrderByDescending(ap => ap.CreatedAt) : query.OrderBy(ap => ap.CreatedAt),
+                "startdate" => isDescending ? query.OrderByDescending(ap => ap.PracticeStartDate) : query.OrderBy(ap => ap.PracticeStartDate),
+                "institution" => isDescending ? query.OrderByDescending(ap => ap.InstitutionName) : query.OrderBy(ap => ap.InstitutionName),
+                _ => query.OrderByDescending(ap => ap.CreatedAt)
+            };
+            // Desempate estable por Id (páginas deterministas con CreatedAt repetido)
+            query = ((System.Linq.IOrderedQueryable<AcademicPractice>)query).ThenByDescending(ap => ap.Id);
+        }
 
-        var totalCount = await query.CountAsync(cancellationToken);
+        // En keyset con SkipTotalCount se omite el COUNT (el frontend conserva el
+        // total de la primera página): el COUNT con filtro escala igual de mal.
+        var totalCount = usingKeyset && skipTotalCount ? -1 : await query.CountAsync(cancellationToken);
         // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
         if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
-        var academicPractices = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
+        var pagedQuery = usingKeyset
+            ? query.Take(pageSize + 1)
+            : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        var academicPractices = await pagedQuery.ToListAsync(cancellationToken);
+
+        bool? hasMoreRows = null;
+        if (usingKeyset)
+        {
+            hasMoreRows = academicPractices.Count > pageSize;
+            if (hasMoreRows.Value)
+                academicPractices = academicPractices.Take(pageSize).ToList();
+        }
 
         // Convert to detailed results (simplified for performance)
         var items = academicPractices.Select(ap => new AcademicPracticeWithDetails
@@ -211,7 +276,8 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             Items = items,
             TotalRecords = totalCount,
             PageNumber = pageNumber,
-            PageSize = pageSize
+            PageSize = pageSize,
+            HasMoreRows = hasMoreRows
         };
     }
 

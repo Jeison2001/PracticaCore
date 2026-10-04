@@ -12,6 +12,9 @@ namespace Application.Shared.Queries.Proposals
         public string SortBy { get; init; } = "";
         public bool IsDescending { get; init; } = false;
         public Dictionary<string, string> Filters { get; init; } = new Dictionary<string, string>();
+        public long? CursorId { get; init; }
+        public DateTimeOffset? CursorCreatedAt { get; init; }
+        public bool SkipTotalCount { get; init; }
 
         public GetProposalsByTeacherQuery(int teacherId)
         {

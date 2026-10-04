@@ -13,8 +13,11 @@ namespace Application.Shared.Queries.AcademicAverages
         public string SortBy { get; set; } = string.Empty;
         public bool IsDescending { get; set; }
         public Dictionary<string, string>? Filters { get; set; }
+        public long? CursorId { get; set; }
+        public DateTimeOffset? CursorCreatedAt { get; set; }
+        public bool SkipTotalCount { get; set; }
 
-        public GetAcademicAveragesByTeacherQuery(int teacherId, int pageNumber, int pageSize, string sortBy, bool isDescending, Dictionary<string, string>? filters)
+        public GetAcademicAveragesByTeacherQuery(int teacherId, int pageNumber, int pageSize, string sortBy, bool isDescending, Dictionary<string, string>? filters, long? cursorId = null, DateTimeOffset? cursorCreatedAt = null, bool skipTotalCount = false)
         {
             TeacherId = teacherId;
             PageNumber = pageNumber;
@@ -22,6 +25,9 @@ namespace Application.Shared.Queries.AcademicAverages
             SortBy = sortBy;
             IsDescending = isDescending;
             Filters = filters;
+            CursorId = cursorId;
+            CursorCreatedAt = cursorCreatedAt;
+            SkipTotalCount = skipTotalCount;
         }
     }
 }

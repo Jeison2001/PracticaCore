@@ -11,5 +11,8 @@ namespace Application.Shared.Queries.AcademicPractices
         public string SortBy { get; set; } = string.Empty;
         public bool IsDescending { get; set; } = false;
         public Dictionary<string, string> Filters { get; set; } = new Dictionary<string, string>();
+        public long? CursorId { get; set; }
+        public DateTimeOffset? CursorCreatedAt { get; set; }
+        public bool SkipTotalCount { get; set; }
     }
 }
