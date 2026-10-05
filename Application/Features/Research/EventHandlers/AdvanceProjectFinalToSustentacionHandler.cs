@@ -18,6 +18,16 @@ namespace Application.Features.Research.EventHandlers
     /// </summary>
     public class AdvanceProjectFinalToSustentacionHandler : INotificationHandler<ProjectFinalStateChangedEvent>
     {
+        /// <summary>
+        /// Permisos iniciales de la fase Sustentación para los usuarios de la inscripción.
+        /// El catálogo institucional ahora define los códigos N2PGSU/N3PGCSU.
+        /// </summary>
+        private static readonly string[] InitialPermissions =
+        [
+            PermissionCodes.ProyectoGrado.N2PGSU,
+            PermissionCodes.ProyectoGrado.N3PGCSU,
+        ];
+
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<AdvanceProjectFinalToSustentacionHandler> _logger;
 
@@ -85,6 +95,15 @@ namespace Application.Features.Research.EventHandlers
                 x => x.IdUserUpdatedAt,
                 x => x.OperationRegister
             ]);
+
+            // Otorgar los permisos iniciales de la fase Sustentación a los usuarios de la
+            // inscripción (mismo patrón que Propuesta/Anteproyecto/Proyecto).
+            await PermissionAssignmentService.AssignPermissionsToInscriptionUsersAsync(
+                _unitOfWork,
+                notification.InscriptionModalityId,
+                InitialPermissions,
+                notification.TriggeredByUserId,
+                cancellationToken);
 
             _logger.LogInformation("{Handler}: Inscripción {Id} avanzada a Fase Sustentación por aprobación del informe final.", nameof(AdvanceProjectFinalToSustentacionHandler), inscription.Id);
         }

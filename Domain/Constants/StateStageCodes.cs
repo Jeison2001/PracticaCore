@@ -29,5 +29,9 @@ namespace Domain.Constants
 
         // Sustentación (Proyecto de Grado — Fase Sustentación)
         public const string SustPendienteProgramacion = "SUST_PENDIENTE_PROGRAMACION";
+        public const string SustProgramada            = "SUST_PROGRAMADA";
+        public const string SustAprobada              = "SUST_APROBADA";
+        public const string SustNoAprobadaReintento   = "SUST_NO_APROBADA_REINTENTO";
+        public const string SustReprobadaFinal        = "SUST_REPROBADA_FINAL";
     }
 }

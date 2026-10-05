@@ -44,6 +44,10 @@ namespace Domain.Constants
             public const string N2PGPR  = "N2PGPR";
             public const string N3PGRPR = "N3PGRPR";
             public const string N3PGCPR = "N3PGCPR";
+
+            // Fase Sustentación (el estudiante consulta; no registra)
+            public const string N2PGSU  = "N2PGSU";
+            public const string N3PGCSU = "N3PGCSU";
         }
 
         // ---------- Co-Terminal ----------
