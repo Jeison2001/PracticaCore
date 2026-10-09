@@ -139,7 +139,8 @@ namespace Infrastructure.Extensions
             CancellationToken cancellationToken = default,
             long? cursorId = null,
             DateTimeOffset? cursorCreatedAt = null,
-            bool skipTotalCount = false)
+            bool skipTotalCount = false,
+            Func<IQueryable<T>, IQueryable<T>>? include = null)
             where T : BaseEntity<TId>
             where TId : struct
         {
@@ -187,6 +188,7 @@ namespace Infrastructure.Extensions
 
             // Contar total antes de paginar (en keyset con SkipTotalCount se omite:
             // el COUNT con filtro escala igual de mal que el OFFSET).
+            // filteredQuery no contiene los includes costosos si se suministra el delegado include.
             var totalCount = usingKeyset && skipTotalCount
                 ? -1
                 : await filteredQuery.CountAsync(cancellationToken);
@@ -195,6 +197,11 @@ namespace Infrastructure.Extensions
             var pagedQuery = usingKeyset
                 ? orderedQuery.Take(pageSize + 1)
                 : orderedQuery.ApplyPaging(pageNumber, pageSize);
+
+            if (include != null)
+            {
+                pagedQuery = include(pagedQuery);
+            }
 
             // Obtener resultados paginados
             var items = await pagedQuery.ToListAsync(cancellationToken);

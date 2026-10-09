@@ -292,31 +292,7 @@ namespace Infrastructure.Repositories
             {
                 proposalsQuery = proposalsQuery.Where(p => p.StatusRegister == status.Value);
             }
-              // Incluir relaciones necesarias
-            proposalsQuery = proposalsQuery
-                .Include(p => p.StateStage)
-                .Include(p => p.ResearchLine)
-                .Include(p => p.ResearchSubLine)
-                .Include(p => p.InscriptionModality)
-                .AsNoTracking(); // Mejora el rendimiento para consultas de solo lectura
-
-            // Agregar filtros específicos para campos que no son directamente propiedades de Proposal
-            // Comentado temporalmente según requerimiento
-            /*if (filters != null)
-            {
-                foreach (var filter in filters.ToList()) // Usar .ToList() para evitar modificación durante iteración
-                {
-                    // Manejar filtros especiales que no son parte de la entidad Proposal
-                    if (filter.Key.Equals("title", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(filter.Value))
-                    {
-                        var filterValue = filter.Value.ToLower();
-                        proposalsQuery = proposalsQuery.Where(p => p.Title.ToLower().Contains(filterValue));
-                        filters.Remove(filter.Key); // Remover para que FilterBuilder no lo procese dos veces
-                    }
-                }
-                
-                // Los demás filtros se manejan automáticamente mediante FilterBuilder
-            }*/
+            proposalsQuery = proposalsQuery.AsNoTracking(); // Mejora el rendimiento para consultas de solo lectura
 
             // Preparar campo de ordenamiento dinámico
             var orderByField = sortBy ?? string.Empty;
@@ -324,18 +300,24 @@ namespace Infrastructure.Repositories
             // Aplicar paginación, filtrado y ordenamiento con la extensión genérica.
             // Con cursor (cursorId + cursorCreatedAt) la paginación es keyset
             // (CreatedAt DESC, Id DESC) con coste constante; skipTotalCount omite el COUNT.
+            // Los includes se aplican EXCLUSIVAMENTE a la página de resultados (100 filas)
+            // mediante el delegado include, evitando joins costosos durante el COUNT en 1M filas.
             var paginatedResult = await proposalsQuery
-                .AsSplitQuery()
                 .ToPaginatedResultAsync<Proposal, int>(
                     remainingFilters,
-                     orderByField,
-                     isDescending,
-                     pageNumber,
-                     pageSize,
-                     cancellationToken,
-                     cursorId,
-                     cursorCreatedAt,
-                     skipTotalCount);
+                    orderByField,
+                    isDescending,
+                    pageNumber,
+                    pageSize,
+                    cancellationToken,
+                    cursorId,
+                    cursorCreatedAt,
+                    skipTotalCount,
+                    include: q => q
+                        .Include(p => p.StateStage)
+                        .Include(p => p.ResearchLine)
+                        .Include(p => p.ResearchSubLine)
+                        .Include(p => p.InscriptionModality));
 
             var proposals = paginatedResult.Items.ToList();
 
