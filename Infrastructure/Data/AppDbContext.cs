@@ -23,38 +23,18 @@ namespace Infrastructure.Data
             var unaccentMethod = ((Func<string, string>)EF.Functions.Unaccent).Method;
             var iLikeMethod = ((Func<string, string, bool>)EF.Functions.ILike).Method;
 
-            FilterBuilder.StringLikeProvider = (property, value) =>
+            Expression BuildUnaccentILike(Expression property, Expression value, Func<string, string> patternFormatter)
             {
                 var rawValue = value is ConstantExpression c && c.Value != null ? c.Value.ToString()! : value.ToString() ?? "";
                 var cleanValue = FilterBuilder.RemoveDiacritics(rawValue).Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
-                var pattern = "%" + cleanValue + "%";
-                var patternExpr = Expression.Constant(pattern, typeof(string));
-
+                var patternExpr = Expression.Constant(patternFormatter(cleanValue), typeof(string));
                 var unaccentExpr = Expression.Call(null, unaccentMethod, functionsExpr, property);
                 return Expression.Call(null, iLikeMethod, functionsExpr, unaccentExpr, patternExpr);
-            };
+            }
 
-            FilterBuilder.StringStartsWithProvider = (property, value) =>
-            {
-                var rawValue = value is ConstantExpression c && c.Value != null ? c.Value.ToString()! : value.ToString() ?? "";
-                var cleanValue = FilterBuilder.RemoveDiacritics(rawValue).Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
-                var pattern = cleanValue + "%";
-                var patternExpr = Expression.Constant(pattern, typeof(string));
-
-                var unaccentExpr = Expression.Call(null, unaccentMethod, functionsExpr, property);
-                return Expression.Call(null, iLikeMethod, functionsExpr, unaccentExpr, patternExpr);
-            };
-
-            FilterBuilder.StringEndsWithProvider = (property, value) =>
-            {
-                var rawValue = value is ConstantExpression c && c.Value != null ? c.Value.ToString()! : value.ToString() ?? "";
-                var cleanValue = FilterBuilder.RemoveDiacritics(rawValue).Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
-                var pattern = "%" + cleanValue;
-                var patternExpr = Expression.Constant(pattern, typeof(string));
-
-                var unaccentExpr = Expression.Call(null, unaccentMethod, functionsExpr, property);
-                return Expression.Call(null, iLikeMethod, functionsExpr, unaccentExpr, patternExpr);
-            };
+            FilterBuilder.StringLikeProvider = (prop, val) => BuildUnaccentILike(prop, val, v => $"%{v}%");
+            FilterBuilder.StringStartsWithProvider = (prop, val) => BuildUnaccentILike(prop, val, v => $"{v}%");
+            FilterBuilder.StringEndsWithProvider = (prop, val) => BuildUnaccentILike(prop, val, v => $"%{v}");
         }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }        // DbSets se añaden dinámicamente mediante reflexión o configuración

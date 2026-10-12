@@ -32,12 +32,10 @@ namespace Domain.Common
                 }
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
-                Expression unaccentProperty = BuildUnaccentExpression(property);
-                Expression unaccentValue = BuildUnaccentConstantExpression(value);
                 return Expression.Call(
-                    Expression.Call(unaccentProperty, toLowerMethod),
+                    Expression.Call(property, toLowerMethod),
                     containsMethod,
-                    Expression.Call(unaccentValue, toLowerMethod));
+                    Expression.Call(BuildUnaccentConstantExpression(value), toLowerMethod));
             },
             ["startswith"] = (property, value) =>       // Comienza con
             {
@@ -47,12 +45,10 @@ namespace Domain.Common
                 }
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo method = typeof(string).GetMethod("StartsWith", new[] { typeof(string) })!;
-                Expression unaccentProperty = BuildUnaccentExpression(property);
-                Expression unaccentValue = BuildUnaccentConstantExpression(value);
                 return Expression.Call(
-                    Expression.Call(unaccentProperty, toLowerMethod),
+                    Expression.Call(property, toLowerMethod),
                     method,
-                    Expression.Call(unaccentValue, toLowerMethod));
+                    Expression.Call(BuildUnaccentConstantExpression(value), toLowerMethod));
             },
             ["endswith"] = (property, value) =>         // Termina con
             {
@@ -62,54 +58,12 @@ namespace Domain.Common
                 }
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo method = typeof(string).GetMethod("EndsWith", new[] { typeof(string) })!;
-                Expression unaccentProperty = BuildUnaccentExpression(property);
-                Expression unaccentValue = BuildUnaccentConstantExpression(value);
                 return Expression.Call(
-                    Expression.Call(unaccentProperty, toLowerMethod),
+                    Expression.Call(property, toLowerMethod),
                     method,
-                    Expression.Call(unaccentValue, toLowerMethod));
+                    Expression.Call(BuildUnaccentConstantExpression(value), toLowerMethod));
             }
         };
-
-        private static Expression BuildUnaccentExpression(Expression property)
-        {
-            try
-            {
-                var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-                Type? npgsqlType = null;
-                Type? efType = null;
-                Type? dbFunctionsType = null;
-
-                foreach (var asm in assemblies)
-                {
-                    if (npgsqlType == null && asm.GetName().Name?.StartsWith("Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase) == true)
-                    {
-                        npgsqlType = asm.GetType("Microsoft.EntityFrameworkCore.NpgsqlDbFunctionsExtensions");
-                    }
-                    if (efType == null && asm.GetName().Name?.Equals("Microsoft.EntityFrameworkCore", StringComparison.OrdinalIgnoreCase) == true)
-                    {
-                        efType = asm.GetType("Microsoft.EntityFrameworkCore.EF");
-                        dbFunctionsType = asm.GetType("Microsoft.EntityFrameworkCore.DbFunctions");
-                    }
-                }
-
-                if (efType != null && npgsqlType != null && dbFunctionsType != null)
-                {
-                    var efFunctionsProp = efType.GetProperty("Functions");
-                    var unaccentMethod = npgsqlType.GetMethod("Unaccent", new[] { dbFunctionsType, typeof(string) });
-                    if (efFunctionsProp != null && unaccentMethod != null)
-                    {
-                        var functionsExpr = Expression.Property(null, efFunctionsProp);
-                        return Expression.Call(null, unaccentMethod, functionsExpr, property);
-                    }
-                }
-            }
-            catch
-            {
-                // Fallback a property sin unaccent si el provider no está presente (ej. SQLite o memoria pura)
-            }
-            return property;
-        }
 
         private static Expression BuildUnaccentConstantExpression(Expression value)
         {

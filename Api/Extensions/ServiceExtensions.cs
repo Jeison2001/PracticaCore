@@ -38,8 +38,6 @@ namespace Api.Extensions
             {
                 services.AddDbContext<AppDbContext>(options =>
                     options.UseNpgsql(config.GetConnectionString("Default")));
-
-                AppDbContext.ConfigureFilterBuilderProviders();
             }
 
             services.AddScoped(typeof(IRepository<,>), typeof(BaseRepository<,>));
