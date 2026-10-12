@@ -58,27 +58,112 @@ namespace Infrastructure.Repositories
             Expression<Func<T, bool>>? filter = null,
             Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
             int pageNumber = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false)
         {
-            IQueryable<T> query = _context.Set<T>();
+            IQueryable<T> query = _context.Set<T>().AsNoTracking();
 
             if (filter != null)
                 query = query.Where(filter);
 
-            if (orderBy != null)
-                query = orderBy(query);
+            var usingKeyset = (cursorId.HasValue || cursorCreatedAt.HasValue) && pageSize > 0;
+            if (usingKeyset)
+            {
+                var xParam = Expression.Parameter(typeof(T), "x");
+                var createdMember = Expression.Property(xParam, nameof(BaseEntity<TId>.CreatedAt));
+                var idMember = Expression.Property(xParam, nameof(BaseEntity<TId>.Id));
 
-            var totalRecords = await query.CountAsync();
+                if (cursorCreatedAt.HasValue && cursorId.HasValue)
+                {
+                    var anchorCreatedAt = cursorCreatedAt.Value;
+                    var anchorConstant = Expression.Constant(anchorCreatedAt, typeof(DateTimeOffset));
+                    var cursorConstant = Expression.Constant(Convert.ChangeType(cursorId.Value, typeof(TId)));
+
+                    var ltCreated = Expression.LessThan(createdMember, anchorConstant);
+                    var eqCreated = Expression.Equal(createdMember, anchorConstant);
+                    var ltId = Expression.LessThan(idMember, Expression.Convert(cursorConstant, typeof(TId)));
+
+                    var rowPredicate = Expression.Lambda<Func<T, bool>>(
+                        Expression.OrElse(ltCreated, Expression.AndAlso(eqCreated, ltId)),
+                        xParam);
+
+                    query = query.Where(rowPredicate);
+                }
+                else if (cursorCreatedAt.HasValue)
+                {
+                    var anchorCreatedAt = cursorCreatedAt.Value;
+                    var anchorConstant = Expression.Constant(anchorCreatedAt, typeof(DateTimeOffset));
+                    var ltCreated = Expression.LessThan(createdMember, anchorConstant);
+                    var rowPredicate = Expression.Lambda<Func<T, bool>>(ltCreated, xParam);
+                    query = query.Where(rowPredicate);
+                }
+                else if (cursorId.HasValue)
+                {
+                    var cursorConstant = Expression.Constant(Convert.ChangeType(cursorId.Value, typeof(TId)));
+                    var ltId = Expression.LessThan(idMember, Expression.Convert(cursorConstant, typeof(TId)));
+                    var rowPredicate = Expression.Lambda<Func<T, bool>>(ltId, xParam);
+                    query = query.Where(rowPredicate);
+                }
+
+                query = query.OrderByDescending(x => x.CreatedAt)
+                             .ThenByDescending(x => x.Id);
+            }
+            else
+            {
+                if (orderBy != null)
+                {
+                    query = orderBy(query);
+                }
+                else
+                {
+                    query = query.OrderByDescending(x => x.CreatedAt)
+                                 .ThenByDescending(x => x.Id);
+                }
+            }
+
+            var totalRecords = (usingKeyset && skipTotalCount)
+                ? -1
+                : (skipTotalCount ? -1 : await query.CountAsync(cancellationToken));
+
             // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
-            if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalRecords, 1); }
-            var items = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+            if (pageSize <= 0)
+            {
+                pageNumber = 1;
+                pageSize = Math.Max(totalRecords, 1);
+            }
+
+            var pagedQuery = (usingKeyset || skipTotalCount)
+                ? (usingKeyset ? query.Take(pageSize + 1) : query.Skip((pageNumber - 1) * pageSize).Take(pageSize + 1))
+                : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+
+            var items = await pagedQuery.ToListAsync(cancellationToken);
+
+            bool? hasMoreRows = null;
+            if (usingKeyset || skipTotalCount)
+            {
+                hasMoreRows = items.Count > pageSize;
+                if (hasMoreRows.Value)
+                    items = items.Take(pageSize).ToList();
+            }
+
+            var lastItem = items.LastOrDefault();
+            DateTimeOffset? resCursorCreatedAt = lastItem?.CreatedAt;
+            long? resCursorId = lastItem != null ? Convert.ToInt64(lastItem.Id) : null;
+
+            var deliveredPageSize = pageSize > 0 ? pageSize : Math.Max(items.Count, 1);
 
             return new PaginatedResult<T>
             {
                 Items = items,
                 TotalRecords = totalRecords,
-                PageNumber = pageNumber,
-                PageSize = pageSize
+                PageNumber = pageSize > 0 ? pageNumber : 1,
+                PageSize = deliveredPageSize,
+                HasMoreRows = hasMoreRows,
+                CursorCreatedAt = resCursorCreatedAt,
+                CursorId = resCursorId
             };
         }
 

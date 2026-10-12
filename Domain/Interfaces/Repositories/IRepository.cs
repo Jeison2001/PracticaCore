@@ -23,7 +23,11 @@ namespace Domain.Interfaces.Repositories
             Expression<Func<T, bool>>? filter = null,
             Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
             int pageNumber = 1,
-            int pageSize = 10);
+            int pageSize = 10,
+            CancellationToken cancellationToken = default,
+            long? cursorId = null,
+            DateTimeOffset? cursorCreatedAt = null,
+            bool skipTotalCount = false);
         Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default);
         Task<bool> AnyAsync(Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default);
     }

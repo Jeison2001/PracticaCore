@@ -295,5 +295,67 @@ namespace Tests.Integration.Users
             targetUser!.Roles.Should().NotBeNull();
             targetUser.Roles.Should().Contain(r => r.Id == role.Id && r.Code == role.Code && r.Name == role.Name);
         }
+
+        [Fact]
+        public async Task GetAll_WithKeysetPagination_ReturnsNextPageAndHasMoreRows()
+        {
+            // Arrange
+            var (idType, program) = await SeedDependenciesAsync();
+            var now = DateTimeOffset.UtcNow;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                for (int i = 1; i <= 5; i++)
+                {
+                    context.Set<User>().Add(new User
+                    {
+                        FirstName = $"KeysetUser_{i}",
+                        LastName = "Test",
+                        Email = $"keyset_{i}_{Guid.NewGuid():N}@test.com",
+                        Identification = Guid.NewGuid().ToString("N").Substring(0, 10),
+                        IdIdentificationType = idType.Id,
+                        IdAcademicProgram = program.Id,
+                        CreatedAt = now.AddMinutes(i),
+                        StatusRegister = true
+                    });
+                }
+                await context.SaveChangesAsync();
+            }
+
+            // Act 1: Get first page of size 2
+            var response1 = await _client.GetAsync($"{BaseUrl}?PageNumber=1&PageSize=2");
+            response1.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result1 = await response1.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<UserDto>>>();
+            result1.Should().NotBeNull();
+            result1!.Data.Should().NotBeNull();
+            var page1Items = result1.Data!.Items.ToList();
+            page1Items.Should().HaveCount(2);
+            result1.Data.CursorCreatedAt.Should().NotBeNull();
+            result1.Data.CursorId.Should().NotBeNull();
+
+            // Act 2: Request second page using keyset with SkipTotalCount=true
+            var cursorCreatedAt = result1.Data.CursorCreatedAt!.Value.ToString("O");
+            var cursorId = result1.Data.CursorId!.Value;
+            var response2 = await _client.GetAsync(
+                $"{BaseUrl}?PageNumber=2&PageSize=2&CursorId={cursorId}&CursorCreatedAt={Uri.EscapeDataString(cursorCreatedAt)}&SkipTotalCount=true");
+
+            // Assert 2
+            response2.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result2 = await response2.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<UserDto>>>();
+            result2.Should().NotBeNull();
+            result2!.Data.Should().NotBeNull();
+            result2.Data!.TotalRecords.Should().Be(-1); // COUNT skipped
+            result2.Data.HasMoreRows.Should().BeTrue(); // There are more than 2 items left
+            var page2Items = result2.Data.Items.ToList();
+            page2Items.Should().HaveCount(2);
+
+            // Ensure no overlap between page 1 and page 2
+            page1Items.Select(x => x.Id).Should().NotIntersectWith(page2Items.Select(x => x.Id));
+
+            // Verify order is descending
+            page2Items[0].CreatedAt.Should().BeOnOrBefore(page1Items[1].CreatedAt);
+        }
     }
 }

@@ -214,17 +214,19 @@ namespace Infrastructure.Extensions
                     items = items.Take(pageSize).ToList();
             }
 
-            // Construir resultado. PageSize <= 0: sin paginación, todo se entrega
-            // en una sola página (PageSize = total entregado) para que TotalPages = 1.
             var deliveredPageSize = pageSize > 0 ? pageSize : Math.Max(items.Count, 1);
+            var lastItem = items.LastOrDefault();
             return new PaginatedResult<T>
             {
                 Items = items,
                 TotalRecords = totalCount,
                 PageNumber = pageSize > 0 ? pageNumber : 1,
                 PageSize = deliveredPageSize,
-                HasMoreRows = hasMoreRows
+                HasMoreRows = hasMoreRows,
+                CursorCreatedAt = lastItem?.CreatedAt,
+                CursorId = lastItem != null ? Convert.ToInt64(lastItem.Id) : null
             };
         }
     }
+
 }

@@ -29,12 +29,28 @@ namespace Application.Shared.Queries.Users.Handlers
 
         public async Task<PaginatedResult<UserDto>> Handle(GetAllUsersWithRolesQuery request, CancellationToken ct)
         {
+            var usingKeyset = (request.CursorCreatedAt.HasValue || request.CursorId.HasValue) && request.PageSize > 0;
             Func<IQueryable<User>, IOrderedQueryable<User>>? orderBy = null;
-            if (!string.IsNullOrEmpty(request.SortBy))
+
+            if (usingKeyset)
             {
-                orderBy = query => request.IsDescending
-                    ? query.OrderByDescending(e => EF.Property<object>(e, request.SortBy))
-                    : query.OrderBy(e => EF.Property<object>(e, request.SortBy));
+                // Keyset: orden forzado a (CreatedAt DESC, Id DESC) para estabilidad del cursor
+                orderBy = query => query.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
+            }
+            else if (!string.IsNullOrEmpty(request.SortBy))
+            {
+                orderBy = query =>
+                {
+                    var ordered = request.IsDescending
+                        ? query.OrderByDescending(e => EF.Property<object>(e, request.SortBy))
+                        : query.OrderBy(e => EF.Property<object>(e, request.SortBy));
+                    // Desempate estable por Id
+                    return ordered.ThenByDescending(e => e.Id);
+                };
+            }
+            else
+            {
+                orderBy = query => query.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
             }
 
             Expression<Func<User, bool>>? filter = FilterBuilder.BuildFilter<User, int>(request.Filters);
@@ -43,7 +59,11 @@ namespace Application.Shared.Queries.Users.Handlers
                 filter: filter,
                 orderBy: orderBy,
                 pageNumber: request.PageNumber,
-                pageSize: request.PageSize
+                pageSize: request.PageSize,
+                cancellationToken: ct,
+                cursorId: request.CursorId,
+                cursorCreatedAt: request.CursorCreatedAt,
+                skipTotalCount: request.SkipTotalCount == true
             );
 
             var userDtos = _mapper.Map<List<UserDto>>(paginatedResult.Items);
@@ -75,7 +95,10 @@ namespace Application.Shared.Queries.Users.Handlers
                 Items = userDtos,
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
-                PageSize = paginatedResult.PageSize
+                PageSize = paginatedResult.PageSize,
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
         }
     }
