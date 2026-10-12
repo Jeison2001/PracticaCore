@@ -485,14 +485,14 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
                     query = query.Where(ap => ap.InscriptionModality != null && 
                                             ap.InscriptionModality.Modality != null &&
                                             ap.InscriptionModality.Modality.Name != null &&
-                                            ap.InscriptionModality.Modality.Name.Contains(value));
+                                            EF.Functions.ILike(EF.Functions.Unaccent(ap.InscriptionModality.Modality.Name), TeacherAssignmentLoader.LikePattern(value)));
                     break;
 
                 case "stateinscriptionname@like":
                     query = query.Where(ap => ap.InscriptionModality != null && 
                                             ap.InscriptionModality.StateInscription != null &&
                                             ap.InscriptionModality.StateInscription.Name != null &&
-                                            ap.InscriptionModality.StateInscription.Name.Contains(value));
+                                            EF.Functions.ILike(EF.Functions.Unaccent(ap.InscriptionModality.StateInscription.Name), TeacherAssignmentLoader.LikePattern(value)));
                     break;
 
                 // Agregar más filtros específicos según necesidad

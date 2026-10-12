@@ -3,6 +3,7 @@ using Domain.Common.Inscriptions;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Infrastructure.Data;
+using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories
@@ -66,15 +67,15 @@ namespace Infrastructure.Repositories
                     uim.IdInscriptionModality == im.Id &&
                     uim.StatusRegister &&
                     uim.User != null &&
-                    (EF.Functions.ILike(uim.User.FirstName + " " + uim.User.LastName, pattern) ||
-                     EF.Functions.ILike(uim.User.FirstName, pattern) ||
-                     EF.Functions.ILike(uim.User.LastName, pattern))));
+                    (EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName + " " + uim.User.LastName), pattern) ||
+                     EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName), pattern) ||
+                     EF.Functions.ILike(EF.Functions.Unaccent(uim.User.LastName), pattern))));
             }
 
             if (!string.IsNullOrWhiteSpace(modalityName))
             {
                 var pattern = LikePattern(modalityName);
-                query = query.Where(im => im.Modality != null && EF.Functions.ILike(im.Modality.Name, pattern));
+                query = query.Where(im => im.Modality != null && EF.Functions.ILike(EF.Functions.Unaccent(im.Modality.Name), pattern));
             }
 
             if (!string.IsNullOrWhiteSpace(stateName))
@@ -181,8 +182,8 @@ namespace Infrastructure.Repositories
             };
         }
 
-        /// <summary>Patrón ILIKE con escapes básicos de comodines.</summary>
+        /// <summary>Patrón ILIKE insensible a mayúsculas y acentos/tildes con escapes básicos de comodines.</summary>
         private static string LikePattern(string value) =>
-            "%" + value.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            TeacherAssignmentLoader.LikePattern(value);
     }
 }

@@ -1,3 +1,4 @@
+using Domain.Common;
 using Domain.Common.Teachers;
 using Domain.Entities;
 using Infrastructure.Data;
@@ -95,8 +96,8 @@ namespace Infrastructure.Extensions
                                   || CargoId != null || CargoCode != null || CargoName != null;
         }
 
-        /// <summary>Patrón ILIKE con escapes básicos de comodines.</summary>
+        /// <summary>Patrón ILIKE insensible a mayúsculas y acentos/tildes con escapes básicos de comodines.</summary>
         public static string LikePattern(string value) =>
-            "%" + value.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            "%" + FilterBuilder.RemoveDiacritics(value.Trim()).Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
     }
 }

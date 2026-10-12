@@ -40,9 +40,9 @@ namespace Infrastructure.Repositories
                 preliminaryProjectsQuery = preliminaryProjectsQuery.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
                     ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
                     (namePattern == null || (ta.Teacher != null &&
-                        (EF.Functions.ILike(ta.Teacher.FirstName + " " + ta.Teacher.LastName, namePattern) ||
-                         EF.Functions.ILike(ta.Teacher.FirstName, namePattern) ||
-                         EF.Functions.ILike(ta.Teacher.LastName, namePattern)))) &&
+                        (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
+                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
+                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
                     (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
                     (teacherId == null || ta.IdTeacher == teacherId) &&
                     (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
@@ -57,14 +57,14 @@ namespace Infrastructure.Repositories
             {
                 var titlePattern = TeacherAssignmentLoader.LikePattern(pf.Title);
                 preliminaryProjectsQuery = preliminaryProjectsQuery.Where(x => _context.Set<Proposal>().Any(p =>
-                    p.Id == x.Id && EF.Functions.ILike(p.Title, titlePattern)));
+                    p.Id == x.Id && EF.Functions.ILike(EF.Functions.Unaccent(p.Title), titlePattern)));
             }
 
             if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
             {
                 var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
                 preliminaryProjectsQuery = preliminaryProjectsQuery.Where(x => _context.Set<Proposal>().Any(p =>
-                    p.Id == x.Id && EF.Functions.ILike(p.ResearchLine.Name, linePattern)));
+                    p.Id == x.Id && EF.Functions.ILike(EF.Functions.Unaccent(p.ResearchLine.Name), linePattern)));
             }
 
             // Aquí podrías aplicar filtros adicionales si lo deseas
@@ -197,14 +197,14 @@ namespace Infrastructure.Repositories
             {
                 var titlePattern = TeacherAssignmentLoader.LikePattern(pf.Title);
                 preliminaryProjectsQuery = preliminaryProjectsQuery.Where(x => _context.Set<Proposal>().Any(p =>
-                    p.Id == x.Id && EF.Functions.ILike(p.Title, titlePattern)));
+                    p.Id == x.Id && EF.Functions.ILike(EF.Functions.Unaccent(p.Title), titlePattern)));
             }
 
             if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
             {
                 var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
                 preliminaryProjectsQuery = preliminaryProjectsQuery.Where(x => _context.Set<Proposal>().Any(p =>
-                    p.Id == x.Id && EF.Functions.ILike(p.ResearchLine.Name, linePattern)));
+                    p.Id == x.Id && EF.Functions.ILike(EF.Functions.Unaccent(p.ResearchLine.Name), linePattern)));
             }
 
             // Con cursor (cursorId + cursorCreatedAt) la paginación es keyset

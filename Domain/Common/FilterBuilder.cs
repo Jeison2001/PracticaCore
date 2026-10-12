@@ -15,38 +15,113 @@ namespace Domain.Common
             ["ge"] = Expression.GreaterThanOrEqual,     // Mayor o igual que
             ["lt"] = Expression.LessThan,               // Menor que
             ["le"] = Expression.LessThanOrEqual,        // Menor o igual que
-            // Operadores de texto insensibles a mayúsculas/minúsculas: la comparación se
-            // hace sobre ToLower(col) y ToLower(valor), que en PostgreSQL traduce a
-            // LOWER(col) LIKE '%valor%' (el LIKE crudo es sensible con la collation
-            // por defecto y rompía la paridad con el filtrado local del frontend).
+            // Operadores de texto insensibles a mayúsculas/minúsculas y tildes/diacríticos:
+            // Se envuelve la columna con EF.Functions.Unaccent(...) de PostgreSQL y ToLower,
+            // y se normaliza el valor entrante removiendo diacríticos. De esta forma 'José' coincide con 'jose'
+            // y 'gestión' coincide con 'gestion'.
             ["like"] = (property, value) =>             // Contiene
             {
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
+                Expression unaccentProperty = BuildUnaccentExpression(property);
+                Expression unaccentValue = BuildUnaccentConstantExpression(value);
                 return Expression.Call(
-                    Expression.Call(property, toLowerMethod),
+                    Expression.Call(unaccentProperty, toLowerMethod),
                     containsMethod,
-                    Expression.Call(value, toLowerMethod));
+                    Expression.Call(unaccentValue, toLowerMethod));
             },
             ["startswith"] = (property, value) =>       // Comienza con
             {
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo method = typeof(string).GetMethod("StartsWith", new[] { typeof(string) })!;
+                Expression unaccentProperty = BuildUnaccentExpression(property);
+                Expression unaccentValue = BuildUnaccentConstantExpression(value);
                 return Expression.Call(
-                    Expression.Call(property, toLowerMethod),
+                    Expression.Call(unaccentProperty, toLowerMethod),
                     method,
-                    Expression.Call(value, toLowerMethod));
+                    Expression.Call(unaccentValue, toLowerMethod));
             },
             ["endswith"] = (property, value) =>         // Termina con
             {
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo method = typeof(string).GetMethod("EndsWith", new[] { typeof(string) })!;
+                Expression unaccentProperty = BuildUnaccentExpression(property);
+                Expression unaccentValue = BuildUnaccentConstantExpression(value);
                 return Expression.Call(
-                    Expression.Call(property, toLowerMethod),
+                    Expression.Call(unaccentProperty, toLowerMethod),
                     method,
-                    Expression.Call(value, toLowerMethod));
+                    Expression.Call(unaccentValue, toLowerMethod));
             }
         };
+
+        private static Expression BuildUnaccentExpression(Expression property)
+        {
+            try
+            {
+                var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                Type? npgsqlType = null;
+                Type? efType = null;
+                Type? dbFunctionsType = null;
+
+                foreach (var asm in assemblies)
+                {
+                    if (npgsqlType == null && asm.GetName().Name?.StartsWith("Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        npgsqlType = asm.GetType("Microsoft.EntityFrameworkCore.NpgsqlDbFunctionsExtensions");
+                    }
+                    if (efType == null && asm.GetName().Name?.Equals("Microsoft.EntityFrameworkCore", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        efType = asm.GetType("Microsoft.EntityFrameworkCore.EF");
+                        dbFunctionsType = asm.GetType("Microsoft.EntityFrameworkCore.DbFunctions");
+                    }
+                }
+
+                if (efType != null && npgsqlType != null && dbFunctionsType != null)
+                {
+                    var efFunctionsProp = efType.GetProperty("Functions");
+                    var unaccentMethod = npgsqlType.GetMethod("Unaccent", new[] { dbFunctionsType, typeof(string) });
+                    if (efFunctionsProp != null && unaccentMethod != null)
+                    {
+                        var functionsExpr = Expression.Property(null, efFunctionsProp);
+                        return Expression.Call(null, unaccentMethod, functionsExpr, property);
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback a property sin unaccent si el provider no está presente (ej. SQLite o memoria pura)
+            }
+            return property;
+        }
+
+        private static Expression BuildUnaccentConstantExpression(Expression value)
+        {
+            if (value is ConstantExpression constant && constant.Value is string strVal)
+            {
+                return Expression.Constant(RemoveDiacritics(strVal), typeof(string));
+            }
+            return value;
+        }
+
+        public static string RemoveDiacritics(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return text;
+
+            var normalizedString = text.Normalize(System.Text.NormalizationForm.FormD);
+            var stringBuilder = new System.Text.StringBuilder(normalizedString.Length);
+
+            foreach (var c in normalizedString)
+            {
+                var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+                if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    stringBuilder.Append(c);
+                }
+            }
+
+            return stringBuilder.ToString().Normalize(System.Text.NormalizationForm.FormC);
+        }
 
         public static Expression<Func<T, bool>>? BuildFilter<T, TId>(Dictionary<string, string>? filters) 
             where T : BaseEntity<TId> 

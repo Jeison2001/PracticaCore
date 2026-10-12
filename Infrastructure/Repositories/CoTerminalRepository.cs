@@ -346,9 +346,9 @@ namespace Infrastructure.Repositories
                                 uim.IdInscriptionModality == x.Id &&
                                 uim.StatusRegister &&
                                 uim.User != null &&
-                                (EF.Functions.ILike(uim.User.FirstName + " " + uim.User.LastName, pattern) ||
-                                 EF.Functions.ILike(uim.User.FirstName, pattern) ||
-                                 EF.Functions.ILike(uim.User.LastName, pattern) ||
+                                (EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName + " " + uim.User.LastName), pattern) ||
+                                 EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName), pattern) ||
+                                 EF.Functions.ILike(EF.Functions.Unaccent(uim.User.LastName), pattern) ||
                                  EF.Functions.ILike(uim.User.Identification, pattern))));
                         }
                         break;
@@ -367,8 +367,8 @@ namespace Infrastructure.Repositories
             return query;
         }
 
-        /// <summary>Patrón ILIKE con escapes básicos de comodines.</summary>
+        /// <summary>Patrón ILIKE insensible a mayúsculas y acentos/tildes con escapes básicos de comodines.</summary>
         private static string LikePattern(string value) =>
-            "%" + value.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            TeacherAssignmentLoader.LikePattern(value);
     }
 }

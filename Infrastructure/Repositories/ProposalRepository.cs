@@ -92,7 +92,7 @@ namespace Infrastructure.Repositories
             if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
             {
                 var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
-                proposalsQuery = proposalsQuery.Where(p => EF.Functions.ILike(p.ResearchLine.Name, linePattern));
+                proposalsQuery = proposalsQuery.Where(p => EF.Functions.ILike(EF.Functions.Unaccent(p.ResearchLine.Name), linePattern));
             }
 
             if (!string.IsNullOrWhiteSpace(pf.StateStageName))
@@ -264,9 +264,9 @@ namespace Infrastructure.Repositories
                 proposalsQuery = proposalsQuery.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
                     ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
                     (namePattern == null || (ta.Teacher != null &&
-                        (EF.Functions.ILike(ta.Teacher.FirstName + " " + ta.Teacher.LastName, namePattern) ||
-                         EF.Functions.ILike(ta.Teacher.FirstName, namePattern) ||
-                         EF.Functions.ILike(ta.Teacher.LastName, namePattern)))) &&
+                        (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
+                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
+                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
                     (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
                     (teacherId == null || ta.IdTeacher == teacherId) &&
                     (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
@@ -279,7 +279,7 @@ namespace Infrastructure.Repositories
             if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
             {
                 var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
-                proposalsQuery = proposalsQuery.Where(p => EF.Functions.ILike(p.ResearchLine.Name, linePattern));
+                proposalsQuery = proposalsQuery.Where(p => EF.Functions.ILike(EF.Functions.Unaccent(p.ResearchLine.Name), linePattern));
             }
 
             if (!string.IsNullOrWhiteSpace(pf.StateStageName))
