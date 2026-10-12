@@ -6,6 +6,14 @@ namespace Domain.Common
 {
     public static class FilterBuilder
     {
+        /// <summary>
+        /// Proveedores configurables para delegar comparaciones de texto enriquecidas (ej. PostgreSQL unaccent + ILIKE).
+        /// Si son nulos, se usa la comparación estándar ToLower().Contains/StartsWith/EndsWith.
+        /// </summary>
+        public static Func<Expression, Expression, Expression>? StringLikeProvider { get; set; }
+        public static Func<Expression, Expression, Expression>? StringStartsWithProvider { get; set; }
+        public static Func<Expression, Expression, Expression>? StringEndsWithProvider { get; set; }
+
         // Operadores soportados en el formato: propiedad@operador=valor
         private static readonly Dictionary<string, Func<Expression, Expression, Expression>> Operators = new()
         {
@@ -16,11 +24,12 @@ namespace Domain.Common
             ["lt"] = Expression.LessThan,               // Menor que
             ["le"] = Expression.LessThanOrEqual,        // Menor o igual que
             // Operadores de texto insensibles a mayúsculas/minúsculas y tildes/diacríticos:
-            // Se envuelve la columna con EF.Functions.Unaccent(...) de PostgreSQL y ToLower,
-            // y se normaliza el valor entrante removiendo diacríticos. De esta forma 'José' coincide con 'jose'
-            // y 'gestión' coincide con 'gestion'.
             ["like"] = (property, value) =>             // Contiene
             {
+                if (StringLikeProvider != null)
+                {
+                    return StringLikeProvider(property, value);
+                }
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
                 Expression unaccentProperty = BuildUnaccentExpression(property);
@@ -32,6 +41,10 @@ namespace Domain.Common
             },
             ["startswith"] = (property, value) =>       // Comienza con
             {
+                if (StringStartsWithProvider != null)
+                {
+                    return StringStartsWithProvider(property, value);
+                }
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo method = typeof(string).GetMethod("StartsWith", new[] { typeof(string) })!;
                 Expression unaccentProperty = BuildUnaccentExpression(property);
@@ -43,6 +56,10 @@ namespace Domain.Common
             },
             ["endswith"] = (property, value) =>         // Termina con
             {
+                if (StringEndsWithProvider != null)
+                {
+                    return StringEndsWithProvider(property, value);
+                }
                 MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
                 MethodInfo method = typeof(string).GetMethod("EndsWith", new[] { typeof(string) })!;
                 Expression unaccentProperty = BuildUnaccentExpression(property);

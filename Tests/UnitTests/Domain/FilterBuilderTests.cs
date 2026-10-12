@@ -37,6 +37,8 @@ namespace Tests.UnitTests.Domain
 
             // Assert
             Assert.NotNull(filter);
+            var str = filter.ToString();
+            Assert.Contains("Contains", str);
         }
     }
 }

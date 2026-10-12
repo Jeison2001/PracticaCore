@@ -1,4 +1,4 @@
-﻿using Application.Common.Behaviors;
+using Application.Common.Behaviors;
 using Application.Shared.Commands;
 using Application.Shared.Commands.Handlers;
 using Application.Shared.DTOs;
@@ -38,6 +38,8 @@ namespace Api.Extensions
             {
                 services.AddDbContext<AppDbContext>(options =>
                     options.UseNpgsql(config.GetConnectionString("Default")));
+
+                AppDbContext.ConfigureFilterBuilderProviders();
             }
 
             services.AddScoped(typeof(IRepository<,>), typeof(BaseRepository<,>));
