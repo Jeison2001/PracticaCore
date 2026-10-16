@@ -18,9 +18,10 @@ namespace Infrastructure.Repositories
 
         public async Task<PaginatedResult<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>> GetAllWithProposalAndStudentsAsync(int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters, long? cursorId = null, DateTimeOffset? cursorCreatedAt = null, bool skipTotalCount = false)
         {
-            var orderByField = sortBy ?? string.Empty;            // 1. Paginar PreliminaryProjects primero
+            var orderByField = sortBy ?? string.Empty;
+            // 1. Paginar PreliminaryProjects primero
             var preliminaryProjectsQuery = _context.PreliminaryProjects
-                .Include(p => p.StateStage)
+                .AsNoTracking()
                 .AsQueryable();
 
             // Filtros por docente/cargo (claves enriquecidas) -> UN único EXISTS sobre la
@@ -82,7 +83,8 @@ namespace Infrastructure.Repositories
                     default,
                     cursorId,
                     cursorCreatedAt,
-                    skipTotalCount);
+                    skipTotalCount,
+                    include: q => q.Include(p => p.StateStage));
 
             var projects = paginatedResult.Items.ToList();
             if (!projects.Any())
@@ -95,7 +97,8 @@ namespace Infrastructure.Repositories
                     PageSize = paginatedResult.PageSize,
                     HasMoreRows = paginatedResult.HasMoreRows
                 };
-            }            // 2. Traer las propuestas asociadas
+            }
+            // 2. Traer las propuestas asociadas
             var proposalIds = projects.Select(f => f.Id).ToList();
             var proposals = await _context.Set<Proposal>()
                 .Where(p => proposalIds.Contains(p.Id))
@@ -103,12 +106,14 @@ namespace Infrastructure.Repositories
                 .Include(x => x.ResearchLine)
                 .Include(x => x.ResearchSubLine)
                 .Include(x => x.InscriptionModality)
+                .AsNoTracking()
                 .ToListAsync();
 
             // 3. Traer los estudiantes asociados
             var students = await _context.Set<UserInscriptionModality>()
                 .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
                 .Include(uim => uim.User)
+                .AsNoTracking()
                 .ToListAsync();
 
             // 4. Traer los docentes asignados activos de la página
@@ -117,11 +122,16 @@ namespace Infrastructure.Repositories
             List<AssignedTeacher> TeachersFor(int id) =>
                 teachersByInscription.TryGetValue(id, out var t) ? t : new List<AssignedTeacher>();
 
+            var proposalsById = proposals.ToDictionary(p => p.Id);
+            var studentsByModality = students
+                .GroupBy(uim => uim.IdInscriptionModality)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
             // 5. Armar el resultado
             var items = projects.Select(f => (
                 f,
-                proposals.FirstOrDefault(p => p.Id == f.Id)!,
-                students.Where(uim => uim.IdInscriptionModality == f.Id).ToList(),
+                proposalsById.TryGetValue(f.Id, out var prop) ? prop : null!,
+                studentsByModality.TryGetValue(f.Id, out var sList) ? sList : new List<UserInscriptionModality>(),
                 TeachersFor(f.Id)
             )).ToList();
 
@@ -139,21 +149,27 @@ namespace Infrastructure.Repositories
         {
             // 1. Obtener los IDs de modalidades donde participa el usuario
             var inscriptionModalityIds = await _context.Set<UserInscriptionModality>()
+                .AsNoTracking()
                 .Where(uim => uim.IdUser == userId)
                 .Select(uim => uim.IdInscriptionModality)
                 .Distinct()
                 .ToListAsync();
 
             if (!inscriptionModalityIds.Any())
-                return new List<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>();            // 2. Traer PreliminaryProjects y sus relaciones
+                return new List<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>();
+
+            // 2. Traer PreliminaryProjects y sus relaciones
             var projects = await _context.PreliminaryProjects
+                .AsNoTracking()
                 .Include(p => p.StateStage)
                 .Where(p => inscriptionModalityIds.Contains(p.Id)
                             && (status == null || p.StatusRegister == status.Value))
                 .ToListAsync();
 
             if (!projects.Any())
-                return new List<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>();            // 3. Traer las propuestas asociadas
+                return new List<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>();
+
+            // 3. Traer las propuestas asociadas
             var proposalIds = projects.Select(f => f.Id).ToList();
             var proposals = await _context.Set<Proposal>()
                 .Where(p => proposalIds.Contains(p.Id))
@@ -161,31 +177,53 @@ namespace Infrastructure.Repositories
                 .Include(x => x.ResearchLine)
                 .Include(x => x.ResearchSubLine)
                 .Include(x => x.InscriptionModality)
+                .AsNoTracking()
                 .ToListAsync();
 
             // 4. Traer los estudiantes asociados
             var students = await _context.Set<UserInscriptionModality>()
                 .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
                 .Include(uim => uim.User)
+                .AsNoTracking()
                 .ToListAsync();
+
+            var proposalsById = proposals.ToDictionary(p => p.Id);
+            var studentsByModality = students
+                .GroupBy(uim => uim.IdInscriptionModality)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
             // 5. Armar el resultado
             return projects.Select(f => (
                 f,
-                proposals.FirstOrDefault(p => p.Id == f.Id)!,
-                students.Where(uim => uim.IdInscriptionModality == f.Id).ToList()
+                proposalsById.TryGetValue(f.Id, out var prop) ? prop : null!,
+                studentsByModality.TryGetValue(f.Id, out var sList) ? sList : new List<UserInscriptionModality>()
             )).ToList();
         }
 
         public async Task<PaginatedResult<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByTeacherIdWithProposalAndStudentsAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters, long? cursorId = null, DateTimeOffset? cursorCreatedAt = null, bool skipTotalCount = false)
         {
             var proposalIds = await _context.Set<TeachingAssignment>()
+                .AsNoTracking()
                 .Where(ta => ta.IdTeacher == teacherId)
                 .Select(ta => ta.IdInscriptionModality)
                 .Distinct()
-                .ToListAsync();            var orderByField = sortBy ?? string.Empty;
+                .ToListAsync();
+
+            if (!proposalIds.Any())
+            {
+                return new PaginatedResult<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>
+                {
+                    Items = new List<(PreliminaryProject, Proposal, List<UserInscriptionModality>)>(),
+                    TotalRecords = 0,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    HasMoreRows = false
+                };
+            }
+
+            var orderByField = sortBy ?? string.Empty;
             var preliminaryProjectsQuery = _context.PreliminaryProjects
-                .Include(p => p.StateStage)
+                .AsNoTracking()
                 .Where(p => proposalIds.Contains(p.Id))
                 .AsQueryable();
 
@@ -219,7 +257,8 @@ namespace Infrastructure.Repositories
                     default,
                     cursorId,
                     cursorCreatedAt,
-                    skipTotalCount);
+                    skipTotalCount,
+                    include: q => q.Include(p => p.StateStage));
 
             var projects = paginatedResult.Items.ToList();
             if (!projects.Any())
@@ -232,24 +271,32 @@ namespace Infrastructure.Repositories
                     PageSize = paginatedResult.PageSize,
                     HasMoreRows = paginatedResult.HasMoreRows
                 };
-            }            var resultProposalIds = projects.Select(f => f.Id).ToList();
+            }
+            var resultProposalIds = projects.Select(f => f.Id).ToList();
             var proposals = await _context.Set<Proposal>()
                 .Where(p => resultProposalIds.Contains(p.Id))
                 .Include(x => x.StateStage)
                 .Include(x => x.ResearchLine)
                 .Include(x => x.ResearchSubLine)
                 .Include(x => x.InscriptionModality)
+                .AsNoTracking()
                 .ToListAsync();
 
             var students = await _context.Set<UserInscriptionModality>()
                 .Where(uim => resultProposalIds.Contains(uim.IdInscriptionModality))
                 .Include(uim => uim.User)
+                .AsNoTracking()
                 .ToListAsync();
+
+            var proposalsById = proposals.ToDictionary(p => p.Id);
+            var studentsByModality = students
+                .GroupBy(uim => uim.IdInscriptionModality)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
             var items = projects.Select(f => (
                 f,
-                proposals.FirstOrDefault(p => p.Id == f.Id)!,
-                students.Where(uim => uim.IdInscriptionModality == f.Id).ToList()
+                proposalsById.TryGetValue(f.Id, out var prop) ? prop : null!,
+                studentsByModality.TryGetValue(f.Id, out var sList) ? sList : new List<UserInscriptionModality>()
             )).ToList();
 
             return new PaginatedResult<(PreliminaryProject Project, Proposal Proposal, List<UserInscriptionModality> Students)>

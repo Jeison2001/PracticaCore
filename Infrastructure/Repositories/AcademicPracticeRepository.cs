@@ -20,6 +20,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         CancellationToken cancellationToken = default)
     {
         var academicPractice = await _context.AcademicPractices
+            .AsNoTracking()
             .Include(ap => ap.InscriptionModality)
                 .ThenInclude(im => im.Modality)
             .Include(ap => ap.InscriptionModality)
@@ -35,20 +36,36 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
 
         // Get related data
         var userInscriptionModalities = await _context.Set<UserInscriptionModality>()
+            .AsNoTracking()
             .Where(uim => uim.IdInscriptionModality == academicPractice.Id)
             .Include(uim => uim.User)
             .ToListAsync(cancellationToken);
 
         var teachingAssignments = await _context.Set<TeachingAssignment>()
+            .AsNoTracking()
             .Where(ta => ta.IdInscriptionModality == academicPractice.Id)
             .Include(ta => ta.Teacher)
             .Include(ta => ta.TypeTeachingAssignment)
             .ToListAsync(cancellationToken);
 
-        var teachersByInscription = await TeacherAssignmentLoader
-            .LoadActiveByInscriptionIdsAsync(_context, new List<int> { academicPractice.Id }, cancellationToken);
+        var activeTeachers = teachingAssignments
+            .Where(ta => ta.StatusRegister && ta.RevocationDate == null)
+            .Select(ta => new AssignedTeacher
+            {
+                Id = ta.Id,
+                IdTeacher = ta.IdTeacher,
+                FullName = ta.Teacher != null
+                    ? $"{ta.Teacher.FirstName} {ta.Teacher.LastName}".Trim()
+                    : string.Empty,
+                Email = ta.Teacher?.Email ?? string.Empty,
+                CargoId = ta.IdTypeTeachingAssignment,
+                CargoCode = ta.TypeTeachingAssignment?.Code,
+                CargoName = ta.TypeTeachingAssignment?.Name,
+                RevocationDate = ta.RevocationDate,
+            }).ToList();
 
         var documents = await _context.Set<Document>()
+            .AsNoTracking()
             .Where(d => d.IdInscriptionModality == academicPractice.Id)
             .Include(d => d.DocumentType)
             .ToListAsync(cancellationToken);
@@ -64,9 +81,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             AcademicPeriod = academicPractice.InscriptionModality?.AcademicPeriod,
             UserInscriptionModalities = userInscriptionModalities,
             TeachingAssignments = teachingAssignments,
-            Teachers = teachersByInscription.TryGetValue(academicPractice.Id, out var teachers)
-                ? teachers
-                : new List<AssignedTeacher>(),
+            Teachers = activeTeachers,
             Documents = documents
         };
     }
@@ -84,15 +99,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
     {
         filters ??= new Dictionary<string, string>(); // Previene null reference
         var query = _context.AcademicPractices
-            .Include(ap => ap.InscriptionModality)
-                .ThenInclude(im => im.Modality)
-            .Include(ap => ap.InscriptionModality)
-                .ThenInclude(im => im.StateInscription)
-            .Include(ap => ap.InscriptionModality)
-                .ThenInclude(im => im.AcademicPeriod)
-            .Include(ap => ap.InscriptionModality)
-                .ThenInclude(im => im.StageModality)
-            .Include(ap => ap.StateStage)
+            .AsNoTracking()
             .AsQueryable();
 
         // Extraer filtros por docente/cargo
@@ -132,8 +139,8 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
                     ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
                     (namePattern == null || (ta.Teacher != null &&
                         (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
-                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
-                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
+                          EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
+                          EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
                     (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
                     (teacherId == null || ta.IdTeacher == teacherId) &&
                     (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
@@ -181,10 +188,22 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
         if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
         // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
-        var pagedQuery = usingKeyset
+        var pagedBaseQuery = usingKeyset
             ? query.Take(pageSize + 1)
             : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
-        var academicPractices = await pagedQuery.ToListAsync(cancellationToken);
+
+        // Los includes se difieren a la página para no sobrecargar el COUNT
+        var academicPractices = await pagedBaseQuery
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.Modality)
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.StateInscription)
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.AcademicPeriod)
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.StageModality)
+            .Include(ap => ap.StateStage)
+            .ToListAsync(cancellationToken);
 
         bool? hasMoreRows = null;
         if (usingKeyset)
@@ -194,14 +213,31 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
                 academicPractices = academicPractices.Take(pageSize).ToList();
         }
 
+        if (academicPractices.Count == 0)
+        {
+            return new PaginatedResult<AcademicPracticeWithDetails>
+            {
+                Items = new List<AcademicPracticeWithDetails>(),
+                TotalRecords = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                HasMoreRows = hasMoreRows
+            };
+        }
+
         // Get academic practice IDs for efficient student loading
         var academicPracticeIds = academicPractices.Select(ap => ap.Id).ToList();
         
         // Load students for these specific academic practices
         var userInscriptionModalities = await _context.Set<UserInscriptionModality>()
+            .AsNoTracking()
             .Where(uim => academicPracticeIds.Contains(uim.IdInscriptionModality))
             .Include(uim => uim.User)
             .ToListAsync(cancellationToken);
+
+        var usersByInscription = userInscriptionModalities
+            .GroupBy(uim => uim.IdInscriptionModality)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         // Load active teachers for these specific academic practices
         var teachersByInscription = await TeacherAssignmentLoader
@@ -217,7 +253,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             Modality = ap.InscriptionModality?.Modality,
             StateInscription = ap.InscriptionModality?.StateInscription,
             AcademicPeriod = ap.InscriptionModality?.AcademicPeriod,
-            UserInscriptionModalities = userInscriptionModalities.Where(uim => uim.IdInscriptionModality == ap.Id).ToList(),
+            UserInscriptionModalities = usersByInscription.TryGetValue(ap.Id, out var users)
+                ? users
+                : new List<UserInscriptionModality>(),
             TeachingAssignments = new List<TeachingAssignment>(),
             Teachers = teachersByInscription.TryGetValue(ap.Id, out var teachers)
                 ? teachers
@@ -250,19 +288,26 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         filters ??= new Dictionary<string, string>(); // Previene null reference
         // Get academic practices assigned to a teacher through active teaching assignments
         var academicPracticeIds = await _context.Set<TeachingAssignment>()
+            .AsNoTracking()
             .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null)
             .Select(ta => ta.IdInscriptionModality)
             .ToListAsync(cancellationToken);
 
+        if (academicPracticeIds.Count == 0)
+        {
+            return new PaginatedResult<AcademicPracticeWithDetails>
+            {
+                Items = new List<AcademicPracticeWithDetails>(),
+                TotalRecords = 0,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                HasMoreRows = false
+            };
+        }
+
         var query = _context.AcademicPractices
+            .AsNoTracking()
             .Where(ap => academicPracticeIds.Contains(ap.Id))
-            .Include(ap => ap.InscriptionModality)
-                .ThenInclude(im => im.Modality)
-            .Include(ap => ap.InscriptionModality)
-                .ThenInclude(im => im.StateInscription)
-            .Include(ap => ap.InscriptionModality)
-                .ThenInclude(im => im.AcademicPeriod)
-            .Include(ap => ap.StateStage)
             .AsQueryable();
 
         // Usar el sistema genérico de filtros en lugar de filtros manuales
@@ -304,10 +349,21 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
         if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
         // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
-        var pagedQuery = usingKeyset
+        var pagedBaseQuery = usingKeyset
             ? query.Take(pageSize + 1)
             : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
-        var academicPractices = await pagedQuery.ToListAsync(cancellationToken);
+
+        var academicPractices = await pagedBaseQuery
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.Modality)
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.StateInscription)
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.AcademicPeriod)
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.StageModality)
+            .Include(ap => ap.StateStage)
+            .ToListAsync(cancellationToken);
 
         bool? hasMoreRows = null;
         if (usingKeyset)
@@ -315,6 +371,18 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             hasMoreRows = academicPractices.Count > pageSize;
             if (hasMoreRows.Value)
                 academicPractices = academicPractices.Take(pageSize).ToList();
+        }
+
+        if (academicPractices.Count == 0)
+        {
+            return new PaginatedResult<AcademicPracticeWithDetails>
+            {
+                Items = new List<AcademicPracticeWithDetails>(),
+                TotalRecords = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                HasMoreRows = hasMoreRows
+            };
         }
 
         var pagedPracticeIds = academicPractices.Select(ap => ap.Id).ToList();
@@ -327,10 +395,10 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             AcademicPractice = ap,
             InscriptionModality = ap.InscriptionModality,
             StateStage = ap.StateStage,
-            StageModality = ap.InscriptionModality.StageModality!,
-            Modality = ap.InscriptionModality.Modality!,
-            StateInscription = ap.InscriptionModality.StateInscription!,
-            AcademicPeriod = ap.InscriptionModality.AcademicPeriod!,
+            StageModality = ap.InscriptionModality?.StageModality,
+            Modality = ap.InscriptionModality?.Modality,
+            StateInscription = ap.InscriptionModality?.StateInscription,
+            AcademicPeriod = ap.InscriptionModality?.AcademicPeriod,
             UserInscriptionModalities = new List<UserInscriptionModality>(),
             TeachingAssignments = new List<TeachingAssignment>(),
             Teachers = teachersByInscription.TryGetValue(ap.Id, out var teachers)
@@ -356,11 +424,18 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
     {
         // Get academic practices for a user through UserInscriptionModality
         var academicPracticeIds = await _context.Set<UserInscriptionModality>()
+            .AsNoTracking()
             .Where(uim => uim.IdUser == userId)
             .Select(uim => uim.IdInscriptionModality)
             .ToListAsync(cancellationToken);
 
+        if (academicPracticeIds.Count == 0)
+        {
+            return new List<AcademicPracticeWithDetails>();
+        }
+
         var query = _context.AcademicPractices
+            .AsNoTracking()
             .Where(ap => academicPracticeIds.Contains(ap.Id))
             .Include(ap => ap.InscriptionModality)
                 .ThenInclude(im => im.Modality)
@@ -368,6 +443,8 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
                 .ThenInclude(im => im.StateInscription)
             .Include(ap => ap.InscriptionModality)
                 .ThenInclude(im => im.AcademicPeriod)
+            .Include(ap => ap.InscriptionModality)
+                .ThenInclude(im => im.StageModality)
             .Include(ap => ap.StateStage)
             .AsQueryable();
 
@@ -380,6 +457,11 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             .OrderByDescending(ap => ap.CreatedAt)
             .ToListAsync(cancellationToken);
 
+        if (academicPractices.Count == 0)
+        {
+            return new List<AcademicPracticeWithDetails>();
+        }
+
         var practiceIds = academicPractices.Select(ap => ap.Id).ToList();
         var teachersByInscription = await TeacherAssignmentLoader
             .LoadActiveByInscriptionIdsAsync(_context, practiceIds, cancellationToken);
@@ -390,10 +472,10 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             AcademicPractice = ap,
             InscriptionModality = ap.InscriptionModality,
             StateStage = ap.StateStage,
-            StageModality = ap.InscriptionModality.StageModality!,
-            Modality = ap.InscriptionModality.Modality!,
-            StateInscription = ap.InscriptionModality.StateInscription!,
-            AcademicPeriod = ap.InscriptionModality.AcademicPeriod!,
+            StageModality = ap.InscriptionModality?.StageModality,
+            Modality = ap.InscriptionModality?.Modality,
+            StateInscription = ap.InscriptionModality?.StateInscription,
+            AcademicPeriod = ap.InscriptionModality?.AcademicPeriod,
             UserInscriptionModalities = new List<UserInscriptionModality>(),
             TeachingAssignments = new List<TeachingAssignment>(),
             Teachers = teachersByInscription.TryGetValue(ap.Id, out var teachers)
@@ -446,6 +528,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         CancellationToken cancellationToken = default)
     {
         var academicPractice = await _context.AcademicPractices
+            .AsNoTracking()
             .Include(ap => ap.StateStage)
             .FirstOrDefaultAsync(ap => ap.Id == id, cancellationToken);
 

@@ -17,6 +17,7 @@ namespace Infrastructure.Repositories
         public async Task<CoTerminalWithDetails?> GetWithDetailsAsync(int id)
         {
             var entity = await _context.CoTerminals
+                .AsNoTracking()
                 .Include(x => x.InscriptionModality)
                     .ThenInclude(im => im.Modality)
                 .Include(x => x.InscriptionModality)
@@ -46,15 +47,7 @@ namespace Infrastructure.Repositories
         {
             filters ??= new Dictionary<string, string>();
             var query = _context.CoTerminals
-                .Include(x => x.InscriptionModality)
-                    .ThenInclude(im => im.Modality)
-                .Include(x => x.InscriptionModality)
-                    .ThenInclude(im => im.StateInscription)
-                .Include(x => x.InscriptionModality)
-                    .ThenInclude(im => im.AcademicPeriod)
-                .Include(x => x.InscriptionModality)
-                    .ThenInclude(im => im.StageModality)
-                .Include(x => x.StateStage)
+                .AsNoTracking()
                 .AsQueryable();
 
             query = query.ApplyFilters<CoTerminal, int>(filters);
@@ -93,10 +86,22 @@ namespace Infrastructure.Repositories
                 // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
                 if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
             // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
-            var pagedQuery = usingKeyset
+            var pagedBaseQuery = usingKeyset
                 ? query.Take(pageSize + 1)
                 : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
-            var items = await pagedQuery.ToListAsync(cancellationToken);
+
+            // Los includes se difieren a la página para no sobrecargar el COUNT
+            var items = await pagedBaseQuery
+                .Include(x => x.InscriptionModality)
+                    .ThenInclude(im => im.Modality)
+                .Include(x => x.InscriptionModality)
+                    .ThenInclude(im => im.StateInscription)
+                .Include(x => x.InscriptionModality)
+                    .ThenInclude(im => im.AcademicPeriod)
+                .Include(x => x.InscriptionModality)
+                    .ThenInclude(im => im.StageModality)
+                .Include(x => x.StateStage)
+                .ToListAsync(cancellationToken);
 
             bool? hasMoreRows = null;
             if (usingKeyset)
@@ -104,6 +109,18 @@ namespace Infrastructure.Repositories
                 hasMoreRows = items.Count > pageSize;
                 if (hasMoreRows.Value)
                     items = items.Take(pageSize).ToList();
+            }
+
+            if (items.Count == 0)
+            {
+                return new PaginatedResult<CoTerminalWithDetails>
+                {
+                    Items = new List<CoTerminalWithDetails>(),
+                    TotalRecords = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    HasMoreRows = hasMoreRows
+                };
             }
 
             var resultItems = new List<CoTerminalWithDetails>();
@@ -126,11 +143,19 @@ namespace Infrastructure.Repositories
 
         public async Task<List<CoTerminalWithDetails>> GetByUserAsync(int userId, bool? status = null, CancellationToken cancellationToken = default)
         {
-            var inscriptionIds = _context.Set<UserInscriptionModality>()
+            var inscriptionIds = await _context.Set<UserInscriptionModality>()
+                .AsNoTracking()
                 .Where(uim => uim.IdUser == userId)
-                .Select(uim => uim.IdInscriptionModality);
+                .Select(uim => uim.IdInscriptionModality)
+                .ToListAsync(cancellationToken);
+
+            if (inscriptionIds.Count == 0)
+            {
+                return new List<CoTerminalWithDetails>();
+            }
 
             var query = _context.CoTerminals
+                .AsNoTracking()
                 .Include(x => x.InscriptionModality)
                     .ThenInclude(im => im.Modality)
                 .Include(x => x.InscriptionModality)
@@ -148,6 +173,11 @@ namespace Infrastructure.Repositories
             }
 
             var items = await query.ToListAsync(cancellationToken);
+            if (items.Count == 0)
+            {
+                return new List<CoTerminalWithDetails>();
+            }
+
             var resultItems = new List<CoTerminalWithDetails>();
             var detailsBatch = await ModalityDetailsBatch.LoadAsync(
                 _context, items.Select(i => i.Id).ToList(), cancellationToken);
@@ -173,15 +203,7 @@ namespace Infrastructure.Repositories
         {
             filters ??= new Dictionary<string, string>();
             var query = _context.CoTerminals
-                .Include(x => x.InscriptionModality)
-                    .ThenInclude(im => im.Modality)
-                .Include(x => x.InscriptionModality)
-                    .ThenInclude(im => im.StateInscription)
-                .Include(x => x.InscriptionModality)
-                    .ThenInclude(im => im.AcademicPeriod)
-                .Include(x => x.InscriptionModality)
-                    .ThenInclude(im => im.StageModality)
-                .Include(x => x.StateStage)
+                .AsNoTracking()
                 .Where(x => x.InscriptionModality.TeachingAssignments.Any(ta => ta.IdTeacher == teacherId));
 
             query = query.ApplyFilters<CoTerminal, int>(filters);
@@ -216,10 +238,21 @@ namespace Infrastructure.Repositories
                 // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
                 if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalCount, 1); }
             // Keyset trae pageSize+1 filas para detectar HasMoreRows sin ejecutar COUNT.
-            var pagedQuery = usingKeyset
+            var pagedBaseQuery = usingKeyset
                 ? query.Take(pageSize + 1)
                 : query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
-            var items = await pagedQuery.ToListAsync(cancellationToken);
+
+            var items = await pagedBaseQuery
+                .Include(x => x.InscriptionModality)
+                    .ThenInclude(im => im.Modality)
+                .Include(x => x.InscriptionModality)
+                    .ThenInclude(im => im.StateInscription)
+                .Include(x => x.InscriptionModality)
+                    .ThenInclude(im => im.AcademicPeriod)
+                .Include(x => x.InscriptionModality)
+                    .ThenInclude(im => im.StageModality)
+                .Include(x => x.StateStage)
+                .ToListAsync(cancellationToken);
 
             bool? hasMoreRows = null;
             if (usingKeyset)
@@ -227,6 +260,18 @@ namespace Infrastructure.Repositories
                 hasMoreRows = items.Count > pageSize;
                 if (hasMoreRows.Value)
                     items = items.Take(pageSize).ToList();
+            }
+
+            if (items.Count == 0)
+            {
+                return new PaginatedResult<CoTerminalWithDetails>
+                {
+                    Items = new List<CoTerminalWithDetails>(),
+                    TotalRecords = totalCount,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    HasMoreRows = hasMoreRows
+                };
             }
 
             var resultItems = new List<CoTerminalWithDetails>();
@@ -250,17 +295,20 @@ namespace Infrastructure.Repositories
         private async Task<CoTerminalWithDetails> PopulateDetails(CoTerminal entity, CancellationToken cancellationToken = default)
         {
             var userInscriptionModalities = await _context.Set<UserInscriptionModality>()
+                .AsNoTracking()
                 .Where(uim => uim.IdInscriptionModality == entity.Id)
                 .Include(uim => uim.User)
                 .ToListAsync(cancellationToken);
 
             var teachingAssignments = await _context.Set<TeachingAssignment>()
+                .AsNoTracking()
                 .Where(ta => ta.IdInscriptionModality == entity.Id)
                 .Include(ta => ta.Teacher)
                 .Include(ta => ta.TypeTeachingAssignment)
                 .ToListAsync(cancellationToken);
 
             var documents = await _context.Set<Document>()
+                .AsNoTracking()
                 .Where(d => d.IdInscriptionModality == entity.Id)
                 .Include(d => d.DocumentType)
                 .ToListAsync(cancellationToken);

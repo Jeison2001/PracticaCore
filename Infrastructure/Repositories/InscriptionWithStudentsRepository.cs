@@ -146,6 +146,18 @@ namespace Infrastructure.Repositories
                     pageRows = pageRows.Take(pageSize).ToList();
             }
 
+            if (pageRows.Count == 0)
+            {
+                return new PaginatedResult<InscriptionWithStudents>
+                {
+                    Items = new List<InscriptionWithStudents>(),
+                    TotalRecords = totalRecords,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    HasMoreRows = hasMoreRows,
+                };
+            }
+
             // Estudiantes SOLO de la página (una sola consulta extra con la navegación User)
             var pageIds = pageRows.Select(r => r.Inscription.Id).ToList();
             var students = await _context.Set<UserInscriptionModality>()

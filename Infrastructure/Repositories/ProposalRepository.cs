@@ -32,8 +32,8 @@ namespace Infrastructure.Repositories
         {
             // Consulta optimizada que inicia con las asignaciones de docentes
             var query = _dbContext.Set<TeachingAssignment>()
+                .AsNoTracking()
                 .Where(ta => ta.IdTeacher == teacherId);
-                
 
             // Obtener los IDs de las modalidades de inscripción
             var inscriptionModalityIds = await query
@@ -53,34 +53,11 @@ namespace Infrastructure.Repositories
                     HasMoreRows = false
                 };
             }
-              // Consulta principal para obtener propuestas
-            var proposalsQuery = _dbContext.Set<Proposal>()
-                .Where(p => inscriptionModalityIds.Contains(p.Id))
-                .Include(p => p.StateStage)
-                .Include(p => p.ResearchLine)
-                .Include(p => p.ResearchSubLine)
-                .Include(p => p.InscriptionModality)
-                    .ThenInclude(im => im.TeachingAssignments)
-                        .ThenInclude(ta => ta.Teacher)
-                .AsNoTracking(); // Mejora el rendimiento para consultas de solo lectura
 
-            // Agregar filtros específicos para campos que no son directamente propiedades de Proposal
-            // Comentado temporalmente según requerimiento
-            /*if (filters != null)
-            {
-                foreach (var filter in filters.ToList()) // Usar .ToList() para evitar modificación durante iteración
-                {
-                    // Manejar filtros especiales que no son parte de la entidad Proposal
-                    if (filter.Key.Equals("title", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(filter.Value))
-                    {
-                        var filterValue = filter.Value.ToLower();
-                        proposalsQuery = proposalsQuery.Where(p => p.Title.ToLower().Contains(filterValue));
-                        filters.Remove(filter.Key); // Remover para que FilterBuilder no lo procese dos veces
-                    }
-                }
-                
-                // Los demás filtros se manejan automáticamente mediante FilterBuilder
-            }*/
+            // Consulta principal para obtener propuestas (sin includes iniciales para no sobrecargar el COUNT)
+            var proposalsQuery = _dbContext.Set<Proposal>()
+                .AsNoTracking()
+                .Where(p => inscriptionModalityIds.Contains(p.Id));
 
             // Preparar campo de ordenamiento dinámico
             var orderByField = sortBy ?? string.Empty;
@@ -104,20 +81,38 @@ namespace Infrastructure.Repositories
             // Aplicar paginación, filtrado y ordenamiento con la extensión genérica.
             // Con cursor (cursorId + cursorCreatedAt) la paginación es keyset
             // (CreatedAt DESC, Id DESC) con coste constante; skipTotalCount omite el COUNT.
+            // Los includes se aplican EXCLUSIVAMENTE a la página de resultados mediante el delegado include.
             var paginatedResult = await proposalsQuery
-                .AsSplitQuery()
                 .ToPaginatedResultAsync<Proposal, int>(
                     pf.Remaining,
-                     orderByField,
-                     isDescending,
-                     pageNumber,
-                     pageSize,
-                     cancellationToken,
-                     cursorId,
-                     cursorCreatedAt,
-                     skipTotalCount);
+                    orderByField,
+                    isDescending,
+                    pageNumber,
+                    pageSize,
+                    cancellationToken,
+                    cursorId,
+                    cursorCreatedAt,
+                    skipTotalCount,
+                    include: q => q
+                        .Include(p => p.StateStage)
+                        .Include(p => p.ResearchLine)
+                        .Include(p => p.ResearchSubLine)
+                        .Include(p => p.InscriptionModality)
+                            .ThenInclude(im => im.TeachingAssignments)
+                                .ThenInclude(ta => ta.Teacher));
 
             var proposals = paginatedResult.Items.ToList();
+            if (!proposals.Any())
+            {
+                return new PaginatedResult<ProposalWithDetails>
+                {
+                    Items = new List<ProposalWithDetails>(),
+                    TotalRecords = paginatedResult.TotalRecords,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    HasMoreRows = paginatedResult.HasMoreRows
+                };
+            }
             
             // Cargar todos los usuarios relacionados en una sola consulta
             var proposalIds = proposals.Select(p => p.Id).ToList();
@@ -136,8 +131,8 @@ namespace Infrastructure.Repositories
             var result = proposals.Select(proposal => new ProposalWithDetails
             {
                 Proposal = proposal,
-                UserInscriptionModalities = usersByModality.ContainsKey(proposal.Id)
-                    ? usersByModality[proposal.Id]
+                UserInscriptionModalities = usersByModality.TryGetValue(proposal.Id, out var users)
+                    ? users
                     : new List<UserInscriptionModality>()
             }).ToList();
 
@@ -159,6 +154,7 @@ namespace Infrastructure.Repositories
         {
             // 1. Obtener IDs de modalidades donde participa el usuario
             var inscriptionModalityIds = await _dbContext.Set<UserInscriptionModality>()
+                .AsNoTracking()
                 .Where(uim => uim.IdUser == userId)
                 .Select(uim => uim.IdInscriptionModality)
                 .Distinct()
@@ -187,15 +183,18 @@ namespace Infrastructure.Repositories
                 .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
                 .Include(uim => uim.User)
                 .AsNoTracking()
-                .ToListAsync(cancellationToken);            // 4. Agrupar por propuesta y construir resultado
+                .ToListAsync(cancellationToken);
+
+            // 4. Agrupar por propuesta y construir resultado
             var usersByModality = userInscriptionModalities
                 .GroupBy(uim => uim.IdInscriptionModality)
                 .ToDictionary(g => g.Key, g => g.ToList());
-                  return proposals.Select(p => new ProposalWithDetails
+
+            return proposals.Select(p => new ProposalWithDetails
             {
                 Proposal = p,
-                UserInscriptionModalities = usersByModality.ContainsKey(p.Id)
-                    ? usersByModality[p.Id]
+                UserInscriptionModalities = usersByModality.TryGetValue(p.Id, out var users)
+                    ? users
                     : new List<UserInscriptionModality>()
             }).ToList();
         }
@@ -353,8 +352,8 @@ namespace Infrastructure.Repositories
             var result = proposals.Select(proposal => new ProposalWithDetails
             {
                 Proposal = proposal,
-                UserInscriptionModalities = usersByModality.ContainsKey(proposal.Id)
-                    ? usersByModality[proposal.Id]
+                UserInscriptionModalities = usersByModality.TryGetValue(proposal.Id, out var users)
+                    ? users
                     : new List<UserInscriptionModality>(),
                 Teachers = teachersByInscription.TryGetValue(proposal.Id, out var teachers)
                     ? teachers
