@@ -1,5 +1,6 @@
 using Domain.Entities;
 using Domain.Common;
+using Domain.Common.Teachers;
 using Infrastructure.Data;
 using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             .Include(ta => ta.TypeTeachingAssignment)
             .ToListAsync(cancellationToken);
 
+        var teachersByInscription = await TeacherAssignmentLoader
+            .LoadActiveByInscriptionIdsAsync(_context, new List<int> { academicPractice.Id }, cancellationToken);
+
         var documents = await _context.Set<Document>()
             .Where(d => d.IdInscriptionModality == academicPractice.Id)
             .Include(d => d.DocumentType)
@@ -60,6 +64,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             AcademicPeriod = academicPractice.InscriptionModality?.AcademicPeriod,
             UserInscriptionModalities = userInscriptionModalities,
             TeachingAssignments = teachingAssignments,
+            Teachers = teachersByInscription.TryGetValue(academicPractice.Id, out var teachers)
+                ? teachers
+                : new List<AssignedTeacher>(),
             Documents = documents
         };
     }
@@ -88,11 +95,58 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             .Include(ap => ap.StateStage)
             .AsQueryable();
 
+        // Extraer filtros por docente/cargo
+        var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
+        var remainingFilters = tf.Remaining;
+        if (tf.HasAny)
+        {
+            var isInMemory = _context.Database.ProviderName?.Contains("InMemory") == true
+                || Environment.GetEnvironmentVariable("UseInMemoryDatabase") == "true";
+
+            var teacherId = tf.Id;
+            var cargoId = tf.CargoId;
+            var cargoCode = tf.CargoCode;
+            var cargoName = tf.CargoName;
+
+            if (isInMemory)
+            {
+                var rawName = tf.Name?.Trim().ToLowerInvariant();
+                var rawEmail = tf.Email?.Trim().ToLowerInvariant();
+                query = query.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
+                    ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
+                    (rawName == null || (ta.Teacher != null &&
+                        ((ta.Teacher.FirstName + " " + ta.Teacher.LastName).ToLower().Contains(rawName) ||
+                         ta.Teacher.FirstName.ToLower().Contains(rawName) ||
+                         ta.Teacher.LastName.ToLower().Contains(rawName)))) &&
+                    (rawEmail == null || (ta.Teacher != null && ta.Teacher.Email.ToLower().Contains(rawEmail))) &&
+                    (teacherId == null || ta.IdTeacher == teacherId) &&
+                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
+                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
+                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
+            }
+            else
+            {
+                var namePattern = tf.Name != null ? TeacherAssignmentLoader.LikePattern(tf.Name) : null;
+                var emailPattern = tf.Email != null ? TeacherAssignmentLoader.LikePattern(tf.Email) : null;
+                query = query.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
+                    ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
+                    (namePattern == null || (ta.Teacher != null &&
+                        (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
+                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
+                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
+                    (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
+                    (teacherId == null || ta.IdTeacher == teacherId) &&
+                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
+                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
+                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
+            }
+        }
+
         // Usar el sistema genérico de filtros en lugar de filtros manuales
-        query = query.ApplyFilters<AcademicPractice, int>(filters);
+        query = query.ApplyFilters<AcademicPractice, int>(remainingFilters);
 
         // Aplicar filtros específicos para entidades relacionadas
-        query = ApplySpecificFilters(query, filters);
+        query = ApplySpecificFilters(query, remainingFilters);
 
         // Modo keyset (cursor (CreatedAt, Id)): coste constante en cualquier
         // profundidad de página. El orden queda forzado a (CreatedAt DESC, Id DESC)
@@ -149,7 +203,11 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             .Include(uim => uim.User)
             .ToListAsync(cancellationToken);
 
-        // Convert to detailed results with students
+        // Load active teachers for these specific academic practices
+        var teachersByInscription = await TeacherAssignmentLoader
+            .LoadActiveByInscriptionIdsAsync(_context, academicPracticeIds, cancellationToken);
+
+        // Convert to detailed results with students and teachers
         var items = academicPractices.Select(ap => new AcademicPracticeWithDetails
         {
             AcademicPractice = ap,
@@ -161,6 +219,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             AcademicPeriod = ap.InscriptionModality?.AcademicPeriod,
             UserInscriptionModalities = userInscriptionModalities.Where(uim => uim.IdInscriptionModality == ap.Id).ToList(),
             TeachingAssignments = new List<TeachingAssignment>(),
+            Teachers = teachersByInscription.TryGetValue(ap.Id, out var teachers)
+                ? teachers
+                : new List<AssignedTeacher>(),
             Documents = new List<Document>()
         }).ToList();
 
@@ -187,9 +248,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         bool skipTotalCount = false)
     {
         filters ??= new Dictionary<string, string>(); // Previene null reference
-        // Get academic practices assigned to a teacher through teaching assignments
+        // Get academic practices assigned to a teacher through active teaching assignments
         var academicPracticeIds = await _context.Set<TeachingAssignment>()
-            .Where(ta => ta.IdTeacher == teacherId)
+            .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null)
             .Select(ta => ta.IdInscriptionModality)
             .ToListAsync(cancellationToken);
 
@@ -256,6 +317,10 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
                 academicPractices = academicPractices.Take(pageSize).ToList();
         }
 
+        var pagedPracticeIds = academicPractices.Select(ap => ap.Id).ToList();
+        var teachersByInscription = await TeacherAssignmentLoader
+            .LoadActiveByInscriptionIdsAsync(_context, pagedPracticeIds, cancellationToken);
+
         // Convert to detailed results (simplified for performance)
         var items = academicPractices.Select(ap => new AcademicPracticeWithDetails
         {
@@ -268,6 +333,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             AcademicPeriod = ap.InscriptionModality.AcademicPeriod!,
             UserInscriptionModalities = new List<UserInscriptionModality>(),
             TeachingAssignments = new List<TeachingAssignment>(),
+            Teachers = teachersByInscription.TryGetValue(ap.Id, out var teachers)
+                ? teachers
+                : new List<AssignedTeacher>(),
             Documents = new List<Document>()
         }).ToList();
 
@@ -312,6 +380,10 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             .OrderByDescending(ap => ap.CreatedAt)
             .ToListAsync(cancellationToken);
 
+        var practiceIds = academicPractices.Select(ap => ap.Id).ToList();
+        var teachersByInscription = await TeacherAssignmentLoader
+            .LoadActiveByInscriptionIdsAsync(_context, practiceIds, cancellationToken);
+
         // Convert to detailed results
         var items = academicPractices.Select(ap => new AcademicPracticeWithDetails
         {
@@ -324,6 +396,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             AcademicPeriod = ap.InscriptionModality.AcademicPeriod!,
             UserInscriptionModalities = new List<UserInscriptionModality>(),
             TeachingAssignments = new List<TeachingAssignment>(),
+            Teachers = teachersByInscription.TryGetValue(ap.Id, out var teachers)
+                ? teachers
+                : new List<AssignedTeacher>(),
             Documents = new List<Document>()
         }).ToList();
 

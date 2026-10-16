@@ -1,7 +1,9 @@
 using Application.Shared.DTOs.AcademicPractices;
+using Application.Shared.DTOs.Teachers;
 using Application.Shared.DTOs.TeachingAssignments;
 using AutoMapper;
 using Domain.Common.AcademicPractice;
+using Domain.Common.Teachers;
 using Domain.Entities;
 
 namespace Application.Shared.Mappings
@@ -28,9 +30,12 @@ namespace Application.Shared.Mappings
                 .ForMember(dest => dest.InscriptionApprovalDate, opt => opt.MapFrom(src => src.InscriptionModality != null ? src.InscriptionModality.ApprovalDate : null))
                 .ForMember(dest => dest.InscriptionObservations, opt => opt.MapFrom(src => src.InscriptionModality != null ? src.InscriptionModality.Observations : null))
                 .ForMember(dest => dest.Students, opt => opt.MapFrom(src => src.UserInscriptionModalities.Select(uim => uim.User).Where(u => u != null)))
-                .ForMember(dest => dest.Teachers, opt => opt.MapFrom(src => src.TeachingAssignments))
+                .ForMember(dest => dest.Teachers, opt => opt.MapFrom(src => src.Teachers))
                 .ForMember(dest => dest.Documents, opt => opt.MapFrom(src => src.Documents))
                 .ForMember(dest => dest.PhaseProgress, opt => opt.Ignore()); // Mapeo manual
+
+            // Mapeo de AssignedTeacher -> AssignedTeacherDto (unificado con Proyecto de Grado)
+            CreateMap<AssignedTeacher, AssignedTeacherDto>();
 
             // Teacher assignment mapping usando TeachingAssignmentTeacherDto existente
             CreateMap<TeachingAssignment, TeachingAssignmentTeacherDto>()

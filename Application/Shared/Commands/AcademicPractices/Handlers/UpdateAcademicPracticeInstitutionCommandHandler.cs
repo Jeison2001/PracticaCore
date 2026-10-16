@@ -50,11 +50,16 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             // Registrar historial de observaciones
             if (!string.IsNullOrWhiteSpace(dto.Observations))
             {
+                var evaluatorId = request.CurrentUser.UserId 
+                    ?? academicPractice.IdUserUpdatedAt 
+                    ?? academicPractice.IdUserCreatedAt 
+                    ?? 1;
+
                 await ObservationHistoryHelper.CreateAsync(
                     _unitOfWork,
                     entityType: nameof(AcademicPractice),
                     entityId: academicPractice.Id,
-                    evaluatorId: request.CurrentUser.UserId ?? 0,
+                    evaluatorId: evaluatorId,
                     evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
                     observations: dto.Observations,
                     cancellationToken);
@@ -63,7 +68,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             // Cambiar de estado si se especifica (ej: pasar a PA_PEND_APROBACION_DOCUMENTOS después de radicar docs)
             if (hasStateChange)
             {
-                academicPractice.IdStateStage = dto.NewStateStageId.Value;
+                academicPractice.IdStateStage = dto.NewStateStageId!.Value;
             }
 
             // Tracking

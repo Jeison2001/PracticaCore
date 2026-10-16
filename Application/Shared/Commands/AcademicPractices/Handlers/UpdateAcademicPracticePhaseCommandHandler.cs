@@ -49,27 +49,33 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             if (!result) return false;
 
             // Registrar historial de observaciones (general y del evaluador)
-            var userId = request.CurrentUser.UserId ?? 0;
-            if (!string.IsNullOrWhiteSpace(dto.Observations))
-            {
-                await ObservationHistoryHelper.CreateAsync(
-                    _unitOfWork,
-                    entityType: nameof(AcademicPractice),
-                    entityId: entity.Id,
-                    evaluatorId: userId,
-                    evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
-                    observations: dto.Observations,
-                    cancellationToken);
-            }
+            var evaluatorId = request.CurrentUser.UserId 
+                ?? entity.IdUserUpdatedAt 
+                ?? entity.IdUserCreatedAt 
+                ?? 1;
+
             if (!string.IsNullOrWhiteSpace(dto.EvaluatorObservations))
             {
                 await ObservationHistoryHelper.CreateAsync(
                     _unitOfWork,
                     entityType: nameof(AcademicPractice),
                     entityId: entity.Id,
-                    evaluatorId: userId,
+                    evaluatorId: evaluatorId,
                     evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
                     observations: dto.EvaluatorObservations,
+                    cancellationToken);
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.Observations) 
+                && dto.Observations != dto.EvaluatorObservations)
+            {
+                await ObservationHistoryHelper.CreateAsync(
+                    _unitOfWork,
+                    entityType: nameof(AcademicPractice),
+                    entityId: entity.Id,
+                    evaluatorId: evaluatorId,
+                    evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
+                    observations: dto.Observations,
                     cancellationToken);
             }
 

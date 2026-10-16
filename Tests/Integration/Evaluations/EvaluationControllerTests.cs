@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Api.Responses;
 using Application.Shared.DTOs.Evaluations;
 using Domain.Common;
+using Domain.Constants;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Data;
@@ -426,5 +427,267 @@ namespace Tests.Integration.Evaluations
             result.Data![0].IdEvaluationType.Should().Be(type1.Id);
             result.Data[0].Observations.Should().Be("Type 1 Observation");
         }
+
+        [Fact]
+        public async Task GetObservationHistory_WithAcademicPractice_ReturnsDescendingChronologicalHistory()
+        {
+            // Arrange
+            var (_, evaluator, _, _) = await SeedDependenciesAsync();
+            var entityId = new Random().Next(10000, 99999);
+            const string entityType = "AcademicPractice";
+
+            EvaluationType? practiceType;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                practiceType = context.Set<EvaluationType>().FirstOrDefault(et => et.Code == EvaluationTypeCodes.AcademicPractice);
+                if (practiceType == null)
+                {
+                    practiceType = new EvaluationType
+                    {
+                        Name = "Seguimiento Práctica Académica",
+                        Code = EvaluationTypeCodes.AcademicPractice,
+                        StatusRegister = true
+                    };
+                    context.Set<EvaluationType>().Add(practiceType);
+                    await context.SaveChangesAsync();
+                }
+
+                var eval1 = new Evaluation
+                {
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    IdEvaluationType = practiceType.Id,
+                    IdEvaluator = evaluator.Id,
+                    Result = "Observations",
+                    Observations = "Fase 0 - Plan de práctica con correcciones solicitadas.",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow.AddHours(-2)
+                };
+                var eval2 = new Evaluation
+                {
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    IdEvaluationType = practiceType.Id,
+                    IdEvaluator = evaluator.Id,
+                    Result = "Approved",
+                    Observations = "Fase 1 - Informe de desarrollo aprobado satisfactoriamente.",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                context.Set<Evaluation>().AddRange(eval1, eval2);
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var response = await _client.GetAsync($"{BaseUrl}/history/{entityType}/{entityId}");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<ObservationHistoryItemDto>>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.Should().HaveCount(2);
+
+            // Verificar orden cronológico descendente (el más reciente primero)
+            result.Data![0].Observations.Should().Be("Fase 1 - Informe de desarrollo aprobado satisfactoriamente.");
+            result.Data[0].EvaluatorName.Should().Be($"{evaluator.FirstName} {evaluator.LastName}".Trim());
+            result.Data[0].EvaluationTypeCode.Should().Be(EvaluationTypeCodes.AcademicPractice);
+            result.Data[0].EvaluationTypeName.Should().Be("Seguimiento Práctica Académica");
+
+            result.Data[1].Observations.Should().Be("Fase 0 - Plan de práctica con correcciones solicitadas.");
+            result.Data[1].EvaluatorName.Should().Be($"{evaluator.FirstName} {evaluator.LastName}".Trim());
+            result.Data[1].EvaluationTypeCode.Should().Be(EvaluationTypeCodes.AcademicPractice);
+        }
+
+        [Fact]
+        public async Task GetObservationHistory_WithAcademicPracticeAndZeroEvaluations_ReturnsOkWithEmptyArrayAndSuccessTrue()
+        {
+            // Arrange
+            var entityId = new Random().Next(100000, 999999);
+            const string entityType = "AcademicPractice";
+
+            // Act
+            var response = await _client.GetAsync($"{BaseUrl}/history/{entityType}/{entityId}");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<ObservationHistoryItemDto>>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task GetObservationHistory_WithAcademicPractice_ValidatesCompleteFrontendContractSchema()
+        {
+            // Arrange
+            var (_, evaluator, _, _) = await SeedDependenciesAsync();
+            var entityId = new Random().Next(100000, 999999);
+            const string entityType = "AcademicPractice";
+            const string observations = "Verificación de contrato estricto para frontend.";
+
+            EvaluationType? practiceType;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                practiceType = context.Set<EvaluationType>().FirstOrDefault(et => et.Code == EvaluationTypeCodes.AcademicPractice);
+                if (practiceType == null)
+                {
+                    practiceType = new EvaluationType
+                    {
+                        Name = "Seguimiento Práctica Académica",
+                        Code = EvaluationTypeCodes.AcademicPractice,
+                        StatusRegister = true
+                    };
+                    context.Set<EvaluationType>().Add(practiceType);
+                    await context.SaveChangesAsync();
+                }
+
+                var eval = new Evaluation
+                {
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    IdEvaluationType = practiceType.Id,
+                    IdEvaluator = evaluator.Id,
+                    Result = "Satisfactorio",
+                    Observations = observations,
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                context.Set<Evaluation>().Add(eval);
+                await context.SaveChangesAsync();
+            }
+
+            // Act: obtener JSON crudo para validar schema camelCase exacto del contrato
+            var response = await _client.GetAsync($"{BaseUrl}/history/{entityType}/{entityId}");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var jsonString = await response.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(jsonString);
+            var root = doc.RootElement;
+
+            root.TryGetProperty("success", out var successProp).Should().BeTrue();
+            successProp.GetBoolean().Should().BeTrue();
+
+            root.TryGetProperty("data", out var dataProp).Should().BeTrue();
+            dataProp.ValueKind.Should().Be(System.Text.Json.JsonValueKind.Array);
+            dataProp.GetArrayLength().Should().Be(1);
+
+            var firstItem = dataProp[0];
+            firstItem.TryGetProperty("id", out var idProp).Should().BeTrue();
+            idProp.GetInt32().Should().BeGreaterThan(0);
+
+            firstItem.TryGetProperty("entityId", out var entityIdProp).Should().BeTrue();
+            entityIdProp.GetInt32().Should().Be(entityId);
+
+            firstItem.TryGetProperty("idEvaluator", out var idEvaluatorProp).Should().BeTrue();
+            idEvaluatorProp.GetInt32().Should().Be(evaluator.Id);
+
+            firstItem.TryGetProperty("evaluatorName", out var evaluatorNameProp).Should().BeTrue();
+            evaluatorNameProp.GetString().Should().Be($"{evaluator.FirstName} {evaluator.LastName}".Trim());
+
+            firstItem.TryGetProperty("idEvaluationType", out var idEvaluationTypeProp).Should().BeTrue();
+            idEvaluationTypeProp.GetInt32().Should().Be(practiceType.Id);
+
+            firstItem.TryGetProperty("evaluationTypeCode", out var evaluationTypeCodeProp).Should().BeTrue();
+            evaluationTypeCodeProp.GetString().Should().Be(EvaluationTypeCodes.AcademicPractice);
+
+            firstItem.TryGetProperty("evaluationTypeName", out var evaluationTypeNameProp).Should().BeTrue();
+            evaluationTypeNameProp.GetString().Should().Be("Seguimiento Práctica Académica");
+
+            firstItem.TryGetProperty("result", out var resultProp).Should().BeTrue();
+            resultProp.GetString().Should().Be("Satisfactorio");
+
+            firstItem.TryGetProperty("observations", out var observationsProp).Should().BeTrue();
+            observationsProp.GetString().Should().Be(observations);
+
+            firstItem.TryGetProperty("createdAt", out var createdAtProp).Should().BeTrue();
+            createdAtProp.GetString().Should().NotBeNullOrWhiteSpace();
+        }
+
+        [Fact]
+        public async Task GetObservationHistory_WithMultipleEvaluations_EnsuresStrictDescendingChronologicalOrder()
+        {
+            // Arrange
+            var (_, evaluator, _, _) = await SeedDependenciesAsync();
+            var entityId = new Random().Next(100000, 999999);
+            const string entityType = "AcademicPractice";
+
+            EvaluationType? practiceType;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                practiceType = context.Set<EvaluationType>().FirstOrDefault(et => et.Code == EvaluationTypeCodes.AcademicPractice);
+                if (practiceType == null)
+                {
+                    practiceType = new EvaluationType
+                    {
+                        Name = "Seguimiento Práctica Académica",
+                        Code = EvaluationTypeCodes.AcademicPractice,
+                        StatusRegister = true
+                    };
+                    context.Set<EvaluationType>().Add(practiceType);
+                    await context.SaveChangesAsync();
+                }
+
+                var evalOldest = new Evaluation
+                {
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    IdEvaluationType = practiceType.Id,
+                    IdEvaluator = evaluator.Id,
+                    Observations = "Oldest: Fase 0 - Plan radicado.",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow.AddHours(-3)
+                };
+                var evalMiddle = new Evaluation
+                {
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    IdEvaluationType = practiceType.Id,
+                    IdEvaluator = evaluator.Id,
+                    Observations = "Middle: Fase 1 - Ajuste de desarrollo.",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow.AddHours(-1)
+                };
+                var evalNewest = new Evaluation
+                {
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    IdEvaluationType = practiceType.Id,
+                    IdEvaluator = evaluator.Id,
+                    Observations = "Newest: Fase 2 - Aprobación informe final.",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+
+                // Insertar en orden no cronológico para verificar que la ordenación no depende del orden de inserción
+                context.Set<Evaluation>().AddRange(evalMiddle, evalOldest, evalNewest);
+                await context.SaveChangesAsync();
+            }
+
+            // Act
+            var response = await _client.GetAsync($"{BaseUrl}/history/{entityType}/{entityId}");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<ObservationHistoryItemDto>>>();
+            result.Should().NotBeNull();
+            result!.Data.Should().NotBeNull();
+            result.Data!.Should().HaveCount(3);
+
+            // Verificar orden estrictamente descendente
+            result.Data![0].Observations.Should().Be("Newest: Fase 2 - Aprobación informe final.");
+            result.Data[1].Observations.Should().Be("Middle: Fase 1 - Ajuste de desarrollo.");
+            result.Data[2].Observations.Should().Be("Oldest: Fase 0 - Plan radicado.");
+
+            result.Data[0].CreatedAt.Should().BeAfter(result.Data[1].CreatedAt);
+            result.Data[1].CreatedAt.Should().BeAfter(result.Data[2].CreatedAt);
+        }
     }
 }
+

@@ -1,3 +1,4 @@
+using Domain.Common.Teachers;
 using Domain.Entities;
 
 namespace Domain.Common.AcademicPractice
@@ -13,6 +14,7 @@ namespace Domain.Common.AcademicPractice
         public AcademicPeriod? AcademicPeriod { get; set; }
         public List<UserInscriptionModality> UserInscriptionModalities { get; set; } = new();
         public List<TeachingAssignment> TeachingAssignments { get; set; } = new();
+        public List<AssignedTeacher> Teachers { get; set; } = new();
         public List<Document> Documents { get; set; } = new();
     }
 }

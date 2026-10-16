@@ -1,5 +1,5 @@
 using Application.Shared.DTOs.AcademicPractices;
-using Application.Shared.DTOs.TeachingAssignments;
+using Application.Shared.DTOs.Teachers;
 using Application.Shared.DTOs.Users;
 using AutoMapper;
 using MediatR;
@@ -48,10 +48,9 @@ namespace Application.Shared.Queries.AcademicPractices.Handlers
                 .Select(uim => _mapper.Map<UserDto>(uim.User))
                 .ToList();
 
-            // 4. Mapear docentes usando TeachingAssignmentTeacherDto existente
-            var teachersDto = practiceDetail.TeachingAssignments
-                .Where(t => t.StatusRegister)
-                .Select(ta => _mapper.Map<TeachingAssignmentTeacherDto>(ta))
+            // 4. Mapear docentes usando AssignedTeacherDto (unificado con Proyecto de Grado)
+            var teachersDto = practiceDetail.Teachers
+                .Select(t => _mapper.Map<AssignedTeacherDto>(t))
                 .ToList();
 
             // 5. Mapear documentos usando DocumentDto existente
