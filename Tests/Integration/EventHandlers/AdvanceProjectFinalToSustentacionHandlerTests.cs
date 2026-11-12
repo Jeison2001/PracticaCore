@@ -187,5 +187,47 @@ namespace Tests.Integration.EventHandlers
             updatedInscription.OperationRegister.Should().Be(operaciones,
                 "el avance no debe repetirse ni acumular el registro de operación");
         }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // Escenario 4: permisos de Sustentación — asigna N2PGSU y N3PGCSU sin re-asignar N1PG
+        // ──────────────────────────────────────────────────────────────────────────────
+        [Fact]
+        public async Task Handle_InformeAprobado_AssignsSustentacionPermissionsWithoutAddingN1PG()
+        {
+            // Arrange
+            var context = GetFreshDbContext();
+            SeedingUtilities.SeedCatalogs(context);
+            SeedingUtilities.SeedPermissions(context,
+                PermissionCodes.ProyectoGrado.N1PG,
+                PermissionCodes.ProyectoGrado.N2PGSU,
+                PermissionCodes.ProyectoGrado.N3PGCSU);
+
+            var (inscription, user) = SeedProyectoFinalEnCurso(context, 4, "pg4@test.edu.co");
+
+            var newStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PfinfInformeAprobado).Id;
+            var oldStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PfinfRadicadoEnEvaluacion).Id;
+
+            var domainEvent = new ProjectFinalStateChangedEvent(
+                InscriptionModalityId: inscription.Id,
+                NewStateStageId: newStateId,
+                OldStateStageId: oldStateId,
+                TriggeredByUserId: user.Id
+            );
+
+            // Act
+            await CreateHandler(context).Handle(domainEvent, CancellationToken.None);
+            await context.SaveChangesAsync();
+
+            // Assert
+            var assignedCodes = context.Set<UserPermission>()
+                .Where(up => up.IdUser == user.Id && up.StatusRegister)
+                .Join(context.Set<Permission>(), up => up.IdPermission, p => p.Id, (_, p) => p.Code)
+                .ToList();
+
+            assignedCodes.Should().Contain(PermissionCodes.ProyectoGrado.N2PGSU);
+            assignedCodes.Should().Contain(PermissionCodes.ProyectoGrado.N3PGCSU);
+            assignedCodes.Should().NotContain(PermissionCodes.ProyectoGrado.N1PG,
+                "N1PG ya se asigna al aprobar la inscripción en StartProposalPhaseOnApprovalHandler");
+        }
     }
 }

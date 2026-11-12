@@ -12,19 +12,16 @@ namespace Application.Features.Research.EventHandlers
     /// Cuando el estado de un ProjectFinal alcanza PFINF_INFORME_APROBADO:
     ///   1. Estampa la fecha de aprobación del informe (ReportApprovalDate).
     ///   2. Avanza la InscriptionModality a la fase de Sustentación (PG_FASE_SUSTENTACION),
-    ///      cerrando el avance automático del flujo de Proyecto de Grado.
-    /// No asigna permisos: el catálogo institucional no define códigos de permiso
-    /// para la fase de Sustentación.
+    ///      crea el registro inicial de ProjectPresentation y asigna los permisos de sustentación.
     /// </summary>
     public class AdvanceProjectFinalToSustentacionHandler : INotificationHandler<ProjectFinalStateChangedEvent>
     {
         /// <summary>
         /// Permisos iniciales de la fase Sustentación para los usuarios de la inscripción.
-        /// El catálogo institucional ahora define los códigos N2PGSU/N3PGCSU.
+        /// N1PG se asigna al aprobar la inscripción en StartProposalPhaseOnApprovalHandler y no se revoca.
         /// </summary>
         private static readonly string[] InitialPermissions =
         [
-            PermissionCodes.ProyectoGrado.N1PG,
             PermissionCodes.ProyectoGrado.N2PGSU,
             PermissionCodes.ProyectoGrado.N3PGCSU,
         ];

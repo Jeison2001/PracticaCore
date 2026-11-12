@@ -172,7 +172,7 @@ namespace Infrastructure.Repositories
             };
         }
 
-        public async Task<List<(ProjectPresentation Presentation, ProjectFinal? ProjectFinal, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByUserIdWithProposalAndStudentsAsync(int userId, bool? status = null)
+        public async Task<List<(ProjectPresentation Presentation, ProjectFinal? ProjectFinal, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>> GetByUserIdWithProposalAndStudentsAsync(int userId, bool? status = null)
         {
             var inscriptionModalityIds = await _context.Set<UserInscriptionModality>()
                 .AsNoTracking()
@@ -182,7 +182,7 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             if (!inscriptionModalityIds.Any())
-                return new List<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>)>();
+                return new List<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>();
 
             var presentations = await _context.ProjectPresentations
                 .AsNoTracking()
@@ -194,7 +194,7 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             if (!presentations.Any())
-                return new List<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>)>();
+                return new List<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>();
 
             var presentationIds = presentations.Select(p => p.Id).ToList();
 
@@ -219,6 +219,9 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync();
 
+            var teachersByInscription = await TeacherAssignmentLoader
+                .LoadActiveByInscriptionIdsAsync(_context, presentationIds);
+
             var proposalsById = proposals.ToDictionary(p => p.Id);
             var projectFinalsById = projectFinals.ToDictionary(pf => pf.Id);
             var studentsByModality = students
@@ -229,11 +232,12 @@ namespace Infrastructure.Repositories
                 p,
                 projectFinalsById.TryGetValue(p.Id, out var pf) ? pf : (ProjectFinal?)null,
                 proposalsById.TryGetValue(p.Id, out var prop) ? prop : null!,
-                studentsByModality.TryGetValue(p.Id, out var sList) ? sList : new List<UserInscriptionModality>()
+                studentsByModality.TryGetValue(p.Id, out var sList) ? sList : new List<UserInscriptionModality>(),
+                teachersByInscription.TryGetValue(p.Id, out var tList) ? tList : new List<AssignedTeacher>()
             )).ToList();
         }
 
-        public async Task<PaginatedResult<(ProjectPresentation Presentation, ProjectFinal? ProjectFinal, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByTeacherIdWithProposalAndStudentsAsync(
+        public async Task<PaginatedResult<(ProjectPresentation Presentation, ProjectFinal? ProjectFinal, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>> GetByTeacherIdWithProposalAndStudentsAsync(
             int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters,
             long? cursorId = null, DateTimeOffset? cursorCreatedAt = null, bool skipTotalCount = false)
         {
@@ -246,9 +250,9 @@ namespace Infrastructure.Repositories
 
             if (!proposalIds.Any())
             {
-                return new PaginatedResult<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>)>
+                return new PaginatedResult<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>
                 {
-                    Items = new List<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>)>(),
+                    Items = new List<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>(),
                     TotalRecords = 0,
                     PageNumber = pageNumber,
                     PageSize = pageSize,
@@ -316,9 +320,9 @@ namespace Infrastructure.Repositories
             var presentations = paginatedResult.Items.ToList();
             if (!presentations.Any())
             {
-                return new PaginatedResult<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>)>
+                return new PaginatedResult<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>
                 {
-                    Items = new List<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>)>(),
+                    Items = new List<(ProjectPresentation, ProjectFinal?, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>(),
                     TotalRecords = paginatedResult.TotalRecords,
                     PageNumber = paginatedResult.PageNumber,
                     PageSize = paginatedResult.PageSize,
@@ -349,6 +353,9 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync();
 
+            var teachersByInscription = await TeacherAssignmentLoader
+                .LoadActiveByInscriptionIdsAsync(_context, resultIds);
+
             var proposalsById = proposals.ToDictionary(p => p.Id);
             var projectFinalsById = projectFinals.ToDictionary(pf2 => pf2.Id);
             var studentsByModality = students
@@ -359,10 +366,11 @@ namespace Infrastructure.Repositories
                 p,
                 projectFinalsById.TryGetValue(p.Id, out var pf2) ? pf2 : (ProjectFinal?)null,
                 proposalsById.TryGetValue(p.Id, out var prop) ? prop : null!,
-                studentsByModality.TryGetValue(p.Id, out var sList) ? sList : new List<UserInscriptionModality>()
+                studentsByModality.TryGetValue(p.Id, out var sList) ? sList : new List<UserInscriptionModality>(),
+                teachersByInscription.TryGetValue(p.Id, out var tList) ? tList : new List<AssignedTeacher>()
             )).ToList();
 
-            return new PaginatedResult<(ProjectPresentation Presentation, ProjectFinal? ProjectFinal, Proposal Proposal, List<UserInscriptionModality> Students)>
+            return new PaginatedResult<(ProjectPresentation Presentation, ProjectFinal? ProjectFinal, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>
             {
                 Items = items,
                 TotalRecords = paginatedResult.TotalRecords,

@@ -13,6 +13,8 @@ namespace Application.Common.Services.Notifications.Builders
         private readonly IStudentDataService _studentDataService;
         private readonly ILogger<ProjectPresentationEventDataBuilder> _logger;
 
+        private static readonly TimeZoneInfo ColombiaTimeZone = ResolveColombiaTimeZone();
+
         public ProjectPresentationEventDataBuilder(
             IUnitOfWork unitOfWork,
             IStudentDataService studentDataService,
@@ -64,8 +66,10 @@ namespace Application.Common.Services.Notifications.Builders
                     ["StudentsCount"] = studentCount,
                     ["CurrentState"] = stateInfo.StateName,
                     ["CurrentStateCode"] = stateInfo.StateCode,
-                    ["ScheduledDateTime"] = presentation.ScheduledDateTime?.ToString("dd/MM/yyyy HH:mm") ?? "Por definir",
-                    ["ActualDateTime"] = presentation.ActualDateTime?.ToString("dd/MM/yyyy HH:mm") ?? DateTimeOffset.UtcNow.ToString("dd/MM/yyyy HH:mm"),
+                    ["ScheduledDateTime"] = presentation.ScheduledDateTime.HasValue
+                        ? FormatColombiaDateTime(presentation.ScheduledDateTime.Value)
+                        : "Por definir",
+                    ["ActualDateTime"] = FormatColombiaDateTime(presentation.ActualDateTime ?? DateTimeOffset.UtcNow),
                     ["PresentationModality"] = presentation.PresentationModality ?? "No especificada",
                     ["LocationOrLink"] = presentation.LocationOrLink ?? "No especificado",
                     ["AttemptNumber"] = presentation.AttemptNumber,
@@ -117,6 +121,23 @@ namespace Application.Common.Services.Notifications.Builders
                 _logger.LogError(ex, "Error getting state info for StateStage ID: {StateStageId}", stateStageId);
                 return ("Estado desconocido", "UNKNOWN");
             }
+        }
+
+        private static string FormatColombiaDateTime(DateTimeOffset value) =>
+            TimeZoneInfo.ConvertTime(value, ColombiaTimeZone).ToString("dd/MM/yyyy HH:mm");
+
+        private static TimeZoneInfo ResolveColombiaTimeZone()
+        {
+            foreach (var tzId in new[] { "America/Bogota", "SA Pacific Standard Time" })
+            {
+                if (TimeZoneInfo.TryFindSystemTimeZoneById(tzId, out var tz))
+                    return tz;
+            }
+            return TimeZoneInfo.CreateCustomTimeZone(
+                "COT",
+                TimeSpan.FromHours(-5),
+                "Colombia Standard Time",
+                "Colombia Standard Time");
         }
 
         private string GetEvaluationResultText(string stateCode)
