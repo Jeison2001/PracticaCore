@@ -15,7 +15,10 @@ namespace Application.Shared.Queries.ProjectFinals.Handlers
         public async Task<List<ProjectFinalWithDetailsResponseDto>> Handle(GetProjectFinalsByUserQuery request, CancellationToken cancellationToken)
         {
             var entities = await _repository.GetByUserIdWithProposalAndStudentsAsync(request.UserId, request.Status);
-            return entities.Select(e => new ProjectFinalWithDetailsResponseDto
+            return entities
+                .OrderByDescending(e => e.Project.CreatedAt)
+                .ThenByDescending(e => e.Project.Id)
+                .Select(e => new ProjectFinalWithDetailsResponseDto
             {                ProjectFinal = new ProjectFinalDetailsDto
                 {
                     Id = e.Project.Id,

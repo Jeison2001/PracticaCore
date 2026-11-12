@@ -18,6 +18,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IsInitialState).IsRequired().HasColumnName("IsInitialState").HasDefaultValue(false);
             builder.Property(e => e.IsFinalStateForStage).IsRequired().HasColumnName("IsFinalStateForStage").HasDefaultValue(false);
             builder.Property(e => e.IsFinalStateForModalityOverall).IsRequired().HasColumnName("IsFinalStateForModalityOverall").HasDefaultValue(false);
+            builder.Property(e => e.IsRejectionState).IsRequired().HasColumnName("IsRejectionState").HasDefaultValue(false);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
             // Configure foreign key relationships

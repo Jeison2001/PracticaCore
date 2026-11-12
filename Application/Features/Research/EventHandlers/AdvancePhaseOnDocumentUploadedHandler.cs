@@ -54,10 +54,22 @@ namespace Application.Features.Research.EventHandlers
             if (preliminaryProject == null) return;
 
             var currentState = await stateStageRepo.GetByIdAsync(preliminaryProject.IdStateStage);
-            if (currentState?.Code != StateStageCodes.ApPendienteDocumento) return;
+            if (currentState == null) return;
+
+            string? targetCode = null;
+            if (currentState.Code == StateStageCodes.ApPendienteDocumento)
+            {
+                targetCode = StateStageCodes.ApRadicadoPendAsigEval;
+            }
+            else if (currentState.Code == StateStageCodes.ApConObservaciones || currentState.Code == "AP_CON_OBSERVACIONES")
+            {
+                targetCode = StateStageCodes.ApEnEvaluacion;
+            }
+
+            if (targetCode == null) return;
 
             var radicadoState = await stateStageRepo.GetFirstOrDefaultAsync(
-                x => x.Code == StateStageCodes.ApRadicadoPendAsigEval && x.StatusRegister, cancellationToken);
+                x => x.Code == targetCode && x.StatusRegister, cancellationToken);
 
             if (radicadoState != null)
             {
@@ -87,7 +99,7 @@ namespace Application.Features.Research.EventHandlers
             if (projectFinal == null) return;
 
             var currentState = await stateStageRepo.GetByIdAsync(projectFinal.IdStateStage);
-            if (currentState?.Code != StateStageCodes.PfinfPendienteInforme) return;
+            if (currentState?.Code != StateStageCodes.PfinfPendienteInforme && currentState?.Code != StateStageCodes.PfinfInformeConObservaciones) return;
 
             var radicadoState = await stateStageRepo.GetFirstOrDefaultAsync(
                 x => x.Code == StateStageCodes.PfinfRadicadoEnEvaluacion && x.StatusRegister, cancellationToken);

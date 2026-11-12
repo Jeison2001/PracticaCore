@@ -165,6 +165,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.StateStage)
                 .Where(p => inscriptionModalityIds.Contains(p.Id)
                             && (status == null || p.StatusRegister == status.Value))
+                .OrderByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.Id)
                 .ToListAsync();
 
             if (!projects.Any())

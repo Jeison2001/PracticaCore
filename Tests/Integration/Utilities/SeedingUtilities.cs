@@ -25,8 +25,9 @@ namespace Tests.Integration.Utilities
             // Seed de StateInscriptions
             context.Set<StateInscription>().AddRange(
                 new StateInscription { Id = 1, Code = StateInscriptionCodes.Pendiente, Name = "Pendiente", StatusRegister = true, OperationRegister = "Seed" },
-                new StateInscription { Id = 2, Code = StateInscriptionCodes.Aprobado, Name = "Aprobado", StatusRegister = true, OperationRegister = "Seed" },
-                new StateInscription { Id = 3, Code = StateInscriptionCodes.NoAplica, Name = "No Aplica", StatusRegister = true, OperationRegister = "Seed" }
+                new StateInscription { Id = 2, Code = StateInscriptionCodes.Aprobado, Name = "Aprobado", IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
+                new StateInscription { Id = 3, Code = StateInscriptionCodes.NoAplica, Name = "No Aplica", IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
+                new StateInscription { Id = 4, Code = StateInscriptionCodes.Rechazado, Name = "Rechazado", IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" }
             );
 
             // Seed de StageModalities
@@ -50,10 +51,12 @@ namespace Tests.Integration.Utilities
                 new StateStage { Id = 1, Code = StateStageCodes.PaInscripcionAprobada, IdStageModality = 1, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 2, Code = StateStageCodes.PaDesarrolloAprobada, IdStageModality = 2, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 10, Code = StateStageCodes.PaInscripcionPendDoc, IdStageModality = 1, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 16, Code = "PA_INSCRIPCION_RECHAZADA", IdStageModality = 1, IsInitialState = false, IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, IsRejectionState = true, StatusRegister = true, OperationRegister = "Seed" },
                 
                 // Proyecto de Grado - Propuesta (Fase inicial)
                 new StateStage { Id = 3, Code = StateStageCodes.PgPropuestaInicial, IdStageModality = 4, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 30, Code = StateStageCodes.PropPertinente, IdStageModality = 4, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 31, Code = "PROP_NO_PERTINENTE", IdStageModality = 4, IsInitialState = false, IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, IsRejectionState = true, StatusRegister = true, OperationRegister = "Seed" },
                 
                 // Proyecto de Grado - Anteproyecto
                 new StateStage { Id = 4, Code = StateStageCodes.ApPendienteDocumento, IdStageModality = 5, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
@@ -70,7 +73,8 @@ namespace Tests.Integration.Utilities
                 new StateStage { Id = 13, Code = StateStageCodes.SustPendienteProgramacion, IdStageModality = 15, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
 
                 // Estado Inicial de CoTerminal
-                new StateStage { Id = 9, Code = "CT_INICIAL", IdStageModality = 7, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" }
+                new StateStage { Id = 9, Code = "CT_INICIAL", IdStageModality = 7, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 32, Code = "CT_RECHAZADO", IdStageModality = 7, IsInitialState = false, IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, IsRejectionState = true, StatusRegister = true, OperationRegister = "Seed" }
             );
 
             // Seed de DocumentTypes

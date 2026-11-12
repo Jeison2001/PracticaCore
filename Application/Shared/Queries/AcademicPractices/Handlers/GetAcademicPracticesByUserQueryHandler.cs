@@ -23,7 +23,12 @@ namespace Application.Shared.Queries.AcademicPractices.Handlers
             var academicPracticesWithDetails = await _academicPracticeRepository
                 .GetAcademicPracticesByUserWithDetailsAsync(request.UserId, request.Status, cancellationToken);
 
-            return _mapper.Map<List<AcademicPracticeWithDetailsResponseDto>>(academicPracticesWithDetails);
+            var ordered = academicPracticesWithDetails
+                .OrderByDescending(x => x.AcademicPractice.CreatedAt)
+                .ThenByDescending(x => x.AcademicPractice.Id)
+                .ToList();
+
+            return _mapper.Map<List<AcademicPracticeWithDetailsResponseDto>>(ordered);
         }
     }
 }

@@ -144,7 +144,10 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 if (inscriptionModalityIds.Any())
                 {
                     bool hasActiveInscription = await inscriptionModalityRepo.AnyAsync(
-                        im => inscriptionModalityIds.Contains(im.Id) && im.StatusRegister && (rejectedState == null || im.IdStateInscription != rejectedState.Id),
+                        im => inscriptionModalityIds.Contains(im.Id)
+                              && im.StatusRegister
+                              && !im.IsFinalRejection
+                              && (rejectedState == null || im.IdStateInscription != rejectedState.Id),
                         cancellationToken);
                     
                     if (hasActiveInscription)

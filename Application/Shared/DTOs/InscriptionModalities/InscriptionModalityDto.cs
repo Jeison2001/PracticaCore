@@ -6,6 +6,7 @@ namespace Application.Shared.DTOs.InscriptionModalities
         public int IdStateInscription { get; set; }
         public int IdAcademicPeriod { get; set; }
         public int? IdStageModality { get; set; }
+        public bool IsFinalRejection { get; set; } = false;
         public DateTimeOffset? ApprovalDate { get; set; }
         public string? Observations { get; set; }
     }

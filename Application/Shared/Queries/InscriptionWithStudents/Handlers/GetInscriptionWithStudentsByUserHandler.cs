@@ -130,6 +130,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                         IdStateInscription = inscriptionModality.IdStateInscription,
                         IdAcademicPeriod = inscriptionModality.IdAcademicPeriod,
                         IdStageModality = inscriptionModality.IdStageModality,
+                        IsFinalRejection = inscriptionModality.IsFinalRejection,
                         ApprovalDate = inscriptionModality.ApprovalDate,
                         Observations = inscriptionModality.Observations,
                         CreatedAt = inscriptionModality.CreatedAt,

@@ -350,5 +350,96 @@ namespace Tests.Integration.Inscription
             result!.Success.Should().BeFalse();
             result.Errors.Should().Contain(e => e.Contains("ya tiene una inscripción activa registrada"));
         }
+
+        [Fact]
+        public async Task CreateInscription_WhenStudentHasFinalRejectionInModalityPhase_ShouldAllowNewInscription()
+        {
+            // Arrange
+            using var initScope = _factory.Services.CreateScope();
+            var initContext = initScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var roleStudent = await initContext.Set<Role>().FirstOrDefaultAsync(r => r.Code == "STUDENT")
+                ?? initContext.Set<Role>().Add(new Role { Name = "Student", Code = "STUDENT", Description = "Student", StatusRegister = true }).Entity;
+
+            var idType = await initContext.Set<IdentificationType>().FirstOrDefaultAsync(t => t.Code == "CC")
+                ?? initContext.Set<IdentificationType>().Add(new IdentificationType { Name = "CC", Code = "CC", Description = "Cedula" }).Entity;
+
+            var program = await initContext.Set<AcademicProgram>().FirstOrDefaultAsync(p => p.Code == "SYS")
+                ?? initContext.Set<AcademicProgram>().Add(new AcademicProgram { Name = "Systems Engineering", Code = "SYS" }).Entity;
+
+            var modality = await initContext.Set<Modality>().FirstOrDefaultAsync(m => m.Code == ModalityCodes.GradoPromedio)
+                ?? initContext.Set<Modality>().Add(new Modality { Code = ModalityCodes.GradoPromedio, Name = "Grado Promedio", RequiresApproval = false, MaxStudents = 1, StatusRegister = true }).Entity;
+
+            var period = await initContext.Set<AcademicPeriod>().FirstOrDefaultAsync(p => p.Code == "2026-I")
+                ?? initContext.Set<AcademicPeriod>().Add(new AcademicPeriod { Code = "2026-I", StartDate = DateTime.Now, EndDate = DateTime.Now.AddMonths(6), StatusRegister = true }).Entity;
+
+            var stateAplica = await initContext.Set<StateInscription>().FirstOrDefaultAsync(s => s.Code == StateInscriptionCodes.NoAplica)
+                ?? initContext.Set<StateInscription>().Add(new StateInscription { Code = StateInscriptionCodes.NoAplica, Name = "No Aplica", StatusRegister = true, IsInitialState = false, IsFinalStateForStage = true }).Entity;
+
+            var statePendiente = await initContext.Set<StateInscription>().FirstOrDefaultAsync(s => s.Code == StateInscriptionCodes.Pendiente)
+                ?? initContext.Set<StateInscription>().Add(new StateInscription { Code = StateInscriptionCodes.Pendiente, Name = "Pendiente", StatusRegister = true, IsInitialState = true, IsFinalStateForStage = false }).Entity;
+
+            var stateAprobado = await initContext.Set<StateInscription>().FirstOrDefaultAsync(s => s.Code == StateInscriptionCodes.Aprobado)
+                ?? initContext.Set<StateInscription>().Add(new StateInscription { Code = StateInscriptionCodes.Aprobado, Name = "Aprobado", StatusRegister = true, IsInitialState = false, IsFinalStateForStage = true }).Entity;
+
+            var stage = await initContext.Set<StageModality>().FirstOrDefaultAsync(s => s.Code == "GPRF1" && s.IdModality == modality.Id)
+                ?? initContext.Set<StageModality>().Add(new StageModality { Code = "GPRF1", Name = "Fase 1 GP", StageOrder = 1, IdModality = modality.Id, StatusRegister = true }).Entity;
+
+            var stateStage = await initContext.Set<StateStage>().FirstOrDefaultAsync(s => s.Code == "GPRF1-PEND" && s.IdStageModality == stage.Id)
+                ?? initContext.Set<StateStage>().Add(new StateStage { Code = "GPRF1-PEND", Name = "Pendiente (Fase 1)", IdStageModality = stage.Id, IsInitialState = true, StatusRegister = true }).Entity;
+
+            await initContext.SaveChangesAsync();
+
+            var studentId = "FREJ_" + Guid.NewGuid().ToString("N")[..8];
+            var student = new User { FirstName = "Frej", LastName = "Student", Email = $"{studentId}@test.com", Identification = studentId, IdIdentificationType = idType.Id, IdAcademicProgram = program.Id, StatusRegister = true };
+            initContext.Set<User>().Add(student);
+            initContext.Set<UserRole>().Add(new UserRole { IdUser = student.Id, IdRole = roleStudent.Id, StatusRegister = true });
+
+            // Inscripción anterior en estado APROBADO pero con IsFinalRejection = true (rechazada en fase posterior)
+            var previousInscription = new InscriptionModality
+            {
+                IdModality = modality.Id,
+                IdAcademicPeriod = period.Id,
+                IdStateInscription = stateAprobado.Id,
+                IsFinalRejection = true,
+                Observations = "Inscripción aprobada pero luego rechazada definitivamente en fase",
+                StatusRegister = true,
+                CreatedAt = DateTimeOffset.UtcNow.AddDays(-5)
+            };
+            initContext.Set<InscriptionModality>().Add(previousInscription);
+            await initContext.SaveChangesAsync();
+
+            initContext.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+            {
+                IdUser = student.Id,
+                IdInscriptionModality = previousInscription.Id,
+                StatusRegister = true
+            });
+            await initContext.SaveChangesAsync();
+
+            var dto = new InscriptionWithStudentsCreateDto
+            {
+                InscriptionModality = new InscriptionModalityCreateDto
+                {
+                    IdModality = modality.Id,
+                    IdAcademicPeriod = period.Id,
+                    Observations = "Nueva inscripción tras rechazo definitivo en fase previa"
+                },
+                Students = new List<UserInscriptionModalityCreateDto>
+                {
+                    new UserInscriptionModalityCreateDto { Identification = student.Identification, IdIdentificationType = idType.Id }
+                }
+            };
+
+            // Act
+            var response = await _client.PostAsJsonAsync("/api/Inscription", dto);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<InscriptionWithStudentsDto>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+            result.Data!.InscriptionModality.Id.Should().NotBe(previousInscription.Id);
+        }
     }
 }

@@ -54,6 +54,13 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
 
             if (request.Dto.IdStateStage.HasValue)
             {
+                await ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
+                    _unitOfWork,
+                    entity.Id,
+                    originalStateId,
+                    request.Dto.IdStateStage.Value,
+                    cancellationToken);
+
                 entity.IdStateStage = request.Dto.IdStateStage.Value;
                 updatedProperties.Add(x => x.IdStateStage);
             }

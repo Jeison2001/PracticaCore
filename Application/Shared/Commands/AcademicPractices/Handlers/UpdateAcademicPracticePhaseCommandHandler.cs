@@ -39,6 +39,13 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             // Crear copia del estado original para comparación
             var original = new AcademicPractice { Id = entity.Id, IdStateStage = entity.IdStateStage };
 
+            await ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
+                _unitOfWork,
+                entity.Id,
+                entity.IdStateStage,
+                dto.NewStateStageId,
+                cancellationToken);
+
             var result = await _academicPracticeRepository.UpdateAcademicPracticeStateAsync(
                 dto.Id,
                 dto.NewStateStageId,

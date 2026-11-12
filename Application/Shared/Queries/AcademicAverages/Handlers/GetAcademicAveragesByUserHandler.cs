@@ -19,7 +19,11 @@ namespace Application.Shared.Queries.AcademicAverages.Handlers
         public async Task<List<AcademicAverageWithDetailsDto>> Handle(GetAcademicAveragesByUserQuery request, CancellationToken cancellationToken)
         {
             var result = await _repository.GetByUserAsync(request.UserId, request.Status, cancellationToken);
-            return _mapper.Map<List<AcademicAverageWithDetailsDto>>(result);
+            var ordered = result
+                .OrderByDescending(x => x.AcademicAverage.CreatedAt)
+                .ThenByDescending(x => x.AcademicAverage.Id)
+                .ToList();
+            return _mapper.Map<List<AcademicAverageWithDetailsDto>>(ordered);
         }
     }
 }

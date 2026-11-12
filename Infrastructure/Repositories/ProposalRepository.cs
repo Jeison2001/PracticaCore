@@ -171,6 +171,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.ResearchLine)
                 .Include(p => p.ResearchSubLine)
                 .Include(p => p.InscriptionModality)
+                .OrderByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.Id)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 

@@ -19,7 +19,11 @@ namespace Application.Shared.Queries.Seminars.Handlers
         public async Task<List<SeminarWithDetailsDto>> Handle(GetSeminarsByUserQuery request, CancellationToken cancellationToken)
         {
             var result = await _repository.GetByUserAsync(request.UserId, request.Status, cancellationToken);
-            return _mapper.Map<List<SeminarWithDetailsDto>>(result);
+            var ordered = result
+                .OrderByDescending(x => x.Seminar.CreatedAt)
+                .ThenByDescending(x => x.Seminar.Id)
+                .ToList();
+            return _mapper.Map<List<SeminarWithDetailsDto>>(ordered);
         }
     }
 }

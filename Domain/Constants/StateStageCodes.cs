@@ -20,6 +20,8 @@ namespace Domain.Constants
         public const string ApAprobado             = "AP_APROBADO";
         public const string ApPendienteDocumento   = "AP_PENDIENTE_DOCUMENTO";
         public const string ApRadicadoPendAsigEval = "AP_RADICADO_PEND_ASIG_EVAL";
+        public const string ApConObservaciones     = "AP_CON_OBSERVACIONES";
+        public const string ApEnEvaluacion         = "AP_EN_EVALUACION";
 
         // Proyecto Final
         public const string PfinfPendienteInforme      = "PFINF_PENDIENTE_INFORME";

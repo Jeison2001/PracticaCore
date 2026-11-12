@@ -15,6 +15,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.IdStateInscription).IsRequired().HasColumnName("IdStateInscription");
             builder.Property(e => e.IdAcademicPeriod).IsRequired().HasColumnName("IdAcademicPeriod");
             builder.Property(e => e.IdStageModality).HasColumnName("IdStageModality").IsRequired(false);
+            builder.Property(e => e.IsFinalRejection).IsRequired().HasColumnName("IsFinalRejection").HasDefaultValue(false);
             builder.Property(e => e.ApprovalDate).HasColumnName("ApprovalDate").IsRequired(false);
             builder.Property(e => e.Observations).HasColumnName("Observations").IsRequired(false);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);

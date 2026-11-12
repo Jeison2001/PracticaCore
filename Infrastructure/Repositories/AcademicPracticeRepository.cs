@@ -455,6 +455,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
 
         var academicPractices = await query
             .OrderByDescending(ap => ap.CreatedAt)
+            .ThenByDescending(ap => ap.Id)
             .ToListAsync(cancellationToken);
 
         if (academicPractices.Count == 0)

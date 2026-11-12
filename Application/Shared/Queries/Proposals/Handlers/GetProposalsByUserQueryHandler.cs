@@ -24,7 +24,12 @@ namespace Application.Shared.Queries.Proposals.Handlers
             var entities = await _proposalRepository.GetProposalsByUserWithDetailsAsync(
                 request.UserId,
                 request.Status,
-                cancellationToken);            return entities.Select(e => new ProposalWithDetailsResponseDto
+                cancellationToken);
+
+            return entities
+                .OrderByDescending(e => e.Proposal.CreatedAt)
+                .ThenByDescending(e => e.Proposal.Id)
+                .Select(e => new ProposalWithDetailsResponseDto
             {
                 Proposal = _mapper.Map<ProposalDto>(e.Proposal),
                 StateStageName = e.Proposal.StateStage?.Name ?? string.Empty,

@@ -19,7 +19,11 @@ namespace Application.Shared.Queries.SaberPros.Handlers
         public async Task<List<SaberProWithDetailsDto>> Handle(GetSaberProsByUserQuery request, CancellationToken cancellationToken)
         {
             var result = await _repository.GetByUserAsync(request.UserId, request.Status, cancellationToken);
-            return _mapper.Map<List<SaberProWithDetailsDto>>(result);
+            var ordered = result
+                .OrderByDescending(x => x.SaberPro.CreatedAt)
+                .ThenByDescending(x => x.SaberPro.Id)
+                .ToList();
+            return _mapper.Map<List<SaberProWithDetailsDto>>(ordered);
         }
     }
 }

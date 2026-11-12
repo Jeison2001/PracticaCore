@@ -19,7 +19,11 @@ namespace Application.Shared.Queries.CoTerminals.Handlers
         public async Task<List<CoTerminalWithDetailsDto>> Handle(GetCoTerminalsByUserQuery request, CancellationToken cancellationToken)
         {
             var result = await _repository.GetByUserAsync(request.UserId, request.Status, cancellationToken);
-            return _mapper.Map<List<CoTerminalWithDetailsDto>>(result);
+            var ordered = result
+                .OrderByDescending(x => x.CoTerminal.CreatedAt)
+                .ThenByDescending(x => x.CoTerminal.Id)
+                .ToList();
+            return _mapper.Map<List<CoTerminalWithDetailsDto>>(ordered);
         }
     }
 }

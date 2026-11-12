@@ -172,7 +172,10 @@ namespace Infrastructure.Repositories
                 query = query.Where(x => x.StatusRegister == status.Value);
             }
 
-            var items = await query.ToListAsync(cancellationToken);
+            var items = await query
+                .OrderByDescending(x => x.CreatedAt)
+                .ThenByDescending(x => x.Id)
+                .ToListAsync(cancellationToken);
             if (items.Count == 0)
             {
                 return new List<CoTerminalWithDetails>();

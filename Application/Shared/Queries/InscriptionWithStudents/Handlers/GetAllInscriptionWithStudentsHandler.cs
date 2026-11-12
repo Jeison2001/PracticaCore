@@ -101,6 +101,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                     IdStageModality = im.IdStageModality,
                     ApprovalDate = im.ApprovalDate,
                     Observations = im.Observations,
+                    IsFinalRejection = im.IsFinalRejection,
                     CreatedAt = im.CreatedAt,
                     UpdatedAt = im.UpdatedAt,
                     StatusRegister = im.StatusRegister,

@@ -9,6 +9,7 @@
         public bool IsInitialState { get; set; } = false;
         public bool IsFinalStateForStage { get; set; } = false;
         public bool IsFinalStateForModalityOverall { get; set; } = false;
+        public bool IsRejectionState { get; set; } = false;
 
         // Navigation properties
         public virtual StageModality? StageModality { get; set; }

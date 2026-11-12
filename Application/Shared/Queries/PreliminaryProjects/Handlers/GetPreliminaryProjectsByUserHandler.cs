@@ -17,7 +17,10 @@ namespace Application.Shared.Queries.PreliminaryProjects.Handlers
         public async Task<List<PreliminaryProjectWithDetailsResponseDto>> Handle(GetPreliminaryProjectsByUserQuery request, CancellationToken cancellationToken)
         {
             var entities = await _repository.GetByUserIdWithProposalAndStudentsAsync(request.UserId, request.Status);
-            return entities.Select(e => new PreliminaryProjectWithDetailsResponseDto
+            return entities
+                .OrderByDescending(e => e.Project.CreatedAt)
+                .ThenByDescending(e => e.Project.Id)
+                .Select(e => new PreliminaryProjectWithDetailsResponseDto
             {                PreliminaryProject = new PreliminaryProjectDetailsDto
                 {
                     Id = e.Project.Id,
