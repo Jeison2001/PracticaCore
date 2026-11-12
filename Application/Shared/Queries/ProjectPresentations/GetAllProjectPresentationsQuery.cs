@@ -1,0 +1,18 @@
+using Application.Shared.DTOs.ProjectPresentations;
+using Domain.Common;
+using MediatR;
+
+namespace Application.Shared.Queries.ProjectPresentations
+{
+    public record GetAllProjectPresentationsQuery : IRequest<PaginatedResult<ProjectPresentationWithDetailsResponseDto>>
+    {
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+        public string? SortBy { get; set; }
+        public bool IsDescending { get; set; }
+        public Dictionary<string, string>? Filters { get; set; }
+        public long? CursorId { get; set; }
+        public DateTimeOffset? CursorCreatedAt { get; set; }
+        public bool SkipTotalCount { get; set; }
+    }
+}

@@ -42,6 +42,7 @@ namespace Infrastructure.Data
          public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
          public DbSet<PreliminaryProject> PreliminaryProjects => Set<PreliminaryProject>();
          public DbSet<ProjectFinal> ProjectFinals => Set<ProjectFinal>();
+         public DbSet<ProjectPresentation> ProjectPresentations => Set<ProjectPresentation>();
          public DbSet<AcademicPractice> AcademicPractices => Set<AcademicPractice>();
          public DbSet<CoTerminal> CoTerminals => Set<CoTerminal>();
          public DbSet<Seminar> Seminars => Set<Seminar>();

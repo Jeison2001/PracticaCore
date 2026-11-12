@@ -104,6 +104,12 @@ namespace Tests.Integration.EventHandlers
             projectFinal.Should().NotBeNull();
             projectFinal!.ReportApprovalDate.Should().NotBeNull(
                 "la aprobación del informe debe estampar ReportApprovalDate");
+
+            var presentation = context.Set<ProjectPresentation>().Find(inscription.Id);
+            presentation.Should().NotBeNull("al aprobar el informe debe crearse automáticamente el registro de ProjectPresentation");
+            var pendingSustStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.SustPendienteProgramacion).Id;
+            presentation!.IdStateStage.Should().Be(pendingSustStateId, "el estado inicial de sustentación debe ser SUST_PENDIENTE_PROGRAMACION");
+            presentation.AttemptNumber.Should().Be(1);
         }
 
         // ──────────────────────────────────────────────────────────────────────────────

@@ -129,7 +129,7 @@ namespace Infrastructure.Repositories
                     break;
 
                 case "PROYECTO_GRADO":
-                    // PG abarca 3 entidades (Proposal/PreliminaryProject/ProjectFinal), relacionadas 1:1
+                    // PG abarca 4 entidades (Proposal/PreliminaryProject/ProjectFinal/ProjectPresentation), relacionadas 1:1
                     // con InscriptionModality por Id compartido. El estado de fase puede estar en cualquiera.
                     if (hasStateCodes)
                     {
@@ -139,10 +139,14 @@ namespace Infrastructure.Repositories
                         var finalIds = _context.Set<ProjectFinal>()
                             .Where(p => p.StatusRegister && p.StateStage != null && stateCodes!.Contains(p.StateStage.Code))
                             .Select(p => p.Id);
+                        var presentationIds = _context.Set<ProjectPresentation>()
+                            .Where(p => p.StatusRegister && p.StateStage != null && stateCodes!.Contains(p.StateStage.Code))
+                            .Select(p => p.Id);
                         query = query.Where(i =>
                             (i.Proposal != null && i.Proposal.StateStage != null && stateCodes!.Contains(i.Proposal.StateStage.Code))
                             || prelimIds.Contains(i.Id)
-                            || finalIds.Contains(i.Id));
+                            || finalIds.Contains(i.Id)
+                            || presentationIds.Contains(i.Id));
                     }
                     if (scope.ResearchLineIds is { Count: > 0 })
                         query = query.Where(i => i.Proposal != null && scope.ResearchLineIds.Contains(i.Proposal.IdResearchLine));

@@ -70,7 +70,11 @@ namespace Tests.Integration.Utilities
                 new StateStage { Id = 12, Code = StateStageCodes.PfinfInformeAprobado, IdStageModality = 6, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
 
                 // Proyecto de Grado - Sustentación
-                new StateStage { Id = 13, Code = StateStageCodes.SustPendienteProgramacion, IdStageModality = 15, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 13, Code = StateStageCodes.SustPendienteProgramacion, Name = "Pendiente de Programación", IdStageModality = 15, IsInitialState = true, IsFinalStateForStage = false, IsFinalStateForModalityOverall = false, IsRejectionState = false, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 14, Code = StateStageCodes.SustProgramada, Name = "Sustentación Programada", IdStageModality = 15, IsInitialState = false, IsFinalStateForStage = false, IsFinalStateForModalityOverall = false, IsRejectionState = false, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 33, Code = StateStageCodes.SustAprobada, Name = "Sustentación Aprobada", IdStageModality = 15, IsInitialState = false, IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, IsRejectionState = false, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 34, Code = StateStageCodes.SustNoAprobadaReintento, Name = "No Aprobada con Reintento", IdStageModality = 15, IsInitialState = false, IsFinalStateForStage = false, IsFinalStateForModalityOverall = false, IsRejectionState = false, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 35, Code = StateStageCodes.SustReprobadaFinal, Name = "Reprobada Definitiva", IdStageModality = 15, IsInitialState = false, IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, IsRejectionState = true, StatusRegister = true, OperationRegister = "Seed" },
 
                 // Estado Inicial de CoTerminal
                 new StateStage { Id = 9, Code = "CT_INICIAL", IdStageModality = 7, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
@@ -80,7 +84,9 @@ namespace Tests.Integration.Utilities
             // Seed de DocumentTypes
             context.Set<DocumentType>().AddRange(
                 new DocumentType { Id = 1, Code = DocumentTypeCodes.AnteproyectoEntregable, Name = "Entregable Anteproyecto", StatusRegister = true, OperationRegister = "Seed" },
-                new DocumentType { Id = 2, Code = DocumentTypeCodes.ProyectoFinalEntregable, Name = "Entregable Proyecto", StatusRegister = true, OperationRegister = "Seed" }
+                new DocumentType { Id = 2, Code = DocumentTypeCodes.ProyectoFinalEntregable, Name = "Entregable Proyecto", StatusRegister = true, OperationRegister = "Seed" },
+                new DocumentType { Id = 3, Code = DocumentTypeCodes.SustentacionActa, Name = "Acta de Sustentación", StatusRegister = true, OperationRegister = "Seed" },
+                new DocumentType { Id = 4, Code = DocumentTypeCodes.SustentacionRubrica, Name = "Rúbrica de Sustentación", StatusRegister = true, OperationRegister = "Seed" }
             );
 
             // ── Minor Modalities ────────────────────────────────────────────────────

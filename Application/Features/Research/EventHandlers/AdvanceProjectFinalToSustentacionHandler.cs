@@ -68,7 +68,40 @@ namespace Application.Features.Research.EventHandlers
             }
 
             // =========================================================================
-            // 2. TRANSICIÓN DE FASE: Proyecto/Informe Final → Sustentación
+            // 2. CREACIÓN IDEMPOTENTE DEL REGISTRO DE SUSTENTACIÓN (ProjectPresentation)
+            // =========================================================================
+            var projectPresentationRepo = _unitOfWork.GetRepository<ProjectPresentation, int>();
+            var presentation = await projectPresentationRepo.GetByIdAsync(notification.InscriptionModalityId);
+            if (presentation == null)
+            {
+                var initialState = await stateStageRepo.GetFirstOrDefaultAsync(
+                    x => x.Code == StateStageCodes.SustPendienteProgramacion && x.StatusRegister,
+                    cancellationToken);
+
+                if (initialState != null)
+                {
+                    presentation = new ProjectPresentation
+                    {
+                        Id = notification.InscriptionModalityId,
+                        IdInscriptionModality = notification.InscriptionModalityId,
+                        IdStateStage = initialState.Id,
+                        AttemptNumber = 1,
+                        IdUserCreatedAt = notification.TriggeredByUserId,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        StatusRegister = true,
+                        OperationRegister = "Creado automáticamente al aprobar informe final"
+                    };
+                    await projectPresentationRepo.AddAsync(presentation);
+                    _logger.LogInformation("{Handler}: Registro ProjectPresentation creado para InscriptionModality ID {Id}", nameof(AdvanceProjectFinalToSustentacionHandler), notification.InscriptionModalityId);
+                }
+                else
+                {
+                    _logger.LogWarning("{Handler}: No se encontró el estado inicial {Code} para ProjectPresentation.", nameof(AdvanceProjectFinalToSustentacionHandler), StateStageCodes.SustPendienteProgramacion);
+                }
+            }
+
+            // =========================================================================
+            // 3. TRANSICIÓN DE FASE: Proyecto/Informe Final → Sustentación
             // =========================================================================
             var sustStage = await stageModalityRepo.GetFirstOrDefaultAsync(
                 x => x.Code == StageModalityCodes.PgFaseSustentacion && x.StatusRegister, cancellationToken);

@@ -13,6 +13,7 @@ namespace Application.Common.Services.Jobs
         Task HandleAcademicPracticeChangeAsync(int practiceId, int oldStateId);
         Task HandlePreliminaryProjectChangeAsync(int preliminaryId, int oldStateId);
         Task HandleProjectFinalChangeAsync(int projectFinalId, int oldStateId);
+        Task HandleProjectPresentationChangeAsync(int presentationId, int oldStateId);
         Task HandleInscriptionCreationAsync(int inscriptionId);
         Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId);
         Task HandleCoTerminalChangeAsync(int entityId, int oldStateId);

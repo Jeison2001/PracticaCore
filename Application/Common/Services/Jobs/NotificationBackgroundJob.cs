@@ -210,6 +210,35 @@ namespace Application.Common.Services.Jobs
             }
         }
 
+        public async Task HandleProjectPresentationChangeAsync(int presentationId, int oldStateId)
+        {
+            try
+            {
+                var repository = _serviceProvider.GetService<IRepository<ProjectPresentation, int>>();
+
+                if (repository == null)
+                {
+                    _logger.LogError("Repository not found for ProjectPresentation");
+                    return;
+                }
+
+                var entity = await repository.GetByIdAsync(presentationId);
+                if (entity == null)
+                {
+                    _logger.LogWarning("ProjectPresentation with ID {Id} not found during background processing", presentationId);
+                    return;
+                }
+
+                var oldEntity = new ProjectPresentation { Id = presentationId, IdStateStage = oldStateId };
+                await _dispatcher.DispatchEntityChangeAsync<ProjectPresentation, int>(oldEntity, entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing project presentation change job for ID {Id}", presentationId);
+                throw;
+            }
+        }
+
         public async Task HandleInscriptionChangeAsync(int inscriptionId, int oldStateId)
         {
             try

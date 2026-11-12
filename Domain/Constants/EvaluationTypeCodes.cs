@@ -16,5 +16,6 @@ namespace Domain.Constants
         public const string AcademicAverage = "OBSERVACION_GRADO_PROMEDIO";
         public const string SaberPro = "OBSERVACION_SABER_PRO";
         public const string ScientificArticle = "OBSERVACION_ARTICULO";
+        public const string ProjectPresentation = "EVALUACION_SUSTENTACION";
     }
 }
