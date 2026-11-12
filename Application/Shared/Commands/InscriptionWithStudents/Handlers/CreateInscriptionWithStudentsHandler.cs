@@ -130,8 +130,6 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
             var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
             var stateInscriptionRepo = _unitOfWork.GetRepository<StateInscription, int>();
-            var rejectedState = await stateInscriptionRepo.GetFirstOrDefaultAsync(
-                s => s.Code == Domain.Constants.StateInscriptionCodes.Rechazado, cancellationToken);
             
             foreach (var student in request.Dto.Students)
             {
@@ -146,8 +144,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     bool hasActiveInscription = await inscriptionModalityRepo.AnyAsync(
                         im => inscriptionModalityIds.Contains(im.Id)
                               && im.StatusRegister
-                              && !im.IsFinalRejection
-                              && (rejectedState == null || im.IdStateInscription != rejectedState.Id),
+                              && !im.IsFinalRejection,
                         cancellationToken);
                     
                     if (hasActiveInscription)

@@ -27,7 +27,7 @@ namespace Tests.Integration.Utilities
                 new StateInscription { Id = 1, Code = StateInscriptionCodes.Pendiente, Name = "Pendiente", StatusRegister = true, OperationRegister = "Seed" },
                 new StateInscription { Id = 2, Code = StateInscriptionCodes.Aprobado, Name = "Aprobado", IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateInscription { Id = 3, Code = StateInscriptionCodes.NoAplica, Name = "No Aplica", IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
-                new StateInscription { Id = 4, Code = StateInscriptionCodes.Rechazado, Name = "Rechazado", IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" }
+                new StateInscription { Id = 4, Code = StateInscriptionCodes.Rechazado, Name = "Rechazado", IsFinalStateForStage = true, IsRejectionState = true, StatusRegister = true, OperationRegister = "Seed" }
             );
 
             // Seed de StageModalities

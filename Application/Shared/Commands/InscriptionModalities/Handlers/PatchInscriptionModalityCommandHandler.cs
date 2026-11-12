@@ -81,7 +81,7 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
                 var newState = await stateRepo.GetByIdAsync(request.Dto.IdStateInscription.Value);
                 isApprovalTransition = newState?.Code == Domain.Constants.StateInscriptionCodes.Aprobado;
 
-                if (newState?.Code == Domain.Constants.StateInscriptionCodes.Rechazado)
+                if (newState != null && newState.IsRejectionState)
                 {
                     entity.IsFinalRejection = true;
                     updatedProperties.Add(x => x.IsFinalRejection);

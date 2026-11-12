@@ -137,7 +137,7 @@ namespace Tests.Integration.Inscription
                 ?? initContext.Set<StateInscription>().Add(new StateInscription { Code = StateInscriptionCodes.Pendiente, Name = "Pendiente", StatusRegister = true, IsInitialState = true, IsFinalStateForStage = false }).Entity;
 
             var stateRechazado = await initContext.Set<StateInscription>().FirstOrDefaultAsync(s => s.Code == StateInscriptionCodes.Rechazado)
-                ?? initContext.Set<StateInscription>().Add(new StateInscription { Code = StateInscriptionCodes.Rechazado, Name = "Rechazado", StatusRegister = true, IsInitialState = false, IsFinalStateForStage = true }).Entity;
+                ?? initContext.Set<StateInscription>().Add(new StateInscription { Code = StateInscriptionCodes.Rechazado, Name = "Rechazado", StatusRegister = true, IsInitialState = false, IsFinalStateForStage = true, IsRejectionState = true }).Entity;
 
             var stage = await initContext.Set<StageModality>().FirstOrDefaultAsync(s => s.Code == "GPRF1" && s.IdModality == modality.Id)
                 ?? initContext.Set<StageModality>().Add(new StageModality { Code = "GPRF1", Name = "Fase 1 GP", StageOrder = 1, IdModality = modality.Id, StatusRegister = true }).Entity;
@@ -157,6 +157,7 @@ namespace Tests.Integration.Inscription
                 IdModality = modality.Id,
                 IdAcademicPeriod = period.Id,
                 IdStateInscription = stateRechazado.Id,
+                IsFinalRejection = true,
                 Observations = "Inscripción previa rechazada",
                 StatusRegister = true,
                 CreatedAt = DateTimeOffset.UtcNow.AddDays(-2)

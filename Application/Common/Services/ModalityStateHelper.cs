@@ -14,13 +14,21 @@ namespace Application.Common.Services
         {
             var stateStageRepo = unitOfWork.GetRepository<StateStage, int>();
             var currentState = await stateStageRepo.GetByIdAsync(originalStateId);
-            if (currentState != null && (currentState.IsFinalStateForStage || currentState.IsFinalStateForModalityOverall))
+            var newState = await stateStageRepo.GetByIdAsync(newStateId);
+
+            if (currentState != null)
             {
-                throw new InvalidOperationException($"No se puede modificar el estado de un registro que ya se encuentra en estado '{currentState.Name}'.");
+                bool isModalityClosed = currentState.IsFinalStateForModalityOverall || currentState.IsRejectionState;
+                bool isSameStageClosed = currentState.IsFinalStateForStage
+                    && (newState == null || currentState.IdStageModality == newState.IdStageModality);
+
+                if (isModalityClosed || isSameStageClosed)
+                {
+                    throw new InvalidOperationException($"No se puede modificar el estado de un registro que ya se encuentra en estado '{currentState.Name}'.");
+                }
             }
 
-            var newState = await stateStageRepo.GetByIdAsync(newStateId);
-            if (newState != null && (newState.IsRejectionState || ((newState.IsFinalStateForStage || newState.IsFinalStateForModalityOverall) && (newState.Code.Contains("RECHAZ") || newState.Code.Contains("NO_APROBAD") || newState.Code.Contains("NO_PERTINENTE") || newState.Code.Contains("REPROBAD")))))
+            if (newState != null && newState.IsRejectionState)
             {
                 var inscriptionRepo = unitOfWork.GetRepository<InscriptionModality, int>();
                 var inscription = await inscriptionRepo.GetByIdAsync(inscriptionModalityId);

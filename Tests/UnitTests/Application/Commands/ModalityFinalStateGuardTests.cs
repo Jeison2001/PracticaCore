@@ -40,7 +40,7 @@ namespace Tests.UnitTests.Application.Commands
         }
 
         [Fact]
-        public async Task ModalityStateHelper_WhenCurrentStateIsFinalForStage_ThrowsInvalidOperationException()
+        public async Task ModalityStateHelper_WhenCurrentStateIsFinalForSameStage_ThrowsInvalidOperationException()
         {
             // Arrange
             const int originalStateId = 10;
@@ -50,9 +50,20 @@ namespace Tests.UnitTests.Application.Commands
                 .ReturnsAsync(new StateStage
                 {
                     Id = originalStateId,
+                    IdStageModality = 1,
                     Code = "STAGE_FINAL",
                     Name = "Etapa Finalizada",
                     IsFinalStateForStage = true
+                });
+
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(newStateId))
+                .ReturnsAsync(new StateStage
+                {
+                    Id = newStateId,
+                    IdStageModality = 1,
+                    Code = "STAGE_OTHER",
+                    Name = "Misma Etapa Otro Estado",
+                    IsFinalStateForStage = false
                 });
 
             // Act
@@ -62,6 +73,80 @@ namespace Tests.UnitTests.Application.Commands
             // Assert
             await act.Should().ThrowAsync<InvalidOperationException>()
                 .WithMessage("No se puede modificar el estado de un registro que ya se encuentra en estado 'Etapa Finalizada'.");
+        }
+
+        [Fact]
+        public async Task ModalityStateHelper_WhenAdvancingToNextStage_AllowsTransitionEvenIfCurrentStateIsFinalForStage()
+        {
+            // Arrange
+            const int originalStateId = 10;
+            const int newStateId = 20;
+
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(originalStateId))
+                .ReturnsAsync(new StateStage
+                {
+                    Id = originalStateId,
+                    IdStageModality = 1,
+                    Code = "STAGE1_FINAL",
+                    Name = "Fase 1 Aprobada",
+                    IsFinalStateForStage = true,
+                    IsFinalStateForModalityOverall = false,
+                    IsRejectionState = false
+                });
+
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(newStateId))
+                .ReturnsAsync(new StateStage
+                {
+                    Id = newStateId,
+                    IdStageModality = 2,
+                    Code = "STAGE2_IN_PROGRESS",
+                    Name = "Fase 2 En Curso",
+                    IsFinalStateForStage = false,
+                    IsFinalStateForModalityOverall = false,
+                    IsRejectionState = false
+                });
+
+            // Act
+            Func<Task> act = () => ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
+                _unitOfWorkMock.Object, 1, originalStateId, newStateId);
+
+            // Assert
+            await act.Should().NotThrowAsync();
+        }
+
+        [Fact]
+        public async Task ModalityStateHelper_WhenCurrentStateIsRejectionState_ThrowsInvalidOperationExceptionEvenIfNextStage()
+        {
+            // Arrange
+            const int originalStateId = 12;
+            const int newStateId = 22;
+
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(originalStateId))
+                .ReturnsAsync(new StateStage
+                {
+                    Id = originalStateId,
+                    IdStageModality = 1,
+                    Code = "STAGE1_RECHAZADO",
+                    Name = "Fase 1 Rechazada",
+                    IsRejectionState = true
+                });
+
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(newStateId))
+                .ReturnsAsync(new StateStage
+                {
+                    Id = newStateId,
+                    IdStageModality = 2,
+                    Code = "STAGE2_INICIAL",
+                    Name = "Fase 2 Inicial"
+                });
+
+            // Act
+            Func<Task> act = () => ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
+                _unitOfWorkMock.Object, 1, originalStateId, newStateId);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("No se puede modificar el estado de un registro que ya se encuentra en estado 'Fase 1 Rechazada'.");
         }
 
         [Fact]
@@ -75,9 +160,19 @@ namespace Tests.UnitTests.Application.Commands
                 .ReturnsAsync(new StateStage
                 {
                     Id = originalStateId,
+                    IdStageModality = 1,
                     Code = "MODALITY_FINAL",
                     Name = "Modalidad Culminada",
                     IsFinalStateForModalityOverall = true
+                });
+
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(newStateId))
+                .ReturnsAsync(new StateStage
+                {
+                    Id = newStateId,
+                    IdStageModality = 2,
+                    Code = "MODALITY_NEXT",
+                    Name = "Otra Fase"
                 });
 
             // Act
@@ -90,11 +185,11 @@ namespace Tests.UnitTests.Application.Commands
         }
 
         [Theory]
-        [InlineData("PROP_NO_PERTINENTE", false, true, false)]
-        [InlineData("CT_RECHAZADO", false, false, true)]
-        [InlineData("PA_INSCRIPCION_RECHAZADA", true, false, false)]
-        public async Task ModalityStateHelper_WhenNewStateIsRejection_MarksInscriptionModalityAsFinalRejection(
-            string rejectionCode, bool isRejectionState, bool isFinalStage, bool isFinalOverall)
+        [InlineData("PROP_NO_PERTINENTE")]
+        [InlineData("CT_RECHAZADO")]
+        [InlineData("PA_INSCRIPCION_RECHAZADA")]
+        public async Task ModalityStateHelper_WhenNewStateIsRejectionState_MarksInscriptionModalityAsFinalRejection(
+            string rejectionCode)
         {
             // Arrange
             const int originalStateId = 1;
@@ -114,7 +209,8 @@ namespace Tests.UnitTests.Application.Commands
                     Code = "INICIAL",
                     Name = "Inicial",
                     IsFinalStateForStage = false,
-                    IsFinalStateForModalityOverall = false
+                    IsFinalStateForModalityOverall = false,
+                    IsRejectionState = false
                 });
 
             _stateStageRepoMock.Setup(s => s.GetByIdAsync(newStateId))
@@ -123,9 +219,7 @@ namespace Tests.UnitTests.Application.Commands
                     Id = newStateId,
                     Code = rejectionCode,
                     Name = "Rechazado",
-                    IsRejectionState = isRejectionState,
-                    IsFinalStateForStage = isFinalStage,
-                    IsFinalStateForModalityOverall = isFinalOverall
+                    IsRejectionState = true
                 });
 
             _inscriptionRepoMock.Setup(i => i.GetByIdAsync(inscriptionId))

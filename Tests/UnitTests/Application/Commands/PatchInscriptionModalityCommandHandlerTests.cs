@@ -165,5 +165,75 @@ namespace Tests.UnitTests.Application.Commands
             result.IdStateInscription.Should().Be(targetStateId);
             _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
+
+        [Fact]
+        public async Task Handle_WhenTargetStateIsRejectionState_SetsIsFinalRejectionToTrue()
+        {
+            // Arrange
+            const int inscriptionId = 30;
+            const int originalStateId = 1; // PENDIENTE
+            const int rejectedStateId = 3;  // RECHAZADO
+
+            var existingEntity = new InscriptionModality
+            {
+                Id = inscriptionId,
+                IdStateInscription = originalStateId,
+                IsFinalRejection = false,
+                StatusRegister = true
+            };
+
+            var pendingState = new StateInscription
+            {
+                Id = originalStateId,
+                Code = StateInscriptionCodes.Pendiente,
+                Name = "Pendiente",
+                IsFinalStateForStage = false,
+                IsRejectionState = false
+            };
+
+            var rejectedState = new StateInscription
+            {
+                Id = rejectedStateId,
+                Code = StateInscriptionCodes.Rechazado,
+                Name = "Rechazado",
+                IsFinalStateForStage = true,
+                IsRejectionState = true
+            };
+
+            _repositoryMock.Setup(r => r.GetByIdAsync(inscriptionId))
+                .ReturnsAsync(existingEntity);
+
+            _stateRepoMock.Setup(s => s.GetByIdAsync(originalStateId))
+                .ReturnsAsync(pendingState);
+
+            _stateRepoMock.Setup(s => s.GetByIdAsync(rejectedStateId))
+                .ReturnsAsync(rejectedState);
+
+            var expectedDto = new InscriptionModalityDto
+            {
+                Id = inscriptionId,
+                IdStateInscription = rejectedStateId,
+                IsFinalRejection = true
+            };
+            _mapperMock.Setup(m => m.Map<InscriptionModalityDto>(existingEntity))
+                .Returns(expectedDto);
+
+            var command = new PatchInscriptionModalityCommand(
+                inscriptionId,
+                new InscriptionModalityPatchDto
+                {
+                    IdStateInscription = rejectedStateId,
+                    Observations = "Rechazado por incumplimiento de requisitos"
+                },
+                new CurrentUserInfo { UserId = 42 });
+
+            // Act
+            var result = await _handler.Handle(command, CancellationToken.None);
+
+            // Assert
+            result.Should().NotBeNull();
+            existingEntity.IsFinalRejection.Should().BeTrue();
+            _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
     }
 }

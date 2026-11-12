@@ -8,5 +8,6 @@ namespace Application.Shared.DTOs.StateInscriptions
         public string? Description { get; set; }
         public bool IsInitialState { get; set; } = false;
         public bool IsFinalStateForStage { get; set; } = false;
+        public bool IsRejectionState { get; set; } = false;
     }
 }
