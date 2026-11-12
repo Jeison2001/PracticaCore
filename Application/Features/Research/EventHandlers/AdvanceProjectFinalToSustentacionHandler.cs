@@ -24,6 +24,7 @@ namespace Application.Features.Research.EventHandlers
         /// </summary>
         private static readonly string[] InitialPermissions =
         [
+            PermissionCodes.ProyectoGrado.N1PG,
             PermissionCodes.ProyectoGrado.N2PGSU,
             PermissionCodes.ProyectoGrado.N3PGCSU,
         ];
