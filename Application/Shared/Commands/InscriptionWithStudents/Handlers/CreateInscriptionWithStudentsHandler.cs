@@ -129,6 +129,9 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
             var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
             var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
+            var stateInscriptionRepo = _unitOfWork.GetRepository<StateInscription, int>();
+            var rejectedState = await stateInscriptionRepo.GetFirstOrDefaultAsync(
+                s => s.Code == Domain.Constants.StateInscriptionCodes.Rechazado, cancellationToken);
             
             foreach (var student in request.Dto.Students)
             {
@@ -141,7 +144,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 if (inscriptionModalityIds.Any())
                 {
                     bool hasActiveInscription = await inscriptionModalityRepo.AnyAsync(
-                        im => inscriptionModalityIds.Contains(im.Id) && im.StatusRegister,
+                        im => inscriptionModalityIds.Contains(im.Id) && im.StatusRegister && (rejectedState == null || im.IdStateInscription != rejectedState.Id),
                         cancellationToken);
                     
                     if (hasActiveInscription)
@@ -154,7 +157,6 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             try
             {
                 // Assign initial state depending on the modality's approval requirements
-                var stateInscriptionRepo = _unitOfWork.GetRepository<StateInscription, int>();
                 var targetStateCode = modality.RequiresApproval ? Domain.Constants.StateInscriptionCodes.Pendiente : Domain.Constants.StateInscriptionCodes.NoAplica;
                 var initialState = await stateInscriptionRepo.GetFirstOrDefaultAsync(s => s.Code == targetStateCode, cancellationToken);
                 

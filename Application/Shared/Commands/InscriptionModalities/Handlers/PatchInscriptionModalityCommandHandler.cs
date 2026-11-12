@@ -68,10 +68,16 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
             bool isApprovalTransition = false;
             if (request.Dto.IdStateInscription.HasValue)
             {
+                var stateRepo = _unitOfWork.GetRepository<Domain.Entities.StateInscription, int>();
+                var currentState = await stateRepo.GetByIdAsync(originalStateId);
+                if (currentState != null && currentState.IsFinalStateForStage)
+                {
+                    throw new InvalidOperationException($"No se puede modificar el estado de una inscripción que ya se encuentra en estado '{currentState.Name}'.");
+                }
+
                 entity.IdStateInscription = request.Dto.IdStateInscription.Value;
                 updatedProperties.Add(x => x.IdStateInscription);
 
-                var stateRepo = _unitOfWork.GetRepository<Domain.Entities.StateInscription, int>();
                 var newState = await stateRepo.GetByIdAsync(request.Dto.IdStateInscription.Value);
                 isApprovalTransition = newState?.Code == Domain.Constants.StateInscriptionCodes.Aprobado;
             }

@@ -106,8 +106,11 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
 
                 // 8. Construir la respuesta para cada modalidad
                 var resultItems = new List<InscriptionWithStudentsResponseDto>();
+                var orderedInscriptionModalities = inscriptionModalities
+                    .OrderByDescending(x => x.CreatedAt)
+                    .ThenByDescending(x => x.Id);
                 
-                foreach (var inscriptionModality in inscriptionModalities)
+                foreach (var inscriptionModality in orderedInscriptionModalities)
                 {
                     academicPeriodsDict.TryGetValue(inscriptionModality.IdAcademicPeriod, out var academicPeriod);
                     modalitiesDict.TryGetValue(inscriptionModality.IdModality, out var modality);
@@ -126,7 +129,10 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                         IdModality = inscriptionModality.IdModality,
                         IdStateInscription = inscriptionModality.IdStateInscription,
                         IdAcademicPeriod = inscriptionModality.IdAcademicPeriod,
+                        IdStageModality = inscriptionModality.IdStageModality,
+                        ApprovalDate = inscriptionModality.ApprovalDate,
                         Observations = inscriptionModality.Observations,
+                        CreatedAt = inscriptionModality.CreatedAt,
                         UpdatedAt = inscriptionModality.UpdatedAt,
                         StatusRegister = inscriptionModality.StatusRegister
                     };
