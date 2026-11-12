@@ -1,7 +1,9 @@
 using Api.Responses;
 using Application.Shared.Commands.TeachingAssignments;
+using Application.Shared.DTOs;
 using Application.Shared.DTOs.TeachingAssignments;
 using Application.Shared.Queries.TeachingAssignments;
+using Domain.Common;
 using Domain.Common.Extensions;
 using Domain.Entities;
 using MediatR;
@@ -87,6 +89,24 @@ namespace Api.Controllers
         {
             var result = await _mediator.Send(new UpdateTeachingAssignmentCommand(id, dto, User.GetCurrentUserInfo()));
             return Ok(new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });
+        }
+
+        [NonAction]
+        public override Task<IActionResult> GetById(int id)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> CreateMultiple([FromBody] List<TeachingAssignmentDto> dtos)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
         }
     }
 }

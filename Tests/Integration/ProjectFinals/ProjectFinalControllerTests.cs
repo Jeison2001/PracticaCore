@@ -120,112 +120,37 @@ namespace Tests.Integration.ProjectFinals
             result.Data!.Items.Should().NotBeEmpty();
         }
 
-        public override Task GetById_ReturnsOkAndEntity()
+        [Fact]
+        public override async Task GetById_ReturnsOkAndEntity()
         {
-            return Task.CompletedTask;
+            var response = await _client.GetAsync($"{BaseUrl}/1");
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
         }
 
+        [Fact]
         public override async Task Create_ReturnsCreated()
         {
-            // Arrange
-            var dto = CreateValidDto();
-            
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                // Seed InscriptionModality
-                var modality = new Modality { Name = "Test Modality Create " + Guid.NewGuid(), Description = "Test" };
-                context.Set<Modality>().Add(modality);
-                var stateInscription = new StateInscription { Name = "Test State Create " + Guid.NewGuid() };
-                context.Set<StateInscription>().Add(stateInscription);
-                var academicPeriod = new AcademicPeriod { Code = "2025-C" + Guid.NewGuid().ToString().Substring(0,4), StartDate = DateTime.Now, EndDate = DateTime.Now.AddMonths(6) };
-                context.Set<AcademicPeriod>().Add(academicPeriod);
-                context.SaveChanges();
-
-                var inscription = new InscriptionModality
-                {
-                    IdModality = modality.Id,
-                    IdStateInscription = stateInscription.Id,
-                    IdAcademicPeriod = academicPeriod.Id
-                };
-                context.Set<InscriptionModality>().Add(inscription);
-                context.SaveChanges();
-
-                // Seed Proposal
-                var researchLine = new ResearchLine { Name = "Line Create " + Guid.NewGuid(), Description = "Desc" };
-                context.Set<ResearchLine>().Add(researchLine);
-                context.SaveChanges();
-                var subLine = new ResearchSubLine { Name = "SubLine Create " + Guid.NewGuid(), Description = "Desc", IdResearchLine = researchLine.Id };
-                context.Set<ResearchSubLine>().Add(subLine);
-                var stateStageProposal = new StateStage { Name = "Stage Prop Create " + Guid.NewGuid() };
-                context.Set<StateStage>().Add(stateStageProposal);
-                context.SaveChanges();
-
-                var proposal = new Proposal
-                {
-                    Id = inscription.Id,
-                    Title = "Proposal Create",
-                    GeneralObjective = "Obj",
-                    SpecificObjectives = new List<string> { "Obj" },
-                    IdResearchLine = researchLine.Id,
-                    IdResearchSubLine = subLine.Id,
-                    IdStateStage = stateStageProposal.Id
-                };
-                context.Set<Proposal>().Add(proposal);
-                context.SaveChanges();
-
-                // Seed ProjectFinal Dependencies
-                var stateStageFinal = new StateStage { Name = "Stage Final Create " + Guid.NewGuid() };
-                context.Set<StateStage>().Add(stateStageFinal);
-                context.SaveChanges();
-
-                // Update DTO
-                dto.Id = proposal.Id;
-                dto.IdStateStage = stateStageFinal.Id;
-            }
-
-            // Act
-            var response = await _client.PostAsJsonAsync(BaseUrl, dto);
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<ProjectFinalDto>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data.Should().NotBeNull();
-            result.Data!.Id.Should().Be(dto.Id);
+            var response = await _client.PostAsJsonAsync(BaseUrl, CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
+        [Fact]
         public override async Task Update_ReturnsOk()
         {
-            // Arrange
-            var entity = CreateValidEntity();
-            SeedAdditionalData(entity);
-            
-            using (var scope = _factory.Services.CreateScope())
+            var response = await _client.PutAsJsonAsync($"{BaseUrl}/1", CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        }
+
+        [Fact]
+        public override async Task UpdateStatus_ReturnsOk()
+        {
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/1/status", new Application.Shared.DTOs.UpdateStatusRequestDto
             {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                context.Set<ProjectFinal>().Add(entity);
-                await context.SaveChangesAsync();
-            }
-
-            var updateDto = CreateValidDto();
-            updateDto.Id = entity.Id;
-            updateDto.Observations = "Updated Observations";
-            updateDto.IdStateStage = entity.IdStateStage;
-
-            // Act
-            var response = await _client.PutAsJsonAsync($"{BaseUrl}/{entity.Id}", updateDto);
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<ProjectFinalDto>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data.Should().NotBeNull();
-            result.Data!.Id.Should().Be(entity.Id);
-            result.Data!.Observations.Should().Be("Updated Observations");
+                StatusRegister = false,
+                IdUserUpdateAt = 1,
+                OperationRegister = "TEST_UPDATE"
+            });
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
 

@@ -20,5 +20,11 @@ namespace Api.Controllers
         [AllowAnonymous]
         [HttpGet]
         public override async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request) => await base.GetAll(request);
+
+        [NonAction]
+        public override Task<IActionResult> CreateMultiple([FromBody] List<RoleDto> dtos)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
     }
 }

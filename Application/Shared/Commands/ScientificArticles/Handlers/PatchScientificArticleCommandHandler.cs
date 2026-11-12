@@ -41,6 +41,7 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
                 throw new KeyNotFoundException($"ScientificArticle with ID {request.Id} not found.");
 
             var originalStateId = entity.IdStateStage;
+            var originalObservations = entity.Observations;
 
             _logger.LogInformation("Patching ScientificArticle Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
@@ -71,17 +72,15 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
                 updatedProperties.Add(x => x.Observations);
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Dto.Observations))
-            {
-                await ObservationHistoryHelper.CreateAsync(
-                    _unitOfWork,
-                    entityType: nameof(ScientificArticle),
-                    entityId: entity.Id,
-                    evaluatorId: request.CurrentUser.UserId ?? 0,
-                    evaluationTypeCode: EvaluationTypeCodes.ScientificArticle,
-                    observations: request.Dto.Observations,
-                    cancellationToken);
-            }
+            await ObservationHistoryHelper.CreateIfChangedAsync(
+                _unitOfWork,
+                entityType: nameof(ScientificArticle),
+                entityId: entity.Id,
+                evaluatorId: request.CurrentUser.UserId ?? 0,
+                evaluationTypeCode: EvaluationTypeCodes.ScientificArticle,
+                newObservations: request.Dto.Observations,
+                previousObservations: originalObservations,
+                cancellationToken: cancellationToken);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

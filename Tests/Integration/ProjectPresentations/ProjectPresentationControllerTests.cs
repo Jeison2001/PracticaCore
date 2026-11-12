@@ -85,63 +85,37 @@ namespace Tests.Integration.ProjectPresentations
             result.Data!.Items.Should().NotBeEmpty();
         }
 
-        public override Task GetById_ReturnsOkAndEntity()
+        [Fact]
+        public override async Task GetById_ReturnsOkAndEntity()
         {
-            return Task.CompletedTask;
+            var response = await _client.GetAsync($"{BaseUrl}/1");
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
         }
 
+        [Fact]
         public override async Task Create_ReturnsCreated()
         {
-            var dto = CreateValidDto();
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var id = SeedSustentacion(context);
-                var presentation = context.Set<ProjectPresentation>().Find(id);
-                if (presentation != null)
-                {
-                    context.Set<ProjectPresentation>().Remove(presentation);
-                    context.SaveChanges();
-                }
-
-                var stateStage = context.Set<StateStage>().First(s => s.Code == StateStageCodes.SustPendienteProgramacion);
-                dto.Id = id;
-                dto.IdInscriptionModality = id;
-                dto.IdStateStage = stateStage.Id;
-            }
-
-            var response = await _client.PostAsJsonAsync(BaseUrl, dto);
-            response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<ProjectPresentationDto>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data!.Id.Should().Be(dto.Id);
+            var response = await _client.PostAsJsonAsync(BaseUrl, CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
+        [Fact]
         public override async Task Update_ReturnsOk()
         {
-            var entity = CreateValidEntity();
-            SeedAdditionalData(entity);
+            var response = await _client.PutAsJsonAsync($"{BaseUrl}/1", CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        }
 
-            using (var scope = _factory.Services.CreateScope())
+        [Fact]
+        public override async Task UpdateStatus_ReturnsOk()
+        {
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/1/status", new Application.Shared.DTOs.UpdateStatusRequestDto
             {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                context.Set<ProjectPresentation>().Add(entity);
-                await context.SaveChangesAsync();
-            }
-
-            var updateDto = CreateValidDto();
-            updateDto.Id = entity.Id;
-            updateDto.IdInscriptionModality = entity.Id;
-            updateDto.IdStateStage = entity.IdStateStage;
-            updateDto.Observations = "Updated Observations";
-
-            var response = await _client.PutAsJsonAsync($"{BaseUrl}/{entity.Id}", updateDto);
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<ProjectPresentationDto>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data!.Observations.Should().Be("Updated Observations");
+                StatusRegister = false,
+                IdUserUpdateAt = 1,
+                OperationRegister = "TEST_UPDATE"
+            });
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
         private int SeedSustentacion(AppDbContext context, string stateStageCode = StateStageCodes.SustPendienteProgramacion, int attemptNumber = 1)
@@ -443,6 +417,144 @@ namespace Tests.Integration.ProjectPresentations
             };
             var modifyResponse = await _client.PatchAsJsonAsync($"{BaseUrl}/{presentationId}", modifyDto);
             modifyResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // 5. GetByTeacherId debe incluir Teachers asignados (Jurado / Director)
+        // ──────────────────────────────────────────────────────────────────────────────
+        [Fact]
+        public async Task GetByTeacherId_ReturnsAssignedTeachers()
+        {
+            // Arrange
+            int presentationId;
+            int teacherId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                presentationId = SeedSustentacion(context, StateStageCodes.SustProgramada);
+
+                var juryType = context.Set<TypeTeachingAssignment>().FirstOrDefault(t => t.Code == "JURADO_EVALUADOR")
+                    ?? context.Set<TypeTeachingAssignment>().Add(new TypeTeachingAssignment
+                    {
+                        Code = "JURADO_EVALUADOR",
+                        Name = "Jurado Evaluador",
+                        StatusRegister = true,
+                        OperationRegister = "Seed"
+                    }).Entity;
+
+                var teacher = new User
+                {
+                    Email = "jurado.test@unicesar.edu.co",
+                    FirstName = "Carlos",
+                    LastName = "Jurado",
+                    Identification = "99887766",
+                    StatusRegister = true,
+                    OperationRegister = "Seed"
+                };
+                context.Set<User>().Add(teacher);
+                context.SaveChanges();
+
+                teacherId = teacher.Id;
+                context.Set<TeachingAssignment>().Add(new TeachingAssignment
+                {
+                    IdInscriptionModality = presentationId,
+                    IdTeacher = teacherId,
+                    IdTypeTeachingAssignment = juryType.Id,
+                    StatusRegister = true,
+                    OperationRegister = "Seed"
+                });
+                context.SaveChanges();
+            }
+
+            // Act
+            var response = await _client.GetAsync($"{BaseUrl}/ByTeacher/{teacherId}?PageNumber=1&PageSize=10");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<Domain.Common.PaginatedResult<ProjectPresentationWithDetailsResponseDto>>>();
+            result.Should().NotBeNull();
+            result!.Success.Should().BeTrue();
+            var item = result.Data!.Items.FirstOrDefault(i => i.ProjectPresentation.Id == presentationId);
+            item.Should().NotBeNull();
+            item!.Teachers.Should().NotBeNullOrEmpty();
+            item.Teachers!.Should().Contain(t => t.IdTeacher == teacherId && t.CargoCode == "JURADO_EVALUADOR");
+        }
+
+        // ──────────────────────────────────────────────────────────────────────────────
+        // 6. Patch con misma observación previa no debe duplicar registros en Evaluation
+        // ──────────────────────────────────────────────────────────────────────────────
+        [Fact]
+        public async Task Patch_WithUnchangedObservations_DoesNotDuplicateEvaluationRow()
+        {
+            // Arrange
+            int presentationId;
+            int programadaStateId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                presentationId = SeedSustentacion(context, StateStageCodes.SustPendienteProgramacion);
+                programadaStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.SustProgramada).Id;
+
+                if (!context.Set<EvaluationType>().Any(et => et.Code == EvaluationTypeCodes.ProjectPresentation))
+                {
+                    context.Set<EvaluationType>().Add(new EvaluationType
+                    {
+                        Code = EvaluationTypeCodes.ProjectPresentation,
+                        Name = "Evaluación Sustentación",
+                        StatusRegister = true,
+                        OperationRegister = "Seed"
+                    });
+                    context.SaveChanges();
+                }
+            }
+
+            const string obs = "Programación inicial de sustentación";
+            var firstPatch = new ProjectPresentationPatchDto
+            {
+                IdStateStage = programadaStateId,
+                ScheduledDateTime = DateTimeOffset.UtcNow.AddDays(5),
+                PresentationModality = "PRESENCIAL",
+                LocationOrLink = "Auditorio Principal",
+                Observations = obs
+            };
+            var resp1 = await _client.PatchAsJsonAsync($"{BaseUrl}/{presentationId}", firstPatch);
+            resp1.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            // Reenviar PATCH sin cambiar Observations (solo cambia lugar)
+            var secondPatch = new ProjectPresentationPatchDto
+            {
+                LocationOrLink = "Sala de Juntas B",
+                Observations = obs
+            };
+            var resp2 = await _client.PatchAsJsonAsync($"{BaseUrl}/{presentationId}", secondPatch);
+            resp2.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var evals = context.Set<Evaluation>()
+                    .Where(e => e.EntityType == nameof(ProjectPresentation) && e.EntityId == presentationId)
+                    .ToList();
+                evals.Should().HaveCount(1, "no debe duplicarse Evaluation si Observations no cambió");
+            }
+        }
+
+        [Fact]
+        public async Task Patch_WithInvalidPresentationModality_ReturnsBadRequest()
+        {
+            int presentationId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                presentationId = SeedSustentacion(context, StateStageCodes.SustPendienteProgramacion);
+            }
+
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/{presentationId}", new ProjectPresentationPatchDto
+            {
+                PresentationModality = "TELEPATIA"
+            });
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
     }
 }

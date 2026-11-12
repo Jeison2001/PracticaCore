@@ -57,5 +57,11 @@ namespace Api.Controllers
 
             return StatusCode(StatusCodes.Status201Created, new ApiResponse<UserDto> { Success = true, Data = result });
         }
+
+        [NonAction]
+        public override Task<IActionResult> CreateMultiple([FromBody] List<UserDto> dtos)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
     }
 }

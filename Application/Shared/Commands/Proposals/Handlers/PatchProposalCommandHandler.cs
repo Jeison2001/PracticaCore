@@ -47,6 +47,7 @@ namespace Application.Shared.Commands.Proposals.Handlers
                 throw new KeyNotFoundException($"Proposal with ID {request.Id} not found.");
 
             var originalStateId = entity.IdStateStage;
+            var originalObservation = entity.Observation;
 
             _logger.LogInformation(
                 "Patching Proposal Id={Id}. Changes: StateStage={State}, Observation={Obs}",
@@ -83,17 +84,15 @@ namespace Application.Shared.Commands.Proposals.Handlers
                 updatedProperties.Add(x => x.Observation);
             }
 
-            // Registrar historial de observaciones
-            if (!string.IsNullOrWhiteSpace(request.Dto.Observation))
-            {
-                await ObservationHistoryHelper.CreateAsync(_unitOfWork,
-                    entityType: nameof(Proposal),
-                    entityId: entity.Id,
-                    evaluatorId: request.CurrentUser.UserId ?? 0,
-                    evaluationTypeCode: EvaluationTypeCodes.Proposal,
-                    observations: request.Dto.Observation,
-                    cancellationToken);
-            }
+            // Registrar historial de observaciones solo si hay texto nuevo/distinto
+            await ObservationHistoryHelper.CreateIfChangedAsync(_unitOfWork,
+                entityType: nameof(Proposal),
+                entityId: entity.Id,
+                evaluatorId: request.CurrentUser.UserId ?? 0,
+                evaluationTypeCode: EvaluationTypeCodes.Proposal,
+                newObservations: request.Dto.Observation,
+                previousObservations: originalObservation,
+                cancellationToken: cancellationToken);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

@@ -20,9 +20,11 @@ namespace Tests.Integration.ScientificArticles
         }
 
         // Override GetById because it is [NonAction]
-        public override Task GetById_ReturnsOkAndEntity()
+        [Fact]
+        public override async Task GetById_ReturnsOkAndEntity()
         {
-            return Task.CompletedTask;
+            var response = await _client.GetAsync($"{BaseUrl}/1");
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
         }
 
         [Fact]
@@ -115,62 +117,27 @@ namespace Tests.Integration.ScientificArticles
         [Fact]
         public override async Task Create_ReturnsCreated()
         {
-            // Arrange
-            int inscriptionId;
-            int stateStageId;
+            var response = await _client.PostAsJsonAsync(BaseUrl, CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
 
-            using (var scope = _factory.Services.CreateScope())
+        [Fact]
+        public override async Task Update_ReturnsOk()
+        {
+            var response = await _client.PutAsJsonAsync($"{BaseUrl}/1", CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        }
+
+        [Fact]
+        public override async Task UpdateStatus_ReturnsOk()
+        {
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/1/status", new Application.Shared.DTOs.UpdateStatusRequestDto
             {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                // Seed dependencies
-                var modality = new Modality { Name = "Test Modality SA Create " + Guid.NewGuid(), Description = "Test" };
-                context.Set<Modality>().Add(modality);
-                var stateInscription = new StateInscription { Name = "Test State SA Create " + Guid.NewGuid() };
-                context.Set<StateInscription>().Add(stateInscription);
-                var academicPeriod = new AcademicPeriod { Code = "2025-SAC" + Guid.NewGuid().ToString().Substring(0, 4), StartDate = DateTime.Now, EndDate = DateTime.Now.AddMonths(6) };
-                context.Set<AcademicPeriod>().Add(academicPeriod);
-                context.SaveChanges();
-
-                var inscription = new InscriptionModality
-                {
-                    IdModality = modality.Id,
-                    IdStateInscription = stateInscription.Id,
-                    IdAcademicPeriod = academicPeriod.Id
-                };
-                context.Set<InscriptionModality>().Add(inscription);
-                
-                var stateStage = new StateStage { Name = "Stage SA Create " + Guid.NewGuid() };
-                context.Set<StateStage>().Add(stateStage);
-                
-                context.SaveChanges();
-                
-                inscriptionId = inscription.Id;
-                stateStageId = stateStage.Id;
-            }
-
-            var dto = new ScientificArticleDto
-            {
-                Id = inscriptionId,
-                IdStateStage = stateStageId,
-                ArticleTitle = "Test Article",
-                JournalName = "Test Journal",
-                AcceptanceDate = DateTime.Now,
-                ISSN = "1234-5678",
-                JournalCategory = "A1",
-                Observations = "Test Observations"
-            };
-
-            // Act
-            var response = await _client.PostAsJsonAsync(BaseUrl, dto);
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<ScientificArticleDto>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data.Should().NotBeNull();
-            result.Data!.Id.Should().Be(inscriptionId);
+                StatusRegister = false,
+                IdUserUpdateAt = 1,
+                OperationRegister = "TEST_UPDATE"
+            });
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
         [Fact]

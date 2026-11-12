@@ -9,6 +9,35 @@ namespace Application.Common.Services
     /// </summary>
     internal static class ObservationHistoryHelper
     {
+        internal static async Task<bool> CreateIfChangedAsync(
+            IUnitOfWork unitOfWork,
+            string entityType,
+            int entityId,
+            int evaluatorId,
+            string evaluationTypeCode,
+            string? newObservations,
+            string? previousObservations,
+            CancellationToken cancellationToken = default)
+        {
+            var trimmedNew = newObservations?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedNew))
+                return false;
+
+            if (string.Equals(trimmedNew, previousObservations?.Trim(), StringComparison.Ordinal))
+                return false;
+
+            await CreateAsync(
+                unitOfWork,
+                entityType,
+                entityId,
+                evaluatorId,
+                evaluationTypeCode,
+                trimmedNew,
+                cancellationToken);
+
+            return true;
+        }
+
         internal static async Task CreateAsync(
             IUnitOfWork unitOfWork,
             string entityType,

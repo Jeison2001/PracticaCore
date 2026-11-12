@@ -41,6 +41,7 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                 throw new KeyNotFoundException($"ProjectPresentation with ID {request.Id} not found.");
 
             var originalStateId = entity.IdStateStage;
+            var originalObservations = entity.Observations;
 
             var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
             var currentState = await stateStageRepo.GetByIdAsync(originalStateId);
@@ -61,6 +62,7 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                 request.Dto.Observations);
 
             var updatedProperties = new List<Expression<Func<ProjectPresentation, object?>>>();
+            var actualDateTimeUpdated = false;
 
             // Siempre actualizar campos de tracking
             entity.IdUserUpdatedAt = request.CurrentUser.UserId;
@@ -79,6 +81,7 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
             {
                 entity.ActualDateTime = request.Dto.ActualDateTime.Value;
                 updatedProperties.Add(x => x.ActualDateTime);
+                actualDateTimeUpdated = true;
             }
 
             if (request.Dto.LocationOrLink != null)
@@ -93,9 +96,12 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                 updatedProperties.Add(x => x.PresentationModality);
             }
 
-            if (request.Dto.Observations != null)
+            var hasNewObservation = !string.IsNullOrWhiteSpace(request.Dto.Observations)
+                && !string.Equals(request.Dto.Observations.Trim(), originalObservations?.Trim(), StringComparison.Ordinal);
+
+            if (hasNewObservation)
             {
-                entity.Observations = request.Dto.Observations;
+                entity.Observations = request.Dto.Observations!.Trim();
                 updatedProperties.Add(x => x.Observations);
             }
 
@@ -131,8 +137,11 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                 else if (newState?.Code == StateStageCodes.SustAprobada)
                 {
                     entity.ActualDateTime = request.Dto.ActualDateTime ?? DateTimeOffset.UtcNow;
-                    if (!updatedProperties.Contains(x => x.ActualDateTime))
+                    if (!actualDateTimeUpdated)
+                    {
                         updatedProperties.Add(x => x.ActualDateTime);
+                        actualDateTimeUpdated = true;
+                    }
 
                     // Estampar FinalPhaseApprovalDate en ProjectFinal si existe y es null
                     var projectFinalRepo = _unitOfWork.GetRepository<ProjectFinal, int>();
@@ -152,29 +161,35 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                     }
 
                     entity.ActualDateTime = request.Dto.ActualDateTime ?? DateTimeOffset.UtcNow;
-                    if (!updatedProperties.Contains(x => x.ActualDateTime))
+                    if (!actualDateTimeUpdated)
+                    {
                         updatedProperties.Add(x => x.ActualDateTime);
+                        actualDateTimeUpdated = true;
+                    }
                 }
                 else if (newState?.Code == StateStageCodes.SustReprobadaFinal)
                 {
                     entity.ActualDateTime = request.Dto.ActualDateTime ?? DateTimeOffset.UtcNow;
-                    if (!updatedProperties.Contains(x => x.ActualDateTime))
+                    if (!actualDateTimeUpdated)
+                    {
                         updatedProperties.Add(x => x.ActualDateTime);
+                        actualDateTimeUpdated = true;
+                    }
                 }
 
                 entity.IdStateStage = request.Dto.IdStateStage.Value;
                 updatedProperties.Add(x => x.IdStateStage);
             }
 
-            // Historial de observaciones
-            if (!string.IsNullOrWhiteSpace(request.Dto.Observations))
+            // Historial de observaciones: registrar solo cuando haya una observación nueva/distinta
+            if (hasNewObservation)
             {
                 await ObservationHistoryHelper.CreateAsync(_unitOfWork,
                     entityType: nameof(ProjectPresentation),
                     entityId: entity.Id,
                     evaluatorId: request.CurrentUser.UserId ?? 0,
                     evaluationTypeCode: EvaluationTypeCodes.ProjectPresentation,
-                    observations: request.Dto.Observations,
+                    observations: entity.Observations!,
                     cancellationToken);
             }
 

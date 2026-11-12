@@ -32,7 +32,7 @@ namespace Application.Features.Evaluations.Queries.Handlers
                 e => e.EntityType == request.EntityType
                      && e.EntityId == request.EntityId
                      && (!request.IdEvaluationType.HasValue || e.IdEvaluationType == request.IdEvaluationType.Value),
-                q => q.OrderByDescending(e => e.CreatedAt))).ToList();
+                q => q.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id))).ToList();
 
             if (evaluations.Count == 0)
                 return [];
@@ -59,7 +59,8 @@ namespace Application.Features.Evaluations.Queries.Handlers
                 EvaluationTypeName = types.TryGetValue(e.IdEvaluationType, out var tinfoName) ? tinfoName.Name : null,
                 Result = e.Result,
                 Observations = e.Observations,
-                CreatedAt = e.CreatedAt
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt
             }).ToList();
         }
     }

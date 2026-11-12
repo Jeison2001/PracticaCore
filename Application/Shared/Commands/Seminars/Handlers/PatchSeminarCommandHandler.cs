@@ -42,6 +42,7 @@ namespace Application.Shared.Commands.Seminars.Handlers
                 throw new KeyNotFoundException($"Seminar with ID {request.Id} not found.");
 
             var originalStateId = entity.IdStateStage;
+            var originalObservations = entity.Observations;
 
             _logger.LogInformation("Patching Seminar Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
@@ -72,17 +73,15 @@ namespace Application.Shared.Commands.Seminars.Handlers
                 updatedProperties.Add(x => x.Observations);
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Dto.Observations))
-            {
-                await ObservationHistoryHelper.CreateAsync(
-                    _unitOfWork,
-                    entityType: nameof(Seminar),
-                    entityId: entity.Id,
-                    evaluatorId: request.CurrentUser.UserId ?? 0,
-                    evaluationTypeCode: EvaluationTypeCodes.Seminar,
-                    observations: request.Dto.Observations,
-                    cancellationToken);
-            }
+            await ObservationHistoryHelper.CreateIfChangedAsync(
+                _unitOfWork,
+                entityType: nameof(Seminar),
+                entityId: entity.Id,
+                evaluatorId: request.CurrentUser.UserId ?? 0,
+                evaluationTypeCode: EvaluationTypeCodes.Seminar,
+                newObservations: request.Dto.Observations,
+                previousObservations: originalObservations,
+                cancellationToken: cancellationToken);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

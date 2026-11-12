@@ -1,6 +1,8 @@
 using Api.Responses;
+using Application.Shared.DTOs;
 using Application.Shared.DTOs.RolePermissions;
 using Application.Shared.Queries.RolePermissions;
+using Domain.Common;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -56,6 +58,30 @@ namespace Api.Controllers
                 Success = true, 
                 Data = permissions 
             });
+        }
+
+        [NonAction]
+        public override Task<IActionResult> GetById(int id)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> Create([FromBody] RolePermissionDto dto)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> Update(int id, [FromBody] RolePermissionDto dto)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
         }
     }
 }

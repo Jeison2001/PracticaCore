@@ -38,6 +38,8 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
 
             // Crear copia del estado original para comparación
             var original = new AcademicPractice { Id = entity.Id, IdStateStage = entity.IdStateStage };
+            var originalObservations = entity.Observations;
+            var originalEvaluatorObservations = entity.EvaluatorObservations;
 
             await ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
                 _unitOfWork,
@@ -55,35 +57,33 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
 
             if (!result) return false;
 
-            // Registrar historial de observaciones (general y del evaluador)
+            // Registrar historial de observaciones (general y del evaluador) solo si hay cambio real
             var evaluatorId = request.CurrentUser.UserId 
                 ?? entity.IdUserUpdatedAt 
                 ?? entity.IdUserCreatedAt 
                 ?? 1;
 
-            if (!string.IsNullOrWhiteSpace(dto.EvaluatorObservations))
-            {
-                await ObservationHistoryHelper.CreateAsync(
-                    _unitOfWork,
-                    entityType: nameof(AcademicPractice),
-                    entityId: entity.Id,
-                    evaluatorId: evaluatorId,
-                    evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
-                    observations: dto.EvaluatorObservations,
-                    cancellationToken);
-            }
+            await ObservationHistoryHelper.CreateIfChangedAsync(
+                _unitOfWork,
+                entityType: nameof(AcademicPractice),
+                entityId: entity.Id,
+                evaluatorId: evaluatorId,
+                evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
+                newObservations: dto.EvaluatorObservations,
+                previousObservations: originalEvaluatorObservations,
+                cancellationToken: cancellationToken);
 
-            if (!string.IsNullOrWhiteSpace(dto.Observations) 
-                && dto.Observations != dto.EvaluatorObservations)
+            if (!string.Equals(dto.Observations?.Trim(), dto.EvaluatorObservations?.Trim(), StringComparison.Ordinal))
             {
-                await ObservationHistoryHelper.CreateAsync(
+                await ObservationHistoryHelper.CreateIfChangedAsync(
                     _unitOfWork,
                     entityType: nameof(AcademicPractice),
                     entityId: entity.Id,
                     evaluatorId: evaluatorId,
                     evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
-                    observations: dto.Observations,
-                    cancellationToken);
+                    newObservations: dto.Observations,
+                    previousObservations: originalObservations,
+                    cancellationToken: cancellationToken);
             }
 
             await _unitOfWork.CommitAsync(cancellationToken);

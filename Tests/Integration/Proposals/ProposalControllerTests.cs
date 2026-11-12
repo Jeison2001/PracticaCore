@@ -99,6 +99,14 @@ namespace Tests.Integration.Proposals
             }
         }
 
+        // Override GetById because it is [NonAction]
+        [Fact]
+        public override async Task GetById_ReturnsOkAndEntity()
+        {
+            var response = await _client.GetAsync($"{BaseUrl}/1");
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        }
+
         // Override GetAll because it is [NonAction]
         public override async Task GetAll_ReturnsOkAndList()
         {

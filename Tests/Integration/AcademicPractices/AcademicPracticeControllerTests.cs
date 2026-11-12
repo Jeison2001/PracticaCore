@@ -136,53 +136,30 @@ namespace Tests.Integration.AcademicPractices
             result.Data!.AcademicPractice!.Id.Should().Be(entity.Id);
         }
 
+        [Fact]
         public override async Task Create_ReturnsCreated()
         {
-            // Arrange
-            var dto = CreateValidDto();
-            
-            using (var scope = _factory.Services.CreateScope())
+            var response = await _client.PostAsJsonAsync(BaseUrl, CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public override async Task Update_ReturnsOk()
+        {
+            var response = await _client.PutAsJsonAsync($"{BaseUrl}/1", CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public override async Task UpdateStatus_ReturnsOk()
+        {
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/1/status", new Application.Shared.DTOs.UpdateStatusRequestDto
             {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                // Seed de InscriptionModality
-                var modality = new Modality { Name = "Test Modality AP Create " + Guid.NewGuid(), Description = "Test" };
-                context.Set<Modality>().Add(modality);
-                var stateInscription = new StateInscription { Name = "Test State AP Create " + Guid.NewGuid() };
-                context.Set<StateInscription>().Add(stateInscription);
-                var academicPeriod = new AcademicPeriod { Code = "2025-APC" + Guid.NewGuid().ToString().Substring(0,4), StartDate = DateTime.Now, EndDate = DateTime.Now.AddMonths(6) };
-                context.Set<AcademicPeriod>().Add(academicPeriod);
-                context.SaveChanges();
-
-                var inscription = new InscriptionModality
-                {
-                    IdModality = modality.Id,
-                    IdStateInscription = stateInscription.Id,
-                    IdAcademicPeriod = academicPeriod.Id
-                };
-                context.Set<InscriptionModality>().Add(inscription);
-                context.SaveChanges();
-
-                // Seed de StateStage
-                var stateStage = new StateStage { Name = "Stage AP Create " + Guid.NewGuid() };
-                context.Set<StateStage>().Add(stateStage);
-                context.SaveChanges();
-
-                // Actualizar DTO
-                dto.Id = inscription.Id;
-                dto.IdStateStage = stateStage.Id;
-            }
-
-            // Act
-            var response = await _client.PostAsJsonAsync(BaseUrl, dto);
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<AcademicPracticeDto>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data.Should().NotBeNull();
-            result.Data!.Id.Should().Be(dto.Id);
+                StatusRegister = false,
+                IdUserUpdateAt = 1,
+                OperationRegister = "TEST_UPDATE"
+            });
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
         [Fact]

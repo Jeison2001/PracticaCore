@@ -179,38 +179,24 @@ namespace Tests.Integration.UserRoles
         }
 
         [Fact]
+        public override async Task GetAll_ReturnsOkAndList()
+        {
+            var response = await _client.GetAsync($"{BaseUrl}?PageNumber=1&PageSize=10");
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        }
+
+        [Fact]
+        public override async Task GetById_ReturnsOkAndEntity()
+        {
+            var response = await _client.GetAsync($"{BaseUrl}/1");
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
         public override async Task Update_ReturnsOk()
         {
-             // Arrange
-            var entity = CreateValidEntity();
-            SeedAdditionalData(entity);
-            
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<Infrastructure.Data.AppDbContext>();
-                context.Set<UserRole>().Add(entity);
-                await context.SaveChangesAsync();
-            }
-
-            var updateDto = new UserRoleDto
-            {
-                Id = entity.Id,
-                IdUser = entity.IdUser,
-                IdRole = entity.IdRole,
-                StatusRegister = false
-            };
-
-            // Act
-            var response = await _client.PutAsJsonAsync($"{BaseUrl}/{entity.Id}", updateDto);
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<ApiResponse<UserRoleDto>>();
-            result.Should().NotBeNull();
-            result!.Success.Should().BeTrue();
-            result.Data.Should().NotBeNull();
-            result.Data!.Id.Should().Be(entity.Id);
-            result.Data.StatusRegister.Should().BeFalse();
+            var response = await _client.PutAsJsonAsync($"{BaseUrl}/1", new UserRoleDto { Id = 1 });
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
     }
 }

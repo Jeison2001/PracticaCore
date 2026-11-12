@@ -1,6 +1,11 @@
+using System.Net;
+using System.Net.Http.Json;
+using Application.Shared.DTOs;
 using Application.Shared.DTOs.InscriptionModalities;
 using Domain.Entities;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Xunit;
 
 namespace Tests.Integration.InscriptionModalities
 {
@@ -106,6 +111,39 @@ namespace Tests.Integration.InscriptionModalities
                 StatusRegister = true
                 // IDs will be set in SeedAdditionalData
             };
+        }
+
+        [Fact]
+        public override async Task GetAll_ReturnsOkAndList()
+        {
+            var response = await _client.GetAsync($"{BaseUrl}?PageNumber=1&PageSize=10");
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public override async Task GetById_ReturnsOkAndEntity()
+        {
+            var response = await _client.GetAsync($"{BaseUrl}/1");
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        }
+
+        [Fact]
+        public override async Task Create_ReturnsCreated()
+        {
+            var response = await _client.PostAsJsonAsync(BaseUrl, CreateValidDto());
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public override async Task UpdateStatus_ReturnsOk()
+        {
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/1/status", new UpdateStatusRequestDto
+            {
+                StatusRegister = false,
+                IdUserUpdateAt = 1,
+                OperationRegister = "TEST_UPDATE"
+            });
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
     }
 }

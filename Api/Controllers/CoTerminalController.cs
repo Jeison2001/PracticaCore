@@ -95,5 +95,29 @@ namespace Api.Controllers
         {
             return Task.FromResult<IActionResult>(NotFound());
         }
+
+        [NonAction]
+        public override Task<IActionResult> Create([FromBody] CoTerminalDto dto)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> CreateMultiple([FromBody] List<CoTerminalDto> dtos)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> Update(int id, [FromBody] CoTerminalDto dto)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
     }
 }

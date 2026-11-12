@@ -1,6 +1,11 @@
+using System.Net;
+using System.Net.Http.Json;
+using Application.Shared.DTOs;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using Domain.Entities;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Xunit;
 
 namespace Tests.Integration.UserInscriptionModalities
 {
@@ -194,6 +199,46 @@ namespace Tests.Integration.UserInscriptionModalities
                 StatusRegister = true
                 // IDs set in SeedAdditionalData
             };
+        }
+
+        [Fact]
+        public override async Task GetAll_ReturnsOkAndList()
+        {
+            var response = await _client.GetAsync($"{BaseUrl}?PageNumber=1&PageSize=10");
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public override async Task GetById_ReturnsOkAndEntity()
+        {
+            var response = await _client.GetAsync($"{BaseUrl}/1");
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public override async Task Create_ReturnsCreated()
+        {
+            var response = await _client.PostAsJsonAsync(BaseUrl, new UserInscriptionModalityDto());
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public override async Task Update_ReturnsOk()
+        {
+            var response = await _client.PutAsJsonAsync($"{BaseUrl}/1", new UserInscriptionModalityDto { Id = 1 });
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public override async Task UpdateStatus_ReturnsOk()
+        {
+            var response = await _client.PatchAsJsonAsync($"{BaseUrl}/1/status", new UpdateStatusRequestDto
+            {
+                StatusRegister = false,
+                IdUserUpdateAt = 1,
+                OperationRegister = "TEST_UPDATE"
+            });
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
     }
 }

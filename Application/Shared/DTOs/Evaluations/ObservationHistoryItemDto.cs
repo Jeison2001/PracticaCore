@@ -15,5 +15,7 @@ namespace Application.Shared.DTOs.Evaluations
         public string? Result { get; set; }
         public string? Observations { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
+        public bool IsEdited => UpdatedAt.HasValue && UpdatedAt.Value > CreatedAt;
     }
 }

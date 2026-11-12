@@ -47,6 +47,7 @@ namespace Application.Shared.Commands.ProjectFinals.Handlers
                 throw new KeyNotFoundException($"ProjectFinal with ID {request.Id} not found.");
 
             var originalStateId = entity.IdStateStage;
+            var originalObservations = entity.Observations;
 
             _logger.LogInformation(
                 "Patching ProjectFinal Id={Id}. Changes: StateStage={State}, ReportApprovalDate={RDate}, FinalPhaseApprovalDate={FDate}, Observations={Obs}",
@@ -99,17 +100,15 @@ namespace Application.Shared.Commands.ProjectFinals.Handlers
                 updatedProperties.Add(x => x.Observations);
             }
 
-            // Registrar historial de observaciones
-            if (!string.IsNullOrWhiteSpace(request.Dto.Observations))
-            {
-                await ObservationHistoryHelper.CreateAsync(_unitOfWork,
-                    entityType: nameof(ProjectFinal),
-                    entityId: entity.Id,
-                    evaluatorId: request.CurrentUser.UserId ?? 0,
-                    evaluationTypeCode: EvaluationTypeCodes.ProjectFinal,
-                    observations: request.Dto.Observations,
-                    cancellationToken);
-            }
+            // Registrar historial de observaciones solo si hay texto nuevo/distinto
+            await ObservationHistoryHelper.CreateIfChangedAsync(_unitOfWork,
+                entityType: nameof(ProjectFinal),
+                entityId: entity.Id,
+                evaluatorId: request.CurrentUser.UserId ?? 0,
+                evaluationTypeCode: EvaluationTypeCodes.ProjectFinal,
+                newObservations: request.Dto.Observations,
+                previousObservations: originalObservations,
+                cancellationToken: cancellationToken);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

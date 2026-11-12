@@ -72,5 +72,29 @@ namespace Api.Controllers
             
             return Ok(new ApiResponse<List<UserRoleInfoDto>> { Success = true, Data = userRoles });
         }
+
+        [NonAction]
+        public override Task<IActionResult> GetById(int id)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> CreateMultiple([FromBody] List<UserRoleDto> dtos)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        [NonAction]
+        public override Task<IActionResult> Update(int id, [FromBody] UserRoleDto dto)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
     }
 }

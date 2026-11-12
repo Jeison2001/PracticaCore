@@ -49,6 +49,7 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
                 throw new KeyNotFoundException($"InscriptionModality with ID {request.Id} not found.");
 
             var originalStateId = entity.IdStateInscription;
+            var originalObservations = entity.Observations;
 
             _logger.LogInformation(
                 "Patching InscriptionModality Id={Id}. Changes: StateInscription={State}, Observations={Obs}, ApprovalDate={Date}",
@@ -111,17 +112,15 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
                 updatedProperties.Add(x => x.Observations);
             }
 
-            // Registrar historial de observaciones
-            if (!string.IsNullOrWhiteSpace(request.Dto.Observations))
-            {
-                await ObservationHistoryHelper.CreateAsync(_unitOfWork,
-                    entityType: nameof(InscriptionModality),
-                    entityId: entity.Id,
-                    evaluatorId: request.CurrentUser.UserId ?? 0,
-                    evaluationTypeCode: EvaluationTypeCodes.InscriptionModality,
-                    observations: request.Dto.Observations,
-                    cancellationToken);
-            }
+            // Registrar historial de observaciones solo si hay texto nuevo/distinto
+            await ObservationHistoryHelper.CreateIfChangedAsync(_unitOfWork,
+                entityType: nameof(InscriptionModality),
+                entityId: entity.Id,
+                evaluatorId: request.CurrentUser.UserId ?? 0,
+                evaluationTypeCode: EvaluationTypeCodes.InscriptionModality,
+                newObservations: request.Dto.Observations,
+                previousObservations: originalObservations,
+                cancellationToken: cancellationToken);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

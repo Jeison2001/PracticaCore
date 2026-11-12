@@ -46,6 +46,7 @@ namespace Application.Shared.Commands.PreliminaryProjects.Handlers
                 throw new KeyNotFoundException($"PreliminaryProject with ID {request.Id} not found.");
 
             var originalStateId = entity.IdStateStage;
+            var originalObservations = entity.Observations;
 
             _logger.LogInformation(
                 "Patching PreliminaryProject Id={Id}. Changes: StateStage={State}, ApprovalDate={Date}, Observations={Obs}",
@@ -90,17 +91,15 @@ namespace Application.Shared.Commands.PreliminaryProjects.Handlers
                 updatedProperties.Add(x => x.Observations);
             }
 
-            // Registrar historial de observaciones
-            if (!string.IsNullOrWhiteSpace(request.Dto.Observations))
-            {
-                await ObservationHistoryHelper.CreateAsync(_unitOfWork,
-                    entityType: nameof(PreliminaryProject),
-                    entityId: entity.Id,
-                    evaluatorId: request.CurrentUser.UserId ?? 0,
-                    evaluationTypeCode: EvaluationTypeCodes.PreliminaryProject,
-                    observations: request.Dto.Observations,
-                    cancellationToken);
-            }
+            // Registrar historial de observaciones solo si hay texto nuevo/distinto
+            await ObservationHistoryHelper.CreateIfChangedAsync(_unitOfWork,
+                entityType: nameof(PreliminaryProject),
+                entityId: entity.Id,
+                evaluatorId: request.CurrentUser.UserId ?? 0,
+                evaluationTypeCode: EvaluationTypeCodes.PreliminaryProject,
+                newObservations: request.Dto.Observations,
+                previousObservations: originalObservations,
+                cancellationToken: cancellationToken);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

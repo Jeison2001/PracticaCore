@@ -38,8 +38,9 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             if (academicPractice == null)
                 return false;
 
-            // Snapshot para notificaciones (copia superficial suficiente para comparar IdStateStage)
+            // Snapshot para notificaciones y deduplicación de observaciones
             var originalStateId = academicPractice.IdStateStage;
+            var originalObservations = academicPractice.Observations;
             var hasStateChange = dto.NewStateStageId.HasValue
                 && dto.NewStateStageId.Value > 0
                 && dto.NewStateStageId.Value != originalStateId;
@@ -47,7 +48,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             // Actualizar campos de institución
             UpdateInstitutionFields(academicPractice, dto);
 
-            // Registrar historial de observaciones
+            // Registrar historial de observaciones solo si hay texto nuevo/distinto
             if (!string.IsNullOrWhiteSpace(dto.Observations))
             {
                 var evaluatorId = request.CurrentUser.UserId 
@@ -55,14 +56,15 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                     ?? academicPractice.IdUserCreatedAt 
                     ?? 1;
 
-                await ObservationHistoryHelper.CreateAsync(
+                await ObservationHistoryHelper.CreateIfChangedAsync(
                     _unitOfWork,
                     entityType: nameof(AcademicPractice),
                     entityId: academicPractice.Id,
                     evaluatorId: evaluatorId,
                     evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
-                    observations: dto.Observations,
-                    cancellationToken);
+                    newObservations: dto.Observations,
+                    previousObservations: originalObservations,
+                    cancellationToken: cancellationToken);
             }
 
             // Cambiar de estado si se especifica (ej: pasar a PA_PEND_APROBACION_DOCUMENTOS después de radicar docs)
