@@ -18,7 +18,6 @@ namespace Application.Features.Research.EventHandlers
     {
         /// <summary>
         /// Permisos iniciales de la fase Sustentación para los usuarios de la inscripción.
-        /// N1PG se asigna al aprobar la inscripción en StartProposalPhaseOnApprovalHandler y no se revoca.
         /// </summary>
         private static readonly string[] InitialPermissions =
         [
