@@ -69,6 +69,40 @@ namespace Tests.UnitTests.Api
         }
 
         [Fact]
+        public async Task GetAll_ForwardsKeysetAndSkipTotalCountParameters()
+        {
+            // Arrange
+            var cursorAt = new DateTimeOffset(2026, 2, 1, 10, 0, 0, TimeSpan.Zero);
+            var request = new PaginatedRequest
+            {
+                PageNumber = 1,
+                PageSize = 25,
+                SortBy = "Code",
+                IsDescending = true,
+                CursorCreatedAt = cursorAt,
+                CursorId = 42,
+                SkipTotalCount = true
+            };
+
+            GetAllEntitiesQuery<BaseEntity<int>, int, BaseDto<int>>? capturedQuery = null;
+            _mediatorMock
+                .Setup(m => m.Send(It.IsAny<GetAllEntitiesQuery<BaseEntity<int>, int, BaseDto<int>>>(), default))
+                .Callback<IRequest<PaginatedResult<BaseDto<int>>>, CancellationToken>((q, _) =>
+                    capturedQuery = (GetAllEntitiesQuery<BaseEntity<int>, int, BaseDto<int>>)q)
+                .ReturnsAsync(new PaginatedResult<BaseDto<int>>());
+
+            // Act
+            await _controller.GetAll(request);
+
+            // Assert
+            Assert.NotNull(capturedQuery);
+            Assert.Equal(cursorAt, capturedQuery!.CursorCreatedAt);
+            Assert.Equal(42L, capturedQuery.CursorId);
+            Assert.True(capturedQuery.SkipTotalCount);
+            Assert.Equal(25, capturedQuery.PageSize);
+        }
+
+        [Fact]
         public async Task Create_ReturnsCreatedAtActionResult_WithEntity()
         {
             // Arrange

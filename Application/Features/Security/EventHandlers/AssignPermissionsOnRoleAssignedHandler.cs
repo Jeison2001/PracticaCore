@@ -1,3 +1,4 @@
+using Domain.Common.Auth;
 using Domain.Entities;
 using Domain.Events;
 using Domain.Interfaces.Repositories;
@@ -23,33 +24,47 @@ namespace Application.Features.Security.EventHandlers
 
         public async Task Handle(UserRoleAssignedEvent notification, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var rolePermissionRepo = _unitOfWork.GetRepository<RolePermission, int>();
+            var permissionRepo = _unitOfWork.GetRepository<Permission, int>();
             var userPermissionRepo = _unitOfWork.GetRepository<UserPermission, int>();
 
             // Obtener todos los permisos asociados al rol asignado
-            var rolePermissions = await rolePermissionRepo.GetAllAsync(
-                x => x.IdRole == notification.RoleId && x.StatusRegister);
+            var rolePermissions = (await rolePermissionRepo.GetAllAsync(
+                x => x.IdRole == notification.RoleId && x.StatusRegister)).ToList();
 
-            if (!rolePermissions.Any()) return;
+            if (rolePermissions.Count == 0) return;
 
+            var activePermissions = (await permissionRepo.GetAllAsync(p => p.StatusRegister)).ToList();
+            var resolvedPermissions = PermissionTreeHelper.ResolveActiveWithAncestorsByIds(
+                activePermissions,
+                rolePermissions.Select(rp => rp.IdPermission));
+
+            if (resolvedPermissions.Count == 0) return;
+
+            var resolvedPermissionIds = resolvedPermissions.Select(p => p.Id).ToList();
+            var existingByPermissionId = (await userPermissionRepo.GetAllAsync(
+                    x => x.IdUser == notification.UserId && resolvedPermissionIds.Contains(x.IdPermission)))
+                .GroupBy(x => x.IdPermission)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var now = DateTimeOffset.UtcNow;
             var operationRegister = $"Asignación automática por Rol ID: {notification.RoleId}";
+            var toAdd = new List<UserPermission>();
 
-            foreach (var rolePermission in rolePermissions)
+            foreach (var perm in resolvedPermissions)
             {
-                var existingUserPermission = (await userPermissionRepo.GetAllAsync(
-                    x => x.IdUser == notification.UserId && x.IdPermission == rolePermission.IdPermission))
-                    .FirstOrDefault();
-
-                if (existingUserPermission == null)
+                if (!existingByPermissionId.TryGetValue(perm.Id, out var existingUserPermission))
                 {
-                    await userPermissionRepo.AddAsync(new UserPermission
+                    toAdd.Add(new UserPermission
                     {
                         IdUser = notification.UserId,
-                        IdPermission = rolePermission.IdPermission,
+                        IdPermission = perm.Id,
                         IdUserCreatedAt = notification.TriggeredByUserId,
                         OperationRegister = operationRegister,
                         StatusRegister = true,
-                        CreatedAt = DateTimeOffset.UtcNow
+                        CreatedAt = now
                     });
                 }
                 else if (!existingUserPermission.StatusRegister)
@@ -57,10 +72,15 @@ namespace Application.Features.Security.EventHandlers
                     // El nuevo rol asignado reactiva el permiso para el usuario
                     existingUserPermission.StatusRegister = true;
                     existingUserPermission.IdUserUpdatedAt = notification.TriggeredByUserId;
-                    existingUserPermission.UpdatedAt = DateTimeOffset.UtcNow;
+                    existingUserPermission.UpdatedAt = now;
                     existingUserPermission.OperationRegister = $"Reactivación por asignación de Rol ID: {notification.RoleId}";
                     await userPermissionRepo.UpdateAsync(existingUserPermission);
                 }
+            }
+
+            if (toAdd.Count > 0)
+            {
+                await userPermissionRepo.AddRangeAsync(toAdd);
             }
         }
     }

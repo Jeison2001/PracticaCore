@@ -1,3 +1,4 @@
+using Domain.Common.Auth;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 
@@ -15,6 +16,10 @@ namespace Application.Features.Shared.Services
             int triggeredByUserId,
             CancellationToken cancellationToken = default)
         {
+            if (permissionCodes == null || permissionCodes.Length == 0) return;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
             var userInscriptionModalityRepo = unitOfWork.GetRepository<UserInscriptionModality, int>();
             var permissionRepo = unitOfWork.GetRepository<Permission, int>();
             var userPermissionRepo = unitOfWork.GetRepository<UserPermission, int>();
@@ -23,35 +28,57 @@ namespace Application.Features.Shared.Services
             var userIds = (await userInscriptionModalityRepo.GetAllAsync(
                     x => x.IdInscriptionModality == inscriptionModalityId && x.StatusRegister))
                 .Select(x => x.IdUser)
+                .Distinct()
                 .ToList();
 
             if (userIds.Count == 0) return;
 
-            // 2. Resolver los IDs de los permisos por código (filtrado en BD)
-            var allPermissions = await permissionRepo.GetAllAsync(
-                p => permissionCodes.Contains(p.Code) && p.StatusRegister);
+            // 2. Resolver permisos activos solicitados junto con sus ancestros activos
+            var activePermissions = (await permissionRepo.GetAllAsync(p => p.StatusRegister)).ToList();
+            var resolvedPermissions = PermissionTreeHelper.ResolveActiveWithAncestors(activePermissions, permissionCodes);
+            if (resolvedPermissions.Count == 0) return;
+
+            var resolvedPermissionIds = resolvedPermissions.Select(p => p.Id).ToList();
+
+            // 3. Cargar en lote los UserPermission existentes para evitar consultas N+1
+            var existingUserPermissions = (await userPermissionRepo.GetAllAsync(
+                    up => userIds.Contains(up.IdUser) && resolvedPermissionIds.Contains(up.IdPermission)))
+                .GroupBy(up => (up.IdUser, up.IdPermission))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var now = DateTimeOffset.UtcNow;
+            var toAdd = new List<UserPermission>();
 
             foreach (var userId in userIds)
             {
-                foreach (var perm in allPermissions)
+                foreach (var perm in resolvedPermissions)
                 {
-                    // 3. Idempotencia: asignar solo si no existe ya
-                    var exists = await userPermissionRepo.AnyAsync(
-                        up => up.IdUser == userId && up.IdPermission == perm.Id, cancellationToken);
-
-                    if (!exists)
+                    if (!existingUserPermissions.TryGetValue((userId, perm.Id), out var existing))
                     {
-                        await userPermissionRepo.AddAsync(new UserPermission
+                        toAdd.Add(new UserPermission
                         {
                             IdUser = userId,
                             IdPermission = perm.Id,
                             IdUserCreatedAt = triggeredByUserId,
                             OperationRegister = "Asignado automáticamente por DomainEvent",
                             StatusRegister = true,
-                            CreatedAt = DateTimeOffset.UtcNow
+                            CreatedAt = now
                         });
                     }
+                    else if (!existing.StatusRegister)
+                    {
+                        existing.StatusRegister = true;
+                        existing.UpdatedAt = now;
+                        existing.IdUserUpdatedAt = triggeredByUserId;
+                        existing.OperationRegister = "Reactivado automáticamente por DomainEvent";
+                        await userPermissionRepo.UpdateAsync(existing);
+                    }
                 }
+            }
+
+            if (toAdd.Count > 0)
+            {
+                await userPermissionRepo.AddRangeAsync(toAdd);
             }
         }
     }

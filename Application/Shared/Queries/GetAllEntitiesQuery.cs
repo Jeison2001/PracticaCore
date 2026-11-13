@@ -15,5 +15,8 @@ namespace Application.Shared.Queries
         public string? SortBy { get; init; }
         public bool IsDescending { get; init; } = false;
         public Dictionary<string, string>? Filters { get; init; }
+        public DateTimeOffset? CursorCreatedAt { get; init; }
+        public long? CursorId { get; init; }
+        public bool SkipTotalCount { get; init; } = false;
     }
 }

@@ -124,16 +124,29 @@ namespace Infrastructure.Repositories
                 }
             }
 
-            var totalRecords = (usingKeyset && skipTotalCount)
-                ? -1
-                : (skipTotalCount ? -1 : await query.CountAsync(cancellationToken));
-
-            // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
+            // PageSize <= 0: sin paginación — una sola consulta SQL sin COUNT(*) previo
             if (pageSize <= 0)
             {
-                pageNumber = 1;
-                pageSize = Math.Max(totalRecords, 1);
+                var allItems = await query.ToListAsync(cancellationToken);
+                var allTotalRecords = skipTotalCount ? -1 : allItems.Count;
+                var allDeliveredPageSize = Math.Max(allItems.Count, 1);
+                var allLastItem = allItems.LastOrDefault();
+
+                return new PaginatedResult<T>
+                {
+                    Items = allItems,
+                    TotalRecords = allTotalRecords,
+                    PageNumber = 1,
+                    PageSize = allDeliveredPageSize,
+                    HasMoreRows = null,
+                    CursorCreatedAt = allLastItem?.CreatedAt,
+                    CursorId = allLastItem != null ? Convert.ToInt64(allLastItem.Id) : null
+                };
             }
+
+            var totalRecords = (usingKeyset || skipTotalCount)
+                ? -1
+                : await query.CountAsync(cancellationToken);
 
             var pagedQuery = (usingKeyset || skipTotalCount)
                 ? (usingKeyset ? query.Take(pageSize + 1) : query.Skip((pageNumber - 1) * pageSize).Take(pageSize + 1))

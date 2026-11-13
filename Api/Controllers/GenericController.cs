@@ -42,7 +42,10 @@ namespace Api.Controllers
                 PageSize = request.PageSize,
                 SortBy = request.SortBy,
                 IsDescending = request.IsDescending,
-                Filters = request.Filters
+                Filters = request.Filters,
+                CursorCreatedAt = request.CursorCreatedAt,
+                CursorId = request.CursorId,
+                SkipTotalCount = request.SkipTotalCount
             };
 
             var result = await _mediator.Send(query);

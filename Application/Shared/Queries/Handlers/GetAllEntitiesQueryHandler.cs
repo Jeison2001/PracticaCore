@@ -25,12 +25,27 @@ namespace Application.Shared.Queries.Handlers
 
         public async Task<PaginatedResult<TDto>> Handle(GetAllEntitiesQuery<T, TId, TDto> request, CancellationToken ct)
         {
-            Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null;
-            if (!string.IsNullOrEmpty(request.SortBy))
+            var usingKeyset = (request.CursorCreatedAt.HasValue || request.CursorId.HasValue) && request.PageSize > 0;
+            Func<IQueryable<T>, IOrderedQueryable<T>> orderBy;
+
+            if (usingKeyset)
             {
-                orderBy = query => request.IsDescending
-                    ? query.OrderByDescending(e => EF.Property<object>(e, request.SortBy))
-                    : query.OrderBy(e => EF.Property<object>(e, request.SortBy));
+                // Keyset: orden forzado a (CreatedAt DESC, Id DESC) para estabilidad del cursor
+                orderBy = query => query.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
+            }
+            else if (!string.IsNullOrEmpty(request.SortBy))
+            {
+                orderBy = query =>
+                {
+                    var ordered = request.IsDescending
+                        ? query.OrderByDescending(e => EF.Property<object>(e, request.SortBy))
+                        : query.OrderBy(e => EF.Property<object>(e, request.SortBy));
+                    return ordered.ThenByDescending(e => EF.Property<object>(e, "Id"));
+                };
+            }
+            else
+            {
+                orderBy = query => query.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
             }
 
             // Convertir filtros de diccionario a expresión de LINQ
@@ -40,7 +55,11 @@ namespace Application.Shared.Queries.Handlers
                 filter: filter,
                 orderBy: orderBy,
                 pageNumber: request.PageNumber,
-                pageSize: request.PageSize
+                pageSize: request.PageSize,
+                cancellationToken: ct,
+                cursorId: request.CursorId,
+                cursorCreatedAt: request.CursorCreatedAt,
+                skipTotalCount: request.SkipTotalCount
             );
 
             var dtoResult = new PaginatedResult<TDto>
@@ -48,7 +67,10 @@ namespace Application.Shared.Queries.Handlers
                 Items = _mapper.Map<IEnumerable<TDto>>(paginatedResult.Items),
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
-                PageSize = paginatedResult.PageSize
+                PageSize = paginatedResult.PageSize,
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
 
             return dtoResult;
