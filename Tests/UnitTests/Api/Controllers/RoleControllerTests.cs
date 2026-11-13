@@ -147,5 +147,21 @@ namespace Tests.UnitTests.Api.Controllers
             Assert.False(apiResponse.Success);
             Assert.Contains("Entity not found or update failed", apiResponse.Errors!);
         }
+
+        [Fact]
+        public void GetById_AndGetAll_RequireAuthorize_AndAreNotAllowAnonymous()
+        {
+            var getByIdMethod = typeof(RoleController).GetMethod(nameof(RoleController.GetById));
+            var getAllMethod = typeof(RoleController).GetMethod(nameof(RoleController.GetAll));
+
+            Assert.NotNull(getByIdMethod);
+            Assert.NotNull(getAllMethod);
+
+            Assert.NotEmpty(getByIdMethod!.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), inherit: false));
+            Assert.Empty(getByIdMethod.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute), inherit: false));
+
+            Assert.NotEmpty(getAllMethod!.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), inherit: false));
+            Assert.Empty(getAllMethod.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute), inherit: false));
+        }
     }
 }

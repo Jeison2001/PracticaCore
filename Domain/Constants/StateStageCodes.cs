@@ -14,7 +14,9 @@ namespace Domain.Constants
 
         // Propuesta (Proyecto de Grado — Fase Propuesta)
         public const string PgPropuestaInicial      = "PG_PROPUESTA_INICIAL";
+        public const string PropRadicada            = "PROP_RADICADA";
         public const string PropPertinente         = "PROP_PERTINENTE";
+        public const string PropNoPertinente        = "PROP_NO_PERTINENTE";
 
         // Anteproyecto (Proyecto de Grado — Fase Anteproyecto)
         public const string ApAprobado             = "AP_APROBADO";

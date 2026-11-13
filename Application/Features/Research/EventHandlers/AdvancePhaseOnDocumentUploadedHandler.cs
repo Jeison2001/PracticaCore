@@ -1,11 +1,12 @@
+using Application.Common.Services;
+using Application.Common.Services.Jobs;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Events;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Domain.Interfaces.Services.Jobs;
-using Application.Common.Services.Jobs;
 
 namespace Application.Features.Research.EventHandlers
 {
@@ -59,7 +60,16 @@ namespace Application.Features.Research.EventHandlers
             string? targetCode = null;
             if (currentState.Code == StateStageCodes.ApPendienteDocumento)
             {
-                targetCode = StateStageCodes.ApRadicadoPendAsigEval;
+                var confirmedJuradosCount = await TeachingAssignmentEvaluationHelper.CountConfirmedJuradosAsync(
+                    _unitOfWork,
+                    _unitOfWork.GetRepository<TeachingAssignment, int>(),
+                    notification.InscriptionModalityId,
+                    knownJuradoTypeId: null,
+                    cancellationToken);
+
+                targetCode = confirmedJuradosCount >= TeachingAssignmentEvaluationHelper.MinimumConfirmedJurados
+                    ? StateStageCodes.ApEnEvaluacion
+                    : StateStageCodes.ApRadicadoPendAsigEval;
             }
             else if (currentState.Code == StateStageCodes.ApConObservaciones || currentState.Code == "AP_CON_OBSERVACIONES")
             {

@@ -62,6 +62,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
                 CargoCode = ta.TypeTeachingAssignment?.Code,
                 CargoName = ta.TypeTeachingAssignment?.Name,
                 RevocationDate = ta.RevocationDate,
+                IsConfirmed = ta.IsConfirmed,
             }).ToList();
 
         var documents = await _context.Set<Document>()

@@ -81,7 +81,8 @@ namespace Application.Shared.Queries.PreliminaryProjects.Handlers
                             CargoId = t.CargoId,
                             CargoCode = t.CargoCode,
                             CargoName = t.CargoName,
-                            RevocationDate = t.RevocationDate
+                            RevocationDate = t.RevocationDate,
+                            IsConfirmed = t.IsConfirmed
                         }).ToList()
                     }
                 }).ToList(),

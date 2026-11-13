@@ -72,11 +72,32 @@ namespace Tests.Integration.Authorization
         [Fact]
         public async Task AllowAnonymousEndpoint_WithNoPermissions_ReturnsOk()
         {
+            using var request = CreateRequest("GET", "/api/AcademicProgram", "NONE");
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task AuthorizedOnlyEndpoint_AuthenticatedWithNoPermissions_ReturnsOk()
+        {
             using var request = CreateRequest("GET", "/api/Role", "NONE");
 
             var response = await _client.SendAsync(request);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task AuthorizedOnlyEndpoint_Unauthenticated_ReturnsUnauthorized()
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/Role");
+            request.Headers.Add("X-Test-Anonymous", "true");
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
 
         private static HttpRequestMessage CreateRequest(string method, string url, string permissionsHeader)

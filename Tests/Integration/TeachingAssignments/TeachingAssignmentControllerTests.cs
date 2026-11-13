@@ -1,11 +1,16 @@
 using System.Net;
 using System.Net.Http.Json;
 using Api.Responses;
+using Application.Shared.DTOs.Proposals;
 using Application.Shared.DTOs.TeachingAssignments;
+using Domain.Common;
+using Domain.Constants;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Tests.Integration.Utilities;
 using Xunit;
 
 namespace Tests.Integration.TeachingAssignments
@@ -414,6 +419,506 @@ namespace Tests.Integration.TeachingAssignments
         {
             var response = await _client.GetAsync("/api/TeachingAssignment/ByTeacher/0");
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task Create_AsStudentWithN3PGRP_ForcesUnconfirmed_DoesNotSendEmail_AndHidesFromTeacherQueries()
+        {
+            var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
+            int studentId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var student = new User
+                {
+                    FirstName = "Student",
+                    LastName = "Proposer",
+                    Email = $"student_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = teacher.IdIdentificationType,
+                    IdAcademicProgram = teacher.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(student);
+                await context.SaveChangesAsync();
+                studentId = student.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdUser = studentId,
+                    StatusRegister = true
+                });
+
+                var researchLine = new ResearchLine { Name = "Line " + Guid.NewGuid(), Description = "Desc", StatusRegister = true };
+                context.Set<ResearchLine>().Add(researchLine);
+                await context.SaveChangesAsync();
+
+                var subLine = new ResearchSubLine { Name = "SubLine " + Guid.NewGuid(), Description = "Desc", IdResearchLine = researchLine.Id, StatusRegister = true };
+                context.Set<ResearchSubLine>().Add(subLine);
+
+                var stateStage = new StateStage { Name = "Stage " + Guid.NewGuid(), Code = "ST_" + Guid.NewGuid().ToString("N")[..6], StatusRegister = true };
+                context.Set<StateStage>().Add(stateStage);
+                await context.SaveChangesAsync();
+
+                context.Set<Proposal>().Add(new Proposal
+                {
+                    Id = inscriptionModality.Id,
+                    Title = "Student Proposal",
+                    GeneralObjective = "Goal",
+                    SpecificObjectives = new List<string> { "Obj 1" },
+                    Description = "Desc",
+                    IdResearchLine = researchLine.Id,
+                    IdResearchSubLine = subLine.Id,
+                    IdStateStage = stateStage.Id,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            _factory.EnqueuedJobs.Clear();
+
+            var dto = new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = typeTeaching.Id,
+                IsConfirmed = true, // attempt to spoof committee confirmation
+                StatusRegister = true
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/TeachingAssignment")
+            {
+                Content = JsonContent.Create(dto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            request.Headers.Add("X-Test-UserId", studentId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            var created = await response.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            created!.Data!.IsConfirmed.Should().BeFalse();
+            _factory.EnqueuedJobs.Should().NotContain(j => j.MethodName == "HandleTeachingAssignmentCreationAsync");
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await context.Set<TeachingAssignment>().FirstAsync(x => x.Id == created.Data.Id);
+                persisted.IsConfirmed.Should().BeFalse();
+            }
+
+            using var byTeacherReq = new HttpRequestMessage(HttpMethod.Get, $"/api/TeachingAssignment/ByTeacher/{teacher.Id}");
+            byTeacherReq.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N4PGPPR);
+            byTeacherReq.Headers.Add("X-Test-UserId", teacher.Id.ToString());
+            var byTeacherResp = await _client.SendAsync(byTeacherReq);
+            byTeacherResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            var byTeacherData = await byTeacherResp.Content.ReadFromJsonAsync<ApiResponse<List<TeacherCargoGroupDto>>>();
+            byTeacherData!.Data.Should().BeEmpty();
+
+            var proposalsByTeacherResp = await _client.GetAsync($"/api/Proposal/ByTeacher/{teacher.Id}?PageNumber=1&PageSize=10");
+            proposalsByTeacherResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            var proposalsByTeacher = await proposalsByTeacherResp.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>>>();
+            proposalsByTeacher!.Data!.Items.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task Create_AsStudentForJuradoEvaluador_ReturnsBadRequest()
+        {
+            var (teacher, inscriptionModality, _) = await SeedDataAsync();
+            int studentId;
+            int juradoCargoId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var student = new User
+                {
+                    FirstName = "Student",
+                    LastName = "JuradoTest",
+                    Email = $"student_j_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = teacher.IdIdentificationType,
+                    IdAcademicProgram = teacher.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(student);
+
+                var jurado = new TypeTeachingAssignment
+                {
+                    Code = "JURADO_EVALUADOR",
+                    Name = "Jurado Evaluador",
+                    Description = "Jurado",
+                    MaxAssignments = 20,
+                    StatusRegister = true
+                };
+                context.Set<TypeTeachingAssignment>().Add(jurado);
+                await context.SaveChangesAsync();
+
+                studentId = student.Id;
+                juradoCargoId = jurado.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdUser = studentId,
+                    StatusRegister = true
+                });
+                context.Set<TeacherEnabledCargo>().Add(new TeacherEnabledCargo
+                {
+                    IdUser = teacher.Id,
+                    IdTypeTeachingAssignment = juradoCargoId,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            var dto = new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = juradoCargoId,
+                StatusRegister = true
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/TeachingAssignment")
+            {
+                Content = JsonContent.Create(dto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            request.Headers.Add("X-Test-UserId", studentId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task Create_AsNonMemberStudent_ReturnsUnauthorized()
+        {
+            var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
+            int nonMemberStudentId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var outsider = new User
+                {
+                    FirstName = "Outsider",
+                    LastName = "Student",
+                    Email = $"outsider_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = teacher.IdIdentificationType,
+                    IdAcademicProgram = teacher.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(outsider);
+                await context.SaveChangesAsync();
+                nonMemberStudentId = outsider.Id;
+            }
+
+            var dto = new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = typeTeaching.Id,
+                StatusRegister = true
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/TeachingAssignment")
+            {
+                Content = JsonContent.Create(dto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            request.Headers.Add("X-Test-UserId", nonMemberStudentId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
+
+        [Fact]
+        public async Task Update_AsCommitteeRatifiesStudentSuggestion_ConfirmsAndEnqueuesCreationEmail()
+        {
+            var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
+            int assignmentId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var suggestion = new TeachingAssignment
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdTeacher = teacher.Id,
+                    IdTypeTeachingAssignment = typeTeaching.Id,
+                    IsConfirmed = false,
+                    StatusRegister = true
+                };
+                context.Set<TeachingAssignment>().Add(suggestion);
+                await context.SaveChangesAsync();
+                assignmentId = suggestion.Id;
+            }
+
+            _factory.EnqueuedJobs.Clear();
+
+            var updateDto = new TeachingAssignmentDto
+            {
+                Id = assignmentId,
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = typeTeaching.Id,
+                IsConfirmed = false,
+                StatusRegister = true
+            };
+
+            var response = await _client.PutAsJsonAsync($"/api/TeachingAssignment/{assignmentId}", updateDto);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var updated = await response.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            updated!.Data!.IsConfirmed.Should().BeTrue();
+            _factory.EnqueuedJobs.Should().ContainSingle(j => j.MethodName == "HandleTeachingAssignmentCreationAsync");
+            _factory.EnqueuedJobs.Should().NotContain(j => j.MethodName == "HandleTeachingAssignmentChangeAsync");
+
+            var byTeacherResp = await _client.GetAsync($"/api/TeachingAssignment/ByTeacher/{teacher.Id}");
+            byTeacherResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            var groups = await byTeacherResp.Content.ReadFromJsonAsync<ApiResponse<List<TeacherCargoGroupDto>>>();
+            groups!.Data.Should().ContainSingle();
+        }
+
+        [Fact]
+        public async Task Create_SecondConfirmedJurado_AdvancesPreliminaryProjectToEnEvaluacion()
+        {
+            var (teacher1, inscriptionModality, _) = await SeedDataAsync();
+            int teacher2Id;
+            int juradoCargoId;
+            int radicadoPendId;
+            int enEvaluacionId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var radicadoPend = context.Set<StateStage>().FirstOrDefault(s => s.Code == StateStageCodes.ApRadicadoPendAsigEval)
+                    ?? new StateStage { Code = StateStageCodes.ApRadicadoPendAsigEval, Name = "Radicado Pend Asig Eval", StatusRegister = true };
+                if (radicadoPend.Id == 0) context.Set<StateStage>().Add(radicadoPend);
+
+                var enEvaluacion = context.Set<StateStage>().FirstOrDefault(s => s.Code == StateStageCodes.ApEnEvaluacion)
+                    ?? new StateStage { Code = StateStageCodes.ApEnEvaluacion, Name = "En Evaluacion", StatusRegister = true };
+                if (enEvaluacion.Id == 0) context.Set<StateStage>().Add(enEvaluacion);
+
+                await context.SaveChangesAsync();
+                radicadoPendId = radicadoPend.Id;
+                enEvaluacionId = enEvaluacion.Id;
+
+                var teacher2 = new User
+                {
+                    FirstName = "Second",
+                    LastName = "Evaluator",
+                    Email = $"teacher2_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = teacher1.IdIdentificationType,
+                    IdAcademicProgram = teacher1.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(teacher2);
+
+                var jurado = context.Set<TypeTeachingAssignment>().FirstOrDefault(t => t.Code == "JURADO_EVALUADOR" && t.StatusRegister)
+                    ?? new TypeTeachingAssignment
+                    {
+                        Code = "JURADO_EVALUADOR",
+                        Name = "Jurado Evaluador",
+                        Description = "Jurado",
+                        MaxAssignments = 20,
+                        StatusRegister = true
+                    };
+                if (jurado.Id == 0)
+                    context.Set<TypeTeachingAssignment>().Add(jurado);
+
+                await context.SaveChangesAsync();
+                teacher2Id = teacher2.Id;
+                juradoCargoId = jurado.Id;
+
+                context.Set<TeacherEnabledCargo>().AddRange(
+                    new TeacherEnabledCargo { IdUser = teacher1.Id, IdTypeTeachingAssignment = juradoCargoId, StatusRegister = true },
+                    new TeacherEnabledCargo { IdUser = teacher2Id, IdTypeTeachingAssignment = juradoCargoId, StatusRegister = true });
+
+                context.Set<PreliminaryProject>().Add(new PreliminaryProject
+                {
+                    Id = inscriptionModality.Id,
+                    IdStateStage = radicadoPendId,
+                    StatusRegister = true,
+                    OperationRegister = "Seed"
+                });
+                await context.SaveChangesAsync();
+            }
+
+            var firstResp = await _client.PostAsJsonAsync("/api/TeachingAssignment", new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher1.Id,
+                IdTypeTeachingAssignment = juradoCargoId,
+                StatusRegister = true
+            });
+            firstResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var projectAfterOne = await context.Set<PreliminaryProject>().FindAsync(inscriptionModality.Id);
+                projectAfterOne!.IdStateStage.Should().Be(radicadoPendId);
+            }
+
+            var secondResp = await _client.PostAsJsonAsync("/api/TeachingAssignment", new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher2Id,
+                IdTypeTeachingAssignment = juradoCargoId,
+                StatusRegister = true
+            });
+            secondResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var projectAfterTwo = await context.Set<PreliminaryProject>().FindAsync(inscriptionModality.Id);
+                projectAfterTwo!.IdStateStage.Should().Be(enEvaluacionId);
+            }
+        }
+
+        [Fact]
+        public async Task GetAssignmentsByTeacher_AndByTeacherAndCargo_EnforceOwnershipWithoutManagementPermission()
+        {
+            var (teacher1, inscriptionModality, typeTeaching) = await SeedDataAsync();
+            int teacher2Id;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var teacher2 = new User
+                {
+                    FirstName = "Other",
+                    LastName = "Teacher",
+                    Email = $"other_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = teacher1.IdIdentificationType,
+                    IdAcademicProgram = teacher1.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(teacher2);
+                await context.SaveChangesAsync();
+                teacher2Id = teacher2.Id;
+
+                context.Set<TeachingAssignment>().Add(new TeachingAssignment
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdTeacher = teacher2Id,
+                    IdTypeTeachingAssignment = typeTeaching.Id,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            // Teacher 1 querying Teacher 2 with only review permission -> Forbid
+            using var crossTeacherReq = new HttpRequestMessage(HttpMethod.Get, $"/api/TeachingAssignment/ByTeacher/{teacher2Id}");
+            crossTeacherReq.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N4PGPPR);
+            crossTeacherReq.Headers.Add("X-Test-UserId", teacher1.Id.ToString());
+            (await _client.SendAsync(crossTeacherReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            using var crossCargoReq = new HttpRequestMessage(HttpMethod.Get, $"/api/TeachingAssignment/ByTeacherAndCargo/{teacher2Id}/{typeTeaching.Id}");
+            crossCargoReq.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N4PGPPR);
+            crossCargoReq.Headers.Add("X-Test-UserId", teacher1.Id.ToString());
+            (await _client.SendAsync(crossCargoReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // Teacher 2 querying self with only review permission -> OK
+            using var selfReq = new HttpRequestMessage(HttpMethod.Get, $"/api/TeachingAssignment/ByTeacher/{teacher2Id}");
+            selfReq.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N4PGPPR);
+            selfReq.Headers.Add("X-Test-UserId", teacher2Id.ToString());
+            (await _client.SendAsync(selfReq)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+            // Committee/management user querying Teacher 2 -> OK
+            using var committeeReq = new HttpRequestMessage(HttpMethod.Get, $"/api/TeachingAssignment/ByTeacherAndCargo/{teacher2Id}/{typeTeaching.Id}");
+            committeeReq.Headers.Add("X-Test-Permissions", $"{PermissionCodes.ProyectoGrado.N4PGPPR},{PermissionCodes.ProyectoGrado.N4PGPPG}");
+            committeeReq.Headers.Add("X-Test-UserId", teacher1.Id.ToString());
+            (await _client.SendAsync(committeeReq)).StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task Create_AsCoordinatorForPreviouslySuggestedAssignment_PromotesToConfirmedAndEnqueuesCreationEmail()
+        {
+            var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
+            int studentId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var student = new User
+                {
+                    FirstName = "Suggester",
+                    LastName = "Student",
+                    Email = $"suggester_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = teacher.IdIdentificationType,
+                    IdAcademicProgram = teacher.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(student);
+                await context.SaveChangesAsync();
+                studentId = student.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdUser = studentId,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            var dto = new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = typeTeaching.Id,
+                IsConfirmed = true,
+                StatusRegister = true
+            };
+
+            // Step 1: Student suggests teacher -> unconfirmed, no email
+            using var studentReq = new HttpRequestMessage(HttpMethod.Post, "/api/TeachingAssignment")
+            {
+                Content = JsonContent.Create(dto)
+            };
+            studentReq.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            studentReq.Headers.Add("X-Test-UserId", studentId.ToString());
+
+            var studentResp = await _client.SendAsync(studentReq);
+            studentResp.StatusCode.Should().Be(HttpStatusCode.Created);
+            var suggested = await studentResp.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            suggested!.Data!.IsConfirmed.Should().BeFalse();
+
+            _factory.EnqueuedJobs.Clear();
+
+            // Step 2: Coordinator POSTs same teacher/cargo -> promotes existing assignment idempotently & enqueues email
+            var coordResp = await _client.PostAsJsonAsync("/api/TeachingAssignment", dto);
+            coordResp.StatusCode.Should().Be(HttpStatusCode.Created);
+            var promoted = await coordResp.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            promoted!.Data!.Id.Should().Be(suggested.Data.Id);
+            promoted.Data.IsConfirmed.Should().BeTrue();
+            _factory.EnqueuedJobs.Should().ContainSingle(j => j.MethodName == "HandleTeachingAssignmentCreationAsync");
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var matches = await context.Set<TeachingAssignment>()
+                    .Where(x => x.IdInscriptionModality == inscriptionModality.Id &&
+                                x.IdTeacher == teacher.Id &&
+                                x.IdTypeTeachingAssignment == typeTeaching.Id &&
+                                x.StatusRegister)
+                    .ToListAsync();
+                matches.Should().ContainSingle();
+                matches[0].IsConfirmed.Should().BeTrue();
+            }
         }
     }
 }

@@ -1,5 +1,8 @@
+using System.Net;
 using Application.Shared.DTOs.Roles;
 using Domain.Entities;
+using FluentAssertions;
+using Xunit;
 
 namespace Tests.Integration.Roles
 {
@@ -31,6 +34,18 @@ namespace Tests.Integration.Roles
                 Description = "System Administrator",
                 StatusRegister = true
             };
+        }
+
+        [Fact]
+        public async Task GetAll_AndGetById_WhenUnauthenticated_ReturnUnauthorized()
+        {
+            using var getAllReq = new HttpRequestMessage(HttpMethod.Get, BaseUrl);
+            getAllReq.Headers.Add("X-Test-Anonymous", "true");
+            (await _client.SendAsync(getAllReq)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+            using var getByIdReq = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/1");
+            getByIdReq.Headers.Add("X-Test-Anonymous", "true");
+            (await _client.SendAsync(getByIdReq)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
     }
 }

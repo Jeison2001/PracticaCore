@@ -15,11 +15,11 @@ namespace Api.Controllers
         {
         }
 
-        [AllowAnonymous]
+        [Authorize]
         [HttpGet("{id}")]
         public override async Task<IActionResult> GetById(int id) => await base.GetById(id);
 
-        [AllowAnonymous]
+        [Authorize]
         [HttpGet]
         public override async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request) => await base.GetAll(request);
 

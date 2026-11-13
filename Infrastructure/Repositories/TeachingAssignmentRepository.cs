@@ -59,6 +59,7 @@ namespace Infrastructure.Repositories
                     .ThenInclude(im => im.StateInscription)
                 .Where(ta => ta.IdTeacher == teacherId
                              && ta.StatusRegister
+                             && ta.IsConfirmed
                              && ta.InscriptionModality.StatusRegister);
 
             if (cargoId.HasValue)

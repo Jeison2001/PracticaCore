@@ -10,6 +10,7 @@ using Domain.Common.Extensions;
 using Domain.Constants;
 using Domain.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
@@ -72,7 +73,7 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="id">ID del usuario</param>
         /// <returns>Lista de roles del usuario con información del registro de relación</returns>
-        [RequirePermission(PermissionCodes.Configuraciones.N2CFP, PermissionCodes.Configuraciones.N3CFSU, PermissionCodes.Configuraciones.N3CFSRL)]
+        [Authorize]
         [HttpGet("ByUser/{id}")]
         public async Task<ActionResult<ApiResponse<List<UserRoleInfoDto>>>> GetUserRolesByUserId(int id)
         {

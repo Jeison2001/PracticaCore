@@ -4,6 +4,7 @@ using Api.Responses;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Users;
 using Domain.Common;
+using Domain.Constants;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Data;
@@ -356,6 +357,64 @@ namespace Tests.Integration.Users
 
             // Verify order is descending
             page2Items[0].CreatedAt.Should().BeOnOrBefore(page1Items[1].CreatedAt);
+        }
+
+        [Fact]
+        public async Task Update_SelfWithoutN3CFSU_ForcesStatusRegisterTrue()
+        {
+            var (idType, program) = await SeedDependenciesAsync();
+            int userId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = new User
+                {
+                    FirstName = "Self",
+                    LastName = "User",
+                    Email = $"self_{Guid.NewGuid():N}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(user);
+                await context.SaveChangesAsync();
+                userId = user.Id;
+            }
+
+            var updateDto = new UserDto
+            {
+                Id = userId,
+                FirstName = "SelfUpdated",
+                LastName = "User",
+                Email = $"self_{Guid.NewGuid():N}@test.com",
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                IdIdentificationType = idType.Id,
+                IdAcademicProgram = program.Id,
+                StatusRegister = false // attempt self-deactivation
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/{userId}")
+            {
+                Content = JsonContent.Create(updateDto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.Configuraciones.N2CFP);
+            request.Headers.Add("X-Test-UserId", userId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<UserDto>>();
+            result!.Data!.FirstName.Should().Be("SelfUpdated");
+            result.Data.StatusRegister.Should().BeTrue();
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await context.Set<User>().FindAsync(userId);
+                persisted!.StatusRegister.Should().BeTrue();
+            }
         }
     }
 }

@@ -123,8 +123,6 @@ namespace Api.Controllers
                 errors.Add("Primer nombre es requerido");
             if (string.IsNullOrEmpty(request.LastName))
                 errors.Add("Apellido es requerido");
-            if (request.RoleId <= 0)
-                errors.Add("Rol es requerido");
 
             if (errors.Any())
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = errors });
@@ -140,9 +138,14 @@ namespace Api.Controllers
                     return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "La identificación ya está registrada" } });
 
                 var roleRepo = _unitOfWork.GetRepository<Domain.Entities.Role, int>();
-                var role = await roleRepo.GetByIdAsync(request.RoleId);
-                if (role == null)
-                    return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Rol no encontrado" } });
+                var studentRole = await roleRepo.GetFirstOrDefaultAsync(
+                    r => r.Code == "STUDENT" && r.StatusRegister,
+                    HttpContext?.RequestAborted ?? CancellationToken.None);
+                if (studentRole == null)
+                    return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El rol de Estudiante no está configurado." } });
+
+                if (request.RoleId > 0 && request.RoleId != studentRole.Id)
+                    return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Solo se permite el registro con el rol de Estudiante." } });
 
                 var user = new Domain.Entities.User
                 {
@@ -161,23 +164,32 @@ namespace Api.Controllers
                 await userRepo.AddAsync(user);
                 await _unitOfWork.CommitAsync();
 
-                var userRole = new Domain.Entities.UserRole
+                try
                 {
-                    IdUser = user.Id,
-                    IdRole = request.RoleId,
-                    StatusRegister = true,
-                    OperationRegister = "User Registration"
-                };
+                    var userRole = new Domain.Entities.UserRole
+                    {
+                        IdUser = user.Id,
+                        IdRole = studentRole.Id,
+                        StatusRegister = true,
+                        OperationRegister = "User Registration"
+                    };
 
-                var userRoleRepo = _unitOfWork.GetRepository<Domain.Entities.UserRole, int>();
-                await userRoleRepo.AddAsync(userRole);
-                await _unitOfWork.CommitAsync();
+                    var userRoleRepo = _unitOfWork.GetRepository<Domain.Entities.UserRole, int>();
+                    await userRoleRepo.AddAsync(userRole);
+                    await _unitOfWork.CommitAsync();
+                }
+                catch
+                {
+                    await userRepo.DeleteAsync(user);
+                    await _unitOfWork.CommitAsync();
+                    throw;
+                }
 
                 var response = new RegisterResponse
                 {
                     Id = user.Id,
                     Email = user.Email,
-                    Role = role.Name
+                    Role = studentRole.Name
                 };
 
                 return Ok(new ApiResponse<RegisterResponse> { Success = true, Data = response });

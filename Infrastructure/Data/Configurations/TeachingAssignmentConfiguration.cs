@@ -16,6 +16,7 @@ namespace Infrastructure.Data.Configurations
             builder.Property(e => e.RevocationDate).HasColumnName("RevocationDate").IsRequired(false);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
             builder.Property(e => e.IdTeacherResearchProfile).HasColumnName("IdTeacherResearchProfile").IsRequired(false);
+            builder.Property(e => e.IsConfirmed).HasColumnName("IsConfirmed").HasDefaultValue(true).IsRequired();
 
             // Configure foreign key relationships
             builder.HasOne(e => e.InscriptionModality)

@@ -17,5 +17,6 @@ namespace Domain.Common.Teachers
         /// <summary>Nombre del cargo: Director, Co-Director, Asesor, Jurado Evaluador.</summary>
         public string? CargoName { get; set; }
         public DateTimeOffset? RevocationDate { get; set; }
+        public bool IsConfirmed { get; set; } = true;
     }
 }

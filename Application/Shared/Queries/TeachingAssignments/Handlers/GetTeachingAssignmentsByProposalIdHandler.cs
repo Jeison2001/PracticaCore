@@ -27,7 +27,8 @@ namespace Application.Shared.Queries.TeachingAssignments.Handlers
                 Email = detail.Teacher?.Email ?? string.Empty,
                 IdTypeTeachingAssignment = detail.TeachingAssignment.IdTypeTeachingAssignment,
                 AssignmentType = detail.TypeTeachingAssignment?.Name ?? string.Empty,
-                StatusRegister = detail.TeachingAssignment.StatusRegister
+                StatusRegister = detail.TeachingAssignment.StatusRegister,
+                IsConfirmed = detail.TeachingAssignment.IsConfirmed
             }).ToList();
             return result;
         }

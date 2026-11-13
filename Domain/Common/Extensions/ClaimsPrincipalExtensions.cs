@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Domain.Common.Auth;
 using Domain.Common.Users;
 
 namespace Domain.Common.Extensions;
@@ -34,7 +35,8 @@ public static class ClaimsPrincipalExtensions
             Email = principal.FindFirst("email")?.Value
                  ?? principal.FindFirst(ClaimTypes.Email)?.Value,
             FirstName = principal.FindFirst("firstName")?.Value,
-            LastName = principal.FindFirst("lastName")?.Value
+            LastName = principal.FindFirst("lastName")?.Value,
+            Permissions = PermissionClaimHelper.ExtractPermissionCodes(principal)
         };
     }
 

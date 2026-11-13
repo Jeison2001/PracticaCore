@@ -196,5 +196,63 @@ namespace Tests.Integration.UserPermissions
             var response = await _client.PutAsJsonAsync($"{BaseUrl}/1", new UserPermissionDto { Id = 1 });
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
+
+        [Fact]
+        public async Task GetByUser_AllowsAuthenticatedOwnerWithoutPermissions_DeniesOtherUser_AndRequiresAuth()
+        {
+            int userId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<Infrastructure.Data.AppDbContext>();
+                var faculty = new Faculty { Name = "F_" + Guid.NewGuid().ToString("N")[..6], Code = "F" + Guid.NewGuid().ToString("N")[..4], StatusRegister = true };
+                context.Set<Faculty>().Add(faculty);
+                var program = new AcademicProgram { Name = "P_" + Guid.NewGuid().ToString("N")[..6], Code = "P" + Guid.NewGuid().ToString("N")[..4], Faculty = faculty, StatusRegister = true };
+                context.Set<AcademicProgram>().Add(program);
+                var idType = new IdentificationType { Name = "IT", Code = "I" + Guid.NewGuid().ToString("N")[..4], Description = "Desc", StatusRegister = true };
+                context.Set<IdentificationType>().Add(idType);
+                var user = new User
+                {
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    FirstName = "Perm",
+                    LastName = "Owner",
+                    Email = $"perm_{Guid.NewGuid():N}@example.com",
+                    IdentificationType = idType,
+                    AcademicProgram = program,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(user);
+                var permission = new Permission
+                {
+                    Code = "PERM_" + Guid.NewGuid().ToString("N")[..6],
+                    Description = "Test Permission",
+                    StatusRegister = true
+                };
+                context.Set<Permission>().Add(permission);
+                await context.SaveChangesAsync();
+
+                context.Set<UserPermission>().Add(new UserPermission
+                {
+                    IdUser = user.Id,
+                    IdPermission = permission.Id,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+                userId = user.Id;
+            }
+
+            using var selfReq = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/ByUser/{userId}");
+            selfReq.Headers.Add("X-Test-Permissions", "NONE");
+            selfReq.Headers.Add("X-Test-UserId", userId.ToString());
+            (await _client.SendAsync(selfReq)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using var otherReq = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/ByUser/{userId + 1000}");
+            otherReq.Headers.Add("X-Test-Permissions", "NONE");
+            otherReq.Headers.Add("X-Test-UserId", userId.ToString());
+            (await _client.SendAsync(otherReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            using var anonReq = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/ByUser/{userId}");
+            anonReq.Headers.Add("X-Test-Anonymous", "true");
+            (await _client.SendAsync(anonReq)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
     }
 }

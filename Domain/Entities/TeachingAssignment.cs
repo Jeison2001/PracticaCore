@@ -7,6 +7,7 @@ namespace Domain.Entities
         public int IdTypeTeachingAssignment { get; set; }
         public DateTimeOffset? RevocationDate { get; set; }
         public int? IdTeacherResearchProfile { get; set; }
+        public bool IsConfirmed { get; set; } = true;
 
         // Navigation properties
         public virtual InscriptionModality InscriptionModality { get; set; } = null!;

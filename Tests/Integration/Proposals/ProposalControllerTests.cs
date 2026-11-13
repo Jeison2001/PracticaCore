@@ -380,5 +380,186 @@ namespace Tests.Integration.Proposals
             result.Data!.Items.First().Proposal.Id.Should().Be(entity.Id);
             result.Data!.Items.First().Teachers.Should().ContainSingle(t => t.IdTeacher == teacherId);
         }
+
+        [Fact]
+        public async Task Update_AsMemberStudentInPropNoPertinente_SubmitsToPropRadicadaAndPreservesObservation()
+        {
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+            int studentId;
+            int noPertinenteStateId;
+            int radicadaStateId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                noPertinenteStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropNoPertinente).Id;
+                radicadaStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropRadicada).Id;
+
+                entity.IdStateStage = noPertinenteStateId;
+                entity.Observation = "Observacion original del comite";
+                context.Set<Proposal>().Add(entity);
+
+                if (!context.Set<AcademicProgram>().Any(x => x.Id == 1))
+                    context.Set<AcademicProgram>().Add(new AcademicProgram { Id = 1, Name = "Prog", Code = "P1" });
+                if (!context.Set<IdentificationType>().Any(x => x.Id == 1))
+                    context.Set<IdentificationType>().Add(new IdentificationType { Id = 1, Name = "ID", Code = "C1", Description = "D" });
+
+                var student = new User
+                {
+                    FirstName = "Subsanador",
+                    LastName = "Student",
+                    Email = $"sub_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdAcademicProgram = 1,
+                    IdIdentificationType = 1,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(student);
+                await context.SaveChangesAsync();
+                studentId = student.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = entity.Id,
+                    IdUser = studentId,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            var updateDto = CreateValidDto();
+            updateDto.Id = entity.Id;
+            updateDto.Title = "Titulo Subsanado";
+            updateDto.IdResearchLine = entity.IdResearchLine;
+            updateDto.IdResearchSubLine = entity.IdResearchSubLine;
+            updateDto.IdStateStage = 30; // attempt to spoof PROP_PERTINENTE
+            updateDto.Observation = "Estudiante intentando borrar observacion";
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/{entity.Id}")
+            {
+                Content = JsonContent.Create(updateDto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            request.Headers.Add("X-Test-UserId", studentId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<ProposalDto>>();
+            result!.Data!.Title.Should().Be("Titulo Subsanado");
+            result.Data.IdStateStage.Should().Be(radicadaStateId);
+            result.Data.Observation.Should().Be("Observacion original del comite");
+        }
+
+        [Fact]
+        public async Task Update_AsNonMemberStudent_ReturnsForbidden()
+        {
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+            int outsiderId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                entity.IdStateStage = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropNoPertinente).Id;
+                context.Set<Proposal>().Add(entity);
+
+                if (!context.Set<AcademicProgram>().Any(x => x.Id == 1))
+                    context.Set<AcademicProgram>().Add(new AcademicProgram { Id = 1, Name = "Prog", Code = "P1" });
+                if (!context.Set<IdentificationType>().Any(x => x.Id == 1))
+                    context.Set<IdentificationType>().Add(new IdentificationType { Id = 1, Name = "ID", Code = "C1", Description = "D" });
+
+                var outsider = new User
+                {
+                    FirstName = "Outsider",
+                    LastName = "User",
+                    Email = $"out_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdAcademicProgram = 1,
+                    IdIdentificationType = 1,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(outsider);
+                await context.SaveChangesAsync();
+                outsiderId = outsider.Id;
+            }
+
+            var updateDto = CreateValidDto();
+            updateDto.Id = entity.Id;
+            updateDto.IdResearchLine = entity.IdResearchLine;
+            updateDto.IdResearchSubLine = entity.IdResearchSubLine;
+            updateDto.IdStateStage = entity.IdStateStage;
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/{entity.Id}")
+            {
+                Content = JsonContent.Create(updateDto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            request.Headers.Add("X-Test-UserId", outsiderId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public async Task Update_AsMemberStudentWhenNotPropNoPertinente_ReturnsBadRequest()
+        {
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+            int studentId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                entity.IdStateStage = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropRadicada).Id;
+                context.Set<Proposal>().Add(entity);
+
+                if (!context.Set<AcademicProgram>().Any(x => x.Id == 1))
+                    context.Set<AcademicProgram>().Add(new AcademicProgram { Id = 1, Name = "Prog", Code = "P1" });
+                if (!context.Set<IdentificationType>().Any(x => x.Id == 1))
+                    context.Set<IdentificationType>().Add(new IdentificationType { Id = 1, Name = "ID", Code = "C1", Description = "D" });
+
+                var student = new User
+                {
+                    FirstName = "Member",
+                    LastName = "User",
+                    Email = $"mem_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdAcademicProgram = 1,
+                    IdIdentificationType = 1,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(student);
+                await context.SaveChangesAsync();
+                studentId = student.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = entity.Id,
+                    IdUser = studentId,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            var updateDto = CreateValidDto();
+            updateDto.Id = entity.Id;
+            updateDto.IdResearchLine = entity.IdResearchLine;
+            updateDto.IdResearchSubLine = entity.IdResearchSubLine;
+            updateDto.IdStateStage = entity.IdStateStage;
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/{entity.Id}")
+            {
+                Content = JsonContent.Create(updateDto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            request.Headers.Add("X-Test-UserId", studentId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
     }
 }

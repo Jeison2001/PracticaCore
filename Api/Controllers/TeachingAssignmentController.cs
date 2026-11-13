@@ -5,6 +5,7 @@ using Application.Shared.DTOs;
 using Application.Shared.DTOs.TeachingAssignments;
 using Application.Shared.Queries.TeachingAssignments;
 using Domain.Common;
+using Domain.Common.Auth;
 using Domain.Common.Extensions;
 using Domain.Constants;
 using Domain.Entities;
@@ -45,6 +46,34 @@ namespace Api.Controllers
         /// <param name="idTeacher">ID del docente (User)</param>
         /// <param name="idCargo">ID opcional del cargo para filtrar únicamente ese cargo</param>
         /// <param name="includeRevoked">Indica si se deben incluir asignaciones revocadas (por defecto false)</param>
+        private static readonly HashSet<string> TeacherReadAllPermissions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            PermissionCodes.Configuraciones.N3CFSU,
+            PermissionCodes.ProyectoGrado.N4PGPPA,
+            PermissionCodes.ProyectoGrado.N4PGPAA,
+            PermissionCodes.PracticaAcademica.N4PAF0PA,
+            PermissionCodes.ProyectoGrado.N4PGPPG,
+            PermissionCodes.ProyectoGrado.N4PGPAG,
+            PermissionCodes.ProyectoGrado.N4PGPPRG,
+            PermissionCodes.ProyectoGrado.N4PGPSG,
+            PermissionCodes.PracticaAcademica.N4PAF0PG,
+            PermissionCodes.PracticaAcademica.N4PAF1PG,
+            PermissionCodes.PracticaAcademica.N4PAF2PG
+        };
+
+        private bool IsCrossTeacherAccessDenied(int idTeacher)
+        {
+            if (User?.Identity?.IsAuthenticated != true)
+                return false;
+
+            var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+            if (TeacherReadAllPermissions.Any(permissions.Contains))
+                return false;
+
+            var currentUserId = User.GetUserId();
+            return !currentUserId.HasValue || currentUserId.Value != idTeacher;
+        }
+
         [RequirePermission(
             PermissionCodes.Configuraciones.N3CFSU,
             PermissionCodes.ProyectoGrado.N4PGPPR,
@@ -62,6 +91,9 @@ namespace Api.Controllers
             [FromQuery] int? idCargo = null,
             [FromQuery] bool includeRevoked = false)
         {
+            if (IsCrossTeacherAccessDenied(idTeacher))
+                return Forbid();
+
             if (idTeacher <= 0)
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El ID de docente debe ser válido." } });
 
@@ -93,6 +125,9 @@ namespace Api.Controllers
             int idCargo,
             [FromQuery] bool includeRevoked = false)
         {
+            if (IsCrossTeacherAccessDenied(idTeacher))
+                return Forbid();
+
             if (idTeacher <= 0 || idCargo <= 0)
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Los IDs de docente y cargo deben ser válidos." } });
 
@@ -101,11 +136,28 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<TeacherAssignedProjectDto>> { Success = true, Data = result });
         }
         
-        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPA, PermissionCodes.ProyectoGrado.N4PGPAA, PermissionCodes.PracticaAcademica.N4PAF0PA)]
+        [RequirePermission(
+            PermissionCodes.ProyectoGrado.N4PGPPA,
+            PermissionCodes.ProyectoGrado.N4PGPAA,
+            PermissionCodes.PracticaAcademica.N4PAF0PA,
+            PermissionCodes.ProyectoGrado.N3PGRP)]
         [HttpPost]
         public override async Task<IActionResult> Create([FromBody] TeachingAssignmentDto dto)
         {
-            var result = await _mediator.Send(new CreateTeachingAssignmentCommand(dto, User.GetCurrentUserInfo()));
+            var effectiveDto = dto;
+            if (User?.Identity?.IsAuthenticated == true)
+            {
+                var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+                var canAssignOfficially =
+                    permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) ||
+                    permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAA) ||
+                    permissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA);
+
+                if (!canAssignOfficially)
+                    effectiveDto = dto with { IsConfirmed = false };
+            }
+
+            var result = await _mediator.Send(new CreateTeachingAssignmentCommand(effectiveDto, User.GetCurrentUserInfo()));
             return CreatedAtAction(nameof(GetByIdInscription), new { id = result.IdInscriptionModality }, new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });
         }
 

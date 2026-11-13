@@ -9,5 +9,6 @@ namespace Application.Shared.DTOs.TeachingAssignments
         public int IdTypeTeachingAssignment { get; set; } // Id del tipo de asignación
         public string AssignmentType { get; set; } = string.Empty;
         public bool StatusRegister { get; set; } // Estado del registro (activo/inactivo)
+        public bool IsConfirmed { get; set; } = true;
     }
 }

@@ -46,6 +46,7 @@ namespace Infrastructure.Extensions
                         CargoCode = r.TypeTeachingAssignment?.Code,
                         CargoName = r.TypeTeachingAssignment?.Name,
                         RevocationDate = r.RevocationDate,
+                        IsConfirmed = r.IsConfirmed,
                     }).ToList());
         }
 

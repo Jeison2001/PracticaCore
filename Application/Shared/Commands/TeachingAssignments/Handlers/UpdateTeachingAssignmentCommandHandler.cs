@@ -1,12 +1,12 @@
+using Application.Common.Services;
+using Application.Common.Services.Jobs;
 using Application.Shared.DTOs.TeachingAssignments;
 using AutoMapper;
-using Domain.Interfaces.Services.Notifications.Dispatcher;
-using MediatR;
-using Microsoft.Extensions.Logging;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
-using Application.Common.Services.Jobs;
+using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Shared.Commands.TeachingAssignments.Handlers
 {
@@ -56,7 +56,9 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                 return _mapper.Map<TeachingAssignmentDto>(entity);
 
             // Capturar solo el valor necesario para notificaciones ANTES de modificar
+            var wasConfirmed = entity.IsConfirmed;
             var originalTeacherId = entity.IdTeacher;
+            var originalTypeId = entity.IdTypeTeachingAssignment;
 
             // Preservar campos de auditoría inmutables
             var originalCreatedAt = entity.CreatedAt;
@@ -70,12 +72,54 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             entity.IdUserCreatedAt = originalIdUserCreatedAt;
             entity.IdUserUpdatedAt = request.CurrentUser.UserId;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
+            entity.IsConfirmed = dto.StatusRegister ? true : wasConfirmed;
+
+            var typeRepo = _unitOfWork.GetRepository<TypeTeachingAssignment, int>();
+            var type = await typeRepo.GetByIdAsync(entity.IdTypeTeachingAssignment);
+
+            var isActivatingFromUnconfirmed = !wasConfirmed && entity.StatusRegister && entity.RevocationDate == null;
+            var isReassigningConfirmed = wasConfirmed &&
+                (originalTeacherId != entity.IdTeacher || originalTypeId != entity.IdTypeTeachingAssignment) &&
+                entity.StatusRegister &&
+                entity.RevocationDate == null;
+
+            if ((isActivatingFromUnconfirmed || isReassigningConfirmed) && type != null)
+            {
+                await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
+                    _repository,
+                    type,
+                    entity.IdTeacher,
+                    excludeAssignmentId: entity.Id,
+                    cancellationToken);
+            }
 
             await _repository.UpdateAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
 
+            if (entity.IsConfirmed &&
+                entity.StatusRegister &&
+                entity.RevocationDate == null &&
+                type != null &&
+                string.Equals(type.Code, TeachingAssignmentEvaluationHelper.JuradoEvaluadorCode, StringComparison.OrdinalIgnoreCase))
+            {
+                await TeachingAssignmentEvaluationHelper.TryAdvancePreliminaryProjectToEvaluationAsync(
+                    _unitOfWork,
+                    _repository,
+                    entity.IdInscriptionModality,
+                    type.Id,
+                    request.CurrentUser.UserId,
+                    cancellationToken);
+            }
+
             // Procesar notificaciones en background
-            ProcessNotificationsAsync(entity, originalTeacherId);
+            if (isActivatingFromUnconfirmed)
+            {
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleTeachingAssignmentCreationAsync(entity.Id));
+            }
+            else if (wasConfirmed)
+            {
+                ProcessNotificationsAsync(entity, originalTeacherId);
+            }
 
             return _mapper.Map<TeachingAssignmentDto>(entity);
         }

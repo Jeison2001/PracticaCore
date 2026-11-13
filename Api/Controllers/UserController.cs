@@ -86,6 +86,13 @@ namespace Api.Controllers
             if (IsCrossUserAccessDenied(id))
                 return Forbid();
 
+            if (User?.Identity?.IsAuthenticated == true)
+            {
+                var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+                if (!permissions.Contains(PermissionCodes.Configuraciones.N3CFSU))
+                    dto = dto with { StatusRegister = true };
+            }
+
             return await base.Update(id, dto);
         }
 

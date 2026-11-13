@@ -9,6 +9,7 @@ using Domain.Common.Extensions;
 using Domain.Constants;
 using Domain.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
@@ -20,7 +21,7 @@ namespace Api.Controllers
         {
             _mediator = mediator;        }
 
-        [RequirePermission(PermissionCodes.Configuraciones.N2CFP, PermissionCodes.Configuraciones.N3CFSU, PermissionCodes.Configuraciones.N3CFSRL)]
+        [Authorize]
         [HttpGet("ByUser/{id}")]
         public async Task<ActionResult<ApiResponse<List<UserPermissionInfoDto>>>> GetUserPermissionsByUserId(int id)
         {

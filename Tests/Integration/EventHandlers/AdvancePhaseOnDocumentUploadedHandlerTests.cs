@@ -189,5 +189,153 @@ namespace Tests.Integration.EventHandlers
             updatedProject!.IdStateStage.Should().Be(radicadoEnEvaluacionStateId,
                 "al subir el entregable de proyecto final se debe pasar a PFINF_RADICADO_EN_EVALUACION");
         }
+
+        [Fact]
+        public async Task Handle_AnteproyectoDocumentUploaded_WithTwoConfirmedJurados_AdvancesToEnEvaluacion()
+        {
+            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var pendienteDocStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApPendienteDocumento).Id;
+
+            var juradoCargo = context.Set<TypeTeachingAssignment>().FirstOrDefault(t => t.Code == "JURADO_EVALUADOR")
+                ?? new TypeTeachingAssignment { Code = "JURADO_EVALUADOR", Name = "Jurado Evaluador", Description = "Jurado", MaxAssignments = 20, StatusRegister = true };
+            if (juradoCargo.Id == 0)
+            {
+                context.Set<TypeTeachingAssignment>().Add(juradoCargo);
+                await context.SaveChangesAsync();
+            }
+
+            var user = new User
+            {
+                Id = 10, Email = "student10@test.edu.co", FirstName = "S10", LastName = "Test",
+                Identification = "1010", StatusRegister = true, OperationRegister = "Test"
+            };
+            var evaluator1 = new User
+            {
+                Id = 11, Email = "eval1@test.edu.co", FirstName = "E1", LastName = "Test",
+                Identification = "1011", StatusRegister = true, OperationRegister = "Test"
+            };
+            var evaluator2 = new User
+            {
+                Id = 12, Email = "eval2@test.edu.co", FirstName = "E2", LastName = "Test",
+                Identification = "1012", StatusRegister = true, OperationRegister = "Test"
+            };
+            context.Set<User>().AddRange(user, evaluator1, evaluator2);
+
+            var preliminaryProject = new PreliminaryProject
+            {
+                Id = 10,
+                IdStateStage = pendienteDocStateId,
+                IdUserCreatedAt = user.Id,
+                StatusRegister = true,
+                OperationRegister = "Test"
+            };
+            context.Set<PreliminaryProject>().Add(preliminaryProject);
+
+            context.Set<TeachingAssignment>().AddRange(
+                new TeachingAssignment
+                {
+                    IdInscriptionModality = preliminaryProject.Id,
+                    IdTeacher = evaluator1.Id,
+                    IdTypeTeachingAssignment = juradoCargo.Id,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                },
+                new TeachingAssignment
+                {
+                    IdInscriptionModality = preliminaryProject.Id,
+                    IdTeacher = evaluator2.Id,
+                    IdTypeTeachingAssignment = juradoCargo.Id,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                });
+
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            var documentTypeId = context.Set<DocumentType>().First(d => d.Code == DocumentTypeCodes.AnteproyectoEntregable).Id;
+            var domainEvent = new DocumentUploadedEvent(preliminaryProject.Id, documentTypeId, user.Id);
+
+            await CreateHandler().Handle(domainEvent, CancellationToken.None);
+            await context.SaveChangesAsync();
+
+            var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
+            var updatedProject = await actContext.Set<PreliminaryProject>().FindAsync(preliminaryProject.Id);
+            var enEvaluacionStateId = actContext.Set<StateStage>().First(s => s.Code == StateStageCodes.ApEnEvaluacion).Id;
+            updatedProject!.IdStateStage.Should().Be(enEvaluacionStateId);
+        }
+
+        [Fact]
+        public async Task Handle_AnteproyectoDocumentUploaded_WithUnconfirmedJurado_AdvancesToRadicadoPendAsigEval()
+        {
+            var context = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var pendienteDocStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApPendienteDocumento).Id;
+
+            var juradoCargo = context.Set<TypeTeachingAssignment>().FirstOrDefault(t => t.Code == "JURADO_EVALUADOR")
+                ?? new TypeTeachingAssignment { Code = "JURADO_EVALUADOR", Name = "Jurado Evaluador", Description = "Jurado", MaxAssignments = 20, StatusRegister = true };
+            if (juradoCargo.Id == 0)
+            {
+                context.Set<TypeTeachingAssignment>().Add(juradoCargo);
+                await context.SaveChangesAsync();
+            }
+
+            var user = new User
+            {
+                Id = 13, Email = "student13@test.edu.co", FirstName = "S13", LastName = "Test",
+                Identification = "1013", StatusRegister = true, OperationRegister = "Test"
+            };
+            var evaluator1 = new User
+            {
+                Id = 14, Email = "eval14@test.edu.co", FirstName = "E14", LastName = "Test",
+                Identification = "1014", StatusRegister = true, OperationRegister = "Test"
+            };
+            var evaluator2 = new User
+            {
+                Id = 15, Email = "eval15@test.edu.co", FirstName = "E15", LastName = "Test",
+                Identification = "1015", StatusRegister = true, OperationRegister = "Test"
+            };
+            context.Set<User>().AddRange(user, evaluator1, evaluator2);
+
+            var preliminaryProject = new PreliminaryProject
+            {
+                Id = 13,
+                IdStateStage = pendienteDocStateId,
+                IdUserCreatedAt = user.Id,
+                StatusRegister = true,
+                OperationRegister = "Test"
+            };
+            context.Set<PreliminaryProject>().Add(preliminaryProject);
+
+            context.Set<TeachingAssignment>().AddRange(
+                new TeachingAssignment
+                {
+                    IdInscriptionModality = preliminaryProject.Id,
+                    IdTeacher = evaluator1.Id,
+                    IdTypeTeachingAssignment = juradoCargo.Id,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                },
+                new TeachingAssignment
+                {
+                    IdInscriptionModality = preliminaryProject.Id,
+                    IdTeacher = evaluator2.Id,
+                    IdTypeTeachingAssignment = juradoCargo.Id,
+                    IsConfirmed = false,
+                    StatusRegister = true
+                });
+
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            var documentTypeId = context.Set<DocumentType>().First(d => d.Code == DocumentTypeCodes.AnteproyectoEntregable).Id;
+            var domainEvent = new DocumentUploadedEvent(preliminaryProject.Id, documentTypeId, user.Id);
+
+            await CreateHandler().Handle(domainEvent, CancellationToken.None);
+            await context.SaveChangesAsync();
+
+            var actContext = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDbContext>();
+            var updatedProject = await actContext.Set<PreliminaryProject>().FindAsync(preliminaryProject.Id);
+            var radicadoStateId = actContext.Set<StateStage>().First(s => s.Code == StateStageCodes.ApRadicadoPendAsigEval).Id;
+            updatedProject!.IdStateStage.Should().Be(radicadoStateId);
+        }
     }
 }

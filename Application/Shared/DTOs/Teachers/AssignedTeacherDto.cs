@@ -14,6 +14,7 @@ namespace Application.Shared.DTOs.Teachers
         /// <summary>Nombre del cargo: Director, Co-Director, Asesor, Jurado Evaluador.</summary>
         public string? CargoName { get; set; }
         public DateTimeOffset? RevocationDate { get; set; }
+        public bool IsConfirmed { get; set; } = true;
 
         // Backward compatibility accessors for existing frontend code (list-phase0, etc.)
         public int IdUser => IdTeacher;
@@ -32,7 +33,8 @@ namespace Application.Shared.DTOs.Teachers
                 CargoId = t.CargoId,
                 CargoCode = t.CargoCode,
                 CargoName = t.CargoName,
-                RevocationDate = t.RevocationDate
+                RevocationDate = t.RevocationDate,
+                IsConfirmed = t.IsConfirmed
             }).ToList();
     }
 }

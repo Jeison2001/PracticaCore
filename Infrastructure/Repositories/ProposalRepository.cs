@@ -30,10 +30,10 @@ namespace Infrastructure.Repositories
             DateTimeOffset? cursorCreatedAt = null,
             bool skipTotalCount = false)
         {
-            // Consulta optimizada que inicia con las asignaciones activas de docentes
+            // Consulta optimizada que inicia con las asignaciones activas confirmadas de docentes
             var query = _dbContext.Set<TeachingAssignment>()
                 .AsNoTracking()
-                .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null);
+                .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed);
 
             // Obtener los IDs de las modalidades de inscripción
             var inscriptionModalityIds = await query

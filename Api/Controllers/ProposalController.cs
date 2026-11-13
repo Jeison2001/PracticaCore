@@ -5,9 +5,11 @@ using Application.Shared.DTOs;
 using Application.Shared.DTOs.Proposals;
 using Application.Shared.Queries.Proposals;
 using Domain.Common;
+using Domain.Common.Auth;
 using Domain.Common.Extensions;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Interfaces.Repositories;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,10 +23,12 @@ namespace Api.Controllers
     public class ProposalController : GenericController<Proposal, int, ProposalDto>
     {
         private readonly IMediator _mediator;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public ProposalController(IMediator mediator) : base(mediator)
+        public ProposalController(IMediator mediator, IUnitOfWork unitOfWork) : base(mediator)
         {
             _mediator = mediator;
+            _unitOfWork = unitOfWork;
         }
 
         [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N3PGRP)]
@@ -142,7 +146,72 @@ namespace Api.Controllers
 
         [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N3PGRP, PermissionCodes.ProyectoGrado.N3PGCP)]
         [HttpPut("{id}")]
-        public override async Task<IActionResult> Update(int id, [FromBody] ProposalDto dto) => await base.Update(id, dto);
+        public override async Task<IActionResult> Update(int id, [FromBody] ProposalDto dto)
+        {
+            if (User?.Identity?.IsAuthenticated == true)
+            {
+                var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+                var isCommitteeOrEvaluator =
+                    permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPR) ||
+                    permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPG);
+
+                if (!isCommitteeOrEvaluator)
+                {
+                    var currentUserId = User.GetUserId();
+                    if (!currentUserId.HasValue)
+                        return Forbid();
+
+                    var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
+                    var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
+                    var isMember = await userInscriptionRepo.GetFirstOrDefaultAsync(
+                        x => x.IdInscriptionModality == id && x.IdUser == currentUserId.Value && x.StatusRegister,
+                        cancellationToken);
+                    if (isMember == null)
+                        return Forbid();
+
+                    var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
+                    var existingProposal = await proposalRepo.GetByIdAsync(id);
+                    if (existingProposal == null)
+                    {
+                        return NotFound(new ApiResponse<ProposalDto>
+                        {
+                            Success = false,
+                            Errors = new List<string> { "Propuesta no encontrada." }
+                        });
+                    }
+
+                    var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
+                    var currentState = await stateStageRepo.GetByIdAsync(existingProposal.IdStateStage);
+                    if (currentState == null
+                        || !currentState.StatusRegister
+                        || currentState.Code != StateStageCodes.PropNoPertinente
+                        || currentState.IsFinalStateForStage
+                        || currentState.IsFinalStateForModalityOverall)
+                    {
+                        return BadRequest(new ApiResponse<ProposalDto>
+                        {
+                            Success = false,
+                            Errors = new List<string> { "Solo se puede subsanar una propuesta cuando se encuentra en estado Propuesta No Pertinente." }
+                        });
+                    }
+
+                    var propRadicadaState = await stateStageRepo.GetFirstOrDefaultAsync(
+                        s => s.Code == StateStageCodes.PropRadicada && s.StatusRegister,
+                        cancellationToken);
+                    if (propRadicadaState == null)
+                        throw new InvalidOperationException($"Active StateStage '{StateStageCodes.PropRadicada}' was not found.");
+
+                    dto = dto with
+                    {
+                        Id = dto.Id == 0 ? id : dto.Id,
+                        IdStateStage = propRadicadaState.Id,
+                        Observation = existingProposal.Observation
+                    };
+                }
+            }
+
+            return await base.Update(id, dto);
+        }
 
         [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPG)]
         [HttpPatch("{id}/status")]

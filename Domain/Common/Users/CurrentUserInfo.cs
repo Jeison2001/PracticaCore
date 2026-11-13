@@ -32,6 +32,11 @@ public record CurrentUserInfo
         .Where(x => !string.IsNullOrEmpty(x)));
 
     /// <summary>
+    /// Permission codes extracted from JWT claims.
+    /// </summary>
+    public IReadOnlySet<string> Permissions { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// Whether the user is authenticated (has a valid userId).
     /// </summary>
     public bool IsAuthenticated => UserId.HasValue;

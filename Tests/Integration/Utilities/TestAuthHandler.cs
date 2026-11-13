@@ -23,10 +23,23 @@ namespace Tests.Integration.Utilities
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
+            if (Request.Headers.TryGetValue("X-Test-Anonymous", out var anonHeader)
+                && string.Equals(anonHeader.ToString().Trim(), "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(AuthenticateResult.NoResult());
+            }
+
+            var userId = "1";
+            if (Request.Headers.TryGetValue("X-Test-UserId", out var userIdHeader)
+                && !string.IsNullOrWhiteSpace(userIdHeader.ToString()))
+            {
+                userId = userIdHeader.ToString().Trim();
+            }
+
             var claims = new List<Claim>
             {
-                new("sub", "1"),
-                new(ClaimTypes.NameIdentifier, "1"),
+                new("sub", userId),
+                new(ClaimTypes.NameIdentifier, userId),
                 new("email", "test@unicesar.edu.co"),
                 new("firstName", "Test"),
                 new("lastName", "User")
