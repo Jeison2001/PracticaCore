@@ -243,7 +243,7 @@ namespace Infrastructure.Repositories
         {
             var proposalIds = await _context.Set<TeachingAssignment>()
                 .AsNoTracking()
-                .Where(ta => ta.IdTeacher == teacherId)
+                .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null)
                 .Select(ta => ta.IdInscriptionModality)
                 .Distinct()
                 .ToListAsync();
@@ -266,7 +266,9 @@ namespace Infrastructure.Repositories
                 .Where(p => proposalIds.Contains(p.Id))
                 .AsQueryable();
 
-            var pf = ProposalFilterLoader.ExtractProjectFilters(filters);
+            var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
+            var pf = ProposalFilterLoader.ExtractProjectFilters(tf.Remaining);
+            presentationsQuery = presentationsQuery.ApplyTeacherFilterById(_context, tf);
             var remainingFilters = new Dictionary<string, string>(pf.Remaining);
 
             if (!string.IsNullOrWhiteSpace(pf.Title))

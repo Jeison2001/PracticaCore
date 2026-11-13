@@ -1,4 +1,5 @@
 using Application.Shared.DTOs.Proposals;
+using Application.Shared.DTOs.Teachers;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using AutoMapper;
 using MediatR;
@@ -42,7 +43,8 @@ namespace Application.Shared.Queries.Proposals.Handlers
                     IdUser = uim.IdUser,
                     UserName = uim.User?.FirstName + " " + uim.User?.LastName,
                     Email = uim.User?.Email ?? string.Empty
-                }).ToList()
+                }).ToList(),
+                Teachers = _mapper.Map<List<AssignedTeacherDto>>(e.Teachers)
             }).ToList();
         }
     }

@@ -96,6 +96,35 @@ namespace Infrastructure.Extensions
                                   || CargoId != null || CargoCode != null || CargoName != null;
         }
 
+        /// <summary>Aplica filtros por docente asignado activo sobre entidades cuyo Id coincide con IdInscriptionModality.</summary>
+        public static IQueryable<T> ApplyTeacherFilterById<T>(
+            this IQueryable<T> query,
+            AppDbContext context,
+            TeacherFilterSet tf) where T : class
+        {
+            if (!tf.HasAny) return query;
+
+            var namePattern = tf.Name != null ? LikePattern(tf.Name) : null;
+            var emailPattern = tf.Email != null ? LikePattern(tf.Email) : null;
+            var teacherId = tf.Id;
+            var cargoId = tf.CargoId;
+            var cargoCode = tf.CargoCode;
+            var cargoName = tf.CargoName;
+
+            return query.Where(x => context.Set<TeachingAssignment>().Any(ta =>
+                ta.IdInscriptionModality == EF.Property<int>(x, "Id") &&
+                ta.StatusRegister && ta.RevocationDate == null &&
+                (namePattern == null || (ta.Teacher != null &&
+                    (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
+                     EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
+                     EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
+                (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
+                (teacherId == null || ta.IdTeacher == teacherId) &&
+                (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
+                (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
+                (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
+        }
+
         /// <summary>Patrón ILIKE insensible a mayúsculas y acentos/tildes con escapes básicos de comodines.</summary>
         public static string LikePattern(string value) =>
             "%" + FilterBuilder.RemoveDiacritics(value.Trim()).Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";

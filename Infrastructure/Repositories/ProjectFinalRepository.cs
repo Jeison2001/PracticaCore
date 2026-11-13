@@ -146,7 +146,7 @@ namespace Infrastructure.Repositories
             };
         }
 
-        public async Task<List<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByUserIdWithProposalAndStudentsAsync(int userId, bool? status = null)
+        public async Task<List<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>> GetByUserIdWithProposalAndStudentsAsync(int userId, bool? status = null)
         {
             // 1. Obtener los IDs de modalidades donde participa el usuario
             var inscriptionModalityIds = await _context.Set<UserInscriptionModality>()
@@ -157,7 +157,7 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             if (!inscriptionModalityIds.Any())
-                return new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>();
+                return new List<(ProjectFinal, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>();
 
             // 2. Traer ProjectFinals y sus relaciones
             var projects = await _context.ProjectFinals
@@ -170,7 +170,7 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             if (!projects.Any())
-                return new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>();
+                return new List<(ProjectFinal, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>();
 
             // 3. Traer las propuestas asociadas
             var proposalIds = projects.Select(f => f.Id).ToList();
@@ -183,12 +183,15 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync();
 
-            // 4. Traer los estudiantes asociados
+            // 4. Traer los estudiantes y docentes asignados activos
             var students = await _context.Set<UserInscriptionModality>()
                 .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync();
+
+            var teachersByInscription = await TeacherAssignmentLoader
+                .LoadActiveByInscriptionIdsAsync(_context, proposalIds);
 
             var proposalsById = proposals.ToDictionary(p => p.Id);
             var studentsByModality = students
@@ -199,24 +202,25 @@ namespace Infrastructure.Repositories
             return projects.Select(f => (
                 f,
                 proposalsById.TryGetValue(f.Id, out var prop) ? prop : null!,
-                studentsByModality.TryGetValue(f.Id, out var sList) ? sList : new List<UserInscriptionModality>()
+                studentsByModality.TryGetValue(f.Id, out var sList) ? sList : new List<UserInscriptionModality>(),
+                teachersByInscription.TryGetValue(f.Id, out var tList) ? tList : new List<AssignedTeacher>()
             )).ToList();
         }
 
-        public async Task<PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students)>> GetByTeacherIdWithProposalAndStudentsAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters, long? cursorId = null, DateTimeOffset? cursorCreatedAt = null, bool skipTotalCount = false)
+        public async Task<PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>> GetByTeacherIdWithProposalAndStudentsAsync(int teacherId, int pageNumber, int pageSize, string? sortBy, bool isDescending, Dictionary<string, string>? filters, long? cursorId = null, DateTimeOffset? cursorCreatedAt = null, bool skipTotalCount = false)
         {
             var proposalIds = await _context.Set<TeachingAssignment>()
                 .AsNoTracking()
-                .Where(ta => ta.IdTeacher == teacherId)
+                .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null)
                 .Select(ta => ta.IdInscriptionModality)
                 .Distinct()
                 .ToListAsync();
 
             if (!proposalIds.Any())
             {
-                return new PaginatedResult<(ProjectFinal, Proposal, List<UserInscriptionModality>)>
+                return new PaginatedResult<(ProjectFinal, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>
                 {
-                    Items = new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>(),
+                    Items = new List<(ProjectFinal, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>(),
                     TotalRecords = 0,
                     PageNumber = pageNumber,
                     PageSize = pageSize,
@@ -230,10 +234,9 @@ namespace Infrastructure.Repositories
                 .Where(p => proposalIds.Contains(p.Id))
                 .AsQueryable();
 
-            // Filtros sobre Proposal (comparte Id con la entidad raíz) -> EXISTS por propuesta:
-            // title@like y researchline@like se extraen para que no lleguen a FilterBuilder,
-            // que los ignoraría por no ser propiedades de ProjectFinal.
-            var pf = ProposalFilterLoader.ExtractProjectFilters(filters);
+            var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
+            var pf = ProposalFilterLoader.ExtractProjectFilters(tf.Remaining);
+            projectFinalsQuery = projectFinalsQuery.ApplyTeacherFilterById(_context, tf);
             if (!string.IsNullOrWhiteSpace(pf.Title))
             {
                 var titlePattern = TeacherAssignmentLoader.LikePattern(pf.Title);
@@ -266,9 +269,9 @@ namespace Infrastructure.Repositories
             var finals = paginatedResult.Items.ToList();
             if (!finals.Any())
             {
-                return new PaginatedResult<(ProjectFinal, Proposal, List<UserInscriptionModality>)>
+                return new PaginatedResult<(ProjectFinal, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>
                 {
-                    Items = new List<(ProjectFinal, Proposal, List<UserInscriptionModality>)>(),
+                    Items = new List<(ProjectFinal, Proposal, List<UserInscriptionModality>, List<AssignedTeacher>)>(),
                     TotalRecords = paginatedResult.TotalRecords,
                     PageNumber = paginatedResult.PageNumber,
                     PageSize = paginatedResult.PageSize,
@@ -292,6 +295,9 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync();
 
+            var teachersByInscription = await TeacherAssignmentLoader
+                .LoadActiveByInscriptionIdsAsync(_context, resultProposalIds);
+
             var proposalsById = proposals.ToDictionary(p => p.Id);
             var studentsByModality = students
                 .GroupBy(uim => uim.IdInscriptionModality)
@@ -300,10 +306,11 @@ namespace Infrastructure.Repositories
             var items = finals.Select(f => (
                 f,
                 proposalsById.TryGetValue(f.Id, out var prop) ? prop : null!,
-                studentsByModality.TryGetValue(f.Id, out var sList) ? sList : new List<UserInscriptionModality>()
+                studentsByModality.TryGetValue(f.Id, out var sList) ? sList : new List<UserInscriptionModality>(),
+                teachersByInscription.TryGetValue(f.Id, out var tList) ? tList : new List<AssignedTeacher>()
             )).ToList();
 
-            return new PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students)>
+            return new PaginatedResult<(ProjectFinal Project, Proposal Proposal, List<UserInscriptionModality> Students, List<AssignedTeacher> Teachers)>
             {
                 Items = items,
                 TotalRecords = paginatedResult.TotalRecords,

@@ -378,6 +378,7 @@ namespace Tests.Integration.Proposals
             result.Data.Should().NotBeNull();
             result.Data!.Items.Should().NotBeEmpty();
             result.Data!.Items.First().Proposal.Id.Should().Be(entity.Id);
+            result.Data!.Items.First().Teachers.Should().ContainSingle(t => t.IdTeacher == teacherId);
         }
     }
 }

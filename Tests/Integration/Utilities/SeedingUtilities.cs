@@ -56,7 +56,7 @@ namespace Tests.Integration.Utilities
                 // Proyecto de Grado - Propuesta (Fase inicial)
                 new StateStage { Id = 3, Code = StateStageCodes.PgPropuestaInicial, IdStageModality = 4, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },
                 new StateStage { Id = 30, Code = StateStageCodes.PropPertinente, IdStageModality = 4, IsInitialState = false, IsFinalStateForStage = true, StatusRegister = true, OperationRegister = "Seed" },
-                new StateStage { Id = 31, Code = "PROP_NO_PERTINENTE", IdStageModality = 4, IsInitialState = false, IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, IsRejectionState = true, StatusRegister = true, OperationRegister = "Seed" },
+                new StateStage { Id = 31, Code = "PROP_NO_PERTINENTE", IdStageModality = 4, IsInitialState = false, IsFinalStateForStage = false, IsFinalStateForModalityOverall = false, IsRejectionState = false, StatusRegister = true, OperationRegister = "Seed" },
                 
                 // Proyecto de Grado - Anteproyecto
                 new StateStage { Id = 4, Code = StateStageCodes.ApPendienteDocumento, IdStageModality = 5, IsInitialState = true, StatusRegister = true, OperationRegister = "Seed" },

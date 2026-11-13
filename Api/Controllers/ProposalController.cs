@@ -140,7 +140,7 @@ namespace Api.Controllers
             return Task.FromResult<IActionResult>(NotFound());
         }
 
-        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N3PGRP)]
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N3PGRP, PermissionCodes.ProyectoGrado.N3PGCP)]
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] ProposalDto dto) => await base.Update(id, dto);
 

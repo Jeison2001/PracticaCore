@@ -2,6 +2,7 @@ using Application.Shared.DTOs.PreliminaryProjects;
 using MediatR;
 using Application.Shared.DTOs.Proposals;
 using Application.Shared.DTOs.StateStages;
+using Application.Shared.DTOs.Teachers;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using Domain.Interfaces.Repositories;
 
@@ -69,7 +70,8 @@ namespace Application.Shared.Queries.PreliminaryProjects.Handlers
                         CumulativeAverage = null, // Completar si tienes el dato
                         ApprovedCredits = null, // Completar si tienes el dato
                         TotalAcademicCredits = null // Completar si tienes el dato
-                    }).ToList()
+                    }).ToList(),
+                    Teachers = AssignedTeacherDto.FromEntities(e.Teachers)
                 }
             }).ToList();
         }

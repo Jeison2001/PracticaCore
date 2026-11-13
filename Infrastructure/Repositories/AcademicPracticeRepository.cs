@@ -386,6 +386,15 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         }
 
         var pagedPracticeIds = academicPractices.Select(ap => ap.Id).ToList();
+        var userInscriptions = await _context.Set<UserInscriptionModality>()
+            .AsNoTracking()
+            .Where(uim => pagedPracticeIds.Contains(uim.IdInscriptionModality))
+            .Include(uim => uim.User)
+            .ToListAsync(cancellationToken);
+        var usersByInscription = userInscriptions
+            .GroupBy(uim => uim.IdInscriptionModality)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var teachersByInscription = await TeacherAssignmentLoader
             .LoadActiveByInscriptionIdsAsync(_context, pagedPracticeIds, cancellationToken);
 
@@ -399,7 +408,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             Modality = ap.InscriptionModality?.Modality,
             StateInscription = ap.InscriptionModality?.StateInscription,
             AcademicPeriod = ap.InscriptionModality?.AcademicPeriod,
-            UserInscriptionModalities = new List<UserInscriptionModality>(),
+            UserInscriptionModalities = usersByInscription.TryGetValue(ap.Id, out var users)
+                ? users
+                : new List<UserInscriptionModality>(),
             TeachingAssignments = new List<TeachingAssignment>(),
             Teachers = teachersByInscription.TryGetValue(ap.Id, out var teachers)
                 ? teachers
@@ -464,6 +475,15 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         }
 
         var practiceIds = academicPractices.Select(ap => ap.Id).ToList();
+        var userInscriptions = await _context.Set<UserInscriptionModality>()
+            .AsNoTracking()
+            .Where(uim => practiceIds.Contains(uim.IdInscriptionModality))
+            .Include(uim => uim.User)
+            .ToListAsync(cancellationToken);
+        var usersByInscription = userInscriptions
+            .GroupBy(uim => uim.IdInscriptionModality)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var teachersByInscription = await TeacherAssignmentLoader
             .LoadActiveByInscriptionIdsAsync(_context, practiceIds, cancellationToken);
 
@@ -477,7 +497,9 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             Modality = ap.InscriptionModality?.Modality,
             StateInscription = ap.InscriptionModality?.StateInscription,
             AcademicPeriod = ap.InscriptionModality?.AcademicPeriod,
-            UserInscriptionModalities = new List<UserInscriptionModality>(),
+            UserInscriptionModalities = usersByInscription.TryGetValue(ap.Id, out var users)
+                ? users
+                : new List<UserInscriptionModality>(),
             TeachingAssignments = new List<TeachingAssignment>(),
             Teachers = teachersByInscription.TryGetValue(ap.Id, out var teachers)
                 ? teachers

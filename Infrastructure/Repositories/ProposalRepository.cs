@@ -30,10 +30,10 @@ namespace Infrastructure.Repositories
             DateTimeOffset? cursorCreatedAt = null,
             bool skipTotalCount = false)
         {
-            // Consulta optimizada que inicia con las asignaciones de docentes
+            // Consulta optimizada que inicia con las asignaciones activas de docentes
             var query = _dbContext.Set<TeachingAssignment>()
                 .AsNoTracking()
-                .Where(ta => ta.IdTeacher == teacherId);
+                .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null);
 
             // Obtener los IDs de las modalidades de inscripción
             var inscriptionModalityIds = await query
@@ -62,10 +62,11 @@ namespace Infrastructure.Repositories
             // Preparar campo de ordenamiento dinámico
             var orderByField = sortBy ?? string.Empty;
 
-            // Filtros sobre navegaciones de Proposal (FilterBuilder solo resuelve
-            // propiedades directas de la entidad): researchlinename@like y statestagename@eq.
-            // `title` sigue su curso normal: es propiedad directa de Proposal.
-            var pf = ProposalFilterLoader.ExtractProposalDetailFilters(filters);
+            // Filtros por docente/cargo + navegaciones de Proposal
+            var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
+            var pf = ProposalFilterLoader.ExtractProposalDetailFilters(tf.Remaining);
+            proposalsQuery = proposalsQuery.ApplyTeacherFilterById(_dbContext, tf);
+
             if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
             {
                 var linePattern = TeacherAssignmentLoader.LikePattern(pf.ResearchLineName);
@@ -97,9 +98,7 @@ namespace Infrastructure.Repositories
                         .Include(p => p.StateStage)
                         .Include(p => p.ResearchLine)
                         .Include(p => p.ResearchSubLine)
-                        .Include(p => p.InscriptionModality)
-                            .ThenInclude(im => im.TeachingAssignments)
-                                .ThenInclude(ta => ta.Teacher));
+                        .Include(p => p.InscriptionModality));
 
             var proposals = paginatedResult.Items.ToList();
             if (!proposals.Any())
@@ -122,6 +121,10 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
+            // Cargar docentes activos asignados en una sola consulta
+            var teachersByInscription = await TeacherAssignmentLoader.LoadActiveByInscriptionIdsAsync(
+                _dbContext, proposalIds, cancellationToken);
+
             // Agrupar usuarios por modalidad de inscripción
             var usersByModality = userInscriptionModalities
                 .GroupBy(uim => uim.IdInscriptionModality)
@@ -133,7 +136,10 @@ namespace Infrastructure.Repositories
                 Proposal = proposal,
                 UserInscriptionModalities = usersByModality.TryGetValue(proposal.Id, out var users)
                     ? users
-                    : new List<UserInscriptionModality>()
+                    : new List<UserInscriptionModality>(),
+                Teachers = teachersByInscription.TryGetValue(proposal.Id, out var teachers)
+                    ? teachers
+                    : new List<AssignedTeacher>()
             }).ToList();
 
             // Retornar resultado paginado
@@ -187,6 +193,9 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
+            var teachersByInscription = await TeacherAssignmentLoader.LoadActiveByInscriptionIdsAsync(
+                _dbContext, proposalIds, cancellationToken);
+
             // 4. Agrupar por propuesta y construir resultado
             var usersByModality = userInscriptionModalities
                 .GroupBy(uim => uim.IdInscriptionModality)
@@ -197,7 +206,10 @@ namespace Infrastructure.Repositories
                 Proposal = p,
                 UserInscriptionModalities = usersByModality.TryGetValue(p.Id, out var users)
                     ? users
-                    : new List<UserInscriptionModality>()
+                    : new List<UserInscriptionModality>(),
+                Teachers = teachersByInscription.TryGetValue(p.Id, out var teachers)
+                    ? teachers
+                    : new List<AssignedTeacher>()
             }).ToList();
         }
 
@@ -224,11 +236,17 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
+            var teachersByInscription = await TeacherAssignmentLoader.LoadActiveByInscriptionIdsAsync(
+                _dbContext, new List<int> { id }, cancellationToken);
+
             // 3. Construir el resultado
             return new ProposalWithDetails
             {
                 Proposal = proposal,
-                UserInscriptionModalities = userInscriptionModalities
+                UserInscriptionModalities = userInscriptionModalities,
+                Teachers = teachersByInscription.TryGetValue(id, out var teachers)
+                    ? teachers
+                    : new List<AssignedTeacher>()
             };
         }
 

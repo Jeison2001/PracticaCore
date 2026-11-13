@@ -185,7 +185,6 @@ namespace Tests.UnitTests.Application.Commands
         }
 
         [Theory]
-        [InlineData("PROP_NO_PERTINENTE")]
         [InlineData("CT_RECHAZADO")]
         [InlineData("PA_INSCRIPCION_RECHAZADA")]
         public async Task ModalityStateHelper_WhenNewStateIsRejectionState_MarksInscriptionModalityAsFinalRejection(

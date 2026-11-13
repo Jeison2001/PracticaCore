@@ -20,5 +20,19 @@ namespace Application.Shared.DTOs.Teachers
         public int IdTypeTeachingAssignment => CargoId;
         public string AssignmentType => CargoName ?? string.Empty;
         public bool StatusRegister => RevocationDate == null;
+
+        /// <summary>Proyecta una colección de entidades de dominio <see cref="Domain.Common.Teachers.AssignedTeacher"/> a DTOs.</summary>
+        public static List<AssignedTeacherDto> FromEntities(IEnumerable<Domain.Common.Teachers.AssignedTeacher> teachers) =>
+            teachers.Select(t => new AssignedTeacherDto
+            {
+                Id = t.Id,
+                IdTeacher = t.IdTeacher,
+                FullName = t.FullName,
+                Email = t.Email,
+                CargoId = t.CargoId,
+                CargoCode = t.CargoCode,
+                CargoName = t.CargoName,
+                RevocationDate = t.RevocationDate
+            }).ToList();
     }
 }

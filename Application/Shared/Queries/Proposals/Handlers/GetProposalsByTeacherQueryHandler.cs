@@ -1,4 +1,5 @@
 using Application.Shared.DTOs.Proposals;
+using Application.Shared.DTOs.Teachers;
 using Application.Shared.DTOs.UserInscriptionModalities;
 using Domain.Common;
 using MediatR;
@@ -81,7 +82,8 @@ namespace Application.Shared.Queries.Proposals.Handlers
                         StateStageCode = proposal.StateStage?.Code ?? string.Empty,
                         ResearchLineName = proposal.ResearchLine?.Name ?? string.Empty,
                         ResearchSubLineName = proposal.ResearchSubLine?.Name ?? string.Empty,
-                        Students = studentDtos
+                        Students = studentDtos,
+                        Teachers = _mapper.Map<List<AssignedTeacherDto>>(proposalWithDetails.Teachers)
                     });
                 }
 
