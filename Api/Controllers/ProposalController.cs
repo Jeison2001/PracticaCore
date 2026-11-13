@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.Proposals;
 using Application.Shared.DTOs;
@@ -5,6 +6,7 @@ using Application.Shared.DTOs.Proposals;
 using Application.Shared.Queries.Proposals;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -25,6 +27,7 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N3PGRP)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(int id, [FromBody] ProposalPatchDto dto)
         {
@@ -34,6 +37,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<ProposalDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N3PGRP)]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateProposalDto dto)
         {
@@ -43,6 +47,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<ProposalDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPA, PermissionCodes.ProyectoGrado.N4PGPPG)]
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
         {
@@ -62,6 +67,12 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(
+            PermissionCodes.ProyectoGrado.N3PGCP,
+            PermissionCodes.ProyectoGrado.N4PGPPA,
+            PermissionCodes.ProyectoGrado.N4PGPPG,
+            PermissionCodes.ProyectoGrado.N4PGPPR,
+            PermissionCodes.ProyectoGrado.N4PGPPC)]
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
@@ -70,6 +81,11 @@ namespace Api.Controllers
             return Ok(new ApiResponse<ProposalWithDetailsResponseDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(
+            PermissionCodes.ProyectoGrado.N3PGRP,
+            PermissionCodes.ProyectoGrado.N3PGCP,
+            PermissionCodes.ProyectoGrado.N3PGRA,
+            PermissionCodes.ProyectoGrado.N3PGRPR)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
@@ -78,6 +94,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N4PGPPC)]
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(
             int id,
@@ -122,6 +139,14 @@ namespace Api.Controllers
         {
             return Task.FromResult<IActionResult>(NotFound());
         }
+
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N3PGRP)]
+        [HttpPut("{id}")]
+        public override async Task<IActionResult> Update(int id, [FromBody] ProposalDto dto) => await base.Update(id, dto);
+
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPG)]
+        [HttpPatch("{id}/status")]
+        public override async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto) => await base.UpdateStatus(id, dto);
 
         [NonAction]
         public override Task<IActionResult> CreateMultiple([FromBody] List<ProposalDto> dtos)

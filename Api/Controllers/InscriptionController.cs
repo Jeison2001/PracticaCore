@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.InscriptionWithStudents;
 using Application.Shared.DTOs;
@@ -5,6 +6,7 @@ using Application.Shared.DTOs.InscriptionWithStudents;
 using Application.Shared.Queries.InscriptionWithStudents;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,6 +28,7 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [RequirePermission(PermissionCodes.ModalidadesGrado.N3MGPG, PermissionCodes.ModalidadesGrado.N3MGPR)]
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
         {
@@ -45,6 +48,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ModalidadesGrado.N2MGC, PermissionCodes.ModalidadesGrado.N3MGPG, PermissionCodes.ModalidadesGrado.N3MGPR)]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -52,6 +56,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<InscriptionWithStudentsResponseDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ModalidadesGrado.N2MGR, PermissionCodes.ModalidadesGrado.N2MGC, PermissionCodes.ProyectoGrado.N3PGRP)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
@@ -60,6 +65,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ModalidadesGrado.N2MGR)]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] InscriptionWithStudentsCreateDto dto)
         {

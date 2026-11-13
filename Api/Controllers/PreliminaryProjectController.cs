@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Application.Shared.DTOs.PreliminaryProjects;
 using Application.Shared.Queries.PreliminaryProjects;
 using Application.Shared.DTOs;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Api.Responses;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using Domain.Entities;
 using MediatR;
 using Application.Shared.Commands.PreliminaryProjects;
@@ -22,6 +24,7 @@ namespace Api.Controllers
         private readonly IMediator _mediator;
         public PreliminaryProjectController(IMediator mediator) : base(mediator) { _mediator = mediator; }
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPAR, PermissionCodes.ProyectoGrado.N3PGRA)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(int id, [FromBody] PreliminaryProjectPatchDto dto)
         {
@@ -32,6 +35,7 @@ namespace Api.Controllers
         }
 
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPAA, PermissionCodes.ProyectoGrado.N4PGPAG)]
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
         {
@@ -50,6 +54,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<PreliminaryProjectWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N3PGRA, PermissionCodes.ProyectoGrado.N3PGCA)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
@@ -58,6 +63,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<PreliminaryProjectWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPAR)]
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(int id, [FromQuery] PaginatedRequest request)
         {

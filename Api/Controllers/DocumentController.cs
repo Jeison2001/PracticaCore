@@ -6,6 +6,7 @@ using Domain.Common;
 using Domain.Common.Extensions;
 using Domain.Interfaces.Services.Storage;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
@@ -15,6 +16,7 @@ namespace Api.Controllers
     /// de archivos binarios via IFileStorageService (Local, Azure, GCP o S3).
     /// Upload/Update usan multipart/form-data. Download retorna el archivo como blob.
     /// </summary>
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class DocumentController : ControllerBase

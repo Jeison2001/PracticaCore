@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.TeachingAssignments;
 using Application.Shared.DTOs;
@@ -5,8 +6,10 @@ using Application.Shared.DTOs.TeachingAssignments;
 using Application.Shared.Queries.TeachingAssignments;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using Domain.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
@@ -27,6 +30,7 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [Authorize]
         [HttpGet("ByInscription/{id}")]
         [ProducesResponseType(typeof(ApiResponse<List<TeachingAssignmentTeacherDto>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetByIdInscription(int id, bool? status = null)
@@ -41,6 +45,16 @@ namespace Api.Controllers
         /// <param name="idTeacher">ID del docente (User)</param>
         /// <param name="idCargo">ID opcional del cargo para filtrar únicamente ese cargo</param>
         /// <param name="includeRevoked">Indica si se deben incluir asignaciones revocadas (por defecto false)</param>
+        [RequirePermission(
+            PermissionCodes.Configuraciones.N3CFSU,
+            PermissionCodes.ProyectoGrado.N4PGPPR,
+            PermissionCodes.ProyectoGrado.N4PGPPC,
+            PermissionCodes.ProyectoGrado.N4PGPAR,
+            PermissionCodes.ProyectoGrado.N4PGPPRR,
+            PermissionCodes.ProyectoGrado.N4PGPSR,
+            PermissionCodes.PracticaAcademica.N4PAF0PR,
+            PermissionCodes.PracticaAcademica.N4PAF1PR,
+            PermissionCodes.PracticaAcademica.N4PAF2PR)]
         [HttpGet("ByTeacher/{idTeacher}")]
         [ProducesResponseType(typeof(ApiResponse<List<TeacherCargoGroupDto>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAssignmentsByTeacher(
@@ -62,6 +76,16 @@ namespace Api.Controllers
         /// <param name="idTeacher">ID del docente (User)</param>
         /// <param name="idCargo">ID del cargo docente (TypeTeachingAssignment)</param>
         /// <param name="includeRevoked">Indica si se deben incluir asignaciones revocadas (por defecto false)</param>
+        [RequirePermission(
+            PermissionCodes.Configuraciones.N3CFSU,
+            PermissionCodes.ProyectoGrado.N4PGPPR,
+            PermissionCodes.ProyectoGrado.N4PGPPC,
+            PermissionCodes.ProyectoGrado.N4PGPAR,
+            PermissionCodes.ProyectoGrado.N4PGPPRR,
+            PermissionCodes.ProyectoGrado.N4PGPSR,
+            PermissionCodes.PracticaAcademica.N4PAF0PR,
+            PermissionCodes.PracticaAcademica.N4PAF1PR,
+            PermissionCodes.PracticaAcademica.N4PAF2PR)]
         [HttpGet("ByTeacherAndCargo/{idTeacher}/{idCargo}")]
         [ProducesResponseType(typeof(ApiResponse<List<TeacherAssignedProjectDto>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAssignmentsByTeacherAndCargo(
@@ -77,6 +101,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<TeacherAssignedProjectDto>> { Success = true, Data = result });
         }
         
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPA, PermissionCodes.ProyectoGrado.N4PGPAA, PermissionCodes.PracticaAcademica.N4PAF0PA)]
         [HttpPost]
         public override async Task<IActionResult> Create([FromBody] TeachingAssignmentDto dto)
         {
@@ -84,12 +109,17 @@ namespace Api.Controllers
             return CreatedAtAction(nameof(GetByIdInscription), new { id = result.IdInscriptionModality }, new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPA, PermissionCodes.ProyectoGrado.N4PGPAA, PermissionCodes.PracticaAcademica.N4PAF0PA)]
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] TeachingAssignmentDto dto)
         {
             var result = await _mediator.Send(new UpdateTeachingAssignmentCommand(id, dto, User.GetCurrentUserInfo()));
             return Ok(new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });
         }
+
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPA, PermissionCodes.ProyectoGrado.N4PGPAA, PermissionCodes.PracticaAcademica.N4PAF0PA)]
+        [HttpPatch("{id}/status")]
+        public override async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto) => await base.UpdateStatus(id, dto);
 
         [NonAction]
         public override Task<IActionResult> GetById(int id)

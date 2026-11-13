@@ -1,10 +1,13 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.UserRoles;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.UserRoles;
 using Application.Shared.Queries.UserRoles;
 using Domain.Common;
+using Domain.Common.Auth;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +27,7 @@ namespace Api.Controllers
         /// Override del Create genérico: si el DTO trae cargos habilitados (TypeTeachingAssignmentIds)
         /// y el rol es TEACHER, los asigna en el mismo commit (operación atómica con el rol y sus permisos).
         /// </summary>
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU, PermissionCodes.Configuraciones.N3CFSRL)]
         [HttpPost]
         public override async Task<IActionResult> Create([FromBody] UserRoleDto dto)
         {
@@ -41,6 +45,12 @@ namespace Api.Controllers
         /// <param name="roleCode">Código del rol a filtrar (opcional)</param>
         /// <param name="request">Parámetros de paginación y filtros</param>
         /// <returns>Lista paginada de usuarios con el rol especificado</returns>
+        [RequirePermission(
+            PermissionCodes.Configuraciones.N3CFSU,
+            PermissionCodes.Configuraciones.N3CFSRL,
+            PermissionCodes.ProyectoGrado.N4PGPPA,
+            PermissionCodes.ProyectoGrado.N4PGPAA,
+            PermissionCodes.PracticaAcademica.N4PAF0PA)]
         [HttpGet("ByRole")]
         public async Task<IActionResult> GetUsersByRole([FromQuery] string? roleCode, [FromQuery] PaginatedRequest request)
         {
@@ -55,14 +65,26 @@ namespace Api.Controllers
             };
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<UserRoleWithUserDetailsDto>> { Success = true, Data = result });
-        }        /// <summary>
+        }
+
+        /// <summary>
         /// Obtiene los roles asignados a un usuario específico con información completa del rol
         /// </summary>
         /// <param name="id">ID del usuario</param>
         /// <returns>Lista de roles del usuario con información del registro de relación</returns>
+        [RequirePermission(PermissionCodes.Configuraciones.N2CFP, PermissionCodes.Configuraciones.N3CFSU, PermissionCodes.Configuraciones.N3CFSRL)]
         [HttpGet("ByUser/{id}")]
         public async Task<ActionResult<ApiResponse<List<UserRoleInfoDto>>>> GetUserRolesByUserId(int id)
         {
+            if (User?.Identity?.IsAuthenticated == true)
+            {
+                var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+                var isAdmin = permissions.Contains(PermissionCodes.Configuraciones.N3CFSU)
+                    || permissions.Contains(PermissionCodes.Configuraciones.N3CFSRL);
+                if (!isAdmin && User.GetUserId() != id)
+                    return Forbid();
+            }
+
             if (id <= 0)
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El ID de usuario debe ser válido." } });
 
@@ -90,6 +112,10 @@ namespace Api.Controllers
         {
             return Task.FromResult<IActionResult>(NotFound());
         }
+
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU, PermissionCodes.Configuraciones.N3CFSRL)]
+        [HttpPatch("{id}/status")]
+        public override async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto) => await base.UpdateStatus(id, dto);
 
         [NonAction]
         public override Task<IActionResult> Update(int id, [FromBody] UserRoleDto dto)

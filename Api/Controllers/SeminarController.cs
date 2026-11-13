@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.Seminars;
 using Application.Shared.DTOs;
@@ -6,6 +7,7 @@ using Application.Shared.Queries.Seminars;
 using Domain.Entities;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +22,7 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [RequirePermission(PermissionCodes.Seminario.N2SAR, PermissionCodes.Seminario.N3SASGR)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(int id, [FromBody] SeminarPatchDto dto)
         {
@@ -29,6 +32,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<SeminarDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.Seminario.N3SASGG, PermissionCodes.Seminario.N3SASGR)]
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
         {
@@ -48,6 +52,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<SeminarWithDetailsDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.Seminario.N3SASGG, PermissionCodes.Seminario.N3SASGR)]
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
@@ -55,6 +60,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<SeminarWithDetailsDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.Seminario.N2SAR, PermissionCodes.Seminario.N2SAC)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
@@ -63,6 +69,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<SeminarWithDetailsDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.Seminario.N3SASGR)]
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(int id, [FromQuery] PaginatedRequest request)
         {

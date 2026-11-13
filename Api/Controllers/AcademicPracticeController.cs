@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.AcademicPractices;
 using Application.Shared.DTOs;
@@ -5,6 +6,7 @@ using Application.Shared.DTOs.AcademicPractices;
 using Application.Shared.Queries.AcademicPractices;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -25,6 +27,11 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [RequirePermission(
+            PermissionCodes.PracticaAcademica.N4PAF0PA,
+            PermissionCodes.PracticaAcademica.N4PAF0PG,
+            PermissionCodes.PracticaAcademica.N4PAF1PG,
+            PermissionCodes.PracticaAcademica.N4PAF2PG)]
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
         {
@@ -44,6 +51,14 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<AcademicPracticeWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(
+            PermissionCodes.PracticaAcademica.N4PAF0PA,
+            PermissionCodes.PracticaAcademica.N4PAF0PG,
+            PermissionCodes.PracticaAcademica.N4PAF0PR,
+            PermissionCodes.PracticaAcademica.N4PAF1PG,
+            PermissionCodes.PracticaAcademica.N4PAF1PR,
+            PermissionCodes.PracticaAcademica.N4PAF2PG,
+            PermissionCodes.PracticaAcademica.N4PAF2PR)]
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
@@ -52,6 +67,13 @@ namespace Api.Controllers
             return Ok(new ApiResponse<AcademicPracticeWithDetailsResponseDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(
+            PermissionCodes.PracticaAcademica.N3PAF0R,
+            PermissionCodes.PracticaAcademica.N3PAF0C,
+            PermissionCodes.PracticaAcademica.N3PAF1R,
+            PermissionCodes.PracticaAcademica.N3PAF1C,
+            PermissionCodes.PracticaAcademica.N3PAF2R,
+            PermissionCodes.PracticaAcademica.N3PAF2C)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
@@ -60,6 +82,10 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<AcademicPracticeWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(
+            PermissionCodes.PracticaAcademica.N4PAF0PR,
+            PermissionCodes.PracticaAcademica.N4PAF1PR,
+            PermissionCodes.PracticaAcademica.N4PAF2PR)]
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(
             int id,
@@ -81,6 +107,11 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<AcademicPracticeWithDetailsResponseDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(
+            PermissionCodes.PracticaAcademica.N3PAF0R,
+            PermissionCodes.PracticaAcademica.N4PAF0PG,
+            PermissionCodes.PracticaAcademica.N4PAF1PG,
+            PermissionCodes.PracticaAcademica.N4PAF2PG)]
         [HttpPut("UpdateInstitutionInfo/{id}")]
         public async Task<IActionResult> UpdateInstitutionInfo(int id, [FromBody] UpdateInstitutionInfoDto request)
         {
@@ -93,6 +124,12 @@ namespace Api.Controllers
             return Ok(new ApiResponse<object> { Success = true, Messages = new List<string> { "Información de institución actualizada correctamente" } });
         }
 
+        [RequirePermission(
+            PermissionCodes.PracticaAcademica.N4PAF0PR,
+            PermissionCodes.PracticaAcademica.N4PAF1PR,
+            PermissionCodes.PracticaAcademica.N4PAF2PR,
+            PermissionCodes.PracticaAcademica.N3PAF1R,
+            PermissionCodes.PracticaAcademica.N3PAF2R)]
         [HttpPut("UpdatePhaseApproval/{id}")]
         public async Task<IActionResult> UpdatePhaseApproval(int id, [FromBody] UpdatePhaseApprovalDto request)
         {

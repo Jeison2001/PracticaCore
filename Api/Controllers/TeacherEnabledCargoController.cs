@@ -1,8 +1,10 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.TeacherEnabledCargos;
 using Application.Shared.DTOs.TeacherEnabledCargos;
 using Application.Shared.Queries.TeacherEnabledCargos;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,6 +31,7 @@ namespace Api.Controllers
         /// Obtiene los cargos habilitados (activos) de un docente.
         /// </summary>
         /// <param name="id">ID del docente (User)</param>
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetEnabledCargosByUser(int id)
         {
@@ -43,6 +46,12 @@ namespace Api.Controllers
         /// Obtiene los docentes activos que tienen habilitado un cargo específico.
         /// </summary>
         /// <param name="idCargo">ID del tipo de asignación docente (TypeTeachingAssignment)</param>
+        [RequirePermission(
+            PermissionCodes.ProyectoGrado.N3PGRP,
+            PermissionCodes.ProyectoGrado.N4PGPPA,
+            PermissionCodes.ProyectoGrado.N4PGPAA,
+            PermissionCodes.PracticaAcademica.N4PAF0PA,
+            PermissionCodes.Configuraciones.N3CFSU)]
         [HttpGet("ByCargo/{idCargo}")]
         public async Task<IActionResult> GetTeachersByCargo(int idCargo)
         {
@@ -57,6 +66,7 @@ namespace Api.Controllers
         /// Asigna los cargos habilitados a un docente (lista completa: upsert semántico).
         /// </summary>
         /// <param name="request">UserId del docente y array de ids de TypeTeachingAssignment habilitados</param>
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU)]
         [HttpPost("ByUser")]
         public async Task<IActionResult> AssignEnabledCargos([FromBody] AssignTeacherEnabledCargosRequestDto request)
         {

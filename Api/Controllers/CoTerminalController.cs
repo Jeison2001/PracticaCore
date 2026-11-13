@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.CoTerminals;
 using Application.Shared.DTOs;
@@ -6,6 +7,7 @@ using Application.Shared.Queries.CoTerminals;
 using Domain.Entities;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +22,7 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [RequirePermission(PermissionCodes.CoTerminal.N2CTR, PermissionCodes.CoTerminal.N3CTSGR)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(int id, [FromBody] CoTerminalPatchDto dto)
         {
@@ -29,6 +32,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<CoTerminalDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.CoTerminal.N3CTSGG, PermissionCodes.CoTerminal.N3CTSGR)]
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
         {
@@ -48,6 +52,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<CoTerminalWithDetailsDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.CoTerminal.N3CTSGG, PermissionCodes.CoTerminal.N3CTSGR)]
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
@@ -55,6 +60,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<CoTerminalWithDetailsDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.CoTerminal.N2CTR, PermissionCodes.CoTerminal.N2CTC)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
@@ -63,6 +69,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<CoTerminalWithDetailsDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.CoTerminal.N3CTSGR)]
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(
             int id,

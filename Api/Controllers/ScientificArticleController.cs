@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.ScientificArticles;
 using Application.Shared.DTOs;
@@ -6,6 +7,7 @@ using Application.Shared.Queries.ScientificArticles;
 using Domain.Entities;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +22,7 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [RequirePermission(PermissionCodes.PublicacionArticulo.N2PCR, PermissionCodes.PublicacionArticulo.N3PCSGR)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(int id, [FromBody] ScientificArticlePatchDto dto)
         {
@@ -29,6 +32,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<ScientificArticleDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.PublicacionArticulo.N3PCSGG, PermissionCodes.PublicacionArticulo.N3PCSGR)]
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
         {
@@ -48,6 +52,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<ScientificArticleWithDetailsDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.PublicacionArticulo.N3PCSGG, PermissionCodes.PublicacionArticulo.N3PCSGR)]
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
@@ -55,6 +60,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<ScientificArticleWithDetailsDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.PublicacionArticulo.N2PCR, PermissionCodes.PublicacionArticulo.N2PCC)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
@@ -63,6 +69,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<ScientificArticleWithDetailsDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.PublicacionArticulo.N3PCSGR)]
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(int id, [FromQuery] PaginatedRequest request)
         {

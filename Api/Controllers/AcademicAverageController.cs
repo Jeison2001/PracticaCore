@@ -1,3 +1,4 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Commands.AcademicAverages;
 using Application.Shared.DTOs;
@@ -6,6 +7,7 @@ using Application.Shared.Queries.AcademicAverages;
 using Domain.Entities;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +22,7 @@ namespace Api.Controllers
             _mediator = mediator;
         }
 
+        [RequirePermission(PermissionCodes.GradoPromedio.N2GPR, PermissionCodes.GradoPromedio.N3GPSGR)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(int id, [FromBody] AcademicAveragePatchDto dto)
         {
@@ -29,6 +32,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<AcademicAverageDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.GradoPromedio.N3GPSGG, PermissionCodes.GradoPromedio.N3GPSGR)]
         [HttpGet("GetAll")]
         public async Task<IActionResult> GetAllWithDetails([FromQuery] PaginatedRequest request)
         {
@@ -48,6 +52,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<PaginatedResult<AcademicAverageWithDetailsDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.GradoPromedio.N3GPSGG, PermissionCodes.GradoPromedio.N3GPSGR)]
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
@@ -55,6 +60,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<AcademicAverageWithDetailsDto> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.GradoPromedio.N2GPR, PermissionCodes.GradoPromedio.N2GPES)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
@@ -63,6 +69,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<List<AcademicAverageWithDetailsDto>> { Success = true, Data = result });
         }
 
+        [RequirePermission(PermissionCodes.GradoPromedio.N3GPSGR)]
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(
             int id,

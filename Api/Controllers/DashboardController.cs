@@ -1,6 +1,8 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Queries.Dashboard;
 using Domain.Common.Dashboard;
+using Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
@@ -11,6 +13,7 @@ namespace Api.Controllers
     /// Reportes y estadísticas agregadas de inscripciones de modalidad de grado.
     /// Todas las métricas se calculan según los filtros recibidos.
     /// </summary>
+    [RequirePermission(PermissionCodes.Reportes.N2EDD)]
     [Route("api/[controller]")]
     [ApiController]
     public class DashboardController : ControllerBase

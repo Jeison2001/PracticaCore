@@ -1,8 +1,10 @@
+using Api.Authorization;
 using Api.Responses;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.RolePermissions;
 using Application.Shared.Queries.RolePermissions;
 using Domain.Common;
+using Domain.Constants;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -25,6 +27,7 @@ namespace Api.Controllers
         /// <param name="code">Código del rol (opcional)</param>
         /// <param name="statusRegister">Estado del registro (true=activos, false=inactivos, null=todos)</param>
         /// <returns>Lista de permisos del rol con información del registro de relación</returns>
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSRL)]
         [HttpGet("ByRole")]
         public async Task<ActionResult<ApiResponse<List<RolePermissionInfoDto>>>> GetPermissionsByRole(
             [FromQuery] int? id = null,
@@ -77,6 +80,14 @@ namespace Api.Controllers
         {
             return Task.FromResult<IActionResult>(NotFound());
         }
+
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSRL)]
+        [HttpPost("multiple")]
+        public override async Task<IActionResult> CreateMultiple([FromBody] List<RolePermissionDto> dtos) => await base.CreateMultiple(dtos);
+
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSRL)]
+        [HttpPatch("{id}/status")]
+        public override async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto) => await base.UpdateStatus(id, dto);
 
         [NonAction]
         public override Task<IActionResult> Update(int id, [FromBody] RolePermissionDto dto)

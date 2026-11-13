@@ -1,9 +1,11 @@
+using Api.Authorization;
 using Application.Shared.Commands.InscriptionModalities;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.InscriptionModalities;
 using Api.Responses;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Constants;
 using Domain.Entities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +22,7 @@ namespace Api.Controllers
         {
         }
 
+        [RequirePermission(PermissionCodes.ModalidadesGrado.N3MGPR)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(int id, [FromBody] InscriptionModalityPatchDto dto)
         {

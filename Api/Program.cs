@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Authorization;
+using Api.Authorization;
 using Api.Extensions;
 using Api.Middlewares;
 using Api.SwaggerFilters;
@@ -78,6 +79,8 @@ builder.Services.AddAuthorization(options =>
     options.DefaultPolicy = policy;
     options.FallbackPolicy = policy;
 });
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 builder.Services.AddControllers();
 

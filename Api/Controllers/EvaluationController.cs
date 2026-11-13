@@ -7,10 +7,12 @@ using Domain.Common;
 using Domain.Common.Extensions;
 using Domain.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
+    [Authorize]
     public class EvaluationController : GenericController<Evaluation, int, EvaluationDto>
     {
         public EvaluationController(IMediator mediator) : base(mediator)
