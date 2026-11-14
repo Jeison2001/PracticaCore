@@ -5,10 +5,15 @@ using Api.Responses;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Documents;
 using Domain.Common;
+using Domain.Constants;
 using Domain.Entities;
+using Domain.Interfaces.Services.Storage;
 using FluentAssertions;
 using Infrastructure.Data;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Xunit;
 
 namespace Tests.Integration.Documents
@@ -385,6 +390,254 @@ namespace Tests.Integration.Documents
                 unchanged.Should().NotBeNull();
                 unchanged!.StatusRegister.Should().BeTrue();
             }
+        }
+
+        [Fact]
+        public async Task ReadEndpoints_ShouldReturnForbidden_WhenUserIsUnrelatedAndLacksReadAllPermission()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            var (inscriptionId, docId, _) = await SeedReadScenarioAsync(
+                customFactory.Services,
+                studentUserId: 999);
+
+            const int unrelatedUserId = 5001;
+            const string permissions = "NONE";
+
+            using var getByIdReq = CreateReadRequest($"/api/Document/{docId}", unrelatedUserId, permissions);
+            using var downloadReq = CreateReadRequest($"/api/Document/File/{docId}", unrelatedUserId, permissions);
+            using var byModalityReq = CreateReadRequest($"/api/Document/ByInscriptionModality/{inscriptionId}?PageNumber=1&PageSize=10", unrelatedUserId, permissions);
+
+            var getByIdRes = await client.SendAsync(getByIdReq);
+            var downloadRes = await client.SendAsync(downloadReq);
+            var byModalityRes = await client.SendAsync(byModalityReq);
+
+            getByIdRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            downloadRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            byModalityRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            storageMock.Verify(s => s.GetFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ReadEndpoints_ShouldReturnForbidden_WhenTeacherIsUnconfirmedWithReviewOnlyPermission()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            const int teacherUserId = 5002;
+            var (inscriptionId, docId, _) = await SeedReadScenarioAsync(
+                customFactory.Services,
+                studentUserId: 999,
+                teacherUserId: teacherUserId,
+                teacherIsConfirmed: false);
+
+            var permissions = PermissionCodes.ProyectoGrado.N4PGPAR;
+
+            using var getByIdReq = CreateReadRequest($"/api/Document/{docId}", teacherUserId, permissions);
+            using var downloadReq = CreateReadRequest($"/api/Document/File/{docId}", teacherUserId, permissions);
+            using var byModalityReq = CreateReadRequest($"/api/Document/ByInscriptionModality/{inscriptionId}?PageNumber=1&PageSize=10", teacherUserId, permissions);
+
+            var getByIdRes = await client.SendAsync(getByIdReq);
+            var downloadRes = await client.SendAsync(downloadReq);
+            var byModalityRes = await client.SendAsync(byModalityReq);
+
+            getByIdRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            downloadRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            byModalityRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            storageMock.Verify(s => s.GetFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ReadEndpoints_ShouldReturnOk_WhenTeacherIsConfirmedWithReviewOnlyPermission()
+        {
+            var expectedBytes = new byte[] { 10, 20, 30, 40 };
+            var storageMock = new Mock<IFileStorageService>();
+            storageMock
+                .Setup(s => s.GetFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => new MemoryStream(expectedBytes));
+
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            const int teacherUserId = 5003;
+            var (inscriptionId, docId, storedFileName) = await SeedReadScenarioAsync(
+                customFactory.Services,
+                studentUserId: 999,
+                teacherUserId: teacherUserId,
+                teacherIsConfirmed: true);
+
+            var permissions = PermissionCodes.ProyectoGrado.N4PGPAR;
+
+            using var getByIdReq = CreateReadRequest($"/api/Document/{docId}", teacherUserId, permissions);
+            using var downloadReq = CreateReadRequest($"/api/Document/File/{docId}", teacherUserId, permissions);
+            using var byModalityReq = CreateReadRequest($"/api/Document/ByInscriptionModality/{inscriptionId}?PageNumber=1&PageSize=10", teacherUserId, permissions);
+
+            var getByIdRes = await client.SendAsync(getByIdReq);
+            var downloadRes = await client.SendAsync(downloadReq);
+            var byModalityRes = await client.SendAsync(byModalityReq);
+
+            getByIdRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var docPayload = await getByIdRes.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>();
+            docPayload!.Data!.Id.Should().Be(docId);
+
+            downloadRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var downloadedBytes = await downloadRes.Content.ReadAsByteArrayAsync();
+            downloadedBytes.Should().Equal(expectedBytes);
+            storageMock.Verify(s => s.GetFileAsync(storedFileName, It.IsAny<CancellationToken>()), Times.Once);
+
+            byModalityRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var listPayload = await byModalityRes.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<DocumentDto>>>();
+            listPayload!.Data!.Items.Should().Contain(d => d.Id == docId);
+        }
+
+        [Fact]
+        public async Task ReadEndpoints_ShouldReturnOk_WhenUnlinkedUserHasReadAllPermission()
+        {
+            var expectedBytes = new byte[] { 1, 3, 5, 7 };
+            var storageMock = new Mock<IFileStorageService>();
+            storageMock
+                .Setup(s => s.GetFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => new MemoryStream(expectedBytes));
+
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            var (inscriptionId, docId, storedFileName) = await SeedReadScenarioAsync(
+                customFactory.Services,
+                studentUserId: 999);
+
+            const int coordinatorUserId = 5004;
+            var permissions = PermissionCodes.ProyectoGrado.N4PGPPG;
+
+            using var getByIdReq = CreateReadRequest($"/api/Document/{docId}", coordinatorUserId, permissions);
+            using var downloadReq = CreateReadRequest($"/api/Document/File/{docId}", coordinatorUserId, permissions);
+            using var byModalityReq = CreateReadRequest($"/api/Document/ByInscriptionModality/{inscriptionId}?PageNumber=1&PageSize=10", coordinatorUserId, permissions);
+
+            var getByIdRes = await client.SendAsync(getByIdReq);
+            var downloadRes = await client.SendAsync(downloadReq);
+            var byModalityRes = await client.SendAsync(byModalityReq);
+
+            getByIdRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            downloadRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await downloadRes.Content.ReadAsByteArrayAsync()).Should().Equal(expectedBytes);
+            storageMock.Verify(s => s.GetFileAsync(storedFileName, It.IsAny<CancellationToken>()), Times.Once);
+
+            byModalityRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var listPayload = await byModalityRes.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<DocumentDto>>>();
+            listPayload!.Data!.Items.Should().Contain(d => d.Id == docId);
+        }
+
+        private WebApplicationFactory<Program> CreateFactoryWithMockStorage(Mock<IFileStorageService> storageMock)
+        {
+            return _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IFileStorageService));
+                    if (descriptor != null)
+                        services.Remove(descriptor);
+
+                    services.AddSingleton(_ => storageMock.Object);
+                });
+            });
+        }
+
+        private static HttpRequestMessage CreateReadRequest(string url, int userId, string permissions)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("X-Test-UserId", userId.ToString());
+            request.Headers.Add("X-Test-Permissions", permissions);
+            return request;
+        }
+
+        private static async Task<(int InscriptionId, int DocumentId, string StoredFileName)> SeedReadScenarioAsync(
+            IServiceProvider services,
+            int studentUserId,
+            int? teacherUserId = null,
+            bool teacherIsConfirmed = true)
+        {
+            using var scope = services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var modality = new Modality { Name = "Proyecto de Grado", Description = "Proyecto", StatusRegister = true };
+            var state = new StateInscription { Name = "Activo", Description = "Activo", StatusRegister = true };
+            var period = new AcademicPeriod { Code = "2026-1", StartDate = DateTime.UtcNow, EndDate = DateTime.UtcNow.AddMonths(6), StatusRegister = true };
+            var docClass = new DocumentClass { Name = "General", Description = "General", StatusRegister = true };
+
+            context.Set<Modality>().Add(modality);
+            context.Set<StateInscription>().Add(state);
+            context.Set<AcademicPeriod>().Add(period);
+            context.Set<DocumentClass>().Add(docClass);
+            await context.SaveChangesAsync();
+
+            var inscriptionModality = new InscriptionModality
+            {
+                IdModality = modality.Id,
+                IdStateInscription = state.Id,
+                IdAcademicPeriod = period.Id,
+                StatusRegister = true
+            };
+            context.Set<InscriptionModality>().Add(inscriptionModality);
+
+            var docType = new DocumentType
+            {
+                Name = "Propuesta",
+                Description = "Propuesta",
+                IdDocumentClass = docClass.Id,
+                StatusRegister = true
+            };
+            context.Set<DocumentType>().Add(docType);
+            await context.SaveChangesAsync();
+
+            context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdUser = studentUserId,
+                StatusRegister = true
+            });
+
+            if (teacherUserId.HasValue)
+            {
+                var assignmentType = new TypeTeachingAssignment
+                {
+                    Code = $"DIR_{Guid.NewGuid():N}"[..16],
+                    Name = "Director",
+                    StatusRegister = true
+                };
+                context.Set<TypeTeachingAssignment>().Add(assignmentType);
+                await context.SaveChangesAsync();
+
+                context.Set<TeachingAssignment>().Add(new TeachingAssignment
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdTeacher = teacherUserId.Value,
+                    IdTypeTeachingAssignment = assignmentType.Id,
+                    IsConfirmed = teacherIsConfirmed,
+                    RevocationDate = null,
+                    StatusRegister = true
+                });
+            }
+
+            var storedFileName = $"stored_{Guid.NewGuid():N}.pdf";
+            var document = new Document
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdDocumentType = docType.Id,
+                Name = "Protected Doc",
+                OriginalFileName = "protected.pdf",
+                StoredFileName = storedFileName,
+                StoragePath = "Uploads",
+                MimeType = "application/pdf",
+                FileSize = 1024,
+                StatusRegister = true
+            };
+            context.Set<Document>().Add(document);
+            await context.SaveChangesAsync();
+
+            return (inscriptionModality.Id, document.Id, storedFileName);
         }
     }
 }

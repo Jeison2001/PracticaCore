@@ -206,7 +206,8 @@ namespace Api.Controllers
             if (string.IsNullOrEmpty(refreshTokenString))
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "No se proporcionó refresh token." } });
 
-            var rtEntity = await _refreshTokenService.ValidateTokenForReuseAsync(refreshTokenString);
+            var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
+            var rtEntity = await _refreshTokenService.ValidateTokenForReuseAsync(refreshTokenString, cancellationToken);
 
             if (rtEntity == null)
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Refresh token inválido." } });
@@ -216,21 +217,25 @@ namespace Api.Controllers
 
             if (rtEntity.RevokedAt != null)
             {
-                await _refreshTokenService.RevokeAllTokensForUserAsync(rtEntity.IdUser);
-                Response.Cookies.Delete("accessToken");
-                Response.Cookies.Delete("refreshToken");
+                await _refreshTokenService.RevokeAllTokensForUserAsync(rtEntity.IdUser, cancellationToken);
+                ClearAuthCookies();
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Fraude o reúso de sesión detectado. Todas las sesiones han sido revocadas." } });
             }
 
-            await _refreshTokenService.RevokeAsync(refreshTokenString);
-            await _refreshTokenService.PurgeExpiredAsync(rtEntity.IdUser);
-            var newRefreshToken = await _refreshTokenService.GenerateAsync(rtEntity.IdUser);
-            SetRefreshTokenCookie(newRefreshToken.Token);
-
+            // Verificar estado activo del usuario antes de rotar/emitir nuevos tokens.
             var userRepo = _unitOfWork.GetRepository<Domain.Entities.User, int>();
             var user = await userRepo.GetByIdAsync(rtEntity.IdUser);
             if (user == null || !user.StatusRegister)
+            {
+                await _refreshTokenService.RevokeAllTokensForUserAsync(rtEntity.IdUser, cancellationToken);
+                ClearAuthCookies();
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Usuario inválido o inactivo." } });
+            }
+
+            await _refreshTokenService.RevokeAsync(refreshTokenString, cancellationToken);
+            await _refreshTokenService.PurgeExpiredAsync(rtEntity.IdUser, cancellationToken);
+            var newRefreshToken = await _refreshTokenService.GenerateAsync(rtEntity.IdUser, cancellationToken);
+            SetRefreshTokenCookie(newRefreshToken.Token);
 
             var loginData = await _userInfoRepository.GetUserLoginDataAsync(user.Id);
             var permissionCodes = loginData.Permissions.Select(p => p.Code).ToList();
@@ -274,35 +279,39 @@ namespace Api.Controllers
             if (!string.IsNullOrEmpty(refreshTokenString))
             {
                 await _refreshTokenService.RevokeAsync(refreshTokenString);
-                Response.Cookies.Delete("refreshToken");
-                Response.Cookies.Delete("accessToken");
+                ClearAuthCookies();
             }
 
             return Ok(new ApiResponse<object> { Success = true, Data = "Sesión cerrada correctamente." });
         }
 
+        private static CookieOptions BuildBaseAuthCookieOptions() => new()
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None
+        };
+
         private void SetRefreshTokenCookie(string token)
         {
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenExpirationDays)
-            };
+            var cookieOptions = BuildBaseAuthCookieOptions();
+            cookieOptions.Expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenExpirationDays);
             Response.Cookies.Append("refreshToken", token, cookieOptions);
         }
 
         private void SetAccessTokenCookie(string token)
         {
             var expireMinutes = _configuration["Jwt:ExpireMinutes"] is string raw && int.TryParse(raw, out var m) ? m : 15;
-            Response.Cookies.Append("accessToken", token, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None,
-                Expires = DateTimeOffset.UtcNow.AddMinutes(expireMinutes)
-            });
+            var cookieOptions = BuildBaseAuthCookieOptions();
+            cookieOptions.Expires = DateTimeOffset.UtcNow.AddMinutes(expireMinutes);
+            Response.Cookies.Append("accessToken", token, cookieOptions);
+        }
+
+        private void ClearAuthCookies()
+        {
+            var deleteOptions = BuildBaseAuthCookieOptions();
+            Response.Cookies.Delete("accessToken", deleteOptions);
+            Response.Cookies.Delete("refreshToken", deleteOptions);
         }
 
         private Dictionary<string, object> BuildPermissionHierarchy(List<Domain.Common.Auth.PermissionInfo> permissions)

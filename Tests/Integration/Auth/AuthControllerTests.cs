@@ -9,6 +9,7 @@ using FluentAssertions;
 using Google.Apis.Auth;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
@@ -274,6 +275,133 @@ namespace Tests.Integration.Auth
             var response = await _client.PostAsJsonAsync("/api/Auth/register", request);
 
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task RefreshTokens_WithInactiveUser_ReturnsUnauthorized_ClearsCookies_AndRevokesAllUserTokens()
+        {
+            var tokenToUse = $"rt_{Guid.NewGuid():N}";
+            var secondaryToken = $"rt_{Guid.NewGuid():N}";
+            var userId = await SeedUserWithRefreshTokensAsync(
+                userIsActive: false,
+                tokenToUse,
+                secondaryToken);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            request.Headers.Add("X-Test-Anonymous", "true");
+            request.Headers.Add("Cookie", $"refreshToken={tokenToUse}");
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            var payload = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            payload.Should().NotBeNull();
+            payload!.Success.Should().BeFalse();
+            payload.Errors.Should().Contain("Usuario inválido o inactivo.");
+
+            response.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
+            var cookieList = setCookies!.ToList();
+            cookieList.Should().Contain(c => c.StartsWith("refreshToken=;", StringComparison.OrdinalIgnoreCase));
+            cookieList.Should().Contain(c => c.StartsWith("accessToken=;", StringComparison.OrdinalIgnoreCase));
+            cookieList.Should().NotContain(c => c.StartsWith("refreshToken=", StringComparison.OrdinalIgnoreCase)
+                                             && !c.StartsWith("refreshToken=;", StringComparison.OrdinalIgnoreCase));
+
+            using var verifyScope = _factory.Services.CreateScope();
+            var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var remainingTokens = await verifyContext.RefreshTokens
+                .AsNoTracking()
+                .Where(rt => rt.IdUser == userId)
+                .ToListAsync();
+            remainingTokens.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task RefreshTokens_WithActiveUser_ReturnsOkAndRotatesTokens()
+        {
+            var initialToken = $"rt_{Guid.NewGuid():N}";
+            var userId = await SeedUserWithRefreshTokensAsync(
+                userIsActive: true,
+                initialToken);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            request.Headers.Add("X-Test-Anonymous", "true");
+            request.Headers.Add("Cookie", $"refreshToken={initialToken}");
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var payload = await response.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>();
+            payload.Should().NotBeNull();
+            payload!.Success.Should().BeTrue();
+            payload.Data.Should().NotBeNull();
+            payload.Data!.Token.Should().NotBeNullOrEmpty();
+            payload.Data.User.Id.Should().Be(userId);
+
+            response.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
+            var cookieList = setCookies!.ToList();
+            cookieList.Should().Contain(c => c.StartsWith("refreshToken=", StringComparison.OrdinalIgnoreCase)
+                                         && !c.StartsWith("refreshToken=;", StringComparison.OrdinalIgnoreCase));
+            cookieList.Should().Contain(c => c.StartsWith("accessToken=", StringComparison.OrdinalIgnoreCase)
+                                         && !c.StartsWith("accessToken=;", StringComparison.OrdinalIgnoreCase));
+
+            using var verifyScope = _factory.Services.CreateScope();
+            var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var tokens = await verifyContext.RefreshTokens
+                .AsNoTracking()
+                .Where(rt => rt.IdUser == userId)
+                .ToListAsync();
+
+            tokens.Should().NotContain(t => t.Token == initialToken);
+            tokens.Should().ContainSingle(t => t.Token != initialToken && t.RevokedAt == null && t.ExpiresAt > DateTimeOffset.UtcNow);
+        }
+
+        private async Task<int> SeedUserWithRefreshTokensAsync(bool userIsActive, params string[] refreshTokens)
+        {
+            using var scope = _factory.Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var idType = context.Set<IdentificationType>().FirstOrDefault(x => x.StatusRegister)
+                ?? new IdentificationType { Code = "CC", Name = "Cedula", Description = "Cedula", StatusRegister = true };
+            if (idType.Id == 0) context.Set<IdentificationType>().Add(idType);
+
+            var faculty = context.Set<Faculty>().FirstOrDefault(x => x.StatusRegister)
+                ?? new Faculty { Name = "Fac", Code = "F1", StatusRegister = true };
+            if (faculty.Id == 0) context.Set<Faculty>().Add(faculty);
+
+            var program = context.Set<AcademicProgram>().FirstOrDefault(x => x.StatusRegister)
+                ?? new AcademicProgram { Name = "Prog", Code = "P1", Faculty = faculty, StatusRegister = true };
+            if (program.Id == 0) context.Set<AcademicProgram>().Add(program);
+
+            await context.SaveChangesAsync();
+
+            var user = new User
+            {
+                IdIdentificationType = idType.Id,
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                Email = $"refresh_{Guid.NewGuid():N}@unicesar.edu.co",
+                FirstName = "Refresh",
+                LastName = "User",
+                IdAcademicProgram = program.Id,
+                StatusRegister = userIsActive,
+                OperationRegister = "SEED"
+            };
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            foreach (var token in refreshTokens)
+            {
+                context.RefreshTokens.Add(new RefreshToken
+                {
+                    IdUser = user.Id,
+                    Token = token,
+                    ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+                    StatusRegister = true,
+                    OperationRegister = "SEED"
+                });
+            }
+            await context.SaveChangesAsync();
+
+            return user.Id;
         }
     }
 }

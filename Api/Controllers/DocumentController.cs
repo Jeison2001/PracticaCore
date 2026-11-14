@@ -4,6 +4,7 @@ using Application.Shared.DTOs.Documents;
 using Application.Shared.Queries.Documents;
 using Domain.Common;
 using Domain.Common.Extensions;
+using Domain.Interfaces.Services.Documents;
 using Domain.Interfaces.Services.Storage;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -24,12 +25,18 @@ namespace Api.Controllers
         private readonly IMediator _mediator;
         private readonly IConfiguration _configuration;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IDocumentAccessGuard _documentAccessGuard;
         
-        public DocumentController(IMediator mediator, IConfiguration configuration, IFileStorageService fileStorageService)
+        public DocumentController(
+            IMediator mediator,
+            IConfiguration configuration,
+            IFileStorageService fileStorageService,
+            IDocumentAccessGuard documentAccessGuard)
         {
             _mediator = mediator;
             _configuration = configuration;
             _fileStorageService = fileStorageService;
+            _documentAccessGuard = documentAccessGuard;
         }
 
         /// <summary>
@@ -51,6 +58,9 @@ namespace Api.Controllers
                     Messages = new List<string>()
                 });
             }
+
+            await EnsureCanReadAsync(result.IdInscriptionModality);
+
             return Ok(new Responses.ApiResponse<DocumentDto>
             {
                 Success = true,
@@ -79,6 +89,9 @@ namespace Api.Controllers
                     Messages = new List<string>()
                 });
             }
+
+            await EnsureCanReadAsync(result.IdInscriptionModality);
+
             var fileStream = await _fileStorageService.GetFileAsync(result.StoredFileName, HttpContext.RequestAborted);
             var mimeType = string.IsNullOrEmpty(result.MimeType) ? "application/octet-stream" : result.MimeType;
             return File(fileStream, mimeType, result.OriginalFileName);
@@ -100,6 +113,8 @@ namespace Api.Controllers
             [FromQuery] int? idStageModality = null,
             [FromQuery] int? idDocumentClass = null)
         {
+            await EnsureCanReadAsync(id);
+
             var query = new GetDocumentsByInscriptionModalityQuery(
                 id,
                 request.PageNumber,
@@ -184,6 +199,14 @@ namespace Api.Controllers
                 Errors = new List<string>(),
                 Messages = new List<string> { "Estado actualizado correctamente" }
             });
+        }
+
+        private Task EnsureCanReadAsync(int? inscriptionModalityId)
+        {
+            return _documentAccessGuard.EnsureUserCanReadAsync(
+                inscriptionModalityId,
+                User.GetCurrentUserInfo(),
+                HttpContext?.RequestAborted ?? CancellationToken.None);
         }
     }
 }

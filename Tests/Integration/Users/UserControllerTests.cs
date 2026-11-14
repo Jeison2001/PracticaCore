@@ -8,6 +8,7 @@ using Domain.Constants;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -415,6 +416,82 @@ namespace Tests.Integration.Users
                 var persisted = await context.Set<User>().FindAsync(userId);
                 persisted!.StatusRegister.Should().BeTrue();
             }
+        }
+
+        [Fact]
+        public async Task UpdateStatus_WhenDeactivatingUser_RevokesAllRefreshTokensAndBlocksSubsequentRefresh()
+        {
+            var (idType, program) = await SeedDependenciesAsync();
+            var primaryToken = $"rt_{Guid.NewGuid():N}";
+            var secondaryToken = $"rt_{Guid.NewGuid():N}";
+            int userId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = new User
+                {
+                    FirstName = "Deactivate",
+                    LastName = "Target",
+                    Email = $"deact_{Guid.NewGuid():N}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(user);
+                await context.SaveChangesAsync();
+                userId = user.Id;
+
+                context.RefreshTokens.AddRange(
+                    new RefreshToken
+                    {
+                        IdUser = userId,
+                        Token = primaryToken,
+                        ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+                        StatusRegister = true,
+                        OperationRegister = "SEED"
+                    },
+                    new RefreshToken
+                    {
+                        IdUser = userId,
+                        Token = secondaryToken,
+                        ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+                        StatusRegister = true,
+                        OperationRegister = "SEED"
+                    });
+                await context.SaveChangesAsync();
+            }
+
+            var updateStatusDto = new UpdateStatusRequestDto
+            {
+                StatusRegister = false,
+                IdUserUpdateAt = 1,
+                OperationRegister = "DEACTIVATE_USER"
+            };
+
+            var deactivateResponse = await _client.PatchAsJsonAsync($"{BaseUrl}/{userId}/status", updateStatusDto);
+            deactivateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using (var verifyScope = _factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persistedUser = await verifyContext.Users.AsNoTracking().FirstAsync(u => u.Id == userId);
+                persistedUser.StatusRegister.Should().BeFalse();
+
+                var remainingTokens = await verifyContext.RefreshTokens
+                    .AsNoTracking()
+                    .Where(rt => rt.IdUser == userId)
+                    .ToListAsync();
+                remainingTokens.Should().BeEmpty();
+            }
+
+            using var refreshRequest = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            refreshRequest.Headers.Add("X-Test-Anonymous", "true");
+            refreshRequest.Headers.Add("Cookie", $"refreshToken={primaryToken}");
+
+            var refreshResponse = await _client.SendAsync(refreshRequest);
+            refreshResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
     }
 }

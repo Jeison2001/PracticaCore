@@ -10,6 +10,7 @@ using Domain.Common.Auth;
 using Domain.Common.Extensions;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Interfaces.Services.Auth;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -19,10 +20,15 @@ namespace Api.Controllers
     public class UserController : GenericController<User, int, UserDto>
     {
         private readonly IJobEnqueuer _jobEnqueuer;
+        private readonly IRefreshTokenService _refreshTokenService;
 
-        public UserController(IMediator mediator, IJobEnqueuer jobEnqueuer) : base(mediator)
+        public UserController(
+            IMediator mediator,
+            IJobEnqueuer jobEnqueuer,
+            IRefreshTokenService refreshTokenService) : base(mediator)
         {
             _jobEnqueuer = jobEnqueuer;
+            _refreshTokenService = refreshTokenService;
         }
 
         [RequirePermission(PermissionCodes.Configuraciones.N2CFP, PermissionCodes.Configuraciones.N3CFSU)]
@@ -98,7 +104,24 @@ namespace Api.Controllers
 
         [RequirePermission(PermissionCodes.Configuraciones.N3CFSU)]
         [HttpPatch("{id}/status")]
-        public override async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto) => await base.UpdateStatus(id, dto);
+        public override async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
+        {
+            var result = await base.UpdateStatus(id, dto);
+
+            if (!dto.StatusRegister && IsSuccessStatusResult(result))
+            {
+                await _refreshTokenService.RevokeAllTokensForUserAsync(id, HttpContext?.RequestAborted ?? CancellationToken.None);
+            }
+
+            return result;
+        }
+
+        private static bool IsSuccessStatusResult(IActionResult result) => result switch
+        {
+            ObjectResult objResult => objResult.StatusCode is null or (>= 200 and < 300),
+            StatusCodeResult statusResult => statusResult.StatusCode is >= 200 and < 300,
+            _ => false
+        };
 
         private bool IsCrossUserAccessDenied(int targetUserId)
         {
