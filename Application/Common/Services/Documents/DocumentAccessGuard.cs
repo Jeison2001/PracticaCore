@@ -128,14 +128,18 @@ namespace Application.Common.Services.Documents
             _unitOfWork = unitOfWork;
         }
 
-        public async Task EnsureUserCanModifyAsync(Document entity, int currentUserId, CancellationToken cancellationToken = default)
+        public async Task EnsureUserCanModifyAsync(
+            Document entity,
+            int currentUserId,
+            CancellationToken cancellationToken = default,
+            IReadOnlyCollection<string>? userPermissions = null)
         {
             // Fail-closed: sin identidad de usuario => denegar.
             if (currentUserId <= 0)
                 throw new ForbiddenAccessException("Usuario no autenticado. No tienes permiso para modificar este documento.");
 
             // Un documento sin inscripcion asociada no puede verificar membresia => denegar.
-            if (!entity.IdInscriptionModality.HasValue)
+            if (entity.IdInscriptionModality is null or <= 0)
                 throw new ForbiddenAccessException("El documento no esta asociado a ninguna inscripcion. No tienes permiso para modificarlo.");
 
             var inscriptionId = entity.IdInscriptionModality.Value;
@@ -144,14 +148,30 @@ namespace Application.Common.Services.Documents
             if (await IsStudentInInscriptionAsync(inscriptionId, currentUserId, cancellationToken))
                 return;
 
-            // O si es docente asignado a la inscripcion.
+            // O si es docente asignado activo, no revocado y confirmado en la inscripcion.
             var taRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
             var isTeacherInInscription = await taRepo.AnyAsync(
-                x => x.IdInscriptionModality == inscriptionId && x.IdTeacher == currentUserId,
+                x => x.IdInscriptionModality == inscriptionId &&
+                     x.IdTeacher == currentUserId &&
+                     x.StatusRegister &&
+                     x.RevocationDate == null &&
+                     x.IsConfirmed,
                 cancellationToken);
 
             if (isTeacherInInscription)
                 return;
+
+            if (userPermissions != null &&
+                userPermissions.Count > 0 &&
+                await HasContextualReadPermissionAsync(
+                    inscriptionId,
+                    userPermissions,
+                    stageModalityId: null,
+                    documentTypeId: entity.IdDocumentType,
+                    cancellationToken))
+            {
+                return;
+            }
 
             throw new ForbiddenAccessException("No tienes permiso para modificar este documento. No estas vinculado a esta inscripcion.");
         }

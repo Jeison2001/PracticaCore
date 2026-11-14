@@ -5,31 +5,31 @@ namespace Infrastructure.Repositories
 {
     public class EfDatabaseTransaction : IDatabaseTransaction
     {
-        private readonly IDbContextTransaction _transaction;
+        private readonly IDbContextTransaction? _transaction;
 
-        public EfDatabaseTransaction(IDbContextTransaction transaction)
+        public EfDatabaseTransaction(IDbContextTransaction? transaction)
         {
             _transaction = transaction;
         }
 
         public Task CommitAsync(CancellationToken ct = default)
         {
-            return _transaction.CommitAsync(ct);
+            return _transaction?.CommitAsync(ct) ?? Task.CompletedTask;
         }
 
         public Task RollbackAsync(CancellationToken ct = default)
         {
-            return _transaction.RollbackAsync(ct);
+            return _transaction?.RollbackAsync(ct) ?? Task.CompletedTask;
         }
 
         public void Dispose()
         {
-            _transaction.Dispose();
+            _transaction?.Dispose();
         }
 
         public ValueTask DisposeAsync()
         {
-            return _transaction.DisposeAsync();
+            return _transaction?.DisposeAsync() ?? ValueTask.CompletedTask;
         }
     }
 }

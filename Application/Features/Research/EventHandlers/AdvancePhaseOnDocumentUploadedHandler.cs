@@ -58,7 +58,9 @@ namespace Application.Features.Research.EventHandlers
             if (currentState == null) return;
 
             string? targetCode = null;
-            if (currentState.Code == StateStageCodes.ApPendienteDocumento)
+            if (currentState.Code == StateStageCodes.ApPendienteDocumento ||
+                currentState.Code == StateStageCodes.ApConObservaciones ||
+                currentState.Code == "AP_CON_OBSERVACIONES")
             {
                 var confirmedJuradosCount = await TeachingAssignmentEvaluationHelper.CountConfirmedJuradosAsync(
                     _unitOfWork,
@@ -70,10 +72,6 @@ namespace Application.Features.Research.EventHandlers
                 targetCode = confirmedJuradosCount >= TeachingAssignmentEvaluationHelper.MinimumConfirmedJurados
                     ? StateStageCodes.ApEnEvaluacion
                     : StateStageCodes.ApRadicadoPendAsigEval;
-            }
-            else if (currentState.Code == StateStageCodes.ApConObservaciones || currentState.Code == "AP_CON_OBSERVACIONES")
-            {
-                targetCode = StateStageCodes.ApEnEvaluacion;
             }
 
             if (targetCode == null) return;

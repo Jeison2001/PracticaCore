@@ -96,6 +96,9 @@ namespace Infrastructure.Repositories
 
         public async Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken ct = default)
         {
+            if (!_context.Database.IsRelational())
+                return new EfDatabaseTransaction(null);
+
             var transaction = await _context.Database.BeginTransactionAsync(ct);
             return new EfDatabaseTransaction(transaction);
         }

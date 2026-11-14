@@ -419,6 +419,64 @@ namespace Tests.Integration.Users
         }
 
         [Fact]
+        public async Task Update_InactiveSelfWithoutN3CFSU_ReturnsForbiddenAndRemainsInactive()
+        {
+            var (idType, program) = await SeedDependenciesAsync();
+            int userId;
+            var email = $"inactive_{Guid.NewGuid():N}@test.com";
+            var identification = Guid.NewGuid().ToString("N")[..10];
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = new User
+                {
+                    FirstName = "Inactive",
+                    LastName = "User",
+                    Email = email,
+                    Identification = identification,
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = false
+                };
+                context.Set<User>().Add(user);
+                await context.SaveChangesAsync();
+                userId = user.Id;
+            }
+
+            var updateDto = new UserDto
+            {
+                Id = userId,
+                FirstName = "ReactivateAttempt",
+                LastName = "User",
+                Email = email,
+                Identification = identification,
+                IdIdentificationType = idType.Id,
+                IdAcademicProgram = program.Id,
+                StatusRegister = true
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/{userId}")
+            {
+                Content = JsonContent.Create(updateDto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.Configuraciones.N2CFP);
+            request.Headers.Add("X-Test-UserId", userId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await context.Set<User>().FindAsync(userId);
+                persisted!.StatusRegister.Should().BeFalse();
+                persisted.FirstName.Should().Be("Inactive");
+            }
+        }
+
+        [Fact]
         public async Task UpdateStatus_WhenDeactivatingUser_RevokesAllRefreshTokensAndBlocksSubsequentRefresh()
         {
             var (idType, program) = await SeedDependenciesAsync();

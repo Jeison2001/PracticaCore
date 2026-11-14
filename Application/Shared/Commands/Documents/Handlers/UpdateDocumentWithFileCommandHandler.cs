@@ -44,7 +44,11 @@ namespace Application.Shared.Commands.Documents.Handlers
 
             // Seguridad (anti-IDOR): solo usuarios vinculados a la inscripcion pueden modificar
             // el documento. Logica centralizada y fail-closed en IDocumentAccessGuard.
-            await _accessGuard.EnsureUserCanModifyAsync(entity, request.CurrentUser.UserId ?? 0, cancellationToken);
+            await _accessGuard.EnsureUserCanModifyAsync(
+                entity,
+                request.CurrentUser.UserId ?? 0,
+                cancellationToken,
+                request.CurrentUser.Permissions);
 
             int idDocumentType = request.Dto.IdDocumentType;
             if (!string.IsNullOrWhiteSpace(request.Dto.CodeDocumentType))
@@ -54,6 +58,19 @@ namespace Application.Shared.Commands.Documents.Handlers
                 if (docType == null)
                     throw new KeyNotFoundException($"No se encontró DocumentType con code '{request.Dto.CodeDocumentType}'");
                 idDocumentType = docType.Id;
+            }
+
+            if (request.Dto.IdInscriptionModality != entity.IdInscriptionModality)
+            {
+                await _accessGuard.EnsureUserCanModifyAsync(
+                    new Document
+                    {
+                        IdInscriptionModality = request.Dto.IdInscriptionModality,
+                        IdDocumentType = idDocumentType
+                    },
+                    request.CurrentUser.UserId ?? 0,
+                    cancellationToken,
+                    request.CurrentUser.Permissions);
             }
 
             // Campos de auditoría (asignarlos PRIMERO para que el Domain Event

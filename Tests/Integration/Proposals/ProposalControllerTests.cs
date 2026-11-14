@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Api.Responses;
+using Application.Common.Services.Jobs;
 using Application.Shared.DTOs.Proposals;
 using Domain.Constants;
 using Domain.Entities;
@@ -560,6 +561,140 @@ namespace Tests.Integration.Proposals
             var response = await _client.SendAsync(request);
 
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task Patch_AsStudentWithN3PGRP_ReturnsForbidden()
+        {
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+            int studentId;
+            int radicadaStateId;
+            int pertinenteStateId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                radicadaStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropRadicada).Id;
+                pertinenteStateId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropPertinente).Id;
+
+                entity.IdStateStage = radicadaStateId;
+                context.Set<Proposal>().Add(entity);
+
+                if (!context.Set<AcademicProgram>().Any(x => x.Id == 1))
+                    context.Set<AcademicProgram>().Add(new AcademicProgram { Id = 1, Name = "Prog", Code = "P1" });
+                if (!context.Set<IdentificationType>().Any(x => x.Id == 1))
+                    context.Set<IdentificationType>().Add(new IdentificationType { Id = 1, Name = "ID", Code = "C1", Description = "D" });
+
+                var student = new User
+                {
+                    FirstName = "Patch",
+                    LastName = "Student",
+                    Email = $"patch_stu_{Guid.NewGuid():N}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdAcademicProgram = 1,
+                    IdIdentificationType = 1,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(student);
+                await context.SaveChangesAsync();
+                studentId = student.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = entity.Id,
+                    IdUser = studentId,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Patch, $"{BaseUrl}/{entity.Id}")
+            {
+                Content = JsonContent.Create(new ProposalPatchDto
+                {
+                    IdStateStage = pertinenteStateId,
+                    Observation = "Autoaprobación indebida"
+                })
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            request.Headers.Add("X-Test-UserId", studentId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var unchanged = await context.Set<Proposal>().FindAsync(entity.Id);
+                unchanged!.IdStateStage.Should().Be(radicadaStateId);
+            }
+        }
+
+        [Fact]
+        public async Task Update_AsMemberStudentInPropNoPertinente_EnqueuesNotificationJob()
+        {
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+            int studentId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                entity.IdStateStage = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropNoPertinente).Id;
+                entity.Observation = "Observacion comite";
+                context.Set<Proposal>().Add(entity);
+
+                if (!context.Set<AcademicProgram>().Any(x => x.Id == 1))
+                    context.Set<AcademicProgram>().Add(new AcademicProgram { Id = 1, Name = "Prog", Code = "P1" });
+                if (!context.Set<IdentificationType>().Any(x => x.Id == 1))
+                    context.Set<IdentificationType>().Add(new IdentificationType { Id = 1, Name = "ID", Code = "C1", Description = "D" });
+
+                var student = new User
+                {
+                    FirstName = "Notify",
+                    LastName = "Student",
+                    Email = $"notify_stu_{Guid.NewGuid():N}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdAcademicProgram = 1,
+                    IdIdentificationType = 1,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(student);
+                await context.SaveChangesAsync();
+                studentId = student.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = entity.Id,
+                    IdUser = studentId,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+            }
+
+            _factory.EnqueuedJobs.Clear();
+
+            var updateDto = CreateValidDto();
+            updateDto.Id = entity.Id;
+            updateDto.Title = "Titulo Subsanado Con Notificacion";
+            updateDto.IdResearchLine = entity.IdResearchLine;
+            updateDto.IdResearchSubLine = entity.IdResearchSubLine;
+            updateDto.IdStateStage = entity.IdStateStage;
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/{entity.Id}")
+            {
+                Content = JsonContent.Create(updateDto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRP);
+            request.Headers.Add("X-Test-UserId", studentId.ToString());
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            _factory.EnqueuedJobs.Should().ContainSingle(j =>
+                j.MethodName == nameof(INotificationBackgroundJob.HandleProposalChangeAsync));
         }
     }
 }

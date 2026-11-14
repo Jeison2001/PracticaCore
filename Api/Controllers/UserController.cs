@@ -4,6 +4,7 @@ using Application.Common.Services.Jobs;
 using Application.Shared.Commands;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Users;
+using Application.Shared.Queries;
 using Application.Shared.Queries.Users;
 using Domain.Common;
 using Domain.Common.Auth;
@@ -96,7 +97,13 @@ namespace Api.Controllers
             {
                 var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
                 if (!permissions.Contains(PermissionCodes.Configuraciones.N3CFSU))
-                    dto = dto with { StatusRegister = true };
+                {
+                    var existingUser = await _mediator.Send(new GetEntityByIdQuery<User, int, UserDto>(id));
+                    if (!existingUser.StatusRegister)
+                        return Forbid();
+
+                    dto = dto with { StatusRegister = existingUser.StatusRegister };
+                }
             }
 
             return await base.Update(id, dto);

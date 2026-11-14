@@ -99,34 +99,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             {
                 if (!existing.IsConfirmed && dto.IsConfirmed)
                 {
-                    await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
-                        _repository,
-                        type,
-                        dto.IdTeacher,
-                        excludeAssignmentId: existing.Id,
-                        cancellationToken);
-
-                    existing.IsConfirmed = true;
-                    existing.OperationRegister = dto.OperationRegister ?? existing.OperationRegister;
-                    existing.UpdatedAt = DateTimeOffset.UtcNow;
-                    existing.IdUserUpdatedAt = request.CurrentUser.UserId;
-
-                    await _repository.UpdateAsync(existing);
-                    await _unitOfWork.CommitAsync(cancellationToken);
-
-                    ProcessNotificationsAsync(existing);
-
-                    if (string.Equals(type.Code, TeachingAssignmentEvaluationHelper.JuradoEvaluadorCode, StringComparison.OrdinalIgnoreCase) &&
-                        existing.RevocationDate == null)
-                    {
-                        await TeachingAssignmentEvaluationHelper.TryAdvancePreliminaryProjectToEvaluationAsync(
-                            _unitOfWork,
-                            _repository,
-                            existing.IdInscriptionModality,
-                            type.Id,
-                            request.CurrentUser.UserId,
-                            cancellationToken);
-                    }
+                    await PromoteUnconfirmedAssignmentAsync(existing, type, dto, request.CurrentUser.UserId, cancellationToken);
                 }
 
                 return _mapper.Map<TeachingAssignmentDto>(existing);
@@ -172,6 +145,14 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
                     if (raceConditionExisting != null)
                     {
+                        if (!ReferenceEquals(raceConditionExisting, entity))
+                            await _repository.DeleteAsync(entity);
+
+                        if (!raceConditionExisting.IsConfirmed && dto.IsConfirmed)
+                        {
+                            await PromoteUnconfirmedAssignmentAsync(raceConditionExisting, type, dto, request.CurrentUser.UserId, cancellationToken);
+                        }
+
                         return _mapper.Map<TeachingAssignmentDto>(raceConditionExisting);
                     }
                 }
@@ -198,6 +179,43 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             }
 
             return _mapper.Map<TeachingAssignmentDto>(entity);
+        }
+
+        private async Task PromoteUnconfirmedAssignmentAsync(
+            TeachingAssignment existing,
+            TypeTeachingAssignment type,
+            TeachingAssignmentDto dto,
+            int? userId,
+            CancellationToken cancellationToken)
+        {
+            await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
+                _repository,
+                type,
+                dto.IdTeacher,
+                excludeAssignmentId: existing.Id,
+                cancellationToken);
+
+            existing.IsConfirmed = true;
+            existing.OperationRegister = dto.OperationRegister ?? existing.OperationRegister;
+            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            existing.IdUserUpdatedAt = userId;
+
+            await _repository.UpdateAsync(existing);
+            await _unitOfWork.CommitAsync(cancellationToken);
+
+            ProcessNotificationsAsync(existing);
+
+            if (string.Equals(type.Code, TeachingAssignmentEvaluationHelper.JuradoEvaluadorCode, StringComparison.OrdinalIgnoreCase) &&
+                existing.RevocationDate == null)
+            {
+                await TeachingAssignmentEvaluationHelper.TryAdvancePreliminaryProjectToEvaluationAsync(
+                    _unitOfWork,
+                    _repository,
+                    existing.IdInscriptionModality,
+                    type.Id,
+                    userId,
+                    cancellationToken);
+            }
         }
 
         private void ProcessNotificationsAsync(TeachingAssignment entity)

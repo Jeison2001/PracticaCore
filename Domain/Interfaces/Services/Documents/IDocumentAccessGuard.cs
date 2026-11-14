@@ -21,7 +21,11 @@ namespace Domain.Interfaces.Services.Documents
         /// <exception cref="Domain.Exceptions.ForbiddenAccessException">
         /// Cuando el usuario no esta vinculado a la inscripcion del documento.
         /// </exception>
-        Task EnsureUserCanModifyAsync(Document entity, int currentUserId, CancellationToken cancellationToken = default);
+        Task EnsureUserCanModifyAsync(
+            Document entity,
+            int currentUserId,
+            CancellationToken cancellationToken = default,
+            IReadOnlyCollection<string>? userPermissions = null);
 
         /// <summary>
         /// Lanza si el usuario no puede consultar o descargar documentos de la inscripcion.

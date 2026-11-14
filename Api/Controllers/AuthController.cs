@@ -147,6 +147,8 @@ namespace Api.Controllers
                 if (request.RoleId > 0 && request.RoleId != studentRole.Id)
                     return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Solo se permite el registro con el rol de Estudiante." } });
 
+                await using var transaction = await _unitOfWork.BeginTransactionAsync();
+
                 var user = new Domain.Entities.User
                 {
                     IdIdentificationType = request.IdIdentificationType,
@@ -182,8 +184,11 @@ namespace Api.Controllers
                 {
                     await userRepo.DeleteAsync(user);
                     await _unitOfWork.CommitAsync();
+                    await transaction.RollbackAsync();
                     throw;
                 }
+
+                await transaction.CommitAsync();
 
                 var response = new RegisterResponse
                 {

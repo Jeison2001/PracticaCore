@@ -920,5 +920,126 @@ namespace Tests.Integration.TeachingAssignments
                 matches[0].IsConfirmed.Should().BeTrue();
             }
         }
+
+        [Fact]
+        public async Task Update_ReassigningToTeacherWithoutEnabledCargo_ReturnsBadRequest()
+        {
+            // Arrange
+            var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
+            int assignmentId;
+            int otherTeacherId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var otherTeacher = new User
+                {
+                    FirstName = "Unenabled",
+                    LastName = "Teacher",
+                    Email = $"unenabled_{Guid.NewGuid()}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = teacher.IdIdentificationType,
+                    IdAcademicProgram = teacher.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(otherTeacher);
+
+                var assignment = new TeachingAssignment
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdTeacher = teacher.Id,
+                    IdTypeTeachingAssignment = typeTeaching.Id,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                };
+                context.Set<TeachingAssignment>().Add(assignment);
+                await context.SaveChangesAsync();
+
+                assignmentId = assignment.Id;
+                otherTeacherId = otherTeacher.Id;
+            }
+
+            var updateDto = new TeachingAssignmentDto
+            {
+                Id = assignmentId,
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = otherTeacherId,
+                IdTypeTeachingAssignment = typeTeaching.Id,
+                IsConfirmed = true,
+                StatusRegister = true
+            };
+
+            // Act
+            var response = await _client.PutAsJsonAsync($"/api/TeachingAssignment/{assignmentId}", updateDto);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            var payload = await response.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            payload.Should().NotBeNull();
+            payload!.Success.Should().BeFalse();
+
+            using (var verifyScope = _factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await verifyContext.Set<TeachingAssignment>().FindAsync(assignmentId);
+                persisted.Should().NotBeNull();
+                persisted!.IdTeacher.Should().Be(teacher.Id);
+            }
+        }
+
+        [Fact]
+        public async Task Update_ReactivatingAssignmentWhenCargoDisabled_ReturnsBadRequest()
+        {
+            // Arrange
+            var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
+            int assignmentId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var enabledCargo = await context.Set<TeacherEnabledCargo>()
+                    .FirstAsync(c => c.IdUser == teacher.Id && c.IdTypeTeachingAssignment == typeTeaching.Id);
+                enabledCargo.StatusRegister = false;
+
+                var assignment = new TeachingAssignment
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdTeacher = teacher.Id,
+                    IdTypeTeachingAssignment = typeTeaching.Id,
+                    IsConfirmed = true,
+                    StatusRegister = false
+                };
+                context.Set<TeachingAssignment>().Add(assignment);
+                await context.SaveChangesAsync();
+                assignmentId = assignment.Id;
+            }
+
+            var reactivateDto = new TeachingAssignmentDto
+            {
+                Id = assignmentId,
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = typeTeaching.Id,
+                IsConfirmed = true,
+                StatusRegister = true
+            };
+
+            // Act
+            var response = await _client.PutAsJsonAsync($"/api/TeachingAssignment/{assignmentId}", reactivateDto);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            var payload = await response.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            payload.Should().NotBeNull();
+            payload!.Success.Should().BeFalse();
+
+            using (var verifyScope = _factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await verifyContext.Set<TeachingAssignment>().FindAsync(assignmentId);
+                persisted.Should().NotBeNull();
+                persisted!.StatusRegister.Should().BeFalse();
+            }
+        }
     }
 }

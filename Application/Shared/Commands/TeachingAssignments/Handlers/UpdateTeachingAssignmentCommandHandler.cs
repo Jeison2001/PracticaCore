@@ -57,6 +57,7 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
             // Capturar solo el valor necesario para notificaciones ANTES de modificar
             var wasConfirmed = entity.IsConfirmed;
+            var wasActive = entity.StatusRegister && entity.RevocationDate == null;
             var originalTeacherId = entity.IdTeacher;
             var originalTypeId = entity.IdTypeTeachingAssignment;
 
@@ -77,13 +78,32 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             var typeRepo = _unitOfWork.GetRepository<TypeTeachingAssignment, int>();
             var type = await typeRepo.GetByIdAsync(entity.IdTypeTeachingAssignment);
 
+            if (entity.StatusRegister &&
+                entity.RevocationDate == null &&
+                (!wasActive || originalTeacherId != entity.IdTeacher || originalTypeId != entity.IdTypeTeachingAssignment))
+            {
+                var enabledCargoRepo = _unitOfWork.GetRepository<TeacherEnabledCargo, int>();
+                var cargoHabilitado = await enabledCargoRepo.AnyAsync(
+                    x => x.IdUser == entity.IdTeacher &&
+                         x.IdTypeTeachingAssignment == entity.IdTypeTeachingAssignment &&
+                         x.StatusRegister,
+                    cancellationToken);
+
+                if (!cargoHabilitado)
+                {
+                    var typeName = type?.Name ?? entity.IdTypeTeachingAssignment.ToString();
+                    throw new InvalidOperationException($"El docente no tiene habilitado el cargo '{typeName}' para asignaciones docentes.");
+                }
+            }
+
             var isActivatingFromUnconfirmed = !wasConfirmed && entity.StatusRegister && entity.RevocationDate == null;
+            var isReactivatingConfirmed = !wasActive && wasConfirmed && entity.StatusRegister && entity.RevocationDate == null;
             var isReassigningConfirmed = wasConfirmed &&
                 (originalTeacherId != entity.IdTeacher || originalTypeId != entity.IdTypeTeachingAssignment) &&
                 entity.StatusRegister &&
                 entity.RevocationDate == null;
 
-            if ((isActivatingFromUnconfirmed || isReassigningConfirmed) && type != null)
+            if ((isActivatingFromUnconfirmed || isReactivatingConfirmed || isReassigningConfirmed) && type != null)
             {
                 await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
                     _repository,

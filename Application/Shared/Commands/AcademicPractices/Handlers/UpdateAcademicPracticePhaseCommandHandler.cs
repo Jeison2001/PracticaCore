@@ -1,4 +1,6 @@
+using Domain.Common.Users;
 using Domain.Constants;
+using Domain.Exceptions;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Domain.Entities;
@@ -40,6 +42,8 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             var original = new AcademicPractice { Id = entity.Id, IdStateStage = entity.IdStateStage };
             var originalObservations = entity.Observations;
             var originalEvaluatorObservations = entity.EvaluatorObservations;
+
+            await EnsureUserAuthorizedForPhaseUpdateAsync(entity, dto.NewStateStageId, request.CurrentUser, cancellationToken);
 
             await ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
                 _unitOfWork,
@@ -95,6 +99,102 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             }
 
             return true;
+        }
+
+        private async Task EnsureUserAuthorizedForPhaseUpdateAsync(
+            AcademicPractice entity,
+            int newStateStageId,
+            CurrentUserInfo currentUser,
+            CancellationToken cancellationToken)
+        {
+            if (currentUser.UserId is not int userId || userId <= 0 || currentUser.Permissions is not { Count: > 0 } perms)
+                return;
+
+            var isManagementOrAdmin =
+                perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PG) ||
+                perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA) ||
+                perms.Contains(PermissionCodes.PracticaAcademica.N4PAF1PG) ||
+                perms.Contains(PermissionCodes.PracticaAcademica.N4PAF2PG) ||
+                perms.Contains(PermissionCodes.Configuraciones.N3CFSU) ||
+                perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR);
+
+            if (isManagementOrAdmin)
+                return;
+
+            var isEvaluator =
+                perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PR) ||
+                perms.Contains(PermissionCodes.PracticaAcademica.N4PAF1PR) ||
+                perms.Contains(PermissionCodes.PracticaAcademica.N4PAF2PR);
+
+            if (isEvaluator)
+            {
+                var taRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
+                var isConfirmedAssigned = await taRepo.AnyAsync(
+                    x => x.IdInscriptionModality == entity.Id &&
+                         x.IdTeacher == userId &&
+                         x.StatusRegister &&
+                         x.RevocationDate == null &&
+                         x.IsConfirmed,
+                    cancellationToken);
+
+                if (isConfirmedAssigned)
+                    return;
+
+                var hasAnyAssignment = await taRepo.AnyAsync(
+                    x => x.IdInscriptionModality == entity.Id && x.IdTeacher == userId,
+                    cancellationToken);
+
+                if (hasAnyAssignment)
+                    throw new ForbiddenAccessException("No tienes una asignación docente activa y confirmada para evaluar esta práctica académica.");
+
+                if (!perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PR))
+                    throw new ForbiddenAccessException("No estás asignado como docente evaluador confirmado de esta práctica académica.");
+
+                var currentState = await _unitOfWork.GetRepository<StateStage, int>().GetByIdAsync(entity.IdStateStage);
+                if (currentState != null && currentState.Code == StateStageCodes.PaInscripcionPendDoc)
+                    return;
+
+                if (await IsCommitteeDirectorOrSecretaryAsync(userId, cancellationToken))
+                    return;
+
+                throw new ForbiddenAccessException("No estás autorizado para evaluar esta práctica académica fuera de la revisión inicial de inscripción.");
+            }
+
+            // Estudiante (N3PAF1R / N3PAF2R): validar membresía activa y estado destino no final/rechazo
+            var uimRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
+            var isMember = await uimRepo.AnyAsync(
+                x => x.IdInscriptionModality == entity.Id &&
+                     x.IdUser == userId &&
+                     x.StatusRegister,
+                cancellationToken);
+
+            if (!isMember)
+                throw new ForbiddenAccessException("No estás vinculado como estudiante a esta práctica académica.");
+
+            var newState = await _unitOfWork.GetRepository<StateStage, int>().GetByIdAsync(newStateStageId);
+            if (newState == null ||
+                newState.IsFinalStateForStage ||
+                newState.IsFinalStateForModalityOverall ||
+                newState.IsRejectionState)
+            {
+                throw new ForbiddenAccessException("Los estudiantes no pueden aprobar, finalizar ni rechazar una fase de práctica académica.");
+            }
+        }
+
+        private async Task<bool> IsCommitteeDirectorOrSecretaryAsync(int userId, CancellationToken cancellationToken)
+        {
+            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
+            var activeUserRoles = await userRoleRepo.GetAllAsync(ur => ur.IdUser == userId && ur.StatusRegister);
+            var roleIds = activeUserRoles.Select(ur => ur.IdRole).Distinct().ToList();
+            if (roleIds.Count == 0)
+                return false;
+
+            var roleRepo = _unitOfWork.GetRepository<Role, int>();
+            return await roleRepo.AnyAsync(
+                r => roleIds.Contains(r.Id) &&
+                     r.StatusRegister &&
+                     (r.Code == "COMMITTEE_DIRECTOR" || r.Code == "SECRETARY"),
+                cancellationToken);
         }
 
         private void ProcessNotificationsAsync(int practiceId, int oldStateId)

@@ -36,7 +36,11 @@ namespace Application.Shared.Commands.Documents.Handlers
             // Seguridad (anti-IDOR): solo usuarios vinculados a la inscripcion pueden modificar
             // el documento. Logica centralizada y fail-closed en IDocumentAccessGuard. Ante fallo
             // lanza ForbiddenAccessException (403), NO devuelve false (que se confundiria con NotFound).
-            await _accessGuard.EnsureUserCanModifyAsync(entity, request.CurrentUser.UserId ?? 0, cancellationToken);
+            await _accessGuard.EnsureUserCanModifyAsync(
+                entity,
+                request.CurrentUser.UserId ?? 0,
+                cancellationToken,
+                request.CurrentUser.Permissions);
 
             entity.StatusRegister = request.StatusRegister;
             entity.IdUserUpdatedAt = request.CurrentUser.UserId;

@@ -1,5 +1,6 @@
 using Api.Authorization;
 using Api.Responses;
+using Application.Common.Services.Jobs;
 using Application.Shared.Commands.Proposals;
 using Application.Shared.DTOs;
 using Application.Shared.DTOs.Proposals;
@@ -10,6 +11,7 @@ using Domain.Common.Extensions;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,14 +26,19 @@ namespace Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IJobEnqueuer? _jobEnqueuer;
 
-        public ProposalController(IMediator mediator, IUnitOfWork unitOfWork) : base(mediator)
+        public ProposalController(
+            IMediator mediator,
+            IUnitOfWork unitOfWork,
+            IJobEnqueuer? jobEnqueuer = null) : base(mediator)
         {
             _mediator = mediator;
             _unitOfWork = unitOfWork;
+            _jobEnqueuer = jobEnqueuer;
         }
 
-        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N3PGRP)]
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR)]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(int id, [FromBody] ProposalPatchDto dto)
         {
@@ -148,6 +155,8 @@ namespace Api.Controllers
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] ProposalDto dto)
         {
+            int? previousStateId = null;
+
             if (User?.Identity?.IsAuthenticated == true)
             {
                 var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
@@ -201,6 +210,8 @@ namespace Api.Controllers
                     if (propRadicadaState == null)
                         throw new InvalidOperationException($"Active StateStage '{StateStageCodes.PropRadicada}' was not found.");
 
+                    previousStateId = existingProposal.IdStateStage;
+
                     dto = dto with
                     {
                         Id = dto.Id == 0 ? id : dto.Id,
@@ -210,7 +221,15 @@ namespace Api.Controllers
                 }
             }
 
-            return await base.Update(id, dto);
+            var updateResult = await base.Update(id, dto);
+
+            if (previousStateId.HasValue && updateResult is OkObjectResult && _jobEnqueuer != null)
+            {
+                var capturedPreviousStateId = previousStateId.Value;
+                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleProposalChangeAsync(id, capturedPreviousStateId));
+            }
+
+            return updateResult;
         }
 
         [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPG)]

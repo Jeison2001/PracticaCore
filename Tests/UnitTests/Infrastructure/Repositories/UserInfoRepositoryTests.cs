@@ -104,7 +104,7 @@ namespace Tests.UnitTests.Infrastructure.Repositories
         }
 
         [Fact]
-        public async Task GetUserPermissionsWithUserPermissionsAsync_AutoInitializesMissingAncestorsWhilePreservingInactiveRows()
+        public async Task GetUserPermissionsWithUserPermissionsAsync_ReturnsOnlyExistingUserPermissions_WithoutCreatingFromRolePermissions()
         {
             using var context = CreateInMemoryContext();
             SeedPermissionCatalog(context);
@@ -116,18 +116,26 @@ namespace Tests.UnitTests.Infrastructure.Repositories
             {
                 Id = 10,
                 IdRole = 2,
-                IdPermission = 10, // N3SPSGG sin N2SPSG ni N1SP en RolePermission
+                IdPermission = 10, // N3SPSGG asignado al rol, NO debe materializarse en UserPermission al hacer GET
                 StatusRegister = true
             });
-            // El usuario ya tiene un registro inactivo previo para N1PC que debe seguir visible en la consulta administrativa
-            context.Set<UserPermission>().Add(new UserPermission
-            {
-                Id = 99,
-                IdUser = 30,
-                IdPermission = 1,
-                StatusRegister = false,
-                OperationRegister = "Previo"
-            });
+            context.Set<UserPermission>().AddRange(
+                new UserPermission
+                {
+                    Id = 99,
+                    IdUser = 30,
+                    IdPermission = 1, // N1PC inactivo
+                    StatusRegister = false,
+                    OperationRegister = "Previo"
+                },
+                new UserPermission
+                {
+                    Id = 100,
+                    IdUser = 30,
+                    IdPermission = 6, // N2MGR activo
+                    StatusRegister = true,
+                    OperationRegister = "Directo"
+                });
             await context.SaveChangesAsync();
 
             var repo = CreateRepository(context);
@@ -139,10 +147,12 @@ namespace Tests.UnitTests.Infrastructure.Repositories
             result.Select(r => (r.Permission.Code, r.UserPermission.StatusRegister))
                 .Should().BeEquivalentTo([
                     ("N1PC", false),
-                    ("N1SP", true),
-                    ("N2SPSG", true),
-                    ("N3SPSGG", true)
+                    ("N2MGR", true)
                 ]);
+
+            var persistedCount = await context.Set<UserPermission>()
+                .CountAsync(up => up.IdUser == 30);
+            persistedCount.Should().Be(2);
         }
     }
 }

@@ -3,6 +3,7 @@ using AutoMapper;
 using MediatR;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Documents;
 using Domain.Interfaces.Services.Storage;
 
 namespace Application.Shared.Commands.Documents.Handlers
@@ -18,17 +19,20 @@ namespace Application.Shared.Commands.Documents.Handlers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IDocumentAccessGuard _accessGuard;
 
         public CreateDocumentWithFileCommandHandler(
             IRepository<Document, int> repository,
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            IFileStorageService fileStorageService)
+            IFileStorageService fileStorageService,
+            IDocumentAccessGuard accessGuard)
         {
             _repository = repository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _fileStorageService = fileStorageService;
+            _accessGuard = accessGuard;
         }
 
         public async Task<DocumentDto> Handle(CreateDocumentWithFileCommand request, CancellationToken cancellationToken)
@@ -44,6 +48,16 @@ namespace Application.Shared.Commands.Documents.Handlers
                     throw new KeyNotFoundException($"No se encontró DocumentType con code '{dto.CodeDocumentType}'");
                 idDocumentType = docType.Id;
             }
+
+            await _accessGuard.EnsureUserCanModifyAsync(
+                new Document
+                {
+                    IdInscriptionModality = dto.IdInscriptionModality,
+                    IdDocumentType = idDocumentType
+                },
+                request.CurrentUser.UserId ?? 0,
+                cancellationToken,
+                request.CurrentUser.Permissions);
 
             // Guardar el archivo usando el servicio de almacenamiento
             var uniqueFileName = await _fileStorageService.SaveFileAsync(dto.File.OpenReadStream(), dto.File.FileName, cancellationToken);

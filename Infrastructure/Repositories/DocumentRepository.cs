@@ -23,7 +23,8 @@ namespace Infrastructure.Repositories
             int pageSize,
             string? sortBy,
             bool isDescending,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            int? idDocumentType = null)
         {
             IQueryable<Document> query = _context.Documents
                 .Include(d => d.DocumentType)
@@ -38,6 +39,10 @@ namespace Infrastructure.Repositories
             if (idDocumentClass.HasValue)
             {
                 query = query.Where(d => d.DocumentType != null && d.DocumentType!.IdDocumentClass == idDocumentClass.Value);
+            }
+            if (idDocumentType.HasValue)
+            {
+                query = query.Where(d => d.IdDocumentType == idDocumentType.Value);
             }
 
             if (!string.IsNullOrEmpty(sortBy))

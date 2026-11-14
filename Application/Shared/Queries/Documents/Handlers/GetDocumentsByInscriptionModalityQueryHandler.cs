@@ -27,7 +27,8 @@ namespace Application.Shared.Queries.Documents.Handlers
                 request.PageSize,
                 request.SortBy,
                 request.IsDescending,
-                cancellationToken
+                cancellationToken,
+                request.IdDocumentType
             );
 
             var dtoResult = new PaginatedResult<DocumentDto>

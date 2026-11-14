@@ -42,69 +42,6 @@ namespace Infrastructure.Repositories
                 .Include(up => up.Permission)
                 .ToListAsync();
 
-            // Permisos por roles activos del usuario
-            var userRoleIds = await context.Set<UserRole>()
-                .AsNoTracking()
-                .Where(ur => ur.IdUser == userId && ur.StatusRegister)
-                .Select(ur => ur.IdRole)
-                .ToListAsync();
-
-            if (userRoleIds.Any())
-            {
-                var rolePermissionIds = await context.Set<RolePermission>()
-                    .AsNoTracking()
-                    .Where(rp => userRoleIds.Contains(rp.IdRole) && rp.StatusRegister)
-                    .Select(rp => rp.IdPermission)
-                    .Distinct()
-                    .ToListAsync();
-
-                if (rolePermissionIds.Any())
-                {
-                    var activeCatalog = await context.Set<Permission>()
-                        .AsNoTracking()
-                        .Where(p => p.StatusRegister)
-                        .ToListAsync();
-
-                    var resolvedRolePermissions = PermissionTreeHelper.ResolveActiveWithAncestorsByIds(
-                        activeCatalog,
-                        rolePermissionIds);
-
-                    var existingPermissionIds = directUserPermissions
-                        .Select(dup => dup.IdPermission)
-                        .ToHashSet();
-
-                    var missingPermissions = resolvedRolePermissions
-                        .Where(p => !existingPermissionIds.Contains(p.Id))
-                        .ToList();
-
-                    if (missingPermissions.Any())
-                    {
-                        var now = DateTimeOffset.UtcNow;
-                        foreach (var perm in missingPermissions)
-                        {
-                            var newUp = new UserPermission
-                            {
-                                IdUser = userId,
-                                IdPermission = perm.Id,
-                                StatusRegister = true,
-                                OperationRegister = "Inicialización automática por Rol",
-                                CreatedAt = now,
-                                IdUserCreatedAt = 1
-                            };
-                            context.Set<UserPermission>().Add(newUp);
-                        }
-                        await context.SaveChangesAsync();
-
-                        // Recargar con los nuevos IDs autoincrementales generados por la BD
-                        directUserPermissions = await context.Set<UserPermission>()
-                            .AsNoTracking()
-                            .Where(up => up.IdUser == userId)
-                            .Include(up => up.Permission)
-                            .ToListAsync();
-                    }
-                }
-            }
-
             // Cada permiso tiene su UserPermission real con Id > 0
             var result = directUserPermissions
                 .Where(up => up.Permission != null)

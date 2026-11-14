@@ -780,5 +780,159 @@ namespace Tests.Integration.AcademicPractices
             loadedTeacher.CargoCode.Should().Be("ASESOR");
             loadedTeacher.CargoName.Should().Be("Asesor");
         }
+
+        [Fact]
+        public async Task UpdatePhaseApproval_EnforcesTeacherAssignmentAndStudentConstraints()
+        {
+            // Arrange
+            var entity = CreateValidEntity();
+            SeedAdditionalData(entity);
+
+            int ownerStudentId;
+            int unlinkedStudentId;
+            int confirmedTeacherId;
+            int unconfirmedTeacherId;
+            int unassignedTeacherId;
+            int intermediateStateId;
+            int finalStateId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                context.Set<AcademicPractice>().Add(entity);
+
+                var faculty = new Faculty { Code = $"FIN_{Guid.NewGuid():N}"[..8], Name = "Ingenieria", StatusRegister = true };
+                var program = new AcademicProgram { Code = $"PIN_{Guid.NewGuid():N}"[..8], Name = "Sistemas", Faculty = faculty, StatusRegister = true };
+                var idType = new IdentificationType { Code = "CC", Name = "Cedula", Description = "Cedula", StatusRegister = true };
+                var cargo = new TypeTeachingAssignment { Code = $"EVAL_{Guid.NewGuid():N}"[..12], Name = "Evaluador", Description = "Evaluador", StatusRegister = true };
+
+                var intermediateState = new StateStage
+                {
+                    Name = "En Revision PA",
+                    Code = $"PA_DEV_{Guid.NewGuid():N}"[..14],
+                    IsFinalStateForStage = false,
+                    IsFinalStateForModalityOverall = false,
+                    IsRejectionState = false,
+                    StatusRegister = true
+                };
+                var finalState = new StateStage
+                {
+                    Name = "Rechazada PA",
+                    Code = $"PA_REJ_{Guid.NewGuid():N}"[..14],
+                    IsFinalStateForStage = true,
+                    IsFinalStateForModalityOverall = false,
+                    IsRejectionState = true,
+                    StatusRegister = true
+                };
+
+                context.Set<Faculty>().Add(faculty);
+                context.Set<AcademicProgram>().Add(program);
+                context.Set<IdentificationType>().Add(idType);
+                context.Set<TypeTeachingAssignment>().Add(cargo);
+                context.Set<StateStage>().AddRange(intermediateState, finalState);
+                await context.SaveChangesAsync();
+
+                intermediateStateId = intermediateState.Id;
+                finalStateId = finalState.Id;
+
+                User BuildUser(string prefix) => new User
+                {
+                    FirstName = prefix,
+                    LastName = "Tester",
+                    Email = $"{prefix}_{Guid.NewGuid():N}@ufps.edu.co",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdAcademicProgram = program.Id,
+                    IdIdentificationType = idType.Id,
+                    StatusRegister = true
+                };
+
+                var ownerStudent = BuildUser("OwnerStudent");
+                var unlinkedStudent = BuildUser("UnlinkedStudent");
+                var confirmedTeacher = BuildUser("ConfirmedTeacher");
+                var unconfirmedTeacher = BuildUser("UnconfirmedTeacher");
+                var unassignedTeacher = BuildUser("UnassignedTeacher");
+
+                context.Set<User>().AddRange(ownerStudent, unlinkedStudent, confirmedTeacher, unconfirmedTeacher, unassignedTeacher);
+                await context.SaveChangesAsync();
+
+                ownerStudentId = ownerStudent.Id;
+                unlinkedStudentId = unlinkedStudent.Id;
+                confirmedTeacherId = confirmedTeacher.Id;
+                unconfirmedTeacherId = unconfirmedTeacher.Id;
+                unassignedTeacherId = unassignedTeacher.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = entity.Id,
+                    IdUser = ownerStudentId,
+                    StatusRegister = true
+                });
+
+                context.Set<TeachingAssignment>().AddRange(
+                    new TeachingAssignment
+                    {
+                        IdInscriptionModality = entity.Id,
+                        IdTeacher = confirmedTeacherId,
+                        IdTypeTeachingAssignment = cargo.Id,
+                        IsConfirmed = true,
+                        RevocationDate = null,
+                        StatusRegister = true
+                    },
+                    new TeachingAssignment
+                    {
+                        IdInscriptionModality = entity.Id,
+                        IdTeacher = unconfirmedTeacherId,
+                        IdTypeTeachingAssignment = cargo.Id,
+                        IsConfirmed = false,
+                        RevocationDate = null,
+                        StatusRegister = true
+                    });
+
+                await context.SaveChangesAsync();
+            }
+
+            async Task<HttpResponseMessage> SendUpdateAsync(int userId, string permission, int targetStateId)
+            {
+                var dto = new UpdatePhaseApprovalDto
+                {
+                    Id = entity.Id,
+                    NewStateStageId = targetStateId,
+                    Observations = "Obs test",
+                    EvaluatorObservations = "Eval obs test"
+                };
+
+                using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/UpdatePhaseApproval/{entity.Id}")
+                {
+                    Content = JsonContent.Create(dto)
+                };
+                request.Headers.Add("X-Test-UserId", userId.ToString());
+                request.Headers.Add("X-Test-Permissions", permission);
+                return await _client.SendAsync(request);
+            }
+
+            // 1. Unassigned teacher -> 403
+            var unassignedTeacherRes = await SendUpdateAsync(unassignedTeacherId, PermissionCodes.PracticaAcademica.N4PAF1PR, intermediateStateId);
+            unassignedTeacherRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // 2. Unconfirmed teacher -> 403
+            var unconfirmedTeacherRes = await SendUpdateAsync(unconfirmedTeacherId, PermissionCodes.PracticaAcademica.N4PAF1PR, intermediateStateId);
+            unconfirmedTeacherRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // 3. Unlinked student -> 403
+            var unlinkedStudentRes = await SendUpdateAsync(unlinkedStudentId, PermissionCodes.PracticaAcademica.N3PAF1R, intermediateStateId);
+            unlinkedStudentRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // 4. Owner student attempting final/rejection state -> 403
+            var studentFinalStateRes = await SendUpdateAsync(ownerStudentId, PermissionCodes.PracticaAcademica.N3PAF1R, finalStateId);
+            studentFinalStateRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // 5. Owner student updating to intermediate state -> 200
+            var studentIntermediateRes = await SendUpdateAsync(ownerStudentId, PermissionCodes.PracticaAcademica.N3PAF1R, intermediateStateId);
+            studentIntermediateRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            // 6. Confirmed teacher updating -> 200
+            var confirmedTeacherRes = await SendUpdateAsync(confirmedTeacherId, PermissionCodes.PracticaAcademica.N4PAF1PR, intermediateStateId);
+            confirmedTeacherRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
     }
 }

@@ -14,6 +14,7 @@ namespace Domain.Interfaces.Repositories
             int pageSize,
             string? sortBy,
             bool isDescending,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            int? idDocumentType = null);
     }
 }

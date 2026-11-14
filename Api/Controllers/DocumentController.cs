@@ -114,7 +114,7 @@ namespace Api.Controllers
             [FromQuery] int? idDocumentClass = null)
         {
             int? filterDocumentTypeId = null;
-            if (!idStageModality.HasValue && request.Filters != null)
+            if (request.Filters != null)
             {
                 var rawDocType = request.Filters
                     .FirstOrDefault(kv => string.Equals(kv.Key, "idDocumentType", StringComparison.OrdinalIgnoreCase))
@@ -132,7 +132,8 @@ namespace Api.Controllers
                 request.IsDescending,
                 request.Filters,
                 idStageModality,
-                idDocumentClass
+                idDocumentClass,
+                filterDocumentTypeId
             );
             
             var result = await _mediator.Send(query);
