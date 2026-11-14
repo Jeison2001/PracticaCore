@@ -33,6 +33,11 @@ namespace Domain.Interfaces.Services.Documents
         /// <exception cref="Domain.Exceptions.ForbiddenAccessException">
         /// Cuando el usuario no tiene permiso global de lectura ni esta vinculado a la inscripcion.
         /// </exception>
-        Task EnsureUserCanReadAsync(int? inscriptionModalityId, CurrentUserInfo currentUser, CancellationToken cancellationToken = default);
+        Task EnsureUserCanReadAsync(
+            int? inscriptionModalityId,
+            CurrentUserInfo currentUser,
+            int? stageModalityId = null,
+            int? documentTypeId = null,
+            CancellationToken cancellationToken = default);
     }
 }

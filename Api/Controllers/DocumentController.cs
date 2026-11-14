@@ -59,7 +59,7 @@ namespace Api.Controllers
                 });
             }
 
-            await EnsureCanReadAsync(result.IdInscriptionModality);
+            await EnsureCanReadAsync(result.IdInscriptionModality, documentTypeId: result.IdDocumentType);
 
             return Ok(new Responses.ApiResponse<DocumentDto>
             {
@@ -90,7 +90,7 @@ namespace Api.Controllers
                 });
             }
 
-            await EnsureCanReadAsync(result.IdInscriptionModality);
+            await EnsureCanReadAsync(result.IdInscriptionModality, documentTypeId: result.IdDocumentType);
 
             var fileStream = await _fileStorageService.GetFileAsync(result.StoredFileName, HttpContext.RequestAborted);
             var mimeType = string.IsNullOrEmpty(result.MimeType) ? "application/octet-stream" : result.MimeType;
@@ -113,7 +113,16 @@ namespace Api.Controllers
             [FromQuery] int? idStageModality = null,
             [FromQuery] int? idDocumentClass = null)
         {
-            await EnsureCanReadAsync(id);
+            int? filterDocumentTypeId = null;
+            if (!idStageModality.HasValue && request.Filters != null)
+            {
+                var rawDocType = request.Filters
+                    .FirstOrDefault(kv => string.Equals(kv.Key, "idDocumentType", StringComparison.OrdinalIgnoreCase))
+                    .Value;
+                if (int.TryParse(rawDocType, out var parsedDocTypeId) && parsedDocTypeId > 0)
+                    filterDocumentTypeId = parsedDocTypeId;
+            }
+            await EnsureCanReadAsync(id, stageModalityId: idStageModality, documentTypeId: filterDocumentTypeId);
 
             var query = new GetDocumentsByInscriptionModalityQuery(
                 id,
@@ -201,11 +210,13 @@ namespace Api.Controllers
             });
         }
 
-        private Task EnsureCanReadAsync(int? inscriptionModalityId)
+        private Task EnsureCanReadAsync(int? inscriptionModalityId, int? stageModalityId = null, int? documentTypeId = null)
         {
             return _documentAccessGuard.EnsureUserCanReadAsync(
                 inscriptionModalityId,
                 User.GetCurrentUserInfo(),
+                stageModalityId,
+                documentTypeId,
                 HttpContext?.RequestAborted ?? CancellationToken.None);
         }
     }

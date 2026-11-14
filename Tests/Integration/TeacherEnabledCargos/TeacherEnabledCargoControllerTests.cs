@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Api.Responses;
 using Application.Shared.DTOs.TeacherEnabledCargos;
+using Domain.Constants;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Data;
@@ -275,6 +276,47 @@ namespace Tests.Integration.TeacherEnabledCargos
         {
             var response = await _client.GetAsync("/api/TeacherEnabledCargo/ByCargo/0");
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task ByUserEndpoints_AllowN3CFSRL_AndDenyNonSecurityPermissions()
+        {
+            var (teacher, cargos) = await SeedDataAsync();
+            var payload = AssignmentBody(teacher.Id, new List<int> { cargos[0].Id });
+
+            using var allowedPost = new HttpRequestMessage(HttpMethod.Post, "/api/TeacherEnabledCargo/ByUser")
+            {
+                Content = JsonContent.Create(payload)
+            };
+            allowedPost.Headers.Add("X-Test-UserId", "7001");
+            allowedPost.Headers.Add("X-Test-Permissions", PermissionCodes.Configuraciones.N3CFSRL);
+
+            var postAllowedRes = await _client.SendAsync(allowedPost);
+            postAllowedRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using var allowedGet = new HttpRequestMessage(HttpMethod.Get, $"/api/TeacherEnabledCargo/ByUser/{teacher.Id}");
+            allowedGet.Headers.Add("X-Test-UserId", "7001");
+            allowedGet.Headers.Add("X-Test-Permissions", PermissionCodes.Configuraciones.N3CFSRL);
+
+            var getAllowedRes = await _client.SendAsync(allowedGet);
+            getAllowedRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using var deniedPost = new HttpRequestMessage(HttpMethod.Post, "/api/TeacherEnabledCargo/ByUser")
+            {
+                Content = JsonContent.Create(payload)
+            };
+            deniedPost.Headers.Add("X-Test-UserId", "7002");
+            deniedPost.Headers.Add("X-Test-Permissions", PermissionCodes.ModalidadesGrado.N3MGPG);
+
+            var postDeniedRes = await _client.SendAsync(deniedPost);
+            postDeniedRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            using var deniedGet = new HttpRequestMessage(HttpMethod.Get, $"/api/TeacherEnabledCargo/ByUser/{teacher.Id}");
+            deniedGet.Headers.Add("X-Test-UserId", "7002");
+            deniedGet.Headers.Add("X-Test-Permissions", PermissionCodes.ModalidadesGrado.N3MGPG);
+
+            var getDeniedRes = await _client.SendAsync(deniedGet);
+            getDeniedRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         }
     }
 }

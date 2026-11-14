@@ -530,6 +530,143 @@ namespace Tests.Integration.Documents
             listPayload!.Data!.Items.Should().Contain(d => d.Id == docId);
         }
 
+        [Fact]
+        public async Task ReadEndpoints_ShouldReturnForbidden_WhenUserHasPermissionFromDifferentModality()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            var (inscriptionId, docId, _) = await SeedReadScenarioAsync(
+                customFactory.Services,
+                studentUserId: 999,
+                modalityCode: ModalityCodes.ProyectoGrado,
+                stageCode: StageModalityCodes.PgFasePropuesta,
+                stageOrder: 1);
+
+            const int seminarioUserId = 5005;
+            var permissions = PermissionCodes.Seminario.N3SASGG;
+
+            using var getByIdReq = CreateReadRequest($"/api/Document/{docId}", seminarioUserId, permissions);
+            using var downloadReq = CreateReadRequest($"/api/Document/File/{docId}", seminarioUserId, permissions);
+            using var byModalityReq = CreateReadRequest($"/api/Document/ByInscriptionModality/{inscriptionId}?PageNumber=1&PageSize=10", seminarioUserId, permissions);
+
+            var getByIdRes = await client.SendAsync(getByIdReq);
+            var downloadRes = await client.SendAsync(downloadReq);
+            var byModalityRes = await client.SendAsync(byModalityReq);
+
+            getByIdRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            downloadRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            byModalityRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            storageMock.Verify(s => s.GetFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ReadEndpoints_ShouldReturnForbidden_WhenUserHasPermissionFromDifferentStage()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            var (inscriptionId, docId, _) = await SeedReadScenarioAsync(
+                customFactory.Services,
+                studentUserId: 999,
+                modalityCode: ModalityCodes.ProyectoGrado,
+                stageCode: StageModalityCodes.PgFaseProyectoInforme,
+                stageOrder: 3);
+
+            const int propuestaCoordinatorId = 5006;
+            var permissions = PermissionCodes.ProyectoGrado.N4PGPPG;
+
+            using var getByIdReq = CreateReadRequest($"/api/Document/{docId}", propuestaCoordinatorId, permissions);
+            using var downloadReq = CreateReadRequest($"/api/Document/File/{docId}", propuestaCoordinatorId, permissions);
+            using var byModalityReq = CreateReadRequest($"/api/Document/ByInscriptionModality/{inscriptionId}?PageNumber=1&PageSize=10", propuestaCoordinatorId, permissions);
+
+            var getByIdRes = await client.SendAsync(getByIdReq);
+            var downloadRes = await client.SendAsync(downloadReq);
+            var byModalityRes = await client.SendAsync(byModalityReq);
+
+            getByIdRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            downloadRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            byModalityRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            storageMock.Verify(s => s.GetFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ReadEndpoints_ShouldReturnForbidden_WhenTeacherHasDefaultTeacherPermissionsButIsNotAssigned()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            var (inscriptionId, docId, _) = await SeedReadScenarioAsync(
+                customFactory.Services,
+                studentUserId: 999,
+                modalityCode: ModalityCodes.ProyectoGrado,
+                stageCode: StageModalityCodes.PgFaseAnteproyecto,
+                stageOrder: 2);
+
+            const int unlinkedTeacherId = 5007;
+            var permissions = string.Join(",",
+                PermissionCodes.ModalidadesGrado.N2MGP,
+                PermissionCodes.ModalidadesGrado.N3MGPG,
+                PermissionCodes.CoTerminal.N3CTSGG,
+                PermissionCodes.ProyectoGrado.N4PGPAR);
+
+            using var getByIdReq = CreateReadRequest($"/api/Document/{docId}", unlinkedTeacherId, permissions);
+            using var downloadReq = CreateReadRequest($"/api/Document/File/{docId}", unlinkedTeacherId, permissions);
+            using var byModalityReq = CreateReadRequest($"/api/Document/ByInscriptionModality/{inscriptionId}?PageNumber=1&PageSize=10", unlinkedTeacherId, permissions);
+
+            var getByIdRes = await client.SendAsync(getByIdReq);
+            var downloadRes = await client.SendAsync(downloadReq);
+            var byModalityRes = await client.SendAsync(byModalityReq);
+
+            getByIdRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            downloadRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            byModalityRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            storageMock.Verify(s => s.GetFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ReadEndpoints_ShouldReturnOk_WhenUserHasMatchingModalityAndStagePermission()
+        {
+            var expectedBytes = new byte[] { 9, 8, 7, 6 };
+            var storageMock = new Mock<IFileStorageService>();
+            storageMock
+                .Setup(s => s.GetFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => new MemoryStream(expectedBytes));
+
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            var (inscriptionId, docId, storedFileName) = await SeedReadScenarioAsync(
+                customFactory.Services,
+                studentUserId: 999,
+                modalityCode: ModalityCodes.ProyectoGrado,
+                stageCode: StageModalityCodes.PgFaseAnteproyecto,
+                stageOrder: 2);
+
+            const int anteproyectoCoordinatorId = 5008;
+            var permissions = PermissionCodes.ProyectoGrado.N4PGPAG;
+
+            using var getByIdReq = CreateReadRequest($"/api/Document/{docId}", anteproyectoCoordinatorId, permissions);
+            using var downloadReq = CreateReadRequest($"/api/Document/File/{docId}", anteproyectoCoordinatorId, permissions);
+            using var byModalityReq = CreateReadRequest($"/api/Document/ByInscriptionModality/{inscriptionId}?PageNumber=1&PageSize=10", anteproyectoCoordinatorId, permissions);
+
+            var getByIdRes = await client.SendAsync(getByIdReq);
+            var downloadRes = await client.SendAsync(downloadReq);
+            var byModalityRes = await client.SendAsync(byModalityReq);
+
+            getByIdRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            downloadRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await downloadRes.Content.ReadAsByteArrayAsync()).Should().Equal(expectedBytes);
+            storageMock.Verify(s => s.GetFileAsync(storedFileName, It.IsAny<CancellationToken>()), Times.Once);
+
+            byModalityRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var listPayload = await byModalityRes.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<DocumentDto>>>();
+            listPayload!.Data!.Items.Should().Contain(d => d.Id == docId);
+        }
+
         private WebApplicationFactory<Program> CreateFactoryWithMockStorage(Mock<IFileStorageService> storageMock)
         {
             return _factory.WithWebHostBuilder(builder =>
@@ -557,12 +694,15 @@ namespace Tests.Integration.Documents
             IServiceProvider services,
             int studentUserId,
             int? teacherUserId = null,
-            bool teacherIsConfirmed = true)
+            bool teacherIsConfirmed = true,
+            string modalityCode = ModalityCodes.ProyectoGrado,
+            string? stageCode = StageModalityCodes.PgFasePropuesta,
+            int stageOrder = 1)
         {
             using var scope = services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var modality = new Modality { Name = "Proyecto de Grado", Description = "Proyecto", StatusRegister = true };
+            var modality = new Modality { Code = modalityCode, Name = "Proyecto de Grado", Description = "Proyecto", StatusRegister = true };
             var state = new StateInscription { Name = "Activo", Description = "Activo", StatusRegister = true };
             var period = new AcademicPeriod { Code = "2026-1", StartDate = DateTime.UtcNow, EndDate = DateTime.UtcNow.AddMonths(6), StatusRegister = true };
             var docClass = new DocumentClass { Name = "General", Description = "General", StatusRegister = true };
@@ -573,9 +713,25 @@ namespace Tests.Integration.Documents
             context.Set<DocumentClass>().Add(docClass);
             await context.SaveChangesAsync();
 
+            StageModality? stage = null;
+            if (!string.IsNullOrWhiteSpace(stageCode))
+            {
+                stage = new StageModality
+                {
+                    IdModality = modality.Id,
+                    Code = stageCode,
+                    Name = stageCode,
+                    StageOrder = stageOrder,
+                    StatusRegister = true
+                };
+                context.Set<StageModality>().Add(stage);
+                await context.SaveChangesAsync();
+            }
+
             var inscriptionModality = new InscriptionModality
             {
                 IdModality = modality.Id,
+                IdStageModality = stage?.Id,
                 IdStateInscription = state.Id,
                 IdAcademicPeriod = period.Id,
                 StatusRegister = true
@@ -587,6 +743,7 @@ namespace Tests.Integration.Documents
                 Name = "Propuesta",
                 Description = "Propuesta",
                 IdDocumentClass = docClass.Id,
+                IdStageModality = stage?.Id,
                 StatusRegister = true
             };
             context.Set<DocumentType>().Add(docType);

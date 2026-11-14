@@ -31,7 +31,7 @@ namespace Api.Controllers
         /// Obtiene los cargos habilitados (activos) de un docente.
         /// </summary>
         /// <param name="id">ID del docente (User)</param>
-        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU)]
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU, PermissionCodes.Configuraciones.N3CFSRL)]
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetEnabledCargosByUser(int id)
         {
@@ -66,7 +66,7 @@ namespace Api.Controllers
         /// Asigna los cargos habilitados a un docente (lista completa: upsert semántico).
         /// </summary>
         /// <param name="request">UserId del docente y array de ids de TypeTeachingAssignment habilitados</param>
-        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU)]
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU, PermissionCodes.Configuraciones.N3CFSRL)]
         [HttpPost("ByUser")]
         public async Task<IActionResult> AssignEnabledCargos([FromBody] AssignTeacherEnabledCargosRequestDto request)
         {
