@@ -1041,5 +1041,165 @@ namespace Tests.Integration.TeachingAssignments
                 persisted!.StatusRegister.Should().BeFalse();
             }
         }
+
+        [Fact]
+        public async Task ConfirmSuggestion_WhenCalledConcurrently_ConfirmsAndNotifiesOnlyOnce_AndEnforcesMaxAssignmentsAtomically()
+        {
+            // Parte A: Confirmación concurrente de una sugerencia previa (IsConfirmed = false) -> notifica solo 1 vez
+            var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
+            int suggestionId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var suggestion = new TeachingAssignment
+                {
+                    IdInscriptionModality = inscriptionModality.Id,
+                    IdTeacher = teacher.Id,
+                    IdTypeTeachingAssignment = typeTeaching.Id,
+                    IsConfirmed = false,
+                    StatusRegister = true
+                };
+                context.Set<TeachingAssignment>().Add(suggestion);
+                await context.SaveChangesAsync();
+                suggestionId = suggestion.Id;
+            }
+
+            _factory.EnqueuedJobs.Clear();
+
+            var confirmDto = new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscriptionModality.Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = typeTeaching.Id,
+                IsConfirmed = true,
+                StatusRegister = true
+            };
+
+            var confirmTasks = new[]
+            {
+                _client.PostAsJsonAsync("/api/TeachingAssignment", confirmDto),
+                _client.PostAsJsonAsync("/api/TeachingAssignment", confirmDto)
+            };
+            var confirmResponses = await Task.WhenAll(confirmTasks);
+
+            foreach (var resp in confirmResponses)
+            {
+                resp.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK);
+                var body = await resp.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+                body.Should().NotBeNull();
+                body!.Success.Should().BeTrue();
+                body.Data.Should().NotBeNull();
+                body.Data!.Id.Should().Be(suggestionId);
+                body.Data.IsConfirmed.Should().BeTrue();
+            }
+
+            _factory.EnqueuedJobs.Count(j => j.MethodName == "HandleTeachingAssignmentCreationAsync").Should().Be(1);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var matches = await context.Set<TeachingAssignment>()
+                    .Where(x => x.IdInscriptionModality == inscriptionModality.Id &&
+                                x.IdTeacher == teacher.Id &&
+                                x.IdTypeTeachingAssignment == typeTeaching.Id &&
+                                x.StatusRegister)
+                    .ToListAsync();
+                matches.Should().ContainSingle();
+                matches[0].IsConfirmed.Should().BeTrue();
+            }
+
+            // Parte B: MaxAssignments = 1 bajo dos POST concurrentes en inscripciones distintas -> 1 OK y 1 BadRequest
+            int limitedCargoId;
+            int inscription1Id;
+            int inscription2Id;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var limitedCargo = new TypeTeachingAssignment
+                {
+                    Code = "DIR_CONC_" + Guid.NewGuid().ToString("N")[..6],
+                    Name = "Director Concurrencia",
+                    Description = "Cargo con cupo 1",
+                    MaxAssignments = 1,
+                    StatusRegister = true
+                };
+                context.Set<TypeTeachingAssignment>().Add(limitedCargo);
+                await context.SaveChangesAsync();
+                limitedCargoId = limitedCargo.Id;
+
+                context.Set<TeacherEnabledCargo>().Add(new TeacherEnabledCargo
+                {
+                    IdUser = teacher.Id,
+                    IdTypeTeachingAssignment = limitedCargoId,
+                    StatusRegister = true
+                });
+
+                var insc1 = new InscriptionModality
+                {
+                    IdModality = inscriptionModality.IdModality,
+                    IdStateInscription = inscriptionModality.IdStateInscription,
+                    IdAcademicPeriod = inscriptionModality.IdAcademicPeriod,
+                    StatusRegister = true
+                };
+                var insc2 = new InscriptionModality
+                {
+                    IdModality = inscriptionModality.IdModality,
+                    IdStateInscription = inscriptionModality.IdStateInscription,
+                    IdAcademicPeriod = inscriptionModality.IdAcademicPeriod,
+                    StatusRegister = true
+                };
+                context.Set<InscriptionModality>().AddRange(insc1, insc2);
+                await context.SaveChangesAsync();
+
+                inscription1Id = insc1.Id;
+                inscription2Id = insc2.Id;
+            }
+
+            _factory.EnqueuedJobs.Clear();
+
+            var quotaTask1 = _client.PostAsJsonAsync("/api/TeachingAssignment", new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscription1Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = limitedCargoId,
+                IsConfirmed = true,
+                StatusRegister = true
+            });
+            var quotaTask2 = _client.PostAsJsonAsync("/api/TeachingAssignment", new TeachingAssignmentDto
+            {
+                IdInscriptionModality = inscription2Id,
+                IdTeacher = teacher.Id,
+                IdTypeTeachingAssignment = limitedCargoId,
+                IsConfirmed = true,
+                StatusRegister = true
+            });
+
+            var quotaResponses = await Task.WhenAll(quotaTask1, quotaTask2);
+
+            quotaResponses.Count(r => r.StatusCode == HttpStatusCode.Created).Should().Be(1);
+            quotaResponses.Count(r => r.StatusCode == HttpStatusCode.BadRequest).Should().Be(1);
+
+            var failedResp = quotaResponses.First(r => r.StatusCode == HttpStatusCode.BadRequest);
+            var failedBody = await failedResp.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            failedBody.Should().NotBeNull();
+            failedBody!.Success.Should().BeFalse();
+            failedBody.Errors.Should().Contain(e => e.Contains("El docente ya tiene el máximo permitido"));
+
+            _factory.EnqueuedJobs.Count(j => j.MethodName == "HandleTeachingAssignmentCreationAsync").Should().Be(1);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var activeConfirmedCount = await context.Set<TeachingAssignment>()
+                    .CountAsync(x => x.IdTeacher == teacher.Id &&
+                                     x.IdTypeTeachingAssignment == limitedCargoId &&
+                                     x.StatusRegister &&
+                                     x.RevocationDate == null &&
+                                     x.IsConfirmed);
+                activeConfirmedCount.Should().Be(1);
+            }
+        }
     }
 }

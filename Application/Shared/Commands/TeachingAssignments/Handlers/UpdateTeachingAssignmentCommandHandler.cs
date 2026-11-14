@@ -55,99 +55,96 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             if (exists != null)
                 return _mapper.Map<TeachingAssignmentDto>(entity);
 
-            // Capturar valores originales antes de modificar para auditoría, notificaciones y rollback defensivo
+            // Capturar valores originales antes de modificar para auditoría y notificaciones
             var wasConfirmed = entity.IsConfirmed;
             var wasActive = entity.StatusRegister && entity.RevocationDate == null;
-            var originalInscriptionId = entity.IdInscriptionModality;
             var originalTeacherId = entity.IdTeacher;
             var originalTypeId = entity.IdTypeTeachingAssignment;
-            var originalStatusRegister = entity.StatusRegister;
-            var originalRevocationDate = entity.RevocationDate;
-            var originalResearchProfileId = entity.IdTeacherResearchProfile;
-            var originalOperationRegister = entity.OperationRegister;
-            var originalUpdatedAt = entity.UpdatedAt;
-            var originalIdUserUpdatedAt = entity.IdUserUpdatedAt;
 
             // Preservar campos de auditoría inmutables
             var originalCreatedAt = entity.CreatedAt;
             var originalIdUserCreatedAt = entity.IdUserCreatedAt;
 
-            // Mapear cambios
-            _mapper.Map(dto, entity);
-
-            // Restaurar campos inmutables y asegurar UTC
-            entity.CreatedAt = originalCreatedAt;
-            entity.IdUserCreatedAt = originalIdUserCreatedAt;
-            entity.IdUserUpdatedAt = request.CurrentUser.UserId;
-            entity.UpdatedAt = DateTimeOffset.UtcNow;
-            entity.IsConfirmed = dto.StatusRegister ? true : wasConfirmed;
-
             var typeRepo = _unitOfWork.GetRepository<TypeTeachingAssignment, int>();
-            var type = await typeRepo.GetByIdAsync(entity.IdTypeTeachingAssignment);
+            var type = await typeRepo.GetByIdAsync(dto.IdTypeTeachingAssignment);
 
-            if (entity.StatusRegister &&
-                entity.RevocationDate == null &&
-                (!wasActive || originalTeacherId != entity.IdTeacher || originalTypeId != entity.IdTypeTeachingAssignment))
+            var targetActive = dto.StatusRegister && dto.RevocationDate == null;
+            if (targetActive)
+            {
+                await TeachingAssignmentEvaluationHelper.ValidateCargoAllowedForModalityAsync(
+                    _unitOfWork,
+                    dto.IdInscriptionModality,
+                    type,
+                    cancellationToken);
+            }
+
+            if (targetActive && (!wasActive || originalTeacherId != dto.IdTeacher || originalTypeId != dto.IdTypeTeachingAssignment))
             {
                 var enabledCargoRepo = _unitOfWork.GetRepository<TeacherEnabledCargo, int>();
                 var cargoHabilitado = await enabledCargoRepo.AnyAsync(
-                    x => x.IdUser == entity.IdTeacher &&
-                         x.IdTypeTeachingAssignment == entity.IdTypeTeachingAssignment &&
+                    x => x.IdUser == dto.IdTeacher &&
+                         x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
                          x.StatusRegister,
                     cancellationToken);
 
                 if (!cargoHabilitado)
                 {
-                    var typeName = type?.Name ?? entity.IdTypeTeachingAssignment.ToString();
+                    var typeName = type?.Name ?? dto.IdTypeTeachingAssignment.ToString();
                     throw new InvalidOperationException($"El docente no tiene habilitado el cargo '{typeName}' para asignaciones docentes.");
                 }
             }
 
-            var isActivatingFromUnconfirmed = !wasConfirmed && entity.StatusRegister && entity.RevocationDate == null;
-            var isReactivatingConfirmed = !wasActive && wasConfirmed && entity.StatusRegister && entity.RevocationDate == null;
+            var isActivatingFromUnconfirmed = !wasConfirmed && targetActive;
+            var isReactivatingConfirmed = !wasActive && wasConfirmed && targetActive;
             var isReassigningConfirmed = wasConfirmed &&
-                (originalTeacherId != entity.IdTeacher || originalTypeId != entity.IdTypeTeachingAssignment) &&
-                entity.StatusRegister &&
-                entity.RevocationDate == null;
+                (originalTeacherId != dto.IdTeacher || originalTypeId != dto.IdTypeTeachingAssignment) &&
+                targetActive;
 
             var requiresMaxAssignmentsCheck = (isActivatingFromUnconfirmed || isReactivatingConfirmed || isReassigningConfirmed) && type != null;
-            if (requiresMaxAssignmentsCheck)
-            {
-                await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
-                    _repository,
-                    type!,
-                    entity.IdTeacher,
-                    excludeAssignmentId: entity.Id,
-                    cancellationToken);
-            }
+            var needsQuotaLock = type != null && (requiresMaxAssignmentsCheck || (wasConfirmed && targetActive));
+            var confirmedByThisUpdate = false;
 
-            await _repository.UpdateAsync(entity);
-            await _unitOfWork.CommitAsync(cancellationToken);
-
-            if (requiresMaxAssignmentsCheck)
+            await using (var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken))
             {
-                await TeachingAssignmentEvaluationHelper.EnsureMaxAssignmentsNotExceededPostCommitAsync(
-                    _repository,
-                    type!,
-                    entity.IdTeacher,
-                    async () =>
-                    {
-                        entity.IdInscriptionModality = originalInscriptionId;
-                        entity.IdTeacher = originalTeacherId;
-                        entity.IdTypeTeachingAssignment = originalTypeId;
-                        entity.StatusRegister = originalStatusRegister;
-                        entity.IsConfirmed = wasConfirmed;
-                        entity.RevocationDate = originalRevocationDate;
-                        entity.IdTeacherResearchProfile = originalResearchProfileId;
-                        entity.OperationRegister = originalOperationRegister;
-                        entity.UpdatedAt = originalUpdatedAt;
-                        entity.IdUserUpdatedAt = originalIdUserUpdatedAt;
-                        entity.CreatedAt = originalCreatedAt;
-                        entity.IdUserCreatedAt = originalIdUserCreatedAt;
-                        await _repository.UpdateAsync(entity);
-                        await _unitOfWork.CommitAsync(cancellationToken);
-                    },
-                    cancellationToken);
+                await using var quotaLock = needsQuotaLock
+                    ? await _repository.AcquireTeacherCargoQuotaLockAsync(dto.IdTeacher, type!.Id, cancellationToken)
+                    : null;
+
+                if (requiresMaxAssignmentsCheck)
+                {
+                    await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
+                        _repository,
+                        type!,
+                        dto.IdTeacher,
+                        excludeAssignmentId: entity.Id,
+                        cancellationToken);
+                }
+
+                if (isActivatingFromUnconfirmed)
+                {
+                    confirmedByThisUpdate = await _repository.TryConfirmAssignmentAtomicallyAsync(
+                        entity.Id,
+                        dto.OperationRegister,
+                        DateTimeOffset.UtcNow,
+                        request.CurrentUser.UserId,
+                        cancellationToken);
+                }
+
+                var effectiveWasConfirmed = wasConfirmed || (isActivatingFromUnconfirmed && entity.IsConfirmed);
+
+                // Mapear cambios
+                _mapper.Map(dto, entity);
+
+                // Restaurar campos inmutables y asegurar UTC
+                entity.CreatedAt = originalCreatedAt;
+                entity.IdUserCreatedAt = originalIdUserCreatedAt;
+                entity.IdUserUpdatedAt = request.CurrentUser.UserId;
+                entity.UpdatedAt = DateTimeOffset.UtcNow;
+                entity.IsConfirmed = dto.StatusRegister ? true : effectiveWasConfirmed;
+
+                await _repository.UpdateAsync(entity);
+                await _unitOfWork.CommitAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
             }
 
             if (entity.IsConfirmed &&
@@ -165,10 +162,17 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                     cancellationToken);
             }
 
-            // Procesar notificaciones en background
+            // Procesar notificaciones en background (solo quien confirmó efectivamente emite creación)
             if (isActivatingFromUnconfirmed)
             {
-                _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleTeachingAssignmentCreationAsync(entity.Id));
+                if (confirmedByThisUpdate)
+                {
+                    _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleTeachingAssignmentCreationAsync(entity.Id));
+                }
+                else if (originalTeacherId != entity.IdTeacher)
+                {
+                    ProcessNotificationsAsync(entity, originalTeacherId);
+                }
             }
             else if (wasConfirmed)
             {

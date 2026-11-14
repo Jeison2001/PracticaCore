@@ -55,6 +55,12 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             if (type == null)
                 throw new InvalidOperationException("Tipo de asignación docente no encontrado.");
 
+            await TeachingAssignmentEvaluationHelper.ValidateCargoAllowedForModalityAsync(
+                _unitOfWork,
+                dto.IdInscriptionModality,
+                type,
+                cancellationToken);
+
             if (!dto.IsConfirmed)
             {
                 var hasOfficialPermission =
@@ -99,103 +105,179 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             {
                 if (!existing.IsConfirmed && dto.IsConfirmed)
                 {
-                    await PromoteUnconfirmedAssignmentAsync(existing, type, dto, request.CurrentUser.UserId, cancellationToken);
+                    var promoted = await PromoteUnconfirmedAssignmentAsync(existing, type, dto, request.CurrentUser.UserId, cancellationToken);
+                    if (promoted)
+                    {
+                        await NotifyAndTryAdvancePreliminaryProjectAsync(existing, type, request.CurrentUser.UserId, cancellationToken);
+                    }
                 }
 
                 return _mapper.Map<TeachingAssignmentDto>(existing);
             }
 
-            if (dto.IsConfirmed)
+            if (!dto.IsConfirmed)
             {
-                await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
-                    _repository,
-                    type,
+                return await CreateUnconfirmedSuggestionAsync(dto, request.CurrentUser.UserId, cancellationToken);
+            }
+
+            var uniqueRaceDetected = false;
+            var createdOrPromoted = false;
+            TeachingAssignment? resultEntity = null;
+
+            await using (var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken))
+            {
+                await using var quotaLock = await _repository.AcquireTeacherCargoQuotaLockAsync(
                     dto.IdTeacher,
-                    excludeAssignmentId: null,
+                    type.Id,
+                    cancellationToken);
+
+                var raceExisting = await _repository.GetFirstOrDefaultAsync(x =>
+                    x.IdTeacher == dto.IdTeacher &&
+                    x.IdInscriptionModality == dto.IdInscriptionModality &&
+                    x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
+                    x.StatusRegister,
+                    cancellationToken);
+
+                if (raceExisting != null)
+                {
+                    resultEntity = raceExisting;
+                    if (!raceExisting.IsConfirmed)
+                    {
+                        createdOrPromoted = await PromoteUnderActiveLockAsync(
+                            raceExisting,
+                            type,
+                            dto,
+                            request.CurrentUser.UserId,
+                            transaction,
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                    }
+                }
+                else
+                {
+                    await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
+                        _repository,
+                        type,
+                        dto.IdTeacher,
+                        excludeAssignmentId: null,
+                        cancellationToken);
+
+                    var entity = _mapper.Map<TeachingAssignment>(dto);
+                    entity.IsConfirmed = true;
+                    entity.IdUserCreatedAt = request.CurrentUser.UserId;
+
+                    try
+                    {
+                        await _repository.AddAsync(entity);
+                        await _unitOfWork.CommitAsync(cancellationToken);
+                        await transaction.CommitAsync(cancellationToken);
+                        resultEntity = entity;
+                        createdOrPromoted = true;
+                    }
+                    catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+                    {
+                        await _repository.DeleteAsync(entity);
+                        await transaction.RollbackAsync(cancellationToken);
+                        uniqueRaceDetected = true;
+                    }
+                }
+            }
+
+            if (uniqueRaceDetected)
+            {
+                _logger.LogWarning(
+                    "Condición de carrera prevenida: El docente {IdTeacher} ya fue asignado activamente en la inscripción {IdInscriptionModality} con el cargo {IdTypeTeachingAssignment}.",
+                    dto.IdTeacher,
+                    dto.IdInscriptionModality,
+                    dto.IdTypeTeachingAssignment);
+
+                var raceConditionExisting = await _repository.GetFirstOrDefaultAsync(x =>
+                    x.IdTeacher == dto.IdTeacher &&
+                    x.IdInscriptionModality == dto.IdInscriptionModality &&
+                    x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
+                    x.StatusRegister,
+                    cancellationToken);
+
+                if (raceConditionExisting == null)
+                    throw new InvalidOperationException("No se pudo recuperar la asignación docente tras un conflicto de concurrencia.");
+
+                if (!raceConditionExisting.IsConfirmed)
+                {
+                    var promoted = await PromoteUnconfirmedAssignmentAsync(
+                        raceConditionExisting,
+                        type,
+                        dto,
+                        request.CurrentUser.UserId,
+                        cancellationToken);
+
+                    if (promoted)
+                    {
+                        await NotifyAndTryAdvancePreliminaryProjectAsync(
+                            raceConditionExisting,
+                            type,
+                            request.CurrentUser.UserId,
+                            cancellationToken);
+                    }
+                }
+
+                return _mapper.Map<TeachingAssignmentDto>(raceConditionExisting);
+            }
+
+            if (createdOrPromoted && resultEntity != null)
+            {
+                await NotifyAndTryAdvancePreliminaryProjectAsync(
+                    resultEntity,
+                    type,
+                    request.CurrentUser.UserId,
                     cancellationToken);
             }
 
-            // Crear nueva asignación directamente
+            return _mapper.Map<TeachingAssignmentDto>(resultEntity!);
+        }
+
+        private async Task<TeachingAssignmentDto> CreateUnconfirmedSuggestionAsync(
+            TeachingAssignmentDto dto,
+            int? userId,
+            CancellationToken cancellationToken)
+        {
             var entity = _mapper.Map<TeachingAssignment>(dto);
-            entity.IsConfirmed = dto.IsConfirmed;
-            entity.IdUserCreatedAt = request.CurrentUser.UserId;
-            
+            entity.IsConfirmed = false;
+            entity.IdUserCreatedAt = userId;
+
             try
             {
                 await _repository.AddAsync(entity);
                 await _unitOfWork.CommitAsync(cancellationToken);
+                return _mapper.Map<TeachingAssignmentDto>(entity);
             }
-            catch (DbUpdateException ex)
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
             {
-                // Extraer el SqlState de forma libre de dependencias (para no acoplar Application con Npgsql)
-                var innerExceptionType = ex.InnerException?.GetType().Name;
-                var sqlStateProperty = ex.InnerException?.GetType().GetProperty("SqlState");
-                var sqlState = sqlStateProperty?.GetValue(ex.InnerException) as string;
+                _logger.LogWarning(
+                    "Condición de carrera prevenida al sugerir asignación: El docente {IdTeacher} ya fue asignado activamente en la inscripción {IdInscriptionModality} con el cargo {IdTypeTeachingAssignment}.",
+                    dto.IdTeacher,
+                    dto.IdInscriptionModality,
+                    dto.IdTypeTeachingAssignment);
 
-                if (innerExceptionType == "PostgresException" && sqlState == "23505")
-                {
-                    _logger.LogWarning("Condición de carrera prevenida: El docente {IdTeacher} ya fue asignado activamente en la inscripción {IdInscriptionModality} con el cargo {IdTypeTeachingAssignment}.", dto.IdTeacher, dto.IdInscriptionModality, dto.IdTypeTeachingAssignment);
-                    
-                    var raceConditionExisting = await _repository.GetFirstOrDefaultAsync(x =>
-                        x.IdTeacher == dto.IdTeacher &&
-                        x.IdInscriptionModality == dto.IdInscriptionModality &&
-                        x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
-                        x.StatusRegister,
-                        cancellationToken);
+                await _repository.DeleteAsync(entity);
 
-                    if (raceConditionExisting != null)
-                    {
-                        if (!ReferenceEquals(raceConditionExisting, entity))
-                            await _repository.DeleteAsync(entity);
+                var raceConditionExisting = await _repository.GetFirstOrDefaultAsync(x =>
+                    x.IdTeacher == dto.IdTeacher &&
+                    x.IdInscriptionModality == dto.IdInscriptionModality &&
+                    x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
+                    x.StatusRegister,
+                    cancellationToken);
 
-                        if (!raceConditionExisting.IsConfirmed && dto.IsConfirmed)
-                        {
-                            await PromoteUnconfirmedAssignmentAsync(raceConditionExisting, type, dto, request.CurrentUser.UserId, cancellationToken);
-                        }
+                if (raceConditionExisting != null)
+                    return _mapper.Map<TeachingAssignmentDto>(raceConditionExisting);
 
-                        return _mapper.Map<TeachingAssignmentDto>(raceConditionExisting);
-                    }
-                }
-                throw; // Lanzar la excepción si no es una carrera de concurrencia esperada
+                throw;
             }
-
-            if (entity.IsConfirmed)
-            {
-                if (entity.StatusRegister && entity.RevocationDate == null)
-                {
-                    await TeachingAssignmentEvaluationHelper.EnsureMaxAssignmentsNotExceededPostCommitAsync(
-                        _repository,
-                        type,
-                        entity.IdTeacher,
-                        async () =>
-                        {
-                            await _repository.DeleteAsync(entity);
-                            await _unitOfWork.CommitAsync(cancellationToken);
-                        },
-                        cancellationToken);
-                }
-
-                // Procesar notificaciones en background
-                ProcessNotificationsAsync(entity);
-
-                if (string.Equals(type.Code, TeachingAssignmentEvaluationHelper.JuradoEvaluadorCode, StringComparison.OrdinalIgnoreCase) &&
-                    entity.StatusRegister &&
-                    entity.RevocationDate == null)
-                {
-                    await TeachingAssignmentEvaluationHelper.TryAdvancePreliminaryProjectToEvaluationAsync(
-                        _unitOfWork,
-                        _repository,
-                        entity.IdInscriptionModality,
-                        type.Id,
-                        request.CurrentUser.UserId,
-                        cancellationToken);
-                }
-            }
-
-            return _mapper.Map<TeachingAssignmentDto>(entity);
         }
 
-        private async Task PromoteUnconfirmedAssignmentAsync(
+        private async Task<bool> PromoteUnconfirmedAssignmentAsync(
             TeachingAssignment existing,
             TypeTeachingAssignment type,
             TeachingAssignmentDto dto,
@@ -203,7 +285,36 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             CancellationToken cancellationToken)
         {
             if (existing.IsConfirmed)
-                return;
+                return false;
+
+            await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            await using var quotaLock = await _repository.AcquireTeacherCargoQuotaLockAsync(
+                dto.IdTeacher,
+                type.Id,
+                cancellationToken);
+
+            return await PromoteUnderActiveLockAsync(
+                existing,
+                type,
+                dto,
+                userId,
+                transaction,
+                cancellationToken);
+        }
+
+        private async Task<bool> PromoteUnderActiveLockAsync(
+            TeachingAssignment existing,
+            TypeTeachingAssignment type,
+            TeachingAssignmentDto dto,
+            int? userId,
+            IDatabaseTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            if (existing.IsConfirmed)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
 
             await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
                 _repository,
@@ -212,50 +323,62 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                 excludeAssignmentId: existing.Id,
                 cancellationToken);
 
-            var originalIsConfirmed = existing.IsConfirmed;
-            var originalOperationRegister = existing.OperationRegister;
-            var originalUpdatedAt = existing.UpdatedAt;
-            var originalIdUserUpdatedAt = existing.IdUserUpdatedAt;
+            var now = DateTimeOffset.UtcNow;
+            var operationRegister = dto.OperationRegister ?? existing.OperationRegister;
+            var confirmed = await _repository.TryConfirmAssignmentAtomicallyAsync(
+                existing.Id,
+                operationRegister,
+                now,
+                userId,
+                cancellationToken);
 
-            existing.IsConfirmed = true;
-            existing.OperationRegister = dto.OperationRegister ?? existing.OperationRegister;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
-            existing.IdUserUpdatedAt = userId;
-
-            await _repository.UpdateAsync(existing);
-            await _unitOfWork.CommitAsync(cancellationToken);
-
-            if (existing.StatusRegister && existing.RevocationDate == null)
+            if (!confirmed)
             {
-                await TeachingAssignmentEvaluationHelper.EnsureMaxAssignmentsNotExceededPostCommitAsync(
-                    _repository,
-                    type,
-                    existing.IdTeacher,
-                    async () =>
-                    {
-                        existing.IsConfirmed = originalIsConfirmed;
-                        existing.OperationRegister = originalOperationRegister;
-                        existing.UpdatedAt = originalUpdatedAt;
-                        existing.IdUserUpdatedAt = originalIdUserUpdatedAt;
-                        await _repository.UpdateAsync(existing);
-                        await _unitOfWork.CommitAsync(cancellationToken);
-                    },
-                    cancellationToken);
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
             }
 
-            ProcessNotificationsAsync(existing);
+            await transaction.CommitAsync(cancellationToken);
+
+            existing.IsConfirmed = true;
+            existing.OperationRegister = operationRegister;
+            existing.UpdatedAt = now;
+            existing.IdUserUpdatedAt = userId;
+
+            return true;
+        }
+
+        private async Task NotifyAndTryAdvancePreliminaryProjectAsync(
+            TeachingAssignment entity,
+            TypeTeachingAssignment type,
+            int? userId,
+            CancellationToken cancellationToken)
+        {
+            if (!entity.IsConfirmed)
+                return;
+
+            ProcessNotificationsAsync(entity);
 
             if (string.Equals(type.Code, TeachingAssignmentEvaluationHelper.JuradoEvaluadorCode, StringComparison.OrdinalIgnoreCase) &&
-                existing.RevocationDate == null)
+                entity.StatusRegister &&
+                entity.RevocationDate == null)
             {
                 await TeachingAssignmentEvaluationHelper.TryAdvancePreliminaryProjectToEvaluationAsync(
                     _unitOfWork,
                     _repository,
-                    existing.IdInscriptionModality,
+                    entity.IdInscriptionModality,
                     type.Id,
                     userId,
                     cancellationToken);
             }
+        }
+
+        private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+        {
+            var innerExceptionType = ex.InnerException?.GetType().Name;
+            var sqlStateProperty = ex.InnerException?.GetType().GetProperty("SqlState");
+            var sqlState = sqlStateProperty?.GetValue(ex.InnerException) as string;
+            return innerExceptionType == "PostgresException" && sqlState == "23505";
         }
 
         private void ProcessNotificationsAsync(TeachingAssignment entity)

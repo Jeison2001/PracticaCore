@@ -14,29 +14,33 @@ namespace Application.Common.Services
         public const string JuradoEvaluadorCode = "JURADO_EVALUADOR";
         public const int MinimumConfirmedJurados = 2;
 
-        private static async Task<int> CountActiveConfirmedByTeacherAndTypeAsync(
-            IRepository<TeachingAssignment, int> repository,
-            int typeId,
-            int teacherId,
-            int? excludeAssignmentId,
+        private static readonly HashSet<string> RestrictedPracticaAcademicaCargos = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "DIRECTOR",
+            "CO_DIRECTOR",
+            "ASESOR"
+        };
+
+        public static async Task ValidateCargoAllowedForModalityAsync(
+            IUnitOfWork unitOfWork,
+            int inscriptionModalityId,
+            TypeTeachingAssignment? type,
             CancellationToken cancellationToken)
         {
-            return excludeAssignmentId.HasValue
-                ? await repository.CountAsync(
-                    x => x.IdTeacher == teacherId &&
-                         x.IdTypeTeachingAssignment == typeId &&
-                         x.StatusRegister &&
-                         x.RevocationDate == null &&
-                         x.IsConfirmed &&
-                         x.Id != excludeAssignmentId.Value,
-                    cancellationToken)
-                : await repository.CountAsync(
-                    x => x.IdTeacher == teacherId &&
-                         x.IdTypeTeachingAssignment == typeId &&
-                         x.StatusRegister &&
-                         x.RevocationDate == null &&
-                         x.IsConfirmed,
-                    cancellationToken);
+            if (type == null || string.IsNullOrWhiteSpace(type.Code) || !RestrictedPracticaAcademicaCargos.Contains(type.Code.Trim()))
+                return;
+
+            var inscription = await unitOfWork.GetRepository<InscriptionModality, int>().GetByIdAsync(inscriptionModalityId);
+            if (inscription == null)
+                return;
+
+            var modality = await unitOfWork.GetRepository<Modality, int>().GetByIdAsync(inscription.IdModality);
+            if (modality != null &&
+                string.Equals(modality.Code, ModalityCodes.PracticaAcademica, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "En Práctica Académica no se permite asignar cargos de Director, Co-Director ni Asesor; solo Jurado Evaluador.");
+            }
         }
 
         public static async Task ValidateMaxAssignmentsAsync(
@@ -49,39 +53,25 @@ namespace Application.Common.Services
             if (!type.MaxAssignments.HasValue)
                 return;
 
-            var count = await CountActiveConfirmedByTeacherAndTypeAsync(
-                repository,
-                type.Id,
-                teacherId,
-                excludeAssignmentId,
-                cancellationToken);
+            var count = excludeAssignmentId.HasValue
+                ? await repository.CountAsync(
+                    x => x.IdTeacher == teacherId &&
+                         x.IdTypeTeachingAssignment == type.Id &&
+                         x.StatusRegister &&
+                         x.RevocationDate == null &&
+                         x.IsConfirmed &&
+                         x.Id != excludeAssignmentId.Value,
+                    cancellationToken)
+                : await repository.CountAsync(
+                    x => x.IdTeacher == teacherId &&
+                         x.IdTypeTeachingAssignment == type.Id &&
+                         x.StatusRegister &&
+                         x.RevocationDate == null &&
+                         x.IsConfirmed,
+                    cancellationToken);
 
             if (count >= type.MaxAssignments.Value)
                 throw new InvalidOperationException($"El docente ya tiene el máximo permitido ({type.MaxAssignments}) de asignaciones activas para este cargo.");
-        }
-
-        public static async Task EnsureMaxAssignmentsNotExceededPostCommitAsync(
-            IRepository<TeachingAssignment, int> repository,
-            TypeTeachingAssignment type,
-            int teacherId,
-            Func<Task> compensateAsync,
-            CancellationToken cancellationToken)
-        {
-            if (!type.MaxAssignments.HasValue)
-                return;
-
-            var activeCount = await CountActiveConfirmedByTeacherAndTypeAsync(
-                repository,
-                type.Id,
-                teacherId,
-                excludeAssignmentId: null,
-                cancellationToken);
-
-            if (activeCount <= type.MaxAssignments.Value)
-                return;
-
-            await compensateAsync();
-            throw new InvalidOperationException($"El docente ya tiene el máximo permitido ({type.MaxAssignments}) de asignaciones activas para este cargo.");
         }
 
         public static async Task<int> CountConfirmedJuradosAsync(

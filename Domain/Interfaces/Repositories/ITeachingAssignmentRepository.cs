@@ -35,5 +35,25 @@ namespace Domain.Interfaces.Repositories
             int? cargoId = null,
             bool includeRevoked = false,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Confirma de forma atómica una asignación docente sugerida (<c>IsConfirmed = false</c> y <c>StatusRegister = true</c>).
+        /// </summary>
+        /// <returns><c>true</c> si esta llamada efectuó la confirmación; <c>false</c> si ya estaba confirmada o no existe activa.</returns>
+        Task<bool> TryConfirmAssignmentAtomicallyAsync(
+            int assignmentId,
+            string? operationRegister,
+            DateTimeOffset updatedAt,
+            int? userId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Adquiere un bloqueo de concurrencia por combinación <c>(teacherId, typeId)</c> para serializar la validación
+        /// y consumo de <c>MaxAssignments</c> (advisory lock transaccional en PostgreSQL o semáforo en proveedor InMemory).
+        /// </summary>
+        Task<IAsyncDisposable> AcquireTeacherCargoQuotaLockAsync(
+            int teacherId,
+            int typeId,
+            CancellationToken cancellationToken = default);
     }
 }
