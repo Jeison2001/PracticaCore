@@ -1291,5 +1291,259 @@ namespace Tests.Integration.Authorization
                 body!.Data.Should().BeEmpty();
             }
         }
+
+        [Fact]
+        public async Task CreateProposal_EnforcesInscriptionOwnership_AntiIdor()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            int freshInscriptionId;
+            int propInitialStateId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var templateInsc = await context.Set<InscriptionModality>().FindAsync(scenario.InscriptionAId);
+                var pgPropuestaStageId = context.Set<StageModality>()
+                    .First(s => s.IdModality == templateInsc!.IdModality && s.Code == StageModalityCodes.PgFasePropuesta).Id;
+                propInitialStateId = context.Set<StateStage>()
+                    .First(s => s.IdStageModality == pgPropuestaStageId && s.IsInitialState && s.StatusRegister).Id;
+
+                var freshInsc = new InscriptionModality
+                {
+                    IdModality = templateInsc!.IdModality,
+                    IdStageModality = pgPropuestaStageId,
+                    IdStateInscription = templateInsc.IdStateInscription,
+                    IdAcademicPeriod = templateInsc.IdAcademicPeriod,
+                    Observations = "Nueva inscripción para radicar propuesta",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                context.Set<InscriptionModality>().Add(freshInsc);
+                await context.SaveChangesAsync();
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = freshInsc.Id,
+                    IdUser = Student101Id,
+                    StatusRegister = true
+                });
+                await context.SaveChangesAsync();
+                freshInscriptionId = freshInsc.Id;
+            }
+
+            var dto = new CreateProposalDto
+            {
+                Id = freshInscriptionId,
+                Title = "Propuesta Actor Matrix Validada",
+                Description = "Descripción técnica de prueba",
+                GeneralObjective = "Objetivo general validado",
+                SpecificObjectives = new List<string> { "Objetivo específico 1" },
+                IdResearchLine = scenario.ResearchLineId,
+                IdResearchSubLine = scenario.ResearchSubLineId,
+                Observation = "Radicación inicial"
+            };
+
+            // 1. Estudiante no miembro intenta crear propuesta sobre inscripción ajena -> 403 Forbidden
+            using (var alienReq = CreateRequest(HttpMethod.Post, "/api/Proposal", Student102Id, PermissionCodes.ProyectoGrado.N3PGRP))
+            {
+                alienReq.Content = JsonContent.Create(dto);
+                var alienRes = await client.SendAsync(alienReq);
+                alienRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 2. Estudiante propietario crea propuesta -> 200 OK, persistida en estado inicial y notificación encolada
+            factory.EnqueuedJobs.Clear();
+            using (var ownerReq = CreateRequest(HttpMethod.Post, "/api/Proposal", Student101Id, PermissionCodes.ProyectoGrado.N3PGRP))
+            {
+                ownerReq.Content = JsonContent.Create(dto);
+                var ownerRes = await client.SendAsync(ownerReq);
+                ownerRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var body = await ownerRes.Content.ReadFromJsonAsync<ApiResponse<ProposalDto>>();
+                body.Should().NotBeNull();
+                body!.Success.Should().BeTrue();
+                body.Data!.Id.Should().Be(freshInscriptionId);
+                body.Data.IdStateStage.Should().Be(propInitialStateId);
+            }
+
+            using (var verifyScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await verifyContext.Set<Proposal>().FindAsync(freshInscriptionId);
+                persisted.Should().NotBeNull();
+                persisted!.IdStateStage.Should().Be(propInitialStateId);
+            }
+
+            factory.EnqueuedJobs.Should().Contain(j => j.MethodName == "HandleProposalCreationAsync");
+        }
+
+        [Fact]
+        public async Task Patch_PreliminaryProject_ProjectFinal_And_Presentation_EnforceActorOwnershipAndConfirmedAssignment()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            int apAprobadoId;
+            int pfObsId;
+            int pfAprobadoId;
+            int sustReintentoId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var states = context.Set<StateStage>().ToList();
+                apAprobadoId = states.First(s => s.Code == StateStageCodes.ApAprobado).Id;
+                pfObsId = states.First(s => s.Code == StateStageCodes.PfinfInformeConObservaciones).Id;
+                pfAprobadoId = states.First(s => s.Code == StateStageCodes.PfinfInformeAprobado).Id;
+                sustReintentoId = states.First(s => s.Code == StateStageCodes.SustNoAprobadaReintento).Id;
+            }
+
+            // ── Anteproyecto (PATCH /api/PreliminaryProject/{id}) ─────────────────────────
+            // Estudiante no miembro -> 403
+            using (var alienApReq = CreateRequest(HttpMethod.Patch, $"/api/PreliminaryProject/{scenario.InscriptionAId}", Student102Id, PermissionCodes.ProyectoGrado.N3PGRA))
+            {
+                alienApReq.Content = JsonContent.Create(new PreliminaryProjectPatchDto { Observations = "Intruso" });
+                var res = await client.SendAsync(alienApReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Estudiante dueño intenta auto-aprobar -> 403
+            using (var selfApReq = CreateRequest(HttpMethod.Patch, $"/api/PreliminaryProject/{scenario.InscriptionAId}", Student101Id, PermissionCodes.ProyectoGrado.N3PGRA))
+            {
+                selfApReq.Content = JsonContent.Create(new PreliminaryProjectPatchDto { IdStateStage = apAprobadoId });
+                var res = await client.SendAsync(selfApReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Docente NO confirmado -> 403
+            using (var unconfirmedApReq = CreateRequest(HttpMethod.Patch, $"/api/PreliminaryProject/{scenario.InscriptionAId}", Teacher202Id, PermissionCodes.ProyectoGrado.N4PGPAR))
+            {
+                unconfirmedApReq.Content = JsonContent.Create(new PreliminaryProjectPatchDto { IdStateStage = apAprobadoId });
+                var res = await client.SendAsync(unconfirmedApReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Docente confirmado en otra inscripción -> 403
+            using (var crossApReq = CreateRequest(HttpMethod.Patch, $"/api/PreliminaryProject/{scenario.InscriptionAId}", Teacher203Id, PermissionCodes.ProyectoGrado.N4PGPAR))
+            {
+                crossApReq.Content = JsonContent.Create(new PreliminaryProjectPatchDto { IdStateStage = apAprobadoId });
+                var res = await client.SendAsync(crossApReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Salto directo desde AP_RADICADO_PEND_ASIG_EVAL a AP_APROBADO en InscriptionB (por docente confirmado 203) -> 400 BadRequest
+            using (var invalidJumpReq = CreateRequest(HttpMethod.Patch, $"/api/PreliminaryProject/{scenario.InscriptionBId}", Teacher203Id, PermissionCodes.ProyectoGrado.N4PGPAR))
+            {
+                invalidJumpReq.Content = JsonContent.Create(new PreliminaryProjectPatchDto { IdStateStage = apAprobadoId });
+                var res = await client.SendAsync(invalidJumpReq);
+                res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // Docente confirmado 201 en InscriptionA (AP_EN_EVALUACION -> AP_APROBADO) -> 200 OK + BD + job
+            factory.EnqueuedJobs.Clear();
+            using (var okApReq = CreateRequest(HttpMethod.Patch, $"/api/PreliminaryProject/{scenario.InscriptionAId}", Teacher201Id, PermissionCodes.ProyectoGrado.N4PGPAR))
+            {
+                okApReq.Content = JsonContent.Create(new PreliminaryProjectPatchDto
+                {
+                    IdStateStage = apAprobadoId,
+                    Observations = "Anteproyecto aprobado por docente confirmado"
+                });
+                var res = await client.SendAsync(okApReq);
+                res.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            using (var verifyApScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyApScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                verifyContext.Set<PreliminaryProject>().Find(scenario.InscriptionAId)!.IdStateStage.Should().Be(apAprobadoId);
+            }
+            factory.EnqueuedJobs.Should().Contain(j => j.MethodName == "HandlePreliminaryProjectChangeAsync");
+
+            // ── Proyecto Final (PATCH /api/ProjectFinal/{id}) ─────────────────────────────
+            // Estudiante no miembro -> 403
+            using (var alienPfReq = CreateRequest(HttpMethod.Patch, $"/api/ProjectFinal/{scenario.InscriptionAId}", Student102Id, PermissionCodes.ProyectoGrado.N3PGRPR))
+            {
+                alienPfReq.Content = JsonContent.Create(new ProjectFinalPatchDto { Observations = "Intruso PF" });
+                var res = await client.SendAsync(alienPfReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Estudiante dueño intenta auto-aprobar -> 403
+            using (var selfPfReq = CreateRequest(HttpMethod.Patch, $"/api/ProjectFinal/{scenario.InscriptionAId}", Student101Id, PermissionCodes.ProyectoGrado.N3PGRPR))
+            {
+                selfPfReq.Content = JsonContent.Create(new ProjectFinalPatchDto { IdStateStage = pfAprobadoId });
+                var res = await client.SendAsync(selfPfReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Docente no confirmado -> 403
+            using (var unconfirmedPfReq = CreateRequest(HttpMethod.Patch, $"/api/ProjectFinal/{scenario.InscriptionAId}", Teacher202Id, PermissionCodes.ProyectoGrado.N4PGPPRR))
+            {
+                unconfirmedPfReq.Content = JsonContent.Create(new ProjectFinalPatchDto { IdStateStage = pfObsId });
+                var res = await client.SendAsync(unconfirmedPfReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Docente confirmado 201 emite observaciones -> 200 OK + BD + job
+            factory.EnqueuedJobs.Clear();
+            using (var okPfReq = CreateRequest(HttpMethod.Patch, $"/api/ProjectFinal/{scenario.InscriptionAId}", Teacher201Id, PermissionCodes.ProyectoGrado.N4PGPPRR))
+            {
+                okPfReq.Content = JsonContent.Create(new ProjectFinalPatchDto
+                {
+                    IdStateStage = pfObsId,
+                    Observations = "Ajustar conclusiones"
+                });
+                var res = await client.SendAsync(okPfReq);
+                res.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            using (var verifyPfScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyPfScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var pf = verifyContext.Set<ProjectFinal>().Find(scenario.InscriptionAId);
+                pf!.IdStateStage.Should().Be(pfObsId);
+                pf.Observations.Should().Be("Ajustar conclusiones");
+            }
+            factory.EnqueuedJobs.Should().Contain(j => j.MethodName == "HandleProjectFinalChangeAsync");
+
+            // ── Sustentación (PATCH /api/ProjectPresentation/{id}) ────────────────────────
+            // Docente no confirmado -> 403
+            using (var unconfirmedPresReq = CreateRequest(HttpMethod.Patch, $"/api/ProjectPresentation/{scenario.InscriptionAId}", Teacher202Id, PermissionCodes.ProyectoGrado.N4PGPSR))
+            {
+                unconfirmedPresReq.Content = JsonContent.Create(new Application.Shared.DTOs.ProjectPresentations.ProjectPresentationPatchDto { Observations = "No confirmado" });
+                var res = await client.SendAsync(unconfirmedPresReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Docente confirmado solo en otra inscripción -> 403
+            using (var crossPresReq = CreateRequest(HttpMethod.Patch, $"/api/ProjectPresentation/{scenario.InscriptionAId}", Teacher203Id, PermissionCodes.ProyectoGrado.N4PGPSR))
+            {
+                crossPresReq.Content = JsonContent.Create(new Application.Shared.DTOs.ProjectPresentations.ProjectPresentationPatchDto { Observations = "Cruzado" });
+                var res = await client.SendAsync(crossPresReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Docente confirmado 201 evalúa sustentación -> 200 OK + BD + job
+            factory.EnqueuedJobs.Clear();
+            using (var okPresReq = CreateRequest(HttpMethod.Patch, $"/api/ProjectPresentation/{scenario.InscriptionAId}", Teacher201Id, PermissionCodes.ProyectoGrado.N4PGPSR))
+            {
+                okPresReq.Content = JsonContent.Create(new Application.Shared.DTOs.ProjectPresentations.ProjectPresentationPatchDto
+                {
+                    IdStateStage = sustReintentoId,
+                    Observations = "Jurado confirma programación y evalúa intento 1"
+                });
+                var res = await client.SendAsync(okPresReq);
+                res.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            using (var verifyPresScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyPresScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                verifyContext.Set<ProjectPresentation>().Find(scenario.InscriptionAId)!.IdStateStage.Should().Be(sustReintentoId);
+            }
+            factory.EnqueuedJobs.Should().Contain(j => j.MethodName == "HandleProjectPresentationChangeAsync");
+        }
     }
 }

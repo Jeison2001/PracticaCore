@@ -28,15 +28,32 @@ namespace Tests.Integration.Authorization
 
         [Theory]
         [InlineData("GET", "/api/User")]
+        [InlineData("PUT", "/api/User/1")]
+        [InlineData("PATCH", "/api/User/1/status")]
         [InlineData("GET", "/api/UserRole/ByUser/1")]
         [InlineData("POST", "/api/UserRole")]
+        [InlineData("GET", "/api/UserPermission/ByUser/1")]
+        [InlineData("POST", "/api/UserPermission")]
         [InlineData("GET", "/api/Role")]
         [InlineData("GET", "/api/Permission")]
         [InlineData("GET", "/api/TeacherEnabledCargo/ByUser/1")]
         public async Task AnonymousActor_ReturnsUnauthorized_OnProtectedEndpoints(string method, string url)
         {
-            var httpMethod = method == "POST" ? HttpMethod.Post : HttpMethod.Get;
-            object? body = method == "POST" ? new UserRoleDto { IdUser = 1, IdRole = 1, StatusRegister = true } : null;
+            var httpMethod = method switch
+            {
+                "POST" => HttpMethod.Post,
+                "PUT" => HttpMethod.Put,
+                "PATCH" => HttpMethod.Patch,
+                _ => HttpMethod.Get
+            };
+            object? body = method switch
+            {
+                "POST" when url == "/api/UserRole" => new UserRoleDto { IdUser = 1, IdRole = 1, StatusRegister = true },
+                "POST" => new { IdUser = 1, IdPermission = 1, StatusRegister = true },
+                "PATCH" => new UpdateStatusRequestDto { StatusRegister = false },
+                "PUT" => new { },
+                _ => null
+            };
 
             using var request = CreateRequest(httpMethod, url, anonymous: true, body: body);
             var response = await _client.SendAsync(request);
@@ -914,6 +931,109 @@ namespace Tests.Integration.Authorization
                     cleanupContext.Set<RolePermission>().Remove(rpToRemove);
                     await cleanupContext.SaveChangesAsync();
                 }
+            }
+        }
+
+        [Fact]
+        public async Task AuthEndpoints_InactiveUserCannotManualLoginOrRefresh_ActiveUserRotatesAndRevokesOnDeactivation()
+        {
+            using var context = GetFreshDbContext();
+            var (activeUser, inactiveUser) = await SeedTwoUsersAsync(context);
+            inactiveUser.StatusRegister = false;
+            await context.SaveChangesAsync();
+
+            using var noCookieClient = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+            {
+                HandleCookies = false
+            });
+
+            // 1. Usuario inactivo no puede autenticarse con /api/Auth/manual
+            using (var inactiveReq = CreateRequest(
+                HttpMethod.Post,
+                "/api/Auth/manual",
+                anonymous: true,
+                body: new Application.Shared.DTOs.Auth.ManualAuthRequest { Email = inactiveUser.Email }))
+            {
+                var inactiveRes = await noCookieClient.SendAsync(inactiveReq);
+                inactiveRes.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            }
+
+            // 2. Usuario activo se autentica -> 200 + Set-Cookie refreshToken y persistencia en BD
+            string refreshCookieValue;
+            using (var activeReq = CreateRequest(
+                HttpMethod.Post,
+                "/api/Auth/manual",
+                anonymous: true,
+                body: new Application.Shared.DTOs.Auth.ManualAuthRequest { Email = activeUser.Email }))
+            {
+                var activeRes = await noCookieClient.SendAsync(activeReq);
+                activeRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var payload = await activeRes.Content.ReadFromJsonAsync<ApiResponse<Application.Shared.DTOs.Auth.AuthResponse>>();
+                payload.Should().NotBeNull();
+                payload!.Success.Should().BeTrue();
+                payload.Data.Should().NotBeNull();
+                payload.Data!.User.Id.Should().Be(activeUser.Id);
+                payload.Data.Token.Should().NotBeNullOrWhiteSpace();
+
+                activeRes.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
+                var rawRefreshCookie = setCookies!.First(c => c.StartsWith("refreshToken=", StringComparison.OrdinalIgnoreCase));
+                refreshCookieValue = rawRefreshCookie.Split(';', 2)[0]["refreshToken=".Length..];
+                refreshCookieValue.Should().NotBeNullOrWhiteSpace();
+            }
+
+            // 3. Usuario activo rota su refresh token via /api/Auth/refresh -> 200 OK y nuevo token en BD
+            string rotatedRefreshCookieValue;
+            using (var rotateReq = CreateRequest(HttpMethod.Post, "/api/Auth/refresh", anonymous: true))
+            {
+                rotateReq.Headers.Add("Cookie", $"refreshToken={refreshCookieValue}");
+                var rotateRes = await noCookieClient.SendAsync(rotateReq);
+                rotateRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var rotatePayload = await rotateRes.Content.ReadFromJsonAsync<ApiResponse<Application.Shared.DTOs.Auth.AuthResponse>>();
+                rotatePayload.Should().NotBeNull();
+                rotatePayload!.Success.Should().BeTrue();
+                rotatePayload.Data!.Token.Should().NotBeNullOrWhiteSpace();
+
+                rotateRes.Headers.TryGetValues("Set-Cookie", out var rotatedCookies).Should().BeTrue();
+                var rawRotated = rotatedCookies!.First(c => c.StartsWith("refreshToken=", StringComparison.OrdinalIgnoreCase));
+                rotatedRefreshCookieValue = rawRotated.Split(';', 2)[0]["refreshToken=".Length..];
+                rotatedRefreshCookieValue.Should().NotBeNullOrWhiteSpace();
+                rotatedRefreshCookieValue.Should().NotBe(refreshCookieValue);
+            }
+
+            using (var checkScope = _factory.Services.CreateScope())
+            {
+                var checkContext = checkScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var activeTokens = checkContext.Set<RefreshToken>()
+                    .Where(rt => rt.IdUser == activeUser.Id)
+                    .ToList();
+                activeTokens.Should().Contain(rt => rt.RevokedAt == null && rt.ExpiresAt > DateTimeOffset.UtcNow);
+            }
+
+            // 4. Desactivar usuario y verificar que /api/Auth/refresh devuelve 401 y revoca sus tokens
+            using (var disableScope = _factory.Services.CreateScope())
+            {
+                var disableContext = disableScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await disableContext.Set<User>().FindAsync(activeUser.Id);
+                persisted!.StatusRegister = false;
+                await disableContext.SaveChangesAsync();
+            }
+
+            using (var revokedReq = CreateRequest(HttpMethod.Post, "/api/Auth/refresh", anonymous: true))
+            {
+                revokedReq.Headers.Add("Cookie", $"refreshToken={rotatedRefreshCookieValue}");
+                var revokedRes = await noCookieClient.SendAsync(revokedReq);
+                revokedRes.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            }
+
+            using (var verifyScope = _factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var remainingTokens = verifyContext.Set<RefreshToken>()
+                    .Where(rt => rt.IdUser == activeUser.Id)
+                    .ToList();
+                remainingTokens.Where(rt => rt.RevokedAt == null && rt.ExpiresAt > DateTimeOffset.UtcNow).Should().BeEmpty();
             }
         }
     }

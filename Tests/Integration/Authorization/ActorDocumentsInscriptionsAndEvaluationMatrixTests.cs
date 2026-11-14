@@ -877,5 +877,135 @@ namespace Tests.Integration.Authorization
                 await cleanupContext.SaveChangesAsync();
             }
         }
+
+        [Fact]
+        public async Task EvaluationHistory_EnforcesInscriptionOwnershipForStudentActors()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var factory = CreateFactoryWithMockStorage(storageMock);
+            using var client = factory.CreateClient();
+            var seed = await SeedDocumentAndInscriptionMatrixAsync(factory.Services, storageMock);
+
+            // 1. Estudiante no miembro (999) con permiso de consulta N2MGC -> 403 Forbidden
+            using (var alienReq = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(InscriptionModality)}/{seed.PgInscriptionId}",
+                999,
+                PermissionCodes.ModalidadesGrado.N2MGC))
+            {
+                var alienRes = await client.SendAsync(alienReq);
+                alienRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 2. Estudiante propietario (101) -> 200 OK
+            using (var ownerReq = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(InscriptionModality)}/{seed.PgInscriptionId}",
+                101,
+                PermissionCodes.ModalidadesGrado.N2MGC))
+            {
+                var ownerRes = await client.SendAsync(ownerReq);
+                ownerRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            // 3. Comité de Proyecto de Grado (501 con N4PGPPA) -> 200 OK
+            using (var committeeReq = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(InscriptionModality)}/{seed.PgInscriptionId}",
+                501,
+                PermissionCodes.ProyectoGrado.N4PGPPA))
+            {
+                var committeeRes = await client.SendAsync(committeeReq);
+                committeeRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+        }
+
+        [Fact]
+        public async Task Document_ByInscriptionModality_ExcludesSoftDeleted_AndFailsClosedOnUnknownStageModality()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var factory = CreateFactoryWithMockStorage(storageMock);
+            using var client = factory.CreateClient();
+            var seed = await SeedDocumentAndInscriptionMatrixAsync(factory.Services, storageMock);
+
+            int softDeletedDocId = 0;
+            try
+            {
+                using (var scope = factory.Services.CreateScope())
+                {
+                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var deletedDoc = new Document
+                    {
+                        IdInscriptionModality = seed.PgInscriptionId,
+                        IdDocumentType = seed.DocTypeInformeId,
+                        Name = "Documento Eliminado",
+                        OriginalFileName = "eliminado.pdf",
+                        StoredFileName = $"deleted_{Guid.NewGuid():N}.pdf",
+                        StoragePath = "Uploads",
+                        MimeType = "application/pdf",
+                        FileSize = 4,
+                        StatusRegister = false
+                    };
+                    context.Set<Document>().Add(deletedDoc);
+                    await context.SaveChangesAsync();
+                    softDeletedDocId = deletedDoc.Id;
+                }
+
+                // 1. Excluye documentos soft-deleted (StatusRegister = false)
+                using (var listReq = CreateRequest(
+                    HttpMethod.Get,
+                    $"/api/Document/ByInscriptionModality/{seed.PgInscriptionId}?PageNumber=1&PageSize=20",
+                    101,
+                    PermissionCodes.ModalidadesGrado.N2MGC))
+                {
+                    var listRes = await client.SendAsync(listReq);
+                    listRes.StatusCode.Should().Be(HttpStatusCode.OK);
+                    var payload = await listRes.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<DocumentDto>>>();
+                    payload!.Data!.Items.Should().Contain(d => d.Id == seed.Doc1PropuestaId);
+                    payload.Data.Items.Should().Contain(d => d.Id == seed.Doc2InformeId);
+                    payload.Data.Items.Should().NotContain(d => d.Id == softDeletedDocId);
+                }
+
+                // 2. Filtros equivalentes Filters[idDocumentType] y Filters[idDocumentType@eq]
+                foreach (var filterKey in new[] { "idDocumentType", "idDocumentType@eq" })
+                {
+                    using var filterReq = CreateRequest(
+                        HttpMethod.Get,
+                        $"/api/Document/ByInscriptionModality/{seed.PgInscriptionId}?PageNumber=1&PageSize=20&Filters[{Uri.EscapeDataString(filterKey)}]={seed.DocTypeInformeId}",
+                        101,
+                        PermissionCodes.ModalidadesGrado.N2MGC);
+
+                    var filterRes = await client.SendAsync(filterReq);
+                    filterRes.StatusCode.Should().Be(HttpStatusCode.OK);
+                    var filterPayload = await filterRes.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<DocumentDto>>>();
+                    filterPayload!.Data!.Items.Should().ContainSingle(d => d.Id == seed.Doc2InformeId);
+                }
+
+                // 3. Fail-closed si el usuario no vinculado consulta idStageModality inexistente (sin N2CFDO/N3CFDOT) -> 403
+                using (var unknownStageReq = CreateRequest(
+                    HttpMethod.Get,
+                    $"/api/Document/ByInscriptionModality/{seed.PgInscriptionId}?PageNumber=1&PageSize=20&idStageModality=999999",
+                    501,
+                    PermissionCodes.ProyectoGrado.N4PGPAR))
+                {
+                    var unknownStageRes = await client.SendAsync(unknownStageReq);
+                    unknownStageRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                }
+            }
+            finally
+            {
+                if (softDeletedDocId > 0)
+                {
+                    using var cleanupScope = factory.Services.CreateScope();
+                    var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var doc = await cleanupContext.Set<Document>().FindAsync(softDeletedDocId);
+                    if (doc != null)
+                    {
+                        cleanupContext.Set<Document>().Remove(doc);
+                        await cleanupContext.SaveChangesAsync();
+                    }
+                }
+            }
+        }
     }
 }

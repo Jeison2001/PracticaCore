@@ -782,5 +782,287 @@ namespace Tests.Integration.Authorization
                 await restoreContext.SaveChangesAsync();
             }
         }
+
+        [Fact]
+        public async Task AcademicPractice_UpdateInstitutionInfo_And_PhaseApproval_EnforceOwnershipAndCoordinatorRoles()
+        {
+            int practiceId = 0;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                SeedingUtilities.SeedCatalogs(context);
+
+                var period = context.Set<AcademicPeriod>().FirstOrDefault()
+                    ?? new AcademicPeriod { Code = $"PER_{Guid.NewGuid():N}"[..10], StartDate = DateTime.UtcNow, EndDate = DateTime.UtcNow.AddMonths(6), StatusRegister = true };
+                if (period.Id == 0)
+                {
+                    context.Set<AcademicPeriod>().Add(period);
+                    await context.SaveChangesAsync();
+                }
+
+                var insc = new InscriptionModality
+                {
+                    IdModality = 2,
+                    IdStageModality = 1,
+                    IdStateInscription = 1,
+                    IdAcademicPeriod = period.Id,
+                    Observations = "Práctica aislada matrix",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                context.Set<InscriptionModality>().Add(insc);
+                await context.SaveChangesAsync();
+                practiceId = insc.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = practiceId,
+                    IdUser = 301,
+                    StatusRegister = true
+                });
+                context.Set<AcademicPractice>().Add(new AcademicPractice
+                {
+                    Id = practiceId,
+                    Title = "Práctica Original",
+                    InstitutionName = "Empresa Inicial",
+                    InstitutionContact = "init@empresa.com",
+                    PracticeStartDate = DateTimeOffset.UtcNow.AddDays(1),
+                    PracticeEndDate = DateTimeOffset.UtcNow.AddMonths(4),
+                    PracticeHours = 300,
+                    IdStateStage = 10,
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+                await context.SaveChangesAsync();
+            }
+
+            try
+            {
+                var validDto = new Application.Shared.DTOs.AcademicPractices.UpdateInstitutionInfoDto
+                {
+                    Id = practiceId,
+                    Title = "Práctica Validada",
+                    InstitutionName = "Empresa Validada SAS",
+                    InstitutionContact = "contacto@empresa.com",
+                    PracticeStartDate = DateTimeOffset.UtcNow.AddDays(2),
+                    PracticeEndDate = DateTimeOffset.UtcNow.AddMonths(5),
+                    PracticeHours = 360,
+                    Observations = "Actualización estudiante",
+                    NewStateStageId = null
+                };
+
+                // 1. Estudiante no miembro (302) -> 403 Forbidden
+                using (var alienReq = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/AcademicPractice/UpdateInstitutionInfo/{practiceId}",
+                    PermissionCodes.PracticaAcademica.N3PAF0R,
+                    userId: "302"))
+                {
+                    alienReq.Content = JsonContent.Create(validDto);
+                    var res = await _client.SendAsync(alienReq);
+                    res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                }
+
+                // 2. Estudiante dueño (301) intenta mover a estado final (1 = PaInscripcionAprobada) -> 403 Forbidden
+                using (var selfApproveReq = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/AcademicPractice/UpdateInstitutionInfo/{practiceId}",
+                    PermissionCodes.PracticaAcademica.N3PAF0R,
+                    userId: "301"))
+                {
+                    selfApproveReq.Content = JsonContent.Create(validDto with { NewStateStageId = 1 });
+                    var res = await _client.SendAsync(selfApproveReq);
+                    res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                }
+
+                // 3. Estudiante dueño (301) actualiza info institucional sin auto-aprobar -> 200 OK y BD persistida
+                using (var ownerReq = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/AcademicPractice/UpdateInstitutionInfo/{practiceId}",
+                    PermissionCodes.PracticaAcademica.N3PAF0R,
+                    userId: "301"))
+                {
+                    ownerReq.Content = JsonContent.Create(validDto);
+                    var res = await _client.SendAsync(ownerReq);
+                    res.StatusCode.Should().Be(HttpStatusCode.OK);
+                }
+
+                using (var verifyScope = _factory.Services.CreateScope())
+                {
+                    var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var updated = await verifyContext.Set<AcademicPractice>().FindAsync(practiceId);
+                    updated!.InstitutionName.Should().Be("Empresa Validada SAS");
+                    updated.IdStateStage.Should().Be(10);
+                }
+
+                // 4. Coordinador (305 con N4PAF0PA) aprueba fase -> 200 OK + BD + job HandleAcademicPracticeChangeAsync
+                _factory.EnqueuedJobs.Clear();
+                using (var coordReq = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/AcademicPractice/UpdatePhaseApproval/{practiceId}",
+                    PermissionCodes.PracticaAcademica.N4PAF0PA,
+                    userId: "305"))
+                {
+                    coordReq.Content = JsonContent.Create(new Application.Shared.DTOs.AcademicPractices.UpdatePhaseApprovalDto
+                    {
+                        Id = practiceId,
+                        NewStateStageId = 1,
+                        Observations = "Aprobado por coordinador"
+                    });
+                    var res = await _client.SendAsync(coordReq);
+                    res.StatusCode.Should().Be(HttpStatusCode.OK);
+                }
+
+                using (var finalVerifyScope = _factory.Services.CreateScope())
+                {
+                    var verifyContext = finalVerifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    verifyContext.Set<AcademicPractice>().Find(practiceId)!.IdStateStage.Should().Be(1);
+                }
+                _factory.EnqueuedJobs.Should().Contain(j => j.MethodName == "HandleAcademicPracticeChangeAsync");
+            }
+            finally
+            {
+                using var cleanupScope = _factory.Services.CreateScope();
+                var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var uims = cleanupContext.Set<UserInscriptionModality>().Where(x => x.IdInscriptionModality == practiceId).ToList();
+                if (uims.Count > 0) cleanupContext.Set<UserInscriptionModality>().RemoveRange(uims);
+                var practice = await cleanupContext.Set<AcademicPractice>().FindAsync(practiceId);
+                if (practice != null) cleanupContext.Set<AcademicPractice>().Remove(practice);
+                var insc = await cleanupContext.Set<InscriptionModality>().FindAsync(practiceId);
+                if (insc != null) cleanupContext.Set<InscriptionModality>().Remove(insc);
+                await cleanupContext.SaveChangesAsync();
+            }
+        }
+
+        [Fact]
+        public async Task MinorModalities_Patch_EnforcesOwnership_AntiSelfApproval_AndCommitteeApproval()
+        {
+            (int CoTerminalId, int SeminarId, int ScientificArticleId, int AcademicAverageId, int SaberProId) minorIds;
+            var tempStateIds = new List<int>();
+            int saFinalId;
+            int gpFinalId;
+            int spFinalId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                SeedingUtilities.SeedCatalogs(context);
+                minorIds = SeedMinorModalitiesForStudent301(context);
+
+                async Task<int> EnsureFinalStateAsync(int stageModalityId, string code, string name)
+                {
+                    var existing = context.Set<StateStage>().FirstOrDefault(s => s.Code == code);
+                    if (existing != null) return existing.Id;
+                    var st = new StateStage
+                    {
+                        Code = code,
+                        Name = name,
+                        IdStageModality = stageModalityId,
+                        IsInitialState = false,
+                        IsFinalStateForStage = true,
+                        IsFinalStateForModalityOverall = true,
+                        IsRejectionState = false,
+                        StatusRegister = true,
+                        OperationRegister = "TestSeed"
+                    };
+                    context.Set<StateStage>().Add(st);
+                    await context.SaveChangesAsync();
+                    tempStateIds.Add(st.Id);
+                    return st.Id;
+                }
+
+                saFinalId = await EnsureFinalStateAsync(10, "SA_APROBADO_TEST", "Seminario Aprobado Test");
+                gpFinalId = await EnsureFinalStateAsync(13, "GP_APROBADO_TEST", "Grado Promedio Aprobado Test");
+                spFinalId = await EnsureFinalStateAsync(14, "SP_APROBADO_TEST", "Saber Pro Aprobado Test");
+            }
+
+            try
+            {
+                var cases = new (string Url, string StudentPerm, string ReviewerPerm, int FinalStateId, Func<int, object> BuildBody, string ExpectedJob)[]
+                {
+                    (
+                        $"/api/CoTerminal/{minorIds.CoTerminalId}",
+                        PermissionCodes.CoTerminal.N2CTR,
+                        $"{PermissionCodes.CoTerminal.N3CTSGR},{PermissionCodes.CoTerminal.N3CTSGG}",
+                        32,
+                        st => new Application.Shared.DTOs.CoTerminals.CoTerminalPatchDto { IdStateStage = st, Observations = "Revisión CoTerminal" },
+                        "HandleCoTerminalChangeAsync"
+                    ),
+                    (
+                        $"/api/Seminar/{minorIds.SeminarId}",
+                        PermissionCodes.Seminario.N2SAR,
+                        $"{PermissionCodes.Seminario.N3SASGR},{PermissionCodes.Seminario.N3SASGG}",
+                        saFinalId,
+                        st => new Application.Shared.DTOs.Seminars.SeminarPatchDto { IdStateStage = st, Observations = "Revisión Seminario" },
+                        "HandleSeminarChangeAsync"
+                    ),
+                    (
+                        $"/api/ScientificArticle/{minorIds.ScientificArticleId}",
+                        PermissionCodes.PublicacionArticulo.N2PCR,
+                        $"{PermissionCodes.PublicacionArticulo.N3PCSGR},{PermissionCodes.PublicacionArticulo.N3PCSGG}",
+                        22,
+                        st => new Application.Shared.DTOs.ScientificArticles.ScientificArticlePatchDto { IdStateStage = st, Observations = "Revisión Artículo" },
+                        "HandleScientificArticleChangeAsync"
+                    ),
+                    (
+                        $"/api/AcademicAverage/{minorIds.AcademicAverageId}",
+                        PermissionCodes.GradoPromedio.N2GPR,
+                        $"{PermissionCodes.GradoPromedio.N3GPSGR},{PermissionCodes.GradoPromedio.N3GPSGG}",
+                        gpFinalId,
+                        st => new Application.Shared.DTOs.AcademicAverages.AcademicAveragePatchDto { IdStateStage = st, Observations = "Revisión Promedio" },
+                        "HandleAcademicAverageChangeAsync"
+                    ),
+                    (
+                        $"/api/SaberPro/{minorIds.SaberProId}",
+                        PermissionCodes.SaberPro.N2SPR,
+                        $"{PermissionCodes.SaberPro.N3SPSGR},{PermissionCodes.SaberPro.N3SPSGG}",
+                        spFinalId,
+                        st => new Application.Shared.DTOs.SaberPros.SaberProPatchDto { IdStateStage = st, Observations = "Revisión Saber Pro" },
+                        "HandleSaberProChangeAsync"
+                    )
+                };
+
+                foreach (var c in cases)
+                {
+                    // 1. Estudiante ajeno (302) -> 403 Forbidden
+                    using (var alienReq = CreateRequest(HttpMethod.Patch, c.Url, c.StudentPerm, userId: "302"))
+                    {
+                        alienReq.Content = JsonContent.Create(c.BuildBody(c.FinalStateId));
+                        var alienRes = await _client.SendAsync(alienReq);
+                        alienRes.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"alien student on {c.Url}");
+                    }
+
+                    // 2. Estudiante dueño (301) intenta auto-aprobar estado final -> 403 Forbidden
+                    using (var selfReq = CreateRequest(HttpMethod.Patch, c.Url, c.StudentPerm, userId: "301"))
+                    {
+                        selfReq.Content = JsonContent.Create(c.BuildBody(c.FinalStateId));
+                        var selfRes = await _client.SendAsync(selfReq);
+                        selfRes.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"self-approval on {c.Url}");
+                    }
+
+                    // 3. Comité/Revisor (305) aprueba estado final -> 200 OK y encola job de notificación
+                    _factory.EnqueuedJobs.Clear();
+                    using (var reviewerReq = CreateRequest(HttpMethod.Patch, c.Url, c.ReviewerPerm, userId: "305"))
+                    {
+                        reviewerReq.Content = JsonContent.Create(c.BuildBody(c.FinalStateId));
+                        var reviewerRes = await _client.SendAsync(reviewerReq);
+                        reviewerRes.StatusCode.Should().Be(HttpStatusCode.OK, $"reviewer patch on {c.Url}");
+                    }
+
+                    _factory.EnqueuedJobs.Should().Contain(j => j.MethodName == c.ExpectedJob, $"notification job for {c.Url}");
+                }
+            }
+            finally
+            {
+                using var cleanupScope = _factory.Services.CreateScope();
+                var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                foreach (var stId in tempStateIds)
+                {
+                    var st = await cleanupContext.Set<StateStage>().FindAsync(stId);
+                    if (st != null) cleanupContext.Set<StateStage>().Remove(st);
+                }
+                await cleanupContext.SaveChangesAsync();
+            }
+        }
     }
 }
