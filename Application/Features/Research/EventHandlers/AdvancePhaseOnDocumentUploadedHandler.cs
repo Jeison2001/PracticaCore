@@ -93,6 +93,21 @@ namespace Application.Features.Research.EventHandlers
                     x => x.OperationRegister
                 ]);
 
+                if (targetCode == StateStageCodes.ApRadicadoPendAsigEval)
+                {
+                    // Persistir AP_RADICADO_PEND_ASIG_EVAL antes de reconciliar para que TryAdvancePreliminaryProjectToEvaluationAsync
+                    // observe el nuevo estado si un segundo jurado fue confirmado en paralelo durante la carga del documento.
+                    await _unitOfWork.CommitAsync(cancellationToken);
+
+                    await TeachingAssignmentEvaluationHelper.TryAdvancePreliminaryProjectToEvaluationAsync(
+                        _unitOfWork,
+                        _unitOfWork.GetRepository<TeachingAssignment, int>(),
+                        notification.InscriptionModalityId,
+                        knownJuradoTypeId: null,
+                        notification.ChangedByUserId,
+                        cancellationToken);
+                }
+
                 _logger.LogInformation("Encolando notificación de cambio de estado para Anteproyecto ID {PreliminaryProjectId}", preliminaryProject.Id);
                 _jobEnqueuer.Enqueue<INotificationBackgroundJob>(
                     x => x.HandlePreliminaryProjectChangeAsync(preliminaryProject.Id, currentState.Id));

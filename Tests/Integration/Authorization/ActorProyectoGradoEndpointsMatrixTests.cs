@@ -1173,5 +1173,123 @@ namespace Tests.Integration.Authorization
                 preliminary!.IdStateStage.Should().Be(apEnEvaluacionId);
             }
         }
+
+        [Fact]
+        public async Task TeachingAssignment_GetByInscription_EnforcesOwnershipConfirmedTeacherOrCommitteePermission()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            var endpoint = $"/api/TeachingAssignment/ByInscription/{scenario.InscriptionAId}";
+
+            // Estudiante dueño (101) puede consultar sus asignaciones
+            using (var ownerReq = CreateRequest(
+                HttpMethod.Get,
+                endpoint,
+                Student101Id,
+                PermissionCodes.ProyectoGrado.N3PGRP))
+            {
+                var ownerResp = await client.SendAsync(ownerReq);
+                ownerResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var body = await ownerResp.Content.ReadFromJsonAsync<ApiResponse<List<TeachingAssignmentTeacherDto>>>();
+                body.Should().NotBeNull();
+                body!.Success.Should().BeTrue();
+                body.Data.Should().HaveCount(2);
+                body.Data!.Should().ContainSingle(t => t.IdUser == Teacher201Id && t.IsConfirmed);
+                body.Data!.Should().ContainSingle(t => t.IdUser == Teacher202Id && !t.IsConfirmed);
+            }
+
+            // Estudiante ajeno (102) recibe 403 Forbidden
+            using (var otherStudentReq = CreateRequest(
+                HttpMethod.Get,
+                endpoint,
+                Student102Id,
+                PermissionCodes.ProyectoGrado.N3PGRP))
+            {
+                var otherStudentResp = await client.SendAsync(otherStudentReq);
+                otherStudentResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Docente propuesto no confirmado (202, IsConfirmed = false) recibe 403 Forbidden
+            using (var unconfirmedTeacherReq = CreateRequest(
+                HttpMethod.Get,
+                endpoint,
+                Teacher202Id,
+                PermissionCodes.ProyectoGrado.N4PGPPC,
+                PermissionCodes.ProyectoGrado.N4PGPAR))
+            {
+                var unconfirmedTeacherResp = await client.SendAsync(unconfirmedTeacherReq);
+                unconfirmedTeacherResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Docente director confirmado (201, IsConfirmed = true) puede consultar -> 200 OK
+            using (var confirmedDirectorReq = CreateRequest(
+                HttpMethod.Get,
+                endpoint,
+                Teacher201Id,
+                PermissionCodes.ProyectoGrado.N4PGPPC))
+            {
+                var confirmedDirectorResp = await client.SendAsync(confirmedDirectorReq);
+                confirmedDirectorResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var body = await confirmedDirectorResp.Content.ReadFromJsonAsync<ApiResponse<List<TeachingAssignmentTeacherDto>>>();
+                body.Should().NotBeNull();
+                body!.Success.Should().BeTrue();
+                body.Data.Should().HaveCount(2);
+            }
+
+            // Docente de otro proyecto (203) con solo permiso de revisión recibe 403 Forbidden
+            using (var unassignedTeacherReq = CreateRequest(
+                HttpMethod.Get,
+                endpoint,
+                Teacher203Id,
+                PermissionCodes.ProyectoGrado.N4PGPPC))
+            {
+                var unassignedTeacherResp = await client.SendAsync(unassignedTeacherReq);
+                unassignedTeacherResp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Comité PG con permiso de gestión/asignación (N4PGPPA / N4PGPPG) recibe 200 OK
+            foreach (var committeePerm in new[] { PermissionCodes.ProyectoGrado.N4PGPPA, PermissionCodes.ProyectoGrado.N4PGPPG })
+            {
+                using var committeeReq = CreateRequest(HttpMethod.Get, endpoint, 305, committeePerm);
+                var committeeResp = await client.SendAsync(committeeReq);
+                committeeResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var body = await committeeResp.Content.ReadFromJsonAsync<ApiResponse<List<TeachingAssignmentTeacherDto>>>();
+                body.Should().NotBeNull();
+                body!.Success.Should().BeTrue();
+                body.Data.Should().HaveCount(2);
+            }
+
+            // Inscripción inexistente: actor sin permiso global/de gestión recibe 403; comité recibe 200 con lista vacía
+            const string nonExistentEndpoint = "/api/TeachingAssignment/ByInscription/999999";
+
+            using (var nonExistentTeacherReq = CreateRequest(
+                HttpMethod.Get,
+                nonExistentEndpoint,
+                Teacher203Id,
+                PermissionCodes.ProyectoGrado.N4PGPPC))
+            {
+                var resp = await client.SendAsync(nonExistentTeacherReq);
+                resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            using (var nonExistentCommitteeReq = CreateRequest(
+                HttpMethod.Get,
+                nonExistentEndpoint,
+                305,
+                PermissionCodes.ProyectoGrado.N4PGPPA))
+            {
+                var resp = await client.SendAsync(nonExistentCommitteeReq);
+                resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var body = await resp.Content.ReadFromJsonAsync<ApiResponse<List<TeachingAssignmentTeacherDto>>>();
+                body.Should().NotBeNull();
+                body!.Data.Should().BeEmpty();
+            }
+        }
     }
 }

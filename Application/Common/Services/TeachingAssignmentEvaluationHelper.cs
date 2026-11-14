@@ -14,6 +14,31 @@ namespace Application.Common.Services
         public const string JuradoEvaluadorCode = "JURADO_EVALUADOR";
         public const int MinimumConfirmedJurados = 2;
 
+        private static async Task<int> CountActiveConfirmedByTeacherAndTypeAsync(
+            IRepository<TeachingAssignment, int> repository,
+            int typeId,
+            int teacherId,
+            int? excludeAssignmentId,
+            CancellationToken cancellationToken)
+        {
+            return excludeAssignmentId.HasValue
+                ? await repository.CountAsync(
+                    x => x.IdTeacher == teacherId &&
+                         x.IdTypeTeachingAssignment == typeId &&
+                         x.StatusRegister &&
+                         x.RevocationDate == null &&
+                         x.IsConfirmed &&
+                         x.Id != excludeAssignmentId.Value,
+                    cancellationToken)
+                : await repository.CountAsync(
+                    x => x.IdTeacher == teacherId &&
+                         x.IdTypeTeachingAssignment == typeId &&
+                         x.StatusRegister &&
+                         x.RevocationDate == null &&
+                         x.IsConfirmed,
+                    cancellationToken);
+        }
+
         public static async Task ValidateMaxAssignmentsAsync(
             IRepository<TeachingAssignment, int> repository,
             TypeTeachingAssignment type,
@@ -24,25 +49,39 @@ namespace Application.Common.Services
             if (!type.MaxAssignments.HasValue)
                 return;
 
-            var count = excludeAssignmentId.HasValue
-                ? await repository.CountAsync(
-                    x => x.IdTeacher == teacherId &&
-                         x.IdTypeTeachingAssignment == type.Id &&
-                         x.StatusRegister &&
-                         x.RevocationDate == null &&
-                         x.IsConfirmed &&
-                         x.Id != excludeAssignmentId.Value,
-                    cancellationToken)
-                : await repository.CountAsync(
-                    x => x.IdTeacher == teacherId &&
-                         x.IdTypeTeachingAssignment == type.Id &&
-                         x.StatusRegister &&
-                         x.RevocationDate == null &&
-                         x.IsConfirmed,
-                    cancellationToken);
+            var count = await CountActiveConfirmedByTeacherAndTypeAsync(
+                repository,
+                type.Id,
+                teacherId,
+                excludeAssignmentId,
+                cancellationToken);
 
             if (count >= type.MaxAssignments.Value)
                 throw new InvalidOperationException($"El docente ya tiene el máximo permitido ({type.MaxAssignments}) de asignaciones activas para este cargo.");
+        }
+
+        public static async Task EnsureMaxAssignmentsNotExceededPostCommitAsync(
+            IRepository<TeachingAssignment, int> repository,
+            TypeTeachingAssignment type,
+            int teacherId,
+            Func<Task> compensateAsync,
+            CancellationToken cancellationToken)
+        {
+            if (!type.MaxAssignments.HasValue)
+                return;
+
+            var activeCount = await CountActiveConfirmedByTeacherAndTypeAsync(
+                repository,
+                type.Id,
+                teacherId,
+                excludeAssignmentId: null,
+                cancellationToken);
+
+            if (activeCount <= type.MaxAssignments.Value)
+                return;
+
+            await compensateAsync();
+            throw new InvalidOperationException($"El docente ya tiene el máximo permitido ({type.MaxAssignments}) de asignaciones activas para este cargo.");
         }
 
         public static async Task<int> CountConfirmedJuradosAsync(

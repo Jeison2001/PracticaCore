@@ -161,6 +161,20 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
             if (entity.IsConfirmed)
             {
+                if (entity.StatusRegister && entity.RevocationDate == null)
+                {
+                    await TeachingAssignmentEvaluationHelper.EnsureMaxAssignmentsNotExceededPostCommitAsync(
+                        _repository,
+                        type,
+                        entity.IdTeacher,
+                        async () =>
+                        {
+                            await _repository.DeleteAsync(entity);
+                            await _unitOfWork.CommitAsync(cancellationToken);
+                        },
+                        cancellationToken);
+                }
+
                 // Procesar notificaciones en background
                 ProcessNotificationsAsync(entity);
 
@@ -188,12 +202,20 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             int? userId,
             CancellationToken cancellationToken)
         {
+            if (existing.IsConfirmed)
+                return;
+
             await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
                 _repository,
                 type,
                 dto.IdTeacher,
                 excludeAssignmentId: existing.Id,
                 cancellationToken);
+
+            var originalIsConfirmed = existing.IsConfirmed;
+            var originalOperationRegister = existing.OperationRegister;
+            var originalUpdatedAt = existing.UpdatedAt;
+            var originalIdUserUpdatedAt = existing.IdUserUpdatedAt;
 
             existing.IsConfirmed = true;
             existing.OperationRegister = dto.OperationRegister ?? existing.OperationRegister;
@@ -202,6 +224,24 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
             await _repository.UpdateAsync(existing);
             await _unitOfWork.CommitAsync(cancellationToken);
+
+            if (existing.StatusRegister && existing.RevocationDate == null)
+            {
+                await TeachingAssignmentEvaluationHelper.EnsureMaxAssignmentsNotExceededPostCommitAsync(
+                    _repository,
+                    type,
+                    existing.IdTeacher,
+                    async () =>
+                    {
+                        existing.IsConfirmed = originalIsConfirmed;
+                        existing.OperationRegister = originalOperationRegister;
+                        existing.UpdatedAt = originalUpdatedAt;
+                        existing.IdUserUpdatedAt = originalIdUserUpdatedAt;
+                        await _repository.UpdateAsync(existing);
+                        await _unitOfWork.CommitAsync(cancellationToken);
+                    },
+                    cancellationToken);
+            }
 
             ProcessNotificationsAsync(existing);
 

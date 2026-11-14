@@ -36,7 +36,7 @@ namespace Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<List<TeachingAssignmentTeacherDto>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetByIdInscription(int id, bool? status = null)
         {
-            var result = await _mediator.Send(new GetTeachingAssignmentsByProposalIdQuery(id, status));
+            var result = await _mediator.Send(new GetTeachingAssignmentsByProposalIdQuery(id, status, User.GetCurrentUserInfo()));
             return Ok(new ApiResponse<List<TeachingAssignmentTeacherDto>> { Success = true, Data = result });
         }
 

@@ -55,11 +55,18 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
             if (exists != null)
                 return _mapper.Map<TeachingAssignmentDto>(entity);
 
-            // Capturar solo el valor necesario para notificaciones ANTES de modificar
+            // Capturar valores originales antes de modificar para auditoría, notificaciones y rollback defensivo
             var wasConfirmed = entity.IsConfirmed;
             var wasActive = entity.StatusRegister && entity.RevocationDate == null;
+            var originalInscriptionId = entity.IdInscriptionModality;
             var originalTeacherId = entity.IdTeacher;
             var originalTypeId = entity.IdTypeTeachingAssignment;
+            var originalStatusRegister = entity.StatusRegister;
+            var originalRevocationDate = entity.RevocationDate;
+            var originalResearchProfileId = entity.IdTeacherResearchProfile;
+            var originalOperationRegister = entity.OperationRegister;
+            var originalUpdatedAt = entity.UpdatedAt;
+            var originalIdUserUpdatedAt = entity.IdUserUpdatedAt;
 
             // Preservar campos de auditoría inmutables
             var originalCreatedAt = entity.CreatedAt;
@@ -103,11 +110,12 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                 entity.StatusRegister &&
                 entity.RevocationDate == null;
 
-            if ((isActivatingFromUnconfirmed || isReactivatingConfirmed || isReassigningConfirmed) && type != null)
+            var requiresMaxAssignmentsCheck = (isActivatingFromUnconfirmed || isReactivatingConfirmed || isReassigningConfirmed) && type != null;
+            if (requiresMaxAssignmentsCheck)
             {
                 await TeachingAssignmentEvaluationHelper.ValidateMaxAssignmentsAsync(
                     _repository,
-                    type,
+                    type!,
                     entity.IdTeacher,
                     excludeAssignmentId: entity.Id,
                     cancellationToken);
@@ -115,6 +123,32 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
 
             await _repository.UpdateAsync(entity);
             await _unitOfWork.CommitAsync(cancellationToken);
+
+            if (requiresMaxAssignmentsCheck)
+            {
+                await TeachingAssignmentEvaluationHelper.EnsureMaxAssignmentsNotExceededPostCommitAsync(
+                    _repository,
+                    type!,
+                    entity.IdTeacher,
+                    async () =>
+                    {
+                        entity.IdInscriptionModality = originalInscriptionId;
+                        entity.IdTeacher = originalTeacherId;
+                        entity.IdTypeTeachingAssignment = originalTypeId;
+                        entity.StatusRegister = originalStatusRegister;
+                        entity.IsConfirmed = wasConfirmed;
+                        entity.RevocationDate = originalRevocationDate;
+                        entity.IdTeacherResearchProfile = originalResearchProfileId;
+                        entity.OperationRegister = originalOperationRegister;
+                        entity.UpdatedAt = originalUpdatedAt;
+                        entity.IdUserUpdatedAt = originalIdUserUpdatedAt;
+                        entity.CreatedAt = originalCreatedAt;
+                        entity.IdUserCreatedAt = originalIdUserCreatedAt;
+                        await _repository.UpdateAsync(entity);
+                        await _unitOfWork.CommitAsync(cancellationToken);
+                    },
+                    cancellationToken);
+            }
 
             if (entity.IsConfirmed &&
                 entity.StatusRegister &&
