@@ -59,7 +59,8 @@ namespace Application.Common.Services.Notifications.Handlers
                 }
             }
             // Si solo cambió el tipo de asignación (mismo docente)
-            else if (oldEntity.IdTypeTeachingAssignment != newEntity.IdTypeTeachingAssignment)
+            else if (oldEntity.IdTypeTeachingAssignment > 0 &&
+                     oldEntity.IdTypeTeachingAssignment != newEntity.IdTypeTeachingAssignment)
             {
                 // Notificar al docente sobre el cambio de tipo
                 var eventData = await _eventDataBuilder.BuildTeachingAssignmentEventDataAsync(newEntity.Id, "TEACHING_ASSIGNMENT_ASSIGNED");
@@ -72,6 +73,14 @@ namespace Application.Common.Services.Notifications.Handlers
                 var studentsJobId = _queueService.EnqueueEventNotification("STUDENT_TEACHER_ASSIGNED", studentsEventData);
                 _logger.LogInformation("Evento STUDENT_TEACHER_ASSIGNED encolado por cambio de tipo. ID: {AssignmentId}, JobId: {JobId}", 
                     newEntity.Id, studentsJobId);
+            }
+            // Si el mismo docente fue desactivado o revocado
+            else if ((!newEntity.StatusRegister || newEntity.RevocationDate != null) && oldEntity.IdTeacher > 0)
+            {
+                var oldTeacherEventData = await BuildUnassignedTeacherEventDataAsync(oldEntity, newEntity);
+                var oldTeacherJobId = _queueService.EnqueueEventNotification("TEACHER_UNASSIGNED", oldTeacherEventData);
+                _logger.LogInformation("Evento TEACHER_UNASSIGNED encolado por desactivación/revocación. ID: {AssignmentId}, JobId: {JobId}",
+                    newEntity.Id, oldTeacherJobId);
             }
 
             _logger.LogInformation("Procesamiento de notificaciones completado para TeachingAssignment ID: {AssignmentId}", newEntity.Id);
@@ -108,7 +117,10 @@ namespace Application.Common.Services.Notifications.Handlers
                 var oldTeacher = await teacherRepo.GetByIdAsync(oldEntity.IdTeacher);
                 
                 var typeAssignmentRepo = _unitOfWork.GetRepository<TypeTeachingAssignment, int>();
-                var oldTypeAssignment = await typeAssignmentRepo.GetByIdAsync(oldEntity.IdTypeTeachingAssignment);
+                var typeId = oldEntity.IdTypeTeachingAssignment > 0
+                    ? oldEntity.IdTypeTeachingAssignment
+                    : newEntity.IdTypeTeachingAssignment;
+                var oldTypeAssignment = await typeAssignmentRepo.GetByIdAsync(typeId);
                 
                 var inscriptionRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
                 var inscription = await inscriptionRepo.GetByIdAsync(oldEntity.IdInscriptionModality);

@@ -44,6 +44,14 @@ namespace Application.Shared.Commands.Seminars.Handlers
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
+            await MinorModalityAuthorizationHelper.EnsureAuthorizedForPatchAsync(
+                _unitOfWork,
+                entity.Id,
+                request.Dto.IdStateStage,
+                request.CurrentUser,
+                [PermissionCodes.Seminario.N3SASGG, PermissionCodes.Seminario.N3SASGR],
+                cancellationToken);
+
             _logger.LogInformation("Patching Seminar Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
 

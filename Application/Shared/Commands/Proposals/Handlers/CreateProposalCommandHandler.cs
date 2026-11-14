@@ -1,9 +1,11 @@
+using Application.Common.Services;
+using Application.Common.Services.Jobs;
 using Application.Shared.DTOs.Proposals;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Exceptions;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
-using Application.Common.Services.Jobs;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -40,6 +42,22 @@ namespace Application.Shared.Commands.Proposals.Handlers
             var inscription = await inscriptionModalityRepo.GetByIdAsync(request.Dto.Id);
             if (inscription == null)
                 throw new InvalidOperationException($"No se encontró la inscripción de modalidad con ID {request.Dto.Id}");
+
+            if (request.CurrentUser?.Permissions is { Count: > 0 } perms &&
+                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) &&
+                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) &&
+                !perms.Contains(PermissionCodes.Configuraciones.N3CFSU) &&
+                !perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR))
+            {
+                var userId = request.CurrentUser.UserId ?? 0;
+                if (userId <= 0 ||
+                    !await ModalityAccessAuthorizationHelper.IsUserInInscriptionAsync(
+                        _unitOfWork, request.Dto.Id, userId, cancellationToken))
+                {
+                    throw new ForbiddenAccessException(
+                        "No está autorizado para registrar la propuesta de otra inscripción.");
+                }
+            }
 
             // 1b. Obtener MaxSpecificObjectives de la modalidad y validar límite de objetivos
             var modalityRepo = _unitOfWork.GetRepository<Modality, int>();

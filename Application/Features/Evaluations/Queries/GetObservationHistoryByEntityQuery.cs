@@ -1,4 +1,5 @@
 using Application.Shared.DTOs.Evaluations;
+using Domain.Common.Users;
 using MediatR;
 
 namespace Application.Features.Evaluations.Queries
@@ -10,5 +11,6 @@ namespace Application.Features.Evaluations.Queries
     public record GetObservationHistoryByEntityQuery(
         string EntityType,
         int EntityId,
-        int? IdEvaluationType = null) : IRequest<List<ObservationHistoryItemDto>>;
+        int? IdEvaluationType = null,
+        CurrentUserInfo? CurrentUser = null) : IRequest<List<ObservationHistoryItemDto>>;
 }

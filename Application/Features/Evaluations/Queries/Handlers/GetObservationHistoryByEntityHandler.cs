@@ -1,5 +1,8 @@
+using Application.Common.Services;
 using Application.Shared.DTOs.Evaluations;
+using Domain.Constants;
 using Domain.Entities;
+using Domain.Exceptions;
 using Domain.Interfaces.Repositories;
 using MediatR;
 
@@ -24,6 +27,23 @@ namespace Application.Features.Evaluations.Queries.Handlers
             GetObservationHistoryByEntityQuery request,
             CancellationToken cancellationToken)
         {
+            if (request.CurrentUser?.Permissions is { Count: > 0 } perms &&
+                !HasManagementOrReviewerPermission(perms))
+            {
+                var userId = request.CurrentUser.UserId ?? 0;
+                var isAuthorized = userId > 0 && (
+                    await ModalityAccessAuthorizationHelper.IsUserInInscriptionAsync(
+                        _unitOfWork, request.EntityId, userId, cancellationToken) ||
+                    await ModalityAccessAuthorizationHelper.IsConfirmedTeacherInInscriptionAsync(
+                        _unitOfWork, request.EntityId, userId, cancellationToken));
+
+                if (!isAuthorized)
+                {
+                    throw new ForbiddenAccessException(
+                        "No está autorizado para consultar el historial de observaciones de esta inscripción.");
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(request.EntityType))
                 return [];
 
@@ -62,6 +82,21 @@ namespace Application.Features.Evaluations.Queries.Handlers
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt
             }).ToList();
+        }
+
+        private static bool HasManagementOrReviewerPermission(IReadOnlyCollection<string> perms)
+        {
+            if (perms.Contains(PermissionCodes.Configuraciones.N3CFSU) ||
+                perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR) ||
+                perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPG))
+            {
+                return true;
+            }
+
+            return perms.Any(p =>
+                p.StartsWith("N4", StringComparison.Ordinal) ||
+                p.EndsWith("SGG", StringComparison.Ordinal) ||
+                p.EndsWith("SGR", StringComparison.Ordinal));
         }
     }
 }

@@ -43,6 +43,14 @@ namespace Application.Shared.Commands.CoTerminals.Handlers
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
+            await MinorModalityAuthorizationHelper.EnsureAuthorizedForPatchAsync(
+                _unitOfWork,
+                entity.Id,
+                request.Dto.IdStateStage,
+                request.CurrentUser,
+                [PermissionCodes.CoTerminal.N3CTSGG, PermissionCodes.CoTerminal.N3CTSGR],
+                cancellationToken);
+
             _logger.LogInformation("Patching CoTerminal Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
 

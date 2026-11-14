@@ -43,6 +43,14 @@ namespace Application.Shared.Commands.AcademicAverages.Handlers
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
+            await MinorModalityAuthorizationHelper.EnsureAuthorizedForPatchAsync(
+                _unitOfWork,
+                entity.Id,
+                request.Dto.IdStateStage,
+                request.CurrentUser,
+                [PermissionCodes.GradoPromedio.N3GPSGG, PermissionCodes.GradoPromedio.N3GPSGR],
+                cancellationToken);
+
             _logger.LogInformation("Patching AcademicAverage Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
 

@@ -48,6 +48,24 @@ namespace Application.Shared.Commands.PreliminaryProjects.Handlers
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
+            await ModalityAccessAuthorizationHelper.EnsureEvaluatorOrStudentAuthorizedForPatchAsync(
+                _unitOfWork,
+                entity.Id,
+                request.Dto.IdStateStage,
+                request.CurrentUser,
+                [
+                    PermissionCodes.ProyectoGrado.N4PGPAG,
+                    PermissionCodes.ProyectoGrado.N4PGPAA,
+                    PermissionCodes.ProyectoGrado.N4PGPPG,
+                    PermissionCodes.Configuraciones.N3CFSU,
+                    PermissionCodes.ModalidadesGrado.N3MGPR
+                ],
+                PermissionCodes.ProyectoGrado.N4PGPAR,
+                "El docente no tiene una asignación confirmada activa en este anteproyecto.",
+                "No está autorizado para modificar un anteproyecto al cual no pertenece.",
+                "El estudiante no tiene permisos para aprobar o rechazar su propio anteproyecto.",
+                cancellationToken);
+
             _logger.LogInformation(
                 "Patching PreliminaryProject Id={Id}. Changes: StateStage={State}, ApprovalDate={Date}, Observations={Obs}",
                 request.Id,
@@ -72,6 +90,23 @@ namespace Application.Shared.Commands.PreliminaryProjects.Handlers
                     originalStateId,
                     request.Dto.IdStateStage.Value,
                     cancellationToken);
+
+                var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
+                var currentState = await stateStageRepo.GetByIdAsync(originalStateId);
+                var newState = await stateStageRepo.GetByIdAsync(request.Dto.IdStateStage.Value);
+
+                if (request.Dto.IdStateStage.Value != originalStateId &&
+                    newState != null &&
+                    (newState.Code == StateStageCodes.ApAprobado ||
+                     newState.Code == StateStageCodes.ApConObservaciones ||
+                     newState.IsRejectionState) &&
+                    currentState != null &&
+                    (currentState.Code == StateStageCodes.ApPendienteDocumento ||
+                     currentState.Code == StateStageCodes.ApRadicadoPendAsigEval))
+                {
+                    throw new InvalidOperationException(
+                        "El anteproyecto debe estar en estado En Evaluación para registrar un dictamen.");
+                }
 
                 entity.IdStateStage = request.Dto.IdStateStage.Value;
                 updatedProperties.Add(x => x.IdStateStage);

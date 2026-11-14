@@ -43,6 +43,12 @@ namespace Infrastructure.Services.Auth
                     throw new UnauthorizedAccessException("Usuario no registrado");
                 }
 
+                if (!user.StatusRegister)
+                {
+                    _logger.LogWarning("Intento de login manual para usuario inactivo: {Email}", email);
+                    throw new UnauthorizedAccessException("Usuario inválido o inactivo.");
+                }
+
                 // Obtener datos de login (roles y permisos)
                 var loginData = await _userInfoRepository.GetUserLoginDataAsync(user.Id);
 

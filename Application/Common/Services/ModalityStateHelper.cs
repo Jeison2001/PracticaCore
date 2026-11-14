@@ -28,7 +28,12 @@ namespace Application.Common.Services
                 }
             }
 
-            if (newState != null && newState.IsRejectionState)
+            if (newState == null)
+            {
+                throw new InvalidOperationException("El estado destino especificado no existe.");
+            }
+
+            if (newState.IsRejectionState)
             {
                 var inscriptionRepo = unitOfWork.GetRepository<InscriptionModality, int>();
                 var inscription = await inscriptionRepo.GetByIdAsync(inscriptionModalityId);

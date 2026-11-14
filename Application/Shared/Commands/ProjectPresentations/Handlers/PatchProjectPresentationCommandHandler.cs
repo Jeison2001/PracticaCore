@@ -43,6 +43,20 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
+            if (request.CurrentUser?.Permissions is { Count: > 0 } perms &&
+                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPSG) &&
+                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) &&
+                !perms.Contains(PermissionCodes.Configuraciones.N3CFSU) &&
+                !perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR))
+            {
+                await ModalityAccessAuthorizationHelper.EnsureConfirmedTeacherInInscriptionAsync(
+                    _unitOfWork,
+                    entity.Id,
+                    request.CurrentUser,
+                    "El docente no tiene una asignación confirmada activa en esta sustentación.",
+                    cancellationToken);
+            }
+
             var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
             var currentState = await stateStageRepo.GetByIdAsync(originalStateId);
 
@@ -65,7 +79,7 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
             var actualDateTimeUpdated = false;
 
             // Siempre actualizar campos de tracking
-            entity.IdUserUpdatedAt = request.CurrentUser.UserId;
+            entity.IdUserUpdatedAt = request.CurrentUser?.UserId;
             entity.UpdatedAt = DateTimeOffset.UtcNow;
             updatedProperties.Add(x => x.IdUserUpdatedAt);
             updatedProperties.Add(x => x.UpdatedAt);

@@ -45,7 +45,7 @@ namespace Api.Controllers
         public async Task<IActionResult> GetObservationHistory(
             string entityType, int entityId, [FromQuery] int? idEvaluationType)
         {
-            var query = new GetObservationHistoryByEntityQuery(entityType, entityId, idEvaluationType);
+            var query = new GetObservationHistoryByEntityQuery(entityType, entityId, idEvaluationType, User.GetCurrentUserInfo());
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<List<ObservationHistoryItemDto>> { Success = true, Data = result });
         }

@@ -49,6 +49,24 @@ namespace Application.Shared.Commands.ProjectFinals.Handlers
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
+            await ModalityAccessAuthorizationHelper.EnsureEvaluatorOrStudentAuthorizedForPatchAsync(
+                _unitOfWork,
+                entity.Id,
+                request.Dto.IdStateStage,
+                request.CurrentUser,
+                [
+                    PermissionCodes.ProyectoGrado.N4PGPPRG,
+                    PermissionCodes.ProyectoGrado.N4PGPAA,
+                    PermissionCodes.ProyectoGrado.N4PGPPG,
+                    PermissionCodes.Configuraciones.N3CFSU,
+                    PermissionCodes.ModalidadesGrado.N3MGPR
+                ],
+                PermissionCodes.ProyectoGrado.N4PGPPRR,
+                "El docente no tiene una asignación confirmada activa en este proyecto.",
+                "No está autorizado para modificar un proyecto al cual no pertenece.",
+                "El estudiante no tiene permisos para aprobar o rechazar su propio proyecto.",
+                cancellationToken);
+
             _logger.LogInformation(
                 "Patching ProjectFinal Id={Id}. Changes: StateStage={State}, ReportApprovalDate={RDate}, FinalPhaseApprovalDate={FDate}, Observations={Obs}",
                 request.Id,

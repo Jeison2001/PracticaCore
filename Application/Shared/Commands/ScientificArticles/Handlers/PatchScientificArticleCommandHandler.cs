@@ -43,6 +43,14 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
+            await MinorModalityAuthorizationHelper.EnsureAuthorizedForPatchAsync(
+                _unitOfWork,
+                entity.Id,
+                request.Dto.IdStateStage,
+                request.CurrentUser,
+                [PermissionCodes.PublicacionArticulo.N3PCSGG, PermissionCodes.PublicacionArticulo.N3PCSGR],
+                cancellationToken);
+
             _logger.LogInformation("Patching ScientificArticle Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
 

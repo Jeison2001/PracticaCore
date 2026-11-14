@@ -43,6 +43,14 @@ namespace Application.Shared.Commands.SaberPros.Handlers
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
+            await MinorModalityAuthorizationHelper.EnsureAuthorizedForPatchAsync(
+                _unitOfWork,
+                entity.Id,
+                request.Dto.IdStateStage,
+                request.CurrentUser,
+                [PermissionCodes.SaberPro.N3SPSGG, PermissionCodes.SaberPro.N3SPSGR],
+                cancellationToken);
+
             _logger.LogInformation("Patching SaberPro Id={Id}. StateStage={State}, Observations={Obs}",
                 request.Id, request.Dto.IdStateStage, request.Dto.Observations);
 

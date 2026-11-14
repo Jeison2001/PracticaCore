@@ -117,7 +117,9 @@ namespace Api.Controllers
             if (request.Filters != null)
             {
                 var rawDocType = request.Filters
-                    .FirstOrDefault(kv => string.Equals(kv.Key, "idDocumentType", StringComparison.OrdinalIgnoreCase))
+                    .FirstOrDefault(kv =>
+                        string.Equals(kv.Key, "idDocumentType", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(kv.Key, "idDocumentType@eq", StringComparison.OrdinalIgnoreCase))
                     .Value;
                 if (int.TryParse(rawDocType, out var parsedDocTypeId) && parsedDocTypeId > 0)
                     filterDocumentTypeId = parsedDocTypeId;

@@ -125,11 +125,17 @@ namespace Api.Controllers
         }
 
         [RequirePermission(
+            PermissionCodes.PracticaAcademica.N4PAF0PA,
+            PermissionCodes.PracticaAcademica.N4PAF0PG,
+            PermissionCodes.PracticaAcademica.N4PAF1PG,
+            PermissionCodes.PracticaAcademica.N4PAF2PG,
             PermissionCodes.PracticaAcademica.N4PAF0PR,
             PermissionCodes.PracticaAcademica.N4PAF1PR,
             PermissionCodes.PracticaAcademica.N4PAF2PR,
             PermissionCodes.PracticaAcademica.N3PAF1R,
-            PermissionCodes.PracticaAcademica.N3PAF2R)]
+            PermissionCodes.PracticaAcademica.N3PAF2R,
+            PermissionCodes.ModalidadesGrado.N3MGPR,
+            PermissionCodes.Configuraciones.N3CFSU)]
         [HttpPut("UpdatePhaseApproval/{id}")]
         public async Task<IActionResult> UpdatePhaseApproval(int id, [FromBody] UpdatePhaseApprovalDto request)
         {

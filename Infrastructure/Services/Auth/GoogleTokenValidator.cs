@@ -24,12 +24,15 @@ namespace Infrastructure.Services.Auth
 
         public async Task<TokenPayload> ValidateAsync(string idToken)
         {
-            var settings = new GoogleJsonWebSignature.ValidationSettings();
-
-            if (!string.IsNullOrEmpty(_options.ClientId))
+            if (string.IsNullOrWhiteSpace(_options.ClientId))
             {
-                settings.Audience = new[] { _options.ClientId };
+                throw new InvalidOperationException("Google ClientId no está configurado.");
             }
+
+            var settings = new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = new[] { _options.ClientId }
+            };
 
             if (!string.IsNullOrEmpty(_options.HostedDomain))
             {

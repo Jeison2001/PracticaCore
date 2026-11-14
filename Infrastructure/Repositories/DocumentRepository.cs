@@ -30,7 +30,7 @@ namespace Infrastructure.Repositories
                 .Include(d => d.DocumentType)
                 .ThenInclude(dt => dt!.DocumentClass)
                 .AsNoTracking()
-                .Where(d => d.IdInscriptionModality == idInscriptionModality);
+                .Where(d => d.IdInscriptionModality == idInscriptionModality && d.StatusRegister);
 
             if (idStageModality.HasValue)
             {

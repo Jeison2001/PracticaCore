@@ -259,7 +259,9 @@ namespace Application.Common.Services.Documents
                 {
                     var docType = await _unitOfWork.GetRepository<DocumentType, int>()
                         .GetFirstOrDefaultAsync(x => x.Id == documentTypeId.Value && x.StatusRegister, cancellationToken);
-                    effectiveStageId = docType?.IdStageModality;
+                    if (docType == null)
+                        return false;
+                    effectiveStageId = docType.IdStageModality;
                 }
 
                 effectiveStageId ??= inscription.IdStageModality;
@@ -272,8 +274,8 @@ namespace Application.Common.Services.Documents
                     x => x.Id == effectiveStageId.Value && x.StatusRegister,
                     cancellationToken);
 
-                // Evita manipular idStageModality apuntando a otra modalidad distinta de la inscripcion.
-                if (effectiveStage != null && effectiveStage.IdModality != modality.Id)
+                // Fail-closed: un IdStageModality inexistente o de otra modalidad no debe autorizar acceso.
+                if (effectiveStage == null || effectiveStage.IdModality != modality.Id)
                     return false;
             }
 

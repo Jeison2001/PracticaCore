@@ -26,6 +26,7 @@ namespace Api.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IConfiguration _configuration;
+        private readonly IHostEnvironment? _environment;
         private readonly int _refreshTokenExpirationDays;
 
         public AuthController(
@@ -36,7 +37,8 @@ namespace Api.Controllers
             IJwtService jwtService,
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IHostEnvironment? environment = null)
         {
             _authService = authService;
             _manualAuthService = manualAuthService;
@@ -46,6 +48,7 @@ namespace Api.Controllers
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _configuration = configuration;
+            _environment = environment;
 
             var rtExpireRaw = _configuration["Jwt:RefreshTokenExpirationDays"];
             _refreshTokenExpirationDays = int.TryParse(rtExpireRaw, out var days) && days > 0
@@ -87,6 +90,13 @@ namespace Api.Controllers
         [HttpPost("manual")]
         public async Task<IActionResult> ManualLogin([FromBody] ManualAuthRequest request)
         {
+            if (_environment != null &&
+                !_environment.IsDevelopment() &&
+                !_environment.IsEnvironment("Testing"))
+            {
+                return NotFound();
+            }
+
             if (string.IsNullOrEmpty(request.Email))
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Email es requerido" } });
 
@@ -182,8 +192,6 @@ namespace Api.Controllers
                 }
                 catch
                 {
-                    await userRepo.DeleteAsync(user);
-                    await _unitOfWork.CommitAsync();
                     await transaction.RollbackAsync();
                     throw;
                 }

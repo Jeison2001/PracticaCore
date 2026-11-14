@@ -1,5 +1,6 @@
 using Application.Shared.DTOs.AcademicPractices;
 using Domain.Constants;
+using Domain.Exceptions;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
 using Domain.Entities;
@@ -45,15 +46,46 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 && dto.NewStateStageId.Value > 0
                 && dto.NewStateStageId.Value != originalStateId;
 
+            if (request.CurrentUser?.Permissions is { Count: > 0 } perms &&
+                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PG) &&
+                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA) &&
+                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PR) &&
+                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF1PG) &&
+                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF1PR) &&
+                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF2PG) &&
+                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF2PR) &&
+                !perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR) &&
+                !perms.Contains(PermissionCodes.Configuraciones.N3CFSU))
+            {
+                await ModalityAccessAuthorizationHelper.EnsureStudentAuthorizedForInscriptionAsync(
+                    _unitOfWork,
+                    academicPractice.Id,
+                    hasStateChange ? dto.NewStateStageId : null,
+                    request.CurrentUser,
+                    "No está autorizado para actualizar la institución de otra práctica académica.",
+                    "El estudiante no tiene permisos para aprobar o rechazar su propia práctica académica.",
+                    cancellationToken);
+            }
+
+            if (hasStateChange)
+            {
+                await ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
+                    _unitOfWork,
+                    academicPractice.Id,
+                    originalStateId,
+                    dto.NewStateStageId!.Value,
+                    cancellationToken);
+            }
+
             // Actualizar campos de institución
             UpdateInstitutionFields(academicPractice, dto);
 
             // Registrar historial de observaciones solo si hay texto nuevo/distinto
             if (!string.IsNullOrWhiteSpace(dto.Observations))
             {
-                var evaluatorId = request.CurrentUser.UserId 
-                    ?? academicPractice.IdUserUpdatedAt 
-                    ?? academicPractice.IdUserCreatedAt 
+                var evaluatorId = request.CurrentUser?.UserId
+                    ?? academicPractice.IdUserUpdatedAt
+                    ?? academicPractice.IdUserCreatedAt
                     ?? 1;
 
                 await ObservationHistoryHelper.CreateIfChangedAsync(
@@ -74,7 +106,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             }
 
             // Tracking
-            UpdateTrackingFields(academicPractice, dto, request.CurrentUser.UserId);
+            UpdateTrackingFields(academicPractice, dto, request.CurrentUser?.UserId);
 
             await _academicPracticeRepository.UpdateAsync(academicPractice);
             await _unitOfWork.CommitAsync(cancellationToken);

@@ -51,6 +51,9 @@ namespace Infrastructure.Services.Auth
                         payload.FamilyName);
                 }
 
+                if (!user.StatusRegister)
+                    throw new UnauthorizedAccessException("Usuario inválido o inactivo.");
+
                 var loginData = await _userInfoRepository.GetUserLoginDataAsync(user.Id);
 
                 var permissionCodes = loginData.Permissions.Select(p => p.Code).ToList();
@@ -81,6 +84,10 @@ namespace Infrastructure.Services.Auth
                     Roles = loginData.Roles,
                     Permissions = hierarchicalPermissions
                 };
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
