@@ -15,6 +15,7 @@ using Domain.Constants;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Data;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Tests.Integration.Authorization
@@ -717,6 +718,203 @@ namespace Tests.Integration.Authorization
             }
 
             return request;
+        }
+
+        [Fact]
+        public async Task SelfProfile_UpdateUser_CannotSelfDeactivateOrReactivate()
+        {
+            using var context = GetFreshDbContext();
+            var (selfUser, _) = await SeedTwoUsersAsync(context);
+
+            try
+            {
+                // 1. Actor activo con N2CFP (sin N3CFSU) intenta auto-desactivarse -> 200 OK pero StatusRegister sigue true
+                var deactivateAttemptDto = new UserDto
+                {
+                    Id = selfUser.Id,
+                    IdIdentificationType = selfUser.IdIdentificationType,
+                    Identification = selfUser.Identification,
+                    Email = selfUser.Email,
+                    FirstName = "SelfUpdated",
+                    LastName = selfUser.LastName,
+                    IdAcademicProgram = selfUser.IdAcademicProgram,
+                    StatusRegister = false
+                };
+
+                using (var req = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/User/{selfUser.Id}",
+                    userId: selfUser.Id.ToString(),
+                    permissions: PermissionCodes.Configuraciones.N2CFP,
+                    body: deactivateAttemptDto))
+                {
+                    var res = await _client.SendAsync(req);
+                    res.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                    var payload = await res.Content.ReadFromJsonAsync<ApiResponse<UserDto>>();
+                    payload.Should().NotBeNull();
+                    payload!.Success.Should().BeTrue();
+                    payload.Data.Should().NotBeNull();
+                    payload.Data!.StatusRegister.Should().BeTrue();
+                    payload.Data.FirstName.Should().Be("SelfUpdated");
+                }
+
+                using (var verifyScope = _factory.Services.CreateScope())
+                {
+                    var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var persisted = await verifyContext.Set<User>().FindAsync(selfUser.Id);
+                    persisted.Should().NotBeNull();
+                    persisted!.StatusRegister.Should().BeTrue();
+                    persisted.FirstName.Should().Be("SelfUpdated");
+                }
+
+                // 2. Desactivar usuario en BD; el mismo actor intenta auto-reactivarse -> 403 Forbidden y sigue false
+                using (var disableScope = _factory.Services.CreateScope())
+                {
+                    var disableContext = disableScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var persisted = await disableContext.Set<User>().FindAsync(selfUser.Id);
+                    persisted!.StatusRegister = false;
+                    await disableContext.SaveChangesAsync();
+                }
+
+                var reactivateAttemptDto = deactivateAttemptDto with
+                {
+                    FirstName = "ReactivateAttempt",
+                    StatusRegister = true
+                };
+
+                using (var reactivateReq = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/User/{selfUser.Id}",
+                    userId: selfUser.Id.ToString(),
+                    permissions: PermissionCodes.Configuraciones.N2CFP,
+                    body: reactivateAttemptDto))
+                {
+                    var res = await _client.SendAsync(reactivateReq);
+                    res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                }
+
+                using (var verifyDisabledScope = _factory.Services.CreateScope())
+                {
+                    var verifyDisabledContext = verifyDisabledScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var persisted = await verifyDisabledContext.Set<User>().FindAsync(selfUser.Id);
+                    persisted.Should().NotBeNull();
+                    persisted!.StatusRegister.Should().BeFalse();
+                    persisted.FirstName.Should().Be("SelfUpdated");
+                }
+            }
+            finally
+            {
+                using var restoreScope = _factory.Services.CreateScope();
+                var restoreContext = restoreScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await restoreContext.Set<User>().FindAsync(selfUser.Id);
+                if (persisted != null)
+                {
+                    persisted.StatusRegister = true;
+                    await restoreContext.SaveChangesAsync();
+                }
+            }
+        }
+
+        [Fact]
+        public async Task UserPermission_GetByUser_IsStrictlyReadOnly_DoesNotSyncRolePermissions()
+        {
+            using var context = GetFreshDbContext();
+            var (targetUser, _) = await SeedTwoUsersAsync(context);
+
+            var suffix = Guid.NewGuid().ToString("N")[..6];
+            var role = new Role
+            {
+                Code = $"ROL_{suffix}",
+                Name = $"Role {suffix}",
+                Description = "Role sync guard test",
+                StatusRegister = true
+            };
+            var assignedPermission = new Permission
+            {
+                Code = $"PRM_A_{suffix}",
+                Description = "Existing UserPermission",
+                StatusRegister = true
+            };
+            var roleOnlyPermission = new Permission
+            {
+                Code = $"PRM_R_{suffix}",
+                Description = "RolePermission not assigned to user",
+                StatusRegister = true
+            };
+
+            context.Set<Role>().Add(role);
+            context.Set<Permission>().AddRange(assignedPermission, roleOnlyPermission);
+            await context.SaveChangesAsync();
+
+            var userRole = new UserRole
+            {
+                IdUser = targetUser.Id,
+                IdRole = role.Id,
+                StatusRegister = true
+            };
+            var existingUserPermission = new UserPermission
+            {
+                IdUser = targetUser.Id,
+                IdPermission = assignedPermission.Id,
+                StatusRegister = true
+            };
+            context.Set<UserRole>().Add(userRole);
+            context.Set<UserPermission>().Add(existingUserPermission);
+            await context.SaveChangesAsync();
+
+            var tempRolePermission = new RolePermission
+            {
+                IdRole = role.Id,
+                IdPermission = roleOnlyPermission.Id,
+                StatusRegister = true
+            };
+
+            try
+            {
+                context.Set<RolePermission>().Add(tempRolePermission);
+                await context.SaveChangesAsync();
+
+                using var adminGetReq = CreateRequest(
+                    HttpMethod.Get,
+                    $"/api/UserPermission/ByUser/{targetUser.Id}",
+                    userId: "9901",
+                    permissions: PermissionCodes.Configuraciones.N3CFSU);
+
+                var res = await _client.SendAsync(adminGetReq);
+                res.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var payload = await res.Content.ReadFromJsonAsync<ApiResponse<List<UserPermissionInfoDto>>>();
+                payload.Should().NotBeNull();
+                payload!.Success.Should().BeTrue();
+                payload.Data.Should().NotBeNull();
+                payload.Data!.Should().ContainSingle(p =>
+                    p.UserPermission.Id == existingUserPermission.Id
+                    && p.Permission.Id == assignedPermission.Id
+                    && p.Permission.Code == assignedPermission.Code);
+                payload.Data.Should().NotContain(p =>
+                    p.Permission.Id == roleOnlyPermission.Id
+                    || p.Permission.Code == roleOnlyPermission.Code);
+
+                using var verifyScope = _factory.Services.CreateScope();
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var userPermRows = verifyContext.Set<UserPermission>()
+                    .Where(up => up.IdUser == targetUser.Id)
+                    .ToList();
+                userPermRows.Should().ContainSingle();
+                userPermRows[0].IdPermission.Should().Be(assignedPermission.Id);
+            }
+            finally
+            {
+                using var cleanupScope = _factory.Services.CreateScope();
+                var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var rpToRemove = await cleanupContext.Set<RolePermission>().FindAsync(tempRolePermission.Id);
+                if (rpToRemove != null)
+                {
+                    cleanupContext.Set<RolePermission>().Remove(rpToRemove);
+                    await cleanupContext.SaveChangesAsync();
+                }
+            }
         }
     }
 }

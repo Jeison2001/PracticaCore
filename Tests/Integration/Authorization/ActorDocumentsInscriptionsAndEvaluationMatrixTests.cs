@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Api.Responses;
 using Application.Shared.DTOs.Documents;
@@ -631,6 +632,250 @@ namespace Tests.Integration.Authorization
                 Doc1Bytes: doc1Bytes,
                 Doc2Bytes: doc2Bytes,
                 Doc3Bytes: doc3Bytes);
+        }
+
+        private static HttpRequestMessage CreateMultipartUploadRequest(
+            HttpMethod method,
+            string url,
+            int userId,
+            string permissions,
+            int inscriptionId,
+            int docTypeId,
+            string name)
+        {
+            var form = new MultipartFormDataContent();
+            form.Add(new StringContent(inscriptionId.ToString()), "IdInscriptionModality");
+            form.Add(new StringContent(docTypeId.ToString()), "IdDocumentType");
+            form.Add(new StringContent(name), "Name");
+            form.Add(new StringContent(userId.ToString()), method == HttpMethod.Post ? "IdUserCreatedAt" : "IdUserUpdatedAt");
+            form.Add(new StringContent(method == HttpMethod.Post ? "CreateMatrix" : "UpdateMatrix"), "OperationRegister");
+
+            var fileBytes = new ByteArrayContent(new byte[] { 11, 22, 33, 44 });
+            fileBytes.Headers.ContentType = MediaTypeHeaderValue.Parse("application/pdf");
+            form.Add(fileBytes, "File", "doc_matrix.pdf");
+
+            var request = new HttpRequestMessage(method, url) { Content = form };
+            request.Headers.Add("X-Test-UserId", userId.ToString());
+            request.Headers.Add("X-Test-Permissions", permissions);
+            return request;
+        }
+
+        [Fact]
+        public async Task Document_PostAndPut_EnforceInscriptionOwnershipConfirmedTeacherOrContextualStagePermission()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            storageMock
+                .Setup(s => s.SaveFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => $"stored_{Guid.NewGuid():N}.pdf");
+
+            using var factory = CreateFactoryWithMockStorage(storageMock);
+            using var client = factory.CreateClient();
+            var seed = await SeedDocumentAndInscriptionMatrixAsync(factory.Services, storageMock);
+
+            const int ownerStudentId = 101;
+            const int unlinkedStudentId = 9102;
+            const int assignedDirectorId = 9303;
+            const int proposedTeacherId = 9304;
+            const int coordPaId = 9403;
+
+            int docTypePropuestaId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var doc1 = await context.Set<Document>().FindAsync(seed.Doc1PropuestaId);
+                docTypePropuestaId = doc1!.IdDocumentType;
+
+                var directorCargo = new TypeTeachingAssignment
+                {
+                    Code = $"DIR_{Guid.NewGuid():N}"[..10],
+                    Name = "Director",
+                    StatusRegister = true
+                };
+                context.Set<TypeTeachingAssignment>().Add(directorCargo);
+                await context.SaveChangesAsync();
+
+                context.Set<TeachingAssignment>().AddRange(
+                    new TeachingAssignment
+                    {
+                        IdInscriptionModality = seed.PgInscriptionId,
+                        IdTeacher = assignedDirectorId,
+                        IdTypeTeachingAssignment = directorCargo.Id,
+                        IsConfirmed = true,
+                        RevocationDate = null,
+                        StatusRegister = true
+                    },
+                    new TeachingAssignment
+                    {
+                        IdInscriptionModality = seed.PgInscriptionId,
+                        IdTeacher = proposedTeacherId,
+                        IdTypeTeachingAssignment = directorCargo.Id,
+                        IsConfirmed = false,
+                        RevocationDate = null,
+                        StatusRegister = true
+                    });
+                await context.SaveChangesAsync();
+            }
+
+            // 1. UnlinkedStudent en POST y PUT -> 403 Forbidden
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", unlinkedStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Intento ajeno"))
+            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{seed.Doc1PropuestaId}", unlinkedStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Intento ajeno PUT"))
+            {
+                (await client.SendAsync(postReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                (await client.SendAsync(putReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 2. ProposedTeacher (IsConfirmed = false) con N4PGPAR (otra etapa) en POST y PUT -> 403 Forbidden
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", proposedTeacherId, PermissionCodes.ProyectoGrado.N4PGPAR, seed.PgInscriptionId, docTypePropuestaId, "Intento no confirmado"))
+            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{seed.Doc1PropuestaId}", proposedTeacherId, PermissionCodes.ProyectoGrado.N4PGPAR, seed.PgInscriptionId, docTypePropuestaId, "Intento no confirmado PUT"))
+            {
+                (await client.SendAsync(postReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                (await client.SendAsync(putReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 3. CoordPa (otra modalidad: N4PAF0PG) intentando POST en inscripcion PG -> 403 Forbidden
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", coordPaId, PermissionCodes.PracticaAcademica.N4PAF0PG, seed.PgInscriptionId, docTypePropuestaId, "Intento otra modalidad"))
+            {
+                (await client.SendAsync(postReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 4. AssignedDirector (IsConfirmed = true) -> POST 201 Created y PUT 200 OK
+            int directorDocId;
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", assignedDirectorId, PermissionCodes.ProyectoGrado.N4PGPPC, seed.PgInscriptionId, docTypePropuestaId, "Doc Director"))
+            {
+                var postRes = await client.SendAsync(postReq);
+                postRes.StatusCode.Should().Be(HttpStatusCode.Created);
+                var created = await postRes.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>();
+                created.Should().NotBeNull();
+                created!.Success.Should().BeTrue();
+                directorDocId = created.Data!.Id;
+            }
+            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{directorDocId}", assignedDirectorId, PermissionCodes.ProyectoGrado.N4PGPPC, seed.PgInscriptionId, docTypePropuestaId, "Doc Director v2"))
+            {
+                var putRes = await client.SendAsync(putReq);
+                putRes.StatusCode.Should().Be(HttpStatusCode.OK);
+                var updated = await putRes.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>();
+                updated!.Success.Should().BeTrue();
+                updated.Data!.Name.Should().Be("Doc Director v2");
+            }
+
+            // 5. OwnerStudent -> POST 201 Created y PUT 200 OK
+            int studentDocId;
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Doc Estudiante"))
+            {
+                var postRes = await client.SendAsync(postReq);
+                postRes.StatusCode.Should().Be(HttpStatusCode.Created);
+                var created = await postRes.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>();
+                created!.Success.Should().BeTrue();
+                studentDocId = created.Data!.Id;
+            }
+            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{studentDocId}", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Doc Estudiante v2"))
+            {
+                var putRes = await client.SendAsync(putReq);
+                putRes.StatusCode.Should().Be(HttpStatusCode.OK);
+                var updated = await putRes.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>();
+                updated!.Success.Should().BeTrue();
+                updated.Data!.Name.Should().Be("Doc Estudiante v2");
+            }
+
+            // 6. OwnerStudent intentando mover su documento a otra inscripcion ajena (PaInscriptionId) -> 403 Forbidden
+            using (var moveReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{studentDocId}", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PaInscriptionId, docTypePropuestaId, "Movimiento ilegal"))
+            {
+                var moveRes = await client.SendAsync(moveReq);
+                moveRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            using (var verifyScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await verifyContext.Set<Document>().FindAsync(studentDocId);
+                persisted.Should().NotBeNull();
+                persisted!.IdInscriptionModality.Should().Be(seed.PgInscriptionId);
+                persisted.Name.Should().Be("Doc Estudiante v2");
+            }
+        }
+
+        [Fact]
+        public async Task Document_GetByInscriptionModality_AppliesQueryFiltersWhenIdStageModalityProvided()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var factory = CreateFactoryWithMockStorage(storageMock);
+            using var client = factory.CreateClient();
+            var seed = await SeedDocumentAndInscriptionMatrixAsync(factory.Services, storageMock);
+
+            int extraDocTypeId = 0;
+            int extraDocId = 0;
+
+            try
+            {
+                using (var scope = factory.Services.CreateScope())
+                {
+                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var docClassId = context.Set<DocumentType>().First(dt => dt.Id == seed.DocTypeInformeId).IdDocumentClass;
+
+                    var extraDocType = new DocumentType
+                    {
+                        Name = "Acta Anexa Informe",
+                        Description = "Segundo tipo en misma etapa",
+                        IdDocumentClass = docClassId,
+                        IdStageModality = seed.InformeStageId,
+                        StatusRegister = true
+                    };
+                    context.Set<DocumentType>().Add(extraDocType);
+                    await context.SaveChangesAsync();
+                    extraDocTypeId = extraDocType.Id;
+
+                    var extraDoc = new Document
+                    {
+                        IdInscriptionModality = seed.PgInscriptionId,
+                        IdDocumentType = extraDocTypeId,
+                        Name = "Doc Extra Informe",
+                        OriginalFileName = "extra_informe.pdf",
+                        StoredFileName = $"extra_{Guid.NewGuid():N}.pdf",
+                        StoragePath = "Uploads",
+                        MimeType = "application/pdf",
+                        FileSize = 128,
+                        StatusRegister = true
+                    };
+                    context.Set<Document>().Add(extraDoc);
+                    await context.SaveChangesAsync();
+                    extraDocId = extraDoc.Id;
+                }
+
+                using var req = CreateRequest(
+                    HttpMethod.Get,
+                    $"/api/Document/ByInscriptionModality/{seed.PgInscriptionId}?idStageModality={seed.InformeStageId}&Filters[idDocumentType]={seed.DocTypeInformeId}&PageNumber=1&PageSize=10",
+                    userId: 101,
+                    permissions: PermissionCodes.ProyectoGrado.N3PGRP);
+
+                var res = await client.SendAsync(req);
+                res.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var payload = await res.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<DocumentDto>>>();
+                payload.Should().NotBeNull();
+                payload!.Success.Should().BeTrue();
+                payload.Data.Should().NotBeNull();
+
+                var items = payload.Data!.Items.ToList();
+                items.Should().ContainSingle();
+                items[0].Id.Should().Be(seed.Doc2InformeId);
+                items[0].IdDocumentType.Should().Be(seed.DocTypeInformeId);
+            }
+            finally
+            {
+                using var cleanupScope = factory.Services.CreateScope();
+                var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                if (extraDocId > 0)
+                {
+                    var doc = await cleanupContext.Set<Document>().FindAsync(extraDocId);
+                    if (doc != null) cleanupContext.Set<Document>().Remove(doc);
+                }
+                if (extraDocTypeId > 0)
+                {
+                    var dt = await cleanupContext.Set<DocumentType>().FindAsync(extraDocTypeId);
+                    if (dt != null) cleanupContext.Set<DocumentType>().Remove(dt);
+                }
+                await cleanupContext.SaveChangesAsync();
+            }
         }
     }
 }

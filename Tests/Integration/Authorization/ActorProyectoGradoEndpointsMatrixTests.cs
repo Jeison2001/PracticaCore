@@ -1,6 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Api.Responses;
+using Application.Shared.DTOs.Documents;
 using Application.Shared.DTOs.PreliminaryProjects;
 using Application.Shared.DTOs.ProjectFinals;
 using Application.Shared.DTOs.ProjectPresentations;
@@ -9,9 +11,13 @@ using Application.Shared.DTOs.TeachingAssignments;
 using Domain.Common;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Interfaces.Services.Storage;
 using FluentAssertions;
 using Infrastructure.Data;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Tests.Integration.Utilities;
 using Xunit;
 
@@ -51,7 +57,7 @@ namespace Tests.Integration.Authorization
         }
 
         private static async Task<SeededMatrixScenario> SeedScenarioAsync(
-            CustomWebApplicationFactory factory,
+            WebApplicationFactory<Program> factory,
             string proposalAStateCode = StateStageCodes.PropRadicada)
         {
             using var scope = factory.Services.CreateScope();
@@ -861,6 +867,310 @@ namespace Tests.Integration.Authorization
 
                 var resp = await client.SendAsync(nonMemberReq);
                 resp.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized);
+            }
+        }
+
+        [Fact]
+        public async Task Proposal_Patch_RequiresCommitteePermission_N4PGPPR_AndRejectsStudent_N3PGRP()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            int propPertinenteId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                propPertinenteId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropPertinente).Id;
+            }
+
+            var patchDto = new ProposalPatchDto
+            {
+                IdStateStage = propPertinenteId,
+                Observation = "Evaluación comité PG"
+            };
+
+            // 1. OwnerStudent (101, N3PGRP) -> 403 Forbidden
+            using (var ownerReq = CreateRequest(HttpMethod.Patch, $"/api/Proposal/{scenario.InscriptionAId}", Student101Id, PermissionCodes.ProyectoGrado.N3PGRP))
+            {
+                ownerReq.Content = JsonContent.Create(patchDto);
+                var resp = await client.SendAsync(ownerReq);
+                resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 2. OtherStudent (102, N3PGRP) -> 403 Forbidden
+            using (var otherReq = CreateRequest(HttpMethod.Patch, $"/api/Proposal/{scenario.InscriptionAId}", Student102Id, PermissionCodes.ProyectoGrado.N3PGRP))
+            {
+                otherReq.Content = JsonContent.Create(patchDto);
+                var resp = await client.SendAsync(otherReq);
+                resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 3. CommitteePg (305, N4PGPPR) -> 200 OK y persiste en BD
+            using (var committeeReq = CreateRequest(HttpMethod.Patch, $"/api/Proposal/{scenario.InscriptionAId}", 305, PermissionCodes.ProyectoGrado.N4PGPPR))
+            {
+                committeeReq.Content = JsonContent.Create(patchDto);
+                var resp = await client.SendAsync(committeeReq);
+                resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var body = await resp.Content.ReadFromJsonAsync<ApiResponse<ProposalDto>>();
+                body.Should().NotBeNull();
+                body!.Success.Should().BeTrue();
+                body.Data.Should().NotBeNull();
+                body.Data!.IdStateStage.Should().Be(propPertinenteId);
+                body.Data.Observation.Should().Be("Evaluación comité PG");
+            }
+
+            using (var verifyScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await verifyContext.Set<Proposal>().FindAsync(scenario.InscriptionAId);
+                persisted.Should().NotBeNull();
+                persisted!.IdStateStage.Should().Be(propPertinenteId);
+                persisted.Observation.Should().Be("Evaluación comité PG");
+            }
+        }
+
+        [Fact]
+        public async Task Proposal_Put_StudentSubsanationFromNoPertinente_TransitionsToRadicadaAndPreservesObservation()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory, StateStageCodes.PropNoPertinente);
+
+            int propPertinenteId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                propPertinenteId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropPertinente).Id;
+            }
+
+            // OwnerStudent intenta cambiar IdStateStage a PROP_PERTINENTE y borrar Observation -> backend fuerza PROP_RADICADA y preserva Observation
+            var subsanationDto = new ProposalDto
+            {
+                Id = scenario.InscriptionAId,
+                Title = "Propuesta A Subsanada Matriz",
+                Description = "Descripción subsanada",
+                Observation = "",
+                GeneralObjective = "Objetivo subsanado",
+                SpecificObjectives = new List<string> { "Obj subsanado" },
+                IdResearchLine = scenario.ResearchLineId,
+                IdResearchSubLine = scenario.ResearchSubLineId,
+                IdStateStage = propPertinenteId,
+                StatusRegister = true
+            };
+
+            using (var req = CreateRequest(HttpMethod.Put, $"/api/Proposal/{scenario.InscriptionAId}", Student101Id, PermissionCodes.ProyectoGrado.N3PGRP))
+            {
+                req.Content = JsonContent.Create(subsanationDto);
+                var resp = await client.SendAsync(req);
+                resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                var body = await resp.Content.ReadFromJsonAsync<ApiResponse<ProposalDto>>();
+                body.Should().NotBeNull();
+                body!.Success.Should().BeTrue();
+                body.Data.Should().NotBeNull();
+                body.Data!.IdStateStage.Should().Be(scenario.PropRadicadaStateId);
+                body.Data.Observation.Should().Be(scenario.ProposalAObservation);
+            }
+
+            using (var verifyScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await verifyContext.Set<Proposal>().FindAsync(scenario.InscriptionAId);
+                persisted.Should().NotBeNull();
+                persisted!.IdStateStage.Should().Be(scenario.PropRadicadaStateId);
+                persisted.Observation.Should().Be(scenario.ProposalAObservation);
+            }
+        }
+
+        [Fact]
+        public async Task TeachingAssignment_Put_ReassignToTeacherWithoutEnabledCargo_Returns400BadRequest()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            int teacherWithoutCargoId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var idType = context.Set<IdentificationType>().First();
+                var program = context.Set<AcademicProgram>().First();
+
+                var teacherWithoutCargo = new User
+                {
+                    FirstName = "Docente",
+                    LastName = "SinCargo",
+                    Email = $"doc_sincargo_{Guid.NewGuid():N}@unicesar.edu.co",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(teacherWithoutCargo);
+                await context.SaveChangesAsync();
+                teacherWithoutCargoId = teacherWithoutCargo.Id;
+            }
+
+            var reassignDto = new TeachingAssignmentDto
+            {
+                Id = scenario.Assignment202Id,
+                IdInscriptionModality = scenario.InscriptionAId,
+                IdTeacher = teacherWithoutCargoId,
+                IdTypeTeachingAssignment = scenario.DirectorCargoId,
+                IsConfirmed = true,
+                StatusRegister = true
+            };
+
+            using var req = CreateRequest(
+                HttpMethod.Put,
+                $"/api/TeachingAssignment/{scenario.Assignment202Id}",
+                305,
+                PermissionCodes.ProyectoGrado.N4PGPPA);
+            req.Content = JsonContent.Create(reassignDto);
+
+            var resp = await client.SendAsync(req);
+            resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+            var body = await resp.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+            body.Should().NotBeNull();
+            body!.Success.Should().BeFalse();
+
+            using (var verifyScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await verifyContext.Set<TeachingAssignment>().FindAsync(scenario.Assignment202Id);
+                persisted.Should().NotBeNull();
+                persisted!.IdTeacher.Should().Be(Teacher202Id);
+            }
+        }
+
+        [Fact]
+        public async Task PreliminaryProject_TwoConfirmedEvaluatorsRequiredForEnEvaluacion_Matrix()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            storageMock
+                .Setup(s => s.SaveFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync("anteproyecto_subsanado.pdf");
+
+            using var baseFactory = new CustomWebApplicationFactory();
+            using var factory = baseFactory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IFileStorageService));
+                    if (descriptor != null)
+                        services.Remove(descriptor);
+
+                    services.AddSingleton(_ => storageMock.Object);
+                });
+            });
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            int anteproyectoDocTypeId;
+            int apRadicadoPendAsigEvalId;
+            int apEnEvaluacionId;
+
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var apStage = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PgFaseAnteproyecto);
+
+                var apConObservaciones = context.Set<StateStage>().FirstOrDefault(s => s.Code == StateStageCodes.ApConObservaciones);
+                if (apConObservaciones == null)
+                {
+                    apConObservaciones = new StateStage
+                    {
+                        Code = StateStageCodes.ApConObservaciones,
+                        Name = "Anteproyecto con Observaciones",
+                        IdStageModality = apStage.Id,
+                        StatusRegister = true,
+                        OperationRegister = "Seed"
+                    };
+                    context.Set<StateStage>().Add(apConObservaciones);
+                    await context.SaveChangesAsync();
+                }
+
+                apRadicadoPendAsigEvalId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApRadicadoPendAsigEval).Id;
+                apEnEvaluacionId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApEnEvaluacion).Id;
+                anteproyectoDocTypeId = context.Set<DocumentType>().First(dt => dt.Code == DocumentTypeCodes.AnteproyectoEntregable).Id;
+
+                var preliminary = await context.Set<PreliminaryProject>().FindAsync(scenario.InscriptionAId);
+                preliminary!.IdStateStage = apConObservaciones.Id;
+
+                // Exactamente 1 JURADO_EVALUADOR confirmado previo
+                context.Set<TeachingAssignment>().Add(new TeachingAssignment
+                {
+                    IdInscriptionModality = scenario.InscriptionAId,
+                    IdTeacher = Teacher201Id,
+                    IdTypeTeachingAssignment = scenario.JuradoCargoId,
+                    IsConfirmed = true,
+                    RevocationDate = null,
+                    StatusRegister = true
+                });
+
+                await context.SaveChangesAsync();
+            }
+
+            // 1. OwnerStudent sube entregable de Anteproyecto desde AP_CON_OBSERVACIONES con solo 1 jurado -> AP_RADICADO_PEND_ASIG_EVAL
+            var uploadContent = new MultipartFormDataContent();
+            uploadContent.Add(new StringContent(scenario.InscriptionAId.ToString()), "IdInscriptionModality");
+            uploadContent.Add(new StringContent(anteproyectoDocTypeId.ToString()), "IdDocumentType");
+            uploadContent.Add(new StringContent("Anteproyecto Subsanado v2"), "Name");
+            uploadContent.Add(new StringContent(Student101Id.ToString()), "IdUserCreatedAt");
+            uploadContent.Add(new StringContent("Subsanacion"), "OperationRegister");
+            var pdfContent = new ByteArrayContent(new byte[] { 1, 2, 3, 4 });
+            pdfContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/pdf");
+            uploadContent.Add(pdfContent, "File", "anteproyecto_v2.pdf");
+
+            using (var uploadReq = CreateRequest(HttpMethod.Post, "/api/Document", Student101Id, PermissionCodes.ProyectoGrado.N3PGRA))
+            {
+                uploadReq.Content = uploadContent;
+                var uploadResp = await client.SendAsync(uploadReq);
+                uploadResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+                var uploadBody = await uploadResp.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>();
+                uploadBody.Should().NotBeNull();
+                uploadBody!.Success.Should().BeTrue();
+            }
+
+            using (var verifyScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var preliminary = await verifyContext.Set<PreliminaryProject>().FindAsync(scenario.InscriptionAId);
+                preliminary.Should().NotBeNull();
+                preliminary!.IdStateStage.Should().Be(apRadicadoPendAsigEvalId);
+            }
+
+            // 2. CommitteePg asigna 2do JURADO_EVALUADOR distinto confirmado -> 201 Created y avanza a AP_EN_EVALUACION
+            using (var assignReq = CreateRequest(HttpMethod.Post, "/api/TeachingAssignment", 305, PermissionCodes.ProyectoGrado.N4PGPAA))
+            {
+                assignReq.Content = JsonContent.Create(new TeachingAssignmentDto
+                {
+                    IdInscriptionModality = scenario.InscriptionAId,
+                    IdTeacher = Teacher202Id,
+                    IdTypeTeachingAssignment = scenario.JuradoCargoId,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                });
+
+                var assignResp = await client.SendAsync(assignReq);
+                assignResp.StatusCode.Should().Be(HttpStatusCode.Created);
+
+                var assignBody = await assignResp.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>();
+                assignBody.Should().NotBeNull();
+                assignBody!.Success.Should().BeTrue();
+                assignBody.Data!.IsConfirmed.Should().BeTrue();
+            }
+
+            using (var verifyScope = factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var preliminary = await verifyContext.Set<PreliminaryProject>().FindAsync(scenario.InscriptionAId);
+                preliminary.Should().NotBeNull();
+                preliminary!.IdStateStage.Should().Be(apEnEvaluacionId);
             }
         }
     }
