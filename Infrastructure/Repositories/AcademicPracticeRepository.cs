@@ -287,10 +287,10 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         bool skipTotalCount = false)
     {
         filters ??= new Dictionary<string, string>(); // Previene null reference
-        // Get academic practices assigned to a teacher through active teaching assignments
+        // Get academic practices assigned to a teacher through active confirmed teaching assignments
         var academicPracticeIds = await _context.Set<TeachingAssignment>()
             .AsNoTracking()
-            .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null)
+            .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed)
             .Select(ta => ta.IdInscriptionModality)
             .ToListAsync(cancellationToken);
 

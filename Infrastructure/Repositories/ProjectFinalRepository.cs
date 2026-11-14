@@ -211,7 +211,7 @@ namespace Infrastructure.Repositories
         {
             var proposalIds = await _context.Set<TeachingAssignment>()
                 .AsNoTracking()
-                .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null)
+                .Where(ta => ta.IdTeacher == teacherId && ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed)
                 .Select(ta => ta.IdInscriptionModality)
                 .Distinct()
                 .ToListAsync();
