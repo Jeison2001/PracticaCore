@@ -56,6 +56,17 @@ namespace Api.Controllers
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            if (await this.IsInscriptionReadAccessDeniedAsync(
+                    id,
+                    ct,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.CoTerminal.N3CTSGG))
+            {
+                return Forbid();
+            }
+
             var result = await _mediator.Send(new GetCoTerminalWithDetailsQuery(id));
             return Ok(new ApiResponse<CoTerminalWithDetailsDto> { Success = true, Data = result });
         }
@@ -64,6 +75,15 @@ namespace Api.Controllers
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.CoTerminal.N3CTSGG))
+            {
+                return Forbid();
+            }
+
             var query = new GetCoTerminalsByUserQuery(id, status);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<List<CoTerminalWithDetailsDto>> { Success = true, Data = result });
@@ -75,6 +95,15 @@ namespace Api.Controllers
             int id,
             [FromQuery] PaginatedRequest request)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.CoTerminal.N3CTSGG))
+            {
+                return Forbid();
+            }
+
             var query = new GetCoTerminalsByTeacherQuery(
                 id,
                 request.PageNumber,

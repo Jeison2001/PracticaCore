@@ -351,8 +351,24 @@ namespace Tests.Integration.Auth
                 .Where(rt => rt.IdUser == userId)
                 .ToListAsync();
 
-            tokens.Should().NotContain(t => t.Token == initialToken);
+            tokens.Should().ContainSingle(t => t.Token == initialToken && t.RevokedAt != null && !t.IsActive);
             tokens.Should().ContainSingle(t => t.Token != initialToken && t.RevokedAt == null && t.ExpiresAt > DateTimeOffset.UtcNow);
+
+            // El reúso del token rotado aún vigente debe ser detectado y revocar todas las sesiones del usuario.
+            using var reuseRequest = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            reuseRequest.Headers.Add("X-Test-Anonymous", "true");
+            reuseRequest.Headers.Add("Cookie", $"refreshToken={initialToken}");
+
+            var reuseResponse = await _client.SendAsync(reuseRequest);
+            reuseResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+            using var reuseVerifyScope = _factory.Services.CreateScope();
+            var reuseVerifyContext = reuseVerifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var remainingAfterReuse = await reuseVerifyContext.RefreshTokens
+                .AsNoTracking()
+                .Where(rt => rt.IdUser == userId)
+                .ToListAsync();
+            remainingAfterReuse.Should().BeEmpty();
         }
 
         private async Task<int> SeedUserWithRefreshTokensAsync(bool userIsActive, params string[] refreshTokens)
@@ -402,6 +418,39 @@ namespace Tests.Integration.Auth
             await context.SaveChangesAsync();
 
             return user.Id;
+        }
+
+        [Fact]
+        public async Task Register_WithInvalidAcademicProgram_ReturnsBadRequest()
+        {
+            int idTypeId;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var idType = context.Set<IdentificationType>().FirstOrDefault(x => x.StatusRegister)
+                    ?? new IdentificationType { Code = "CC", Name = "Cedula", Description = "Cedula", StatusRegister = true };
+                if (idType.Id == 0) context.Set<IdentificationType>().Add(idType);
+
+                if (!context.Set<Role>().Any(r => r.Code == "STUDENT" && r.StatusRegister))
+                    context.Set<Role>().Add(new Role { Code = "STUDENT", Name = "Estudiante", Description = "Estudiante", StatusRegister = true });
+
+                await context.SaveChangesAsync();
+                idTypeId = idType.Id;
+            }
+
+            var request = new RegisterRequest
+            {
+                IdIdentificationType = idTypeId,
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                Email = $"invalidprog_{Guid.NewGuid():N}@unicesar.edu.co",
+                FirstName = "Invalid",
+                LastName = "Program",
+                IdAcademicProgram = 999999,
+                RoleId = 0
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/Auth/register", request);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
     }
 }

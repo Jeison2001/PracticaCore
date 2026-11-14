@@ -50,6 +50,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 entity.Id,
                 entity.IdStateStage,
                 dto.NewStateStageId,
+                allowCrossStageWithinSameModality: true,
                 cancellationToken);
 
             var result = await _academicPracticeRepository.UpdateAcademicPracticeStateAsync(
@@ -147,17 +148,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 if (hasAnyAssignment)
                     throw new ForbiddenAccessException("No tienes una asignación docente activa y confirmada para evaluar esta práctica académica.");
 
-                if (!perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PR))
-                    throw new ForbiddenAccessException("No estás asignado como docente evaluador confirmado de esta práctica académica.");
-
-                var currentState = await _unitOfWork.GetRepository<StateStage, int>().GetByIdAsync(entity.IdStateStage);
-                if (currentState != null && currentState.Code == StateStageCodes.PaInscripcionPendDoc)
-                    return;
-
-                if (await IsCommitteeDirectorOrSecretaryAsync(userId, cancellationToken))
-                    return;
-
-                throw new ForbiddenAccessException("No estás autorizado para evaluar esta práctica académica fuera de la revisión inicial de inscripción.");
+                throw new ForbiddenAccessException("No estás asignado como docente evaluador confirmado de esta práctica académica.");
             }
 
             // Estudiante (N3PAF1R / N3PAF2R): validar membresía activa y estado destino no final/rechazo
@@ -179,22 +170,6 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             {
                 throw new ForbiddenAccessException("Los estudiantes no pueden aprobar, finalizar ni rechazar una fase de práctica académica.");
             }
-        }
-
-        private async Task<bool> IsCommitteeDirectorOrSecretaryAsync(int userId, CancellationToken cancellationToken)
-        {
-            var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
-            var activeUserRoles = await userRoleRepo.GetAllAsync(ur => ur.IdUser == userId && ur.StatusRegister);
-            var roleIds = activeUserRoles.Select(ur => ur.IdRole).Distinct().ToList();
-            if (roleIds.Count == 0)
-                return false;
-
-            var roleRepo = _unitOfWork.GetRepository<Role, int>();
-            return await roleRepo.AnyAsync(
-                r => roleIds.Contains(r.Id) &&
-                     r.StatusRegister &&
-                     (r.Code == "COMMITTEE_DIRECTOR" || r.Code == "SECRETARY"),
-                cancellationToken);
         }
 
         private void ProcessNotificationsAsync(int practiceId, int oldStateId)

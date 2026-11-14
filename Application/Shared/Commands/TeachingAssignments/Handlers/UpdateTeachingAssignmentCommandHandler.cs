@@ -50,10 +50,11 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                 x.IdTeacher == dto.IdTeacher &&
                 x.IdTypeTeachingAssignment == dto.IdTypeTeachingAssignment &&
                 x.StatusRegister &&
+                x.RevocationDate == null &&
                 x.Id != request.Id,
                 cancellationToken);
             if (exists != null)
-                return _mapper.Map<TeachingAssignmentDto>(entity);
+                throw new InvalidOperationException("Ya existe una asignación docente activa para este docente, cargo e inscripción.");
 
             // Capturar valores originales antes de modificar para auditoría y notificaciones
             var wasConfirmed = entity.IsConfirmed;
@@ -135,12 +136,22 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                 // Mapear cambios
                 _mapper.Map(dto, entity);
 
+                // Mantener coherencia estricta entre RevocationDate y StatusRegister
+                if (entity.RevocationDate != null)
+                {
+                    entity.StatusRegister = false;
+                }
+                else if (!entity.StatusRegister)
+                {
+                    entity.RevocationDate = DateTimeOffset.UtcNow;
+                }
+
                 // Restaurar campos inmutables y asegurar UTC
                 entity.CreatedAt = originalCreatedAt;
                 entity.IdUserCreatedAt = originalIdUserCreatedAt;
                 entity.IdUserUpdatedAt = request.CurrentUser.UserId;
                 entity.UpdatedAt = DateTimeOffset.UtcNow;
-                entity.IsConfirmed = dto.StatusRegister ? true : effectiveWasConfirmed;
+                entity.IsConfirmed = (entity.StatusRegister && entity.RevocationDate == null) ? true : effectiveWasConfirmed;
 
                 await _repository.UpdateAsync(entity);
                 await _unitOfWork.CommitAsync(cancellationToken);
@@ -159,7 +170,8 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                     entity.IdInscriptionModality,
                     type.Id,
                     request.CurrentUser.UserId,
-                    cancellationToken);
+                    cancellationToken,
+                    _jobEnqueuer);
             }
 
             // Procesar notificaciones en background (solo quien confirmó efectivamente emite creación)

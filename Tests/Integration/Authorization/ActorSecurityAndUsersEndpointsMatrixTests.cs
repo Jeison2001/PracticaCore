@@ -369,7 +369,23 @@ namespace Tests.Integration.Authorization
         public async Task TeacherEnabledCargo_ByUser_AllowsN3CFSUAndN3CFSRL_AndDeniesUnauthorizedActors()
         {
             using var context = GetFreshDbContext();
-            var (teacher, _) = await SeedTwoUsersAsync(context);
+            var (teacher, nonTeacher) = await SeedTwoUsersAsync(context);
+
+            var teacherRole = context.Set<Role>().FirstOrDefault(r => r.Code == "TEACHER" && r.StatusRegister)
+                ?? new Role { Code = "TEACHER", Name = "Docente", Description = "Docente", StatusRegister = true };
+            if (teacherRole.Id == 0)
+            {
+                context.Set<Role>().Add(teacherRole);
+                await context.SaveChangesAsync();
+            }
+
+            context.Set<UserRole>().Add(new UserRole
+            {
+                IdUser = teacher.Id,
+                IdRole = teacherRole.Id,
+                StatusRegister = true
+            });
+            await context.SaveChangesAsync();
 
             var cargoDirector = new TypeTeachingAssignment
             {
@@ -474,6 +490,21 @@ namespace Tests.Integration.Authorization
                 deniedGetRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
                 deniedPostRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
+
+            // Asignar cargos a un usuario sin rol docente activo -> 400 BadRequest
+            var nonTeacherPayload = new AssignTeacherEnabledCargosRequestDto
+            {
+                UserId = nonTeacher.Id,
+                TypeTeachingAssignmentIds = new List<int> { cargoDirector.Id }
+            };
+            using var nonTeacherReq = CreateRequest(
+                HttpMethod.Post,
+                "/api/TeacherEnabledCargo/ByUser",
+                userId: "9010",
+                permissions: PermissionCodes.Configuraciones.N3CFSU,
+                body: nonTeacherPayload);
+            var nonTeacherRes = await _client.SendAsync(nonTeacherReq);
+            nonTeacherRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
 
         [Fact]

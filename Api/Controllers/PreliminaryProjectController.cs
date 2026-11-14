@@ -58,6 +58,16 @@ namespace Api.Controllers
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.ProyectoGrado.N4PGPAG,
+                    PermissionCodes.ProyectoGrado.N4PGPAA))
+            {
+                return Forbid();
+            }
+
             var query = new GetPreliminaryProjectsByUserQuery(id, status);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<List<PreliminaryProjectWithDetailsResponseDto>> { Success = true, Data = result });
@@ -67,6 +77,16 @@ namespace Api.Controllers
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(int id, [FromQuery] PaginatedRequest request)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.ProyectoGrado.N4PGPAG,
+                    PermissionCodes.ProyectoGrado.N4PGPAA))
+            {
+                return Forbid();
+            }
+
             var query = new GetPreliminaryProjectsByTeacherQuery(
                 id,
                 request.PageNumber,

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Api.Responses;
+using Application.Shared.DTOs;
 using Application.Shared.DTOs.Documents;
 using Application.Shared.DTOs.PreliminaryProjects;
 using Application.Shared.DTOs.ProjectFinals;
@@ -1441,7 +1442,61 @@ namespace Tests.Integration.Authorization
                 res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
             }
 
-            // Docente confirmado 201 en InscriptionA (AP_EN_EVALUACION -> AP_APROBADO) -> 200 OK + BD + job
+            // Con solo 0/1 jurado evaluador confirmado, emitir dictamen de anteproyecto debe fallar con 400 BadRequest.
+            using (var insufficientJurorsReq = CreateRequest(HttpMethod.Patch, $"/api/PreliminaryProject/{scenario.InscriptionAId}", Teacher201Id, PermissionCodes.ProyectoGrado.N4PGPAR))
+            {
+                insufficientJurorsReq.Content = JsonContent.Create(new PreliminaryProjectPatchDto
+                {
+                    IdStateStage = apAprobadoId,
+                    Observations = "Intento con menos de 2 jurados"
+                });
+                var insufficientRes = await client.SendAsync(insufficientJurorsReq);
+                insufficientRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            using (var addJurorsScope = factory.Services.CreateScope())
+            {
+                var addJurorsContext = addJurorsScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var idTypeId = addJurorsContext.Set<IdentificationType>().First(x => x.StatusRegister).Id;
+                var programId = addJurorsContext.Set<AcademicProgram>().First(x => x.StatusRegister).Id;
+                if (addJurorsContext.Set<User>().Find(204) == null)
+                {
+                    addJurorsContext.Set<User>().Add(new User
+                    {
+                        Id = 204,
+                        FirstName = "Jurado",
+                        LastName = "DoscientosCuatro",
+                        Email = "jurado204@test.edu",
+                        Identification = "204204204",
+                        IdIdentificationType = idTypeId,
+                        IdAcademicProgram = programId,
+                        StatusRegister = true
+                    });
+                }
+
+                addJurorsContext.Set<TeachingAssignment>().AddRange(
+                    new TeachingAssignment
+                    {
+                        IdInscriptionModality = scenario.InscriptionAId,
+                        IdTeacher = Teacher201Id,
+                        IdTypeTeachingAssignment = scenario.JuradoCargoId,
+                        IsConfirmed = true,
+                        StatusRegister = true,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    },
+                    new TeachingAssignment
+                    {
+                        IdInscriptionModality = scenario.InscriptionAId,
+                        IdTeacher = 204,
+                        IdTypeTeachingAssignment = scenario.JuradoCargoId,
+                        IsConfirmed = true,
+                        StatusRegister = true,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    });
+                await addJurorsContext.SaveChangesAsync();
+            }
+
+            // Docente confirmado 201 en InscriptionA con 2 jurados confirmados (AP_EN_EVALUACION -> AP_APROBADO) -> 200 OK + BD + job
             factory.EnqueuedJobs.Clear();
             using (var okApReq = CreateRequest(HttpMethod.Patch, $"/api/PreliminaryProject/{scenario.InscriptionAId}", Teacher201Id, PermissionCodes.ProyectoGrado.N4PGPAR))
             {
@@ -1544,6 +1599,244 @@ namespace Tests.Integration.Authorization
                 verifyContext.Set<ProjectPresentation>().Find(scenario.InscriptionAId)!.IdStateStage.Should().Be(sustReintentoId);
             }
             factory.EnqueuedJobs.Should().Contain(j => j.MethodName == "HandleProjectPresentationChangeAsync");
+        }
+
+        [Fact]
+        public async Task Proposal_Put_ByCommittee_And_PresentationScheduleVsVerdict_And_CrossStageTransitions_AreEnforced()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory, StateStageCodes.PropNoPertinente);
+
+            int propPertinenteId;
+            int sustProgramadaId;
+            int sustAprobadaId;
+            int apEnEvalId;
+            int paInscripcionAprobadaId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                propPertinenteId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PropPertinente).Id;
+                sustProgramadaId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.SustProgramada).Id;
+                sustAprobadaId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.SustAprobada).Id;
+                apEnEvalId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApEnEvaluacion).Id;
+                paInscripcionAprobadaId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PaInscripcionAprobada).Id;
+            }
+
+            // 1. PUT /api/Proposal/{id} por comite (N4PGPPR/N4PGPPG) preserva el IdStateStage existente
+            var committeePutDto = new ProposalDto
+            {
+                Id = scenario.InscriptionAId,
+                Title = "Titulo editado por comite",
+                Description = "Desc",
+                Observation = "Obs",
+                GeneralObjective = "Obj",
+                SpecificObjectives = new List<string> { "Obj 1" },
+                IdResearchLine = scenario.ResearchLineId,
+                IdResearchSubLine = scenario.ResearchSubLineId,
+                IdStateStage = propPertinenteId,
+                StatusRegister = true
+            };
+            using (var committeePutReq = CreateRequest(HttpMethod.Put, $"/api/Proposal/{scenario.InscriptionAId}", 501, PermissionCodes.ProyectoGrado.N4PGPPR))
+            {
+                committeePutReq.Content = JsonContent.Create(committeePutDto);
+                var res = await client.SendAsync(committeePutReq);
+                res.StatusCode.Should().Be(HttpStatusCode.OK);
+                var payload = await res.Content.ReadFromJsonAsync<ApiResponse<ProposalDto>>();
+                payload!.Data!.IdStateStage.Should().NotBe(propPertinenteId);
+            }
+
+            // 2. ProjectPresentation: InscriptionB esta en SUST_PENDIENTE_PROGRAMACION
+            // 2a. Jurado (N4PGPSR) no puede emitir dictamen si aun no esta SUST_PROGRAMADA -> 400 BadRequest
+            using (var prematureVerdict = CreateRequest(HttpMethod.Patch, $"/api/ProjectPresentation/{scenario.InscriptionBId}", Teacher203Id, PermissionCodes.ProyectoGrado.N4PGPSR))
+            {
+                prematureVerdict.Content = JsonContent.Create(new ProjectPresentationPatchDto
+                {
+                    IdStateStage = sustAprobadaId,
+                    Observations = "Intento sin programar"
+                });
+                (await client.SendAsync(prematureVerdict)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // 2b. Jurado puro (N4PGPSR sin N4PGPSG) no puede programar sesion ni tocar campos logisticos -> 403 Forbidden
+            using (var jurorScheduleAttempt = CreateRequest(HttpMethod.Patch, $"/api/ProjectPresentation/{scenario.InscriptionBId}", Teacher203Id, PermissionCodes.ProyectoGrado.N4PGPSR))
+            {
+                jurorScheduleAttempt.Content = JsonContent.Create(new ProjectPresentationPatchDto
+                {
+                    IdStateStage = sustProgramadaId,
+                    ScheduledDateTime = DateTimeOffset.UtcNow.AddDays(3),
+                    PresentationModality = "VIRTUAL",
+                    LocationOrLink = "https://meet.example/room"
+                });
+                (await client.SendAsync(jurorScheduleAttempt)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 2c. Gestor (N4PGPSG sin N4PGPSR) programa SUST_PROGRAMADA -> 200 OK, pero NO puede emitir veredicto -> 403 Forbidden
+            using (var managerSchedule = CreateRequest(HttpMethod.Patch, $"/api/ProjectPresentation/{scenario.InscriptionBId}", 502, PermissionCodes.ProyectoGrado.N4PGPSG))
+            {
+                managerSchedule.Content = JsonContent.Create(new ProjectPresentationPatchDto
+                {
+                    IdStateStage = sustProgramadaId,
+                    ScheduledDateTime = DateTimeOffset.UtcNow.AddDays(4),
+                    PresentationModality = "VIRTUAL",
+                    LocationOrLink = "https://meet.example/sust-b"
+                });
+                (await client.SendAsync(managerSchedule)).StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+            using (var managerVerdictAttempt = CreateRequest(HttpMethod.Patch, $"/api/ProjectPresentation/{scenario.InscriptionBId}", 502, PermissionCodes.ProyectoGrado.N4PGPSG))
+            {
+                managerVerdictAttempt.Content = JsonContent.Create(new ProjectPresentationPatchDto
+                {
+                    IdStateStage = sustAprobadaId,
+                    Observations = "Gestor intentando calificar"
+                });
+                (await client.SendAsync(managerVerdictAttempt)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 3. Transicion cross-stage (Propuesta -> AP_EN_EVALUACION) y cross-modality (PA estado en PG) -> 400 BadRequest
+            using (var crossStageReq = CreateRequest(HttpMethod.Patch, $"/api/Proposal/{scenario.InscriptionAId}", 501, PermissionCodes.ProyectoGrado.N4PGPPR))
+            {
+                crossStageReq.Content = JsonContent.Create(new { IdStateStage = apEnEvalId });
+                (await client.SendAsync(crossStageReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+            using (var crossModalityReq = CreateRequest(HttpMethod.Patch, $"/api/Proposal/{scenario.InscriptionAId}", 501, PermissionCodes.ProyectoGrado.N4PGPPR))
+            {
+                crossModalityReq.Content = JsonContent.Create(new { IdStateStage = paInscripcionAprobadaId });
+                (await client.SendAsync(crossModalityReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // 4. Desactivar UserInscriptionModality excluye inscripcion en todos los ByUser de PG
+            using (var deactivateScope = factory.Services.CreateScope())
+            {
+                var ctx = deactivateScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var uim = ctx.Set<UserInscriptionModality>().First(x => x.IdInscriptionModality == scenario.InscriptionAId && x.IdUser == Student101Id);
+                uim.StatusRegister = false;
+                await ctx.SaveChangesAsync();
+            }
+
+            foreach (var byUserUrl in new[]
+            {
+                $"/api/Proposal/ByUser/{Student101Id}",
+                $"/api/PreliminaryProject/ByUser/{Student101Id}",
+                $"/api/ProjectFinal/ByUser/{Student101Id}",
+                $"/api/ProjectPresentation/ByUser/{Student101Id}"
+            })
+            {
+                using var req = CreateRequest(HttpMethod.Get, byUserUrl, Student101Id,
+                    PermissionCodes.ProyectoGrado.N3PGRP,
+                    PermissionCodes.ProyectoGrado.N3PGRA,
+                    PermissionCodes.ProyectoGrado.N3PGRPR,
+                    PermissionCodes.ProyectoGrado.N3PGCSU);
+                var resp = await client.SendAsync(req);
+                resp.StatusCode.Should().Be(HttpStatusCode.OK);
+                var json = await resp.Content.ReadAsStringAsync();
+                json.Should().NotContain($"\"id\":{scenario.InscriptionAId}");
+            }
+        }
+
+        [Fact]
+        public async Task TeachingAssignment_PutDuplicateAndPatchStatus_EnforceUniquenessAndAdvanceAnteproyecto()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            int juror1AssignId;
+            int apEnEvaluacionId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                apEnEvaluacionId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApEnEvaluacion).Id;
+                var apPendAsigId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.ApRadicadoPendAsigEval).Id;
+
+                var preliminary = await context.Set<PreliminaryProject>().FindAsync(scenario.InscriptionBId);
+                preliminary!.IdStateStage = apPendAsigId;
+
+                var juror1 = new TeachingAssignment
+                {
+                    IdInscriptionModality = scenario.InscriptionBId,
+                    IdTeacher = Teacher201Id,
+                    IdTypeTeachingAssignment = scenario.JuradoCargoId,
+                    IsConfirmed = true,
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                context.Set<TeachingAssignment>().Add(juror1);
+                await context.SaveChangesAsync();
+                juror1AssignId = juror1.Id;
+            }
+
+            // PUT duplicando el mismo cargo activo sobre Teacher203/Director -> 400 BadRequest
+            using (var putDupReq = CreateRequest(HttpMethod.Put, $"/api/TeachingAssignment/{juror1AssignId}", 501, PermissionCodes.ProyectoGrado.N4PGPAA))
+            {
+                putDupReq.Content = JsonContent.Create(new TeachingAssignmentDto
+                {
+                    Id = juror1AssignId,
+                    IdInscriptionModality = scenario.InscriptionBId,
+                    IdTeacher = Teacher203Id,
+                    IdTypeTeachingAssignment = scenario.DirectorCargoId,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                });
+                (await client.SendAsync(putDupReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // Crear jurado 2 confirmado, luego revocar via PATCH /status -> RevocationDate != null & IsConfirmed == false;
+            // Reactivar via PATCH /status -> RevocationDate == null & IsConfirmed == true & avanza Anteproyecto a AP_EN_EVALUACION
+            int juror2AssignId;
+            using (var createJuror2 = CreateRequest(HttpMethod.Post, "/api/TeachingAssignment", 501, PermissionCodes.ProyectoGrado.N4PGPAA))
+            {
+                createJuror2.Content = JsonContent.Create(new TeachingAssignmentDto
+                {
+                    IdInscriptionModality = scenario.InscriptionBId,
+                    IdTeacher = Teacher202Id,
+                    IdTypeTeachingAssignment = scenario.JuradoCargoId,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                });
+                var res = await client.SendAsync(createJuror2);
+                res.StatusCode.Should().Be(HttpStatusCode.Created);
+                juror2AssignId = (await res.Content.ReadFromJsonAsync<ApiResponse<TeachingAssignmentDto>>())!.Data!.Id;
+            }
+
+            // Revocar via PATCH /status
+            using (var revokeReq = CreateRequest(HttpMethod.Patch, $"/api/TeachingAssignment/{juror2AssignId}/status", 501, PermissionCodes.ProyectoGrado.N4PGPAA))
+            {
+                revokeReq.Content = JsonContent.Create(new UpdateStatusRequestDto { StatusRegister = false, IdUserUpdateAt = 501, OperationRegister = "RevokeMatrix" });
+                (await client.SendAsync(revokeReq)).StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+            using (var checkScope = factory.Services.CreateScope())
+            {
+                var ctx = checkScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var revoked = await ctx.Set<TeachingAssignment>().FindAsync(juror2AssignId);
+                revoked!.StatusRegister.Should().BeFalse();
+                revoked.RevocationDate.Should().NotBeNull();
+                revoked.IsConfirmed.Should().BeFalse();
+
+                // Regresar anteproyecto a AP_RADICADO_PEND_ASIG_EVAL para probar avance al reactivar jurado 2
+                var prelim = await ctx.Set<PreliminaryProject>().FindAsync(scenario.InscriptionBId);
+                prelim!.IdStateStage = ctx.Set<StateStage>().First(s => s.Code == StateStageCodes.ApRadicadoPendAsigEval).Id;
+                await ctx.SaveChangesAsync();
+            }
+
+            factory.EnqueuedJobs.Clear();
+            using (var reactivateReq = CreateRequest(HttpMethod.Patch, $"/api/TeachingAssignment/{juror2AssignId}/status", 501, PermissionCodes.ProyectoGrado.N4PGPAA))
+            {
+                reactivateReq.Content = JsonContent.Create(new UpdateStatusRequestDto { StatusRegister = true, IdUserUpdateAt = 501, OperationRegister = "ReactivateMatrix" });
+                (await client.SendAsync(reactivateReq)).StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+            using (var verifyScope = factory.Services.CreateScope())
+            {
+                var ctx = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var active = await ctx.Set<TeachingAssignment>().FindAsync(juror2AssignId);
+                active!.StatusRegister.Should().BeTrue();
+                active.RevocationDate.Should().BeNull();
+                active.IsConfirmed.Should().BeTrue();
+
+                var prelim = await ctx.Set<PreliminaryProject>().FindAsync(scenario.InscriptionBId);
+                prelim!.IdStateStage.Should().Be(apEnEvaluacionId);
+            }
+            factory.EnqueuedJobs.Should().Contain(j => j.MethodName == "HandlePreliminaryProjectChangeAsync");
         }
     }
 }

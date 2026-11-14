@@ -437,7 +437,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // Get academic practices for a user through UserInscriptionModality
         var academicPracticeIds = await _context.Set<UserInscriptionModality>()
             .AsNoTracking()
-            .Where(uim => uim.IdUser == userId)
+            .Where(uim => uim.IdUser == userId && uim.StatusRegister)
             .Select(uim => uim.IdInscriptionModality)
             .ToListAsync(cancellationToken);
 

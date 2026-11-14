@@ -30,5 +30,15 @@ namespace Tests.Integration.Utilities
             result.Data.TryGetProperty("uniqueId", out _).Should().BeTrue();
             result.Data.TryGetProperty("guid", out _).Should().BeTrue();
         }
+
+        [Fact]
+        public async Task GenerateId_WhenAnonymous_ReturnsUnauthorized()
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "api/services/generate-id");
+            request.Headers.Add("X-Test-Anonymous", "true");
+
+            var response = await _client.SendAsync(request);
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
     }
 }

@@ -99,13 +99,29 @@ namespace Application.Shared.Commands.PreliminaryProjects.Handlers
                     newState != null &&
                     (newState.Code == StateStageCodes.ApAprobado ||
                      newState.Code == StateStageCodes.ApConObservaciones ||
-                     newState.IsRejectionState) &&
-                    currentState != null &&
-                    (currentState.Code == StateStageCodes.ApPendienteDocumento ||
-                     currentState.Code == StateStageCodes.ApRadicadoPendAsigEval))
+                     newState.IsRejectionState))
                 {
-                    throw new InvalidOperationException(
-                        "El anteproyecto debe estar en estado En Evaluación para registrar un dictamen.");
+                    if (currentState != null &&
+                        (currentState.Code == StateStageCodes.ApPendienteDocumento ||
+                         currentState.Code == StateStageCodes.ApRadicadoPendAsigEval))
+                    {
+                        throw new InvalidOperationException(
+                            "El anteproyecto debe estar en estado En Evaluación para registrar un dictamen.");
+                    }
+
+                    var taRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
+                    var confirmedJuradosCount = await TeachingAssignmentEvaluationHelper.CountConfirmedJuradosAsync(
+                        _unitOfWork,
+                        taRepo,
+                        entity.Id,
+                        knownJuradoTypeId: null,
+                        cancellationToken);
+
+                    if (confirmedJuradosCount < TeachingAssignmentEvaluationHelper.MinimumConfirmedJurados)
+                    {
+                        throw new InvalidOperationException(
+                            $"El anteproyecto requiere al menos {TeachingAssignmentEvaluationHelper.MinimumConfirmedJurados} jurados evaluadores confirmados para registrar un dictamen.");
+                    }
                 }
 
                 entity.IdStateStage = request.Dto.IdStateStage.Value;

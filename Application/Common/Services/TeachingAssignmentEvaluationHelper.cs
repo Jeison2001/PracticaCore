@@ -1,6 +1,8 @@
+using Application.Common.Services.Jobs;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
+using Domain.Interfaces.Services.Jobs;
 
 namespace Application.Common.Services
 {
@@ -107,7 +109,8 @@ namespace Application.Common.Services
             int inscriptionModalityId,
             int? knownJuradoTypeId,
             int? userId,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IJobEnqueuer? jobEnqueuer = null)
         {
             var preliminaryRepo = unitOfWork.GetRepository<PreliminaryProject, int>();
             var preliminary = await preliminaryRepo.GetByIdAsync(inscriptionModalityId);
@@ -145,6 +148,9 @@ namespace Application.Common.Services
                 x => x.IdUserUpdatedAt
             ]);
             await unitOfWork.CommitAsync(cancellationToken);
+
+            jobEnqueuer?.Enqueue<INotificationBackgroundJob>(
+                x => x.HandlePreliminaryProjectChangeAsync(preliminary.Id, currentState.Id));
         }
     }
 }

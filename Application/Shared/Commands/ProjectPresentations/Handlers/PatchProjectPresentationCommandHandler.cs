@@ -4,6 +4,7 @@ using Application.Shared.DTOs.ProjectPresentations;
 using AutoMapper;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Exceptions;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
@@ -40,21 +41,39 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
             if (entity == null)
                 throw new KeyNotFoundException($"ProjectPresentation with ID {request.Id} not found.");
 
+            var inscriptionId = entity.IdInscriptionModality > 0 ? entity.IdInscriptionModality : entity.Id;
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
-            if (request.CurrentUser?.Permissions is { Count: > 0 } perms &&
-                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPSG) &&
-                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) &&
-                !perms.Contains(PermissionCodes.Configuraciones.N3CFSU) &&
-                !perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR))
+            var perms = request.CurrentUser?.Permissions;
+            var hasScopedPermissions = perms is { Count: > 0 };
+            var isGlobalAdmin = hasScopedPermissions &&
+                (perms!.Contains(PermissionCodes.Configuraciones.N3CFSU) ||
+                 perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR));
+            var hasSchedulePerm = !hasScopedPermissions || isGlobalAdmin ||
+                perms!.Contains(PermissionCodes.ProyectoGrado.N4PGPSG);
+            var hasReviewPerm = !hasScopedPermissions || isGlobalAdmin ||
+                perms!.Contains(PermissionCodes.ProyectoGrado.N4PGPSR);
+
+            if (hasScopedPermissions && !hasSchedulePerm)
             {
                 await ModalityAccessAuthorizationHelper.EnsureConfirmedTeacherInInscriptionAsync(
                     _unitOfWork,
-                    entity.Id,
-                    request.CurrentUser,
+                    inscriptionId,
+                    request.CurrentUser!,
                     "El docente no tiene una asignación confirmada activa en esta sustentación.",
                     cancellationToken);
+            }
+
+            if (request.Dto.ScheduledDateTime.HasValue ||
+                request.Dto.PresentationModality != null ||
+                request.Dto.LocationOrLink != null)
+            {
+                if (!hasSchedulePerm)
+                {
+                    throw new ForbiddenAccessException(
+                        "Solo el rol con permiso de gestión de sustentaciones (N4PGPSG) puede programar o reprogramar la fecha, modalidad o enlace.");
+                }
             }
 
             var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
@@ -124,7 +143,7 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
             {
                 await ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
                     _unitOfWork,
-                    entity.Id,
+                    inscriptionId,
                     originalStateId,
                     request.Dto.IdStateStage.Value,
                     cancellationToken);
@@ -133,6 +152,12 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
 
                 if (newState?.Code == StateStageCodes.SustProgramada)
                 {
+                    if (!hasSchedulePerm)
+                    {
+                        throw new ForbiddenAccessException(
+                            "Solo el rol con permiso de gestión de sustentaciones (N4PGPSG) puede cambiar el estado a Programada.");
+                    }
+
                     var scheduledDate = entity.ScheduledDateTime;
                     var modality = entity.PresentationModality;
                     var location = entity.LocationOrLink;
@@ -148,28 +173,32 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                         updatedProperties.Add(x => x.AttemptNumber);
                     }
                 }
-                else if (newState?.Code == StateStageCodes.SustAprobada)
+                else if (newState?.Code == StateStageCodes.SustAprobada ||
+                         newState?.Code == StateStageCodes.SustNoAprobadaReintento ||
+                         newState?.Code == StateStageCodes.SustReprobadaFinal)
                 {
-                    entity.ActualDateTime = request.Dto.ActualDateTime ?? DateTimeOffset.UtcNow;
-                    if (!actualDateTimeUpdated)
+                    if (!hasReviewPerm)
                     {
-                        updatedProperties.Add(x => x.ActualDateTime);
-                        actualDateTimeUpdated = true;
+                        throw new ForbiddenAccessException(
+                            "Solo un evaluador autorizado con permiso de revisión de sustentación (N4PGPSR) puede registrar el veredicto.");
                     }
 
-                    // Estampar FinalPhaseApprovalDate en ProjectFinal si existe y es null
-                    var projectFinalRepo = _unitOfWork.GetRepository<ProjectFinal, int>();
-                    var projectFinal = await projectFinalRepo.GetByIdAsync(entity.Id);
-                    if (projectFinal != null && projectFinal.FinalPhaseApprovalDate == null)
+                    if (hasScopedPermissions && !isGlobalAdmin)
                     {
-                        projectFinal.FinalPhaseApprovalDate = entity.ActualDateTime;
-                        projectFinal.UpdatedAt = DateTimeOffset.UtcNow;
-                        await projectFinalRepo.UpdatePartialAsync(projectFinal, [x => x.FinalPhaseApprovalDate, x => x.UpdatedAt]);
+                        await ModalityAccessAuthorizationHelper.EnsureConfirmedTeacherInInscriptionAsync(
+                            _unitOfWork,
+                            inscriptionId,
+                            request.CurrentUser!,
+                            "El docente debe tener una asignación confirmada activa en la inscripción para calificar la sustentación.",
+                            cancellationToken);
                     }
-                }
-                else if (newState?.Code == StateStageCodes.SustNoAprobadaReintento)
-                {
-                    if (entity.AttemptNumber >= 2)
+
+                    if (currentState?.Code != StateStageCodes.SustProgramada)
+                    {
+                        throw new InvalidOperationException("La sustentación debe encontrarse en estado Programada para registrar un resultado.");
+                    }
+
+                    if (newState.Code == StateStageCodes.SustNoAprobadaReintento && entity.AttemptNumber >= 2)
                     {
                         throw new InvalidOperationException("Según el Artículo 17 del Acuerdo 015, solo se permite una única oportunidad adicional de sustentación.");
                     }
@@ -180,14 +209,18 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                         updatedProperties.Add(x => x.ActualDateTime);
                         actualDateTimeUpdated = true;
                     }
-                }
-                else if (newState?.Code == StateStageCodes.SustReprobadaFinal)
-                {
-                    entity.ActualDateTime = request.Dto.ActualDateTime ?? DateTimeOffset.UtcNow;
-                    if (!actualDateTimeUpdated)
+
+                    if (newState.Code == StateStageCodes.SustAprobada)
                     {
-                        updatedProperties.Add(x => x.ActualDateTime);
-                        actualDateTimeUpdated = true;
+                        // Estampar FinalPhaseApprovalDate en ProjectFinal si existe y es null
+                        var projectFinalRepo = _unitOfWork.GetRepository<ProjectFinal, int>();
+                        var projectFinal = await projectFinalRepo.GetByIdAsync(inscriptionId);
+                        if (projectFinal != null && projectFinal.FinalPhaseApprovalDate == null)
+                        {
+                            projectFinal.FinalPhaseApprovalDate = entity.ActualDateTime;
+                            projectFinal.UpdatedAt = DateTimeOffset.UtcNow;
+                            await projectFinalRepo.UpdatePartialAsync(projectFinal, [x => x.FinalPhaseApprovalDate, x => x.UpdatedAt]);
+                        }
                     }
                 }
 
@@ -201,7 +234,7 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                 await ObservationHistoryHelper.CreateAsync(_unitOfWork,
                     entityType: nameof(ProjectPresentation),
                     entityId: entity.Id,
-                    evaluatorId: request.CurrentUser.UserId ?? 0,
+                    evaluatorId: request.CurrentUser?.UserId ?? 0,
                     evaluationTypeCode: EvaluationTypeCodes.ProjectPresentation,
                     observations: entity.Observations!,
                     cancellationToken);

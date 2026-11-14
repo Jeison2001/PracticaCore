@@ -11,6 +11,9 @@ namespace Domain.Interfaces.Services.Auth
         /// <summary>Valida el token. Retorna null si expiró o fue revocado.</summary>
         Task<RefreshToken?> ValidateAsync(string token, CancellationToken ct = default);
 
+        /// <summary>Revoca el token de forma atómica solo si aún está activo (retorna false si ya estaba revocado o expirado).</summary>
+        Task<bool> TryRevokeAtomicallyAsync(string token, CancellationToken ct = default);
+
         /// <summary>Revoca el token. No lanza excepción si ya estaba revocado.</summary>
         Task RevokeAsync(string token, CancellationToken ct = default);
 
@@ -20,7 +23,7 @@ namespace Domain.Interfaces.Services.Auth
         /// <summary>Borra todas las sesiones del usuario de forma inmediata como mecanismo de defensa.</summary>
         Task RevokeAllTokensForUserAsync(int userId, CancellationToken ct = default);
 
-        /// <summary>Elimina tokens expirados o revocados del usuario.</summary>
+        /// <summary>Elimina únicamente tokens expirados del usuario, conservando los revocados vigentes para detección de reúso.</summary>
         Task PurgeExpiredAsync(int userId, CancellationToken ct = default);
     }
 }

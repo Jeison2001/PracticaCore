@@ -36,7 +36,7 @@ namespace Api.Controllers
         [HttpGet("{id}")]
         public override async Task<IActionResult> GetById(int id)
         {
-            if (IsCrossUserAccessDenied(id))
+            if (this.IsCrossActorAccessDenied(id))
                 return Forbid();
 
             return await base.GetById(id);
@@ -90,7 +90,7 @@ namespace Api.Controllers
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] UserDto dto)
         {
-            if (IsCrossUserAccessDenied(id))
+            if (this.IsCrossActorAccessDenied(id))
                 return Forbid();
 
             if (User?.Identity?.IsAuthenticated == true)
@@ -102,7 +102,24 @@ namespace Api.Controllers
                     if (!existingUser.StatusRegister)
                         return Forbid();
 
-                    dto = dto with { StatusRegister = existingUser.StatusRegister };
+                    // Usuario no administrador (N2CFP) solo puede actualizar campos de perfil propios (nombre/teléfono);
+                    // preservar campos académicos, de identificación y estado.
+                    dto = dto with
+                    {
+                        Id = existingUser.Id,
+                        StatusRegister = existingUser.StatusRegister,
+                        Email = existingUser.Email,
+                        Identification = existingUser.Identification,
+                        IdIdentificationType = existingUser.IdIdentificationType,
+                        IdAcademicProgram = existingUser.IdAcademicProgram,
+                        IdStudyPlan = existingUser.IdStudyPlan,
+                        CurrentAcademicPeriod = existingUser.CurrentAcademicPeriod,
+                        CumulativeAverage = existingUser.CumulativeAverage,
+                        ApprovedCredits = existingUser.ApprovedCredits,
+                        TotalAcademicCredits = existingUser.TotalAcademicCredits,
+                        Observation = existingUser.Observation,
+                        Roles = null
+                    };
                 }
             }
 
@@ -129,17 +146,5 @@ namespace Api.Controllers
             StatusCodeResult statusResult => statusResult.StatusCode is >= 200 and < 300,
             _ => false
         };
-
-        private bool IsCrossUserAccessDenied(int targetUserId)
-        {
-            if (User?.Identity?.IsAuthenticated != true)
-                return false;
-
-            var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
-            if (permissions.Contains(PermissionCodes.Configuraciones.N3CFSU))
-                return false;
-
-            return User.GetUserId() != targetUserId;
-        }
     }
 }

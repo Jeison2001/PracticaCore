@@ -74,6 +74,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                     academicPractice.Id,
                     originalStateId,
                     dto.NewStateStageId!.Value,
+                    allowCrossStageWithinSameModality: true,
                     cancellationToken);
             }
 

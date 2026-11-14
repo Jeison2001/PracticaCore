@@ -52,6 +52,16 @@ namespace Api.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            if (await this.IsInscriptionReadAccessDeniedAsync(
+                    id,
+                    ct,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.ModalidadesGrado.N3MGPR))
+            {
+                return Forbid();
+            }
+
             var result = await _mediator.Send(new GetInscriptionWithStudentsQuery(id));
             return Ok(new ApiResponse<InscriptionWithStudentsResponseDto> { Success = true, Data = result });
         }
@@ -60,6 +70,14 @@ namespace Api.Controllers
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG))
+            {
+                return Forbid();
+            }
+
             var query = new GetInscriptionWithStudentsByUserQuery(id, status);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<List<InscriptionWithStudentsResponseDto>> { Success = true, Data = result });

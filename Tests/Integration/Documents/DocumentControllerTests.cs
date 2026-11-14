@@ -1118,5 +1118,277 @@ namespace Tests.Integration.Documents
             items[0].Id.Should().Be(secondDocId);
             items[0].IdDocumentType.Should().Be(secondDocTypeId);
         }
+
+        [Fact]
+        public async Task CoAuthorStudent_AndStaffAuthorRules_AreEnforcedAcrossPostPutAndStatus()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            storageMock
+                .Setup(s => s.SaveFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => $"stored_{Guid.NewGuid():N}.pdf");
+
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            const int student1Id = 6501;
+            const int student2CoAuthorId = 6502;
+            const int teacher1AuthorId = 6503;
+            const int teacher2PeerId = 6504;
+            const int stageManagerId = 6505;
+
+            int inscriptionId;
+            int docTypeEstId;
+            int docTypeEvalId;
+
+            using (var scope = customFactory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var modality = new Modality { Code = ModalityCodes.ProyectoGrado, Name = "PG", Description = "PG", StatusRegister = true };
+                var stateInsc = new StateInscription { Code = StateInscriptionCodes.Aprobado, Name = "Aprobado", Description = "Aprobado", StatusRegister = true };
+                var period = new AcademicPeriod { Code = "2026-2", StartDate = DateTime.UtcNow, EndDate = DateTime.UtcNow.AddMonths(6), StatusRegister = true };
+                var classEst = context.Set<DocumentClass>().FirstOrDefault(dc => dc.Code == DocumentClassCodes.DocEntregableEst)
+                    ?? new DocumentClass { Code = DocumentClassCodes.DocEntregableEst, Name = "Entregable", Description = "Est", StatusRegister = true };
+                var classEval = context.Set<DocumentClass>().FirstOrDefault(dc => dc.Code == DocumentClassCodes.DocEvaluacionConcepto)
+                    ?? new DocumentClass { Code = DocumentClassCodes.DocEvaluacionConcepto, Name = "Evaluacion", Description = "Eval", StatusRegister = true };
+                context.Set<Modality>().Add(modality);
+                context.Set<StateInscription>().Add(stateInsc);
+                context.Set<AcademicPeriod>().Add(period);
+                if (classEst.Id == 0) context.Set<DocumentClass>().Add(classEst);
+                if (classEval.Id == 0) context.Set<DocumentClass>().Add(classEval);
+                await context.SaveChangesAsync();
+
+                var stage = new StageModality { IdModality = modality.Id, Code = StageModalityCodes.PgFaseAnteproyecto, Name = "Anteproyecto", StageOrder = 2, StatusRegister = true };
+                context.Set<StageModality>().Add(stage);
+                await context.SaveChangesAsync();
+
+                var openState = new StateStage { IdStageModality = stage.Id, Code = StateStageCodes.ApEnEvaluacion, Name = "En Evaluacion", StatusRegister = true };
+                context.Set<StateStage>().Add(openState);
+                await context.SaveChangesAsync();
+
+                var inscription = new InscriptionModality { IdModality = modality.Id, IdStageModality = stage.Id, IdStateInscription = stateInsc.Id, IdAcademicPeriod = period.Id, StatusRegister = true };
+                context.Set<InscriptionModality>().Add(inscription);
+                await context.SaveChangesAsync();
+                inscriptionId = inscription.Id;
+
+                context.Set<PreliminaryProject>().Add(new PreliminaryProject { Id = inscriptionId, IdStateStage = openState.Id, StatusRegister = true });
+                context.Set<UserInscriptionModality>().AddRange(
+                    new UserInscriptionModality { IdInscriptionModality = inscriptionId, IdUser = student1Id, StatusRegister = true },
+                    new UserInscriptionModality { IdInscriptionModality = inscriptionId, IdUser = student2CoAuthorId, StatusRegister = true });
+
+                var juradoCargo = new TypeTeachingAssignment { Code = $"JUR_{Guid.NewGuid():N}"[..12], Name = "Jurado", StatusRegister = true };
+                context.Set<TypeTeachingAssignment>().Add(juradoCargo);
+                await context.SaveChangesAsync();
+
+                context.Set<TeachingAssignment>().AddRange(
+                    new TeachingAssignment { IdInscriptionModality = inscriptionId, IdTeacher = teacher1AuthorId, IdTypeTeachingAssignment = juradoCargo.Id, IsConfirmed = true, StatusRegister = true },
+                    new TeachingAssignment { IdInscriptionModality = inscriptionId, IdTeacher = teacher2PeerId, IdTypeTeachingAssignment = juradoCargo.Id, IsConfirmed = true, StatusRegister = true });
+
+                var dtEst = new DocumentType { Name = "Doc Est", Description = "Est", IdDocumentClass = classEst.Id, IdStageModality = stage.Id, StatusRegister = true };
+                var dtEval = new DocumentType { Name = "Doc Eval", Description = "Eval", IdDocumentClass = classEval.Id, IdStageModality = stage.Id, StatusRegister = true };
+                context.Set<DocumentType>().AddRange(dtEst, dtEval);
+                await context.SaveChangesAsync();
+                docTypeEstId = dtEst.Id;
+                docTypeEvalId = dtEval.Id;
+            }
+
+            // Estudiante 1 crea entregable; coautor Estudiante 2 puede actualizar y desactivar; admin/comite NO puede.
+            int studentDocId;
+            using (var postStudent = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", student1Id, PermissionCodes.ProyectoGrado.N3PGRA, inscriptionId, docTypeEstId))
+            {
+                var res = await client.SendAsync(postStudent);
+                res.StatusCode.Should().Be(HttpStatusCode.Created);
+                studentDocId = (await res.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>())!.Data!.Id;
+            }
+
+            using (var managerPutStudentDoc = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{studentDocId}", stageManagerId, $"{PermissionCodes.ProyectoGrado.N4PGPAG},{PermissionCodes.Configuraciones.N3CFSU}", inscriptionId, docTypeEstId))
+            {
+                (await client.SendAsync(managerPutStudentDoc)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            using (var coAuthorPut = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{studentDocId}", student2CoAuthorId, PermissionCodes.ProyectoGrado.N3PGRA, inscriptionId, docTypeEstId, "Editado Coautor"))
+            {
+                (await client.SendAsync(coAuthorPut)).StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            using (var coAuthorPatch = new HttpRequestMessage(HttpMethod.Patch, $"/api/Document/{studentDocId}/status")
+            {
+                Content = JsonContent.Create(new UpdateStatusRequestDto { StatusRegister = false, IdUserUpdateAt = student2CoAuthorId, OperationRegister = "CoAuthorDeact" })
+            })
+            {
+                coAuthorPatch.Headers.Add("X-Test-UserId", student2CoAuthorId.ToString());
+                coAuthorPatch.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N3PGRA);
+                (await client.SendAsync(coAuthorPatch)).StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            // Evaluador 1 crea DOC_EVALUACION_CONCEPTO; Evaluador 2 (otro jurado confirmado sin permiso de gestion) NO puede editar ni desactivar;
+            // Autor original y gestion de etapa SI pueden.
+            int evalDocId;
+            using (var postEval = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", teacher1AuthorId, PermissionCodes.ProyectoGrado.N4PGPAR, inscriptionId, docTypeEvalId))
+            {
+                var res = await client.SendAsync(postEval);
+                res.StatusCode.Should().Be(HttpStatusCode.Created);
+                evalDocId = (await res.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>())!.Data!.Id;
+            }
+
+            using (var peerPut = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{evalDocId}", teacher2PeerId, PermissionCodes.ProyectoGrado.N4PGPAR, inscriptionId, docTypeEvalId))
+            {
+                (await client.SendAsync(peerPut)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            using (var peerPatch = new HttpRequestMessage(HttpMethod.Patch, $"/api/Document/{evalDocId}/status")
+            {
+                Content = JsonContent.Create(new UpdateStatusRequestDto { StatusRegister = false, IdUserUpdateAt = teacher2PeerId, OperationRegister = "PeerDeact" })
+            })
+            {
+                peerPatch.Headers.Add("X-Test-UserId", teacher2PeerId.ToString());
+                peerPatch.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N4PGPAR);
+                (await client.SendAsync(peerPatch)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            using (var authorPut = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{evalDocId}", teacher1AuthorId, PermissionCodes.ProyectoGrado.N4PGPAR, inscriptionId, docTypeEvalId, "Eval v2"))
+            {
+                (await client.SendAsync(authorPut)).StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            using (var managerPatch = new HttpRequestMessage(HttpMethod.Patch, $"/api/Document/{evalDocId}/status")
+            {
+                Content = JsonContent.Create(new UpdateStatusRequestDto { StatusRegister = false, IdUserUpdateAt = stageManagerId, OperationRegister = "ManagerDeact" })
+            })
+            {
+                managerPatch.Headers.Add("X-Test-UserId", stageManagerId.ToString());
+                managerPatch.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N4PGPAG);
+                (await client.SendAsync(managerPatch)).StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+        }
+
+        [Fact]
+        public async Task ClosedAndRejectedStages_BlockStudentAndEvalDocs_AndAllowOnlyNewAcademicRecordByManagementOnNonRejected()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            storageMock
+                .Setup(s => s.SaveFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => $"stored_{Guid.NewGuid():N}.pdf");
+
+            using var customFactory = CreateFactoryWithMockStorage(storageMock);
+            using var client = customFactory.CreateClient();
+
+            const int studentId = 6601;
+            const int jurorId = 6602;
+            const int managerId = 6603;
+
+            int closedNonRejectedInscId;
+            int rejectedInscId;
+            int dtEstId;
+            int dtEvalId;
+            int dtActaId;
+
+            using (var scope = customFactory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var modality = new Modality { Code = ModalityCodes.ProyectoGrado, Name = "PG", Description = "PG", StatusRegister = true };
+                var stateAprobadoInsc = new StateInscription { Code = StateInscriptionCodes.Aprobado, Name = "Aprobado", Description = "Aprobado", IsFinalStateForStage = true, StatusRegister = true };
+                var period = new AcademicPeriod { Code = "2026-3", StartDate = DateTime.UtcNow, EndDate = DateTime.UtcNow.AddMonths(6), StatusRegister = true };
+                var classEst = new DocumentClass { Code = DocumentClassCodes.DocEntregableEst, Name = "Entregable", Description = "Est", StatusRegister = true };
+                var classEval = new DocumentClass { Code = DocumentClassCodes.DocEvaluacionConcepto, Name = "Evaluacion", Description = "Eval", StatusRegister = true };
+                var classActa = new DocumentClass { Code = DocumentClassCodes.DocAcademRegistro, Name = "Acta", Description = "Acta", StatusRegister = true };
+                context.Set<Modality>().Add(modality);
+                context.Set<StateInscription>().Add(stateAprobadoInsc);
+                context.Set<AcademicPeriod>().Add(period);
+                context.Set<DocumentClass>().AddRange(classEst, classEval, classActa);
+                await context.SaveChangesAsync();
+
+                var stageSust = new StageModality { IdModality = modality.Id, Code = StageModalityCodes.PgFaseSustentacion, Name = "Sust", StageOrder = 4, StatusRegister = true };
+                context.Set<StageModality>().Add(stageSust);
+                await context.SaveChangesAsync();
+
+                var closedApprovedState = new StateStage { IdStageModality = stageSust.Id, Code = StateStageCodes.SustAprobada, Name = "Sustentacion Aprobada", IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, StatusRegister = true };
+                var rejectedState = new StateStage { IdStageModality = stageSust.Id, Code = StateStageCodes.SustReprobadaFinal, Name = "Sustentacion Reprobada", IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, IsRejectionState = true, StatusRegister = true };
+                context.Set<StateStage>().AddRange(closedApprovedState, rejectedState);
+                await context.SaveChangesAsync();
+
+                var inscClosed = new InscriptionModality { IdModality = modality.Id, IdStageModality = stageSust.Id, IdStateInscription = stateAprobadoInsc.Id, IdAcademicPeriod = period.Id, StatusRegister = true };
+                var inscRejected = new InscriptionModality { IdModality = modality.Id, IdStageModality = stageSust.Id, IdStateInscription = stateAprobadoInsc.Id, IdAcademicPeriod = period.Id, IsFinalRejection = true, StatusRegister = true };
+                context.Set<InscriptionModality>().AddRange(inscClosed, inscRejected);
+                await context.SaveChangesAsync();
+                closedNonRejectedInscId = inscClosed.Id;
+                rejectedInscId = inscRejected.Id;
+
+                context.Set<ProjectPresentation>().AddRange(
+                    new ProjectPresentation { Id = closedNonRejectedInscId, IdInscriptionModality = closedNonRejectedInscId, IdStateStage = closedApprovedState.Id, AttemptNumber = 1, StatusRegister = true },
+                    new ProjectPresentation { Id = rejectedInscId, IdInscriptionModality = rejectedInscId, IdStateStage = rejectedState.Id, AttemptNumber = 1, StatusRegister = true });
+
+                context.Set<UserInscriptionModality>().AddRange(
+                    new UserInscriptionModality { IdInscriptionModality = closedNonRejectedInscId, IdUser = studentId, StatusRegister = true },
+                    new UserInscriptionModality { IdInscriptionModality = rejectedInscId, IdUser = studentId, StatusRegister = true });
+
+                var juradoCargo = new TypeTeachingAssignment { Code = $"JUR_{Guid.NewGuid():N}"[..12], Name = "Jurado", StatusRegister = true };
+                context.Set<TypeTeachingAssignment>().Add(juradoCargo);
+                await context.SaveChangesAsync();
+
+                context.Set<TeachingAssignment>().Add(new TeachingAssignment
+                {
+                    IdInscriptionModality = closedNonRejectedInscId,
+                    IdTeacher = jurorId,
+                    IdTypeTeachingAssignment = juradoCargo.Id,
+                    IsConfirmed = true,
+                    StatusRegister = true
+                });
+
+                var dtEst = new DocumentType { Name = "Est", Description = "Est", IdDocumentClass = classEst.Id, IdStageModality = stageSust.Id, StatusRegister = true };
+                var dtEval = new DocumentType { Name = "Eval", Description = "Eval", IdDocumentClass = classEval.Id, IdStageModality = stageSust.Id, StatusRegister = true };
+                var dtActa = new DocumentType { Name = "Acta", Description = "Acta", IdDocumentClass = classActa.Id, IdStageModality = stageSust.Id, StatusRegister = true };
+                context.Set<DocumentType>().AddRange(dtEst, dtEval, dtActa);
+                await context.SaveChangesAsync();
+                dtEstId = dtEst.Id;
+                dtEvalId = dtEval.Id;
+                dtActaId = dtActa.Id;
+            }
+
+            // En etapa cerrada aprobada (no rechazada): entregable estudiante y evaluacion bloqueados -> 400
+            using (var postEstClosed = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", studentId, PermissionCodes.ProyectoGrado.N3PGRP, closedNonRejectedInscId, dtEstId))
+            {
+                (await client.SendAsync(postEstClosed)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+            using (var postEvalClosed = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", jurorId, PermissionCodes.ProyectoGrado.N4PGPSR, closedNonRejectedInscId, dtEvalId))
+            {
+                (await client.SendAsync(postEvalClosed)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // Jurado sin gestion intentando cargar DOC_ACADEM_REGISTRO -> 403
+            using (var postActaJuror = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", jurorId, PermissionCodes.ProyectoGrado.N4PGPSR, closedNonRejectedInscId, dtActaId))
+            {
+                (await client.SendAsync(postActaJuror)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Gestion de etapa (N4PGPSG) puede cargar NUEVO DOC_ACADEM_REGISTRO en etapa cerrada NO rechazada -> 201 Created
+            int actaDocId;
+            using (var postActaManager = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", managerId, PermissionCodes.ProyectoGrado.N4PGPSG, closedNonRejectedInscId, dtActaId, "Acta Oficial"))
+            {
+                var res = await client.SendAsync(postActaManager);
+                res.StatusCode.Should().Be(HttpStatusCode.Created);
+                actaDocId = (await res.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>())!.Data!.Id;
+            }
+
+            // Modificar o desactivar ese acta en etapa cerrada queda bloqueado -> 400 BadRequest
+            using (var putActaClosed = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{actaDocId}", managerId, PermissionCodes.ProyectoGrado.N4PGPSG, closedNonRejectedInscId, dtActaId, "Acta Alterada"))
+            {
+                (await client.SendAsync(putActaClosed)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+            using (var patchActaClosed = new HttpRequestMessage(HttpMethod.Patch, $"/api/Document/{actaDocId}/status")
+            {
+                Content = JsonContent.Create(new UpdateStatusRequestDto { StatusRegister = false, IdUserUpdateAt = managerId, OperationRegister = "DeactClosed" })
+            })
+            {
+                patchActaClosed.Headers.Add("X-Test-UserId", managerId.ToString());
+                patchActaClosed.Headers.Add("X-Test-Permissions", PermissionCodes.ProyectoGrado.N4PGPSG);
+                (await client.SendAsync(patchActaClosed)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // En etapa/inscripcion rechazada, ni siquiera gestion puede cargar nueva acta -> 400 BadRequest
+            using (var postActaRejected = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", managerId, PermissionCodes.ProyectoGrado.N4PGPSG, rejectedInscId, dtActaId))
+            {
+                (await client.SendAsync(postActaRejected)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+        }
     }
 }

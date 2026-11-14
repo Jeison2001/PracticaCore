@@ -67,6 +67,34 @@ namespace Infrastructure.Services.Auth
         }
 
         /// <inheritdoc />
+        public async Task<bool> TryRevokeAtomicallyAsync(string token, CancellationToken ct = default)
+        {
+            var now = DateTimeOffset.UtcNow;
+
+            if (_context.Database.IsRelational())
+            {
+                var affected = await _context.RefreshTokens
+                    .Where(rt => rt.Token == token && rt.RevokedAt == null && rt.ExpiresAt > now)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(rt => rt.RevokedAt, now)
+                        .SetProperty(rt => rt.UpdatedAt, now),
+                        ct);
+                return affected == 1;
+            }
+
+            var refreshToken = await _context.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == token, ct);
+
+            if (refreshToken == null || refreshToken.RevokedAt.HasValue || refreshToken.ExpiresAt <= now)
+                return false;
+
+            refreshToken.RevokedAt = now;
+            refreshToken.UpdatedAt = now;
+            await _unitOfWork.CommitAsync(ct);
+            return true;
+        }
+
+        /// <inheritdoc />
         public async Task RevokeAsync(string token, CancellationToken ct = default)
         {
             var refreshToken = await _context.RefreshTokens
@@ -84,13 +112,14 @@ namespace Infrastructure.Services.Auth
         /// <inheritdoc />
         public async Task PurgeExpiredAsync(int userId, CancellationToken ct = default)
         {
-            var stale = await _context.RefreshTokens
-                .Where(rt => rt.IdUser == userId && (rt.RevokedAt != null || rt.ExpiresAt <= DateTimeOffset.UtcNow))
+            var now = DateTimeOffset.UtcNow;
+            var expired = await _context.RefreshTokens
+                .Where(rt => rt.IdUser == userId && rt.ExpiresAt <= now)
                 .ToListAsync(ct);
 
-            if (stale.Any())
+            if (expired.Any())
             {
-                _context.RefreshTokens.RemoveRange(stale);
+                _context.RefreshTokens.RemoveRange(expired);
                 await _unitOfWork.CommitAsync(ct);
             }
         }

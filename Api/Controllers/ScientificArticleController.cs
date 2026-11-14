@@ -56,6 +56,17 @@ namespace Api.Controllers
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            if (await this.IsInscriptionReadAccessDeniedAsync(
+                    id,
+                    ct,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.PublicacionArticulo.N3PCSGG))
+            {
+                return Forbid();
+            }
+
             var result = await _mediator.Send(new GetScientificArticleWithDetailsQuery(id));
             return Ok(new ApiResponse<ScientificArticleWithDetailsDto> { Success = true, Data = result });
         }
@@ -64,6 +75,15 @@ namespace Api.Controllers
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.PublicacionArticulo.N3PCSGG))
+            {
+                return Forbid();
+            }
+
             var query = new GetScientificArticlesByUserQuery(id, status);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<List<ScientificArticleWithDetailsDto>> { Success = true, Data = result });
@@ -73,6 +93,15 @@ namespace Api.Controllers
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(int id, [FromQuery] PaginatedRequest request)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.PublicacionArticulo.N3PCSGG))
+            {
+                return Forbid();
+            }
+
             var query = new GetScientificArticlesByTeacherQuery(
                 id,
                 request.PageNumber,

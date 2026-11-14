@@ -87,6 +87,19 @@ namespace Api.Controllers
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            if (await this.IsInscriptionReadAccessDeniedAsync(
+                    id,
+                    ct,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.ProyectoGrado.N4PGPPG,
+                    PermissionCodes.ProyectoGrado.N4PGPPA,
+                    PermissionCodes.ProyectoGrado.N4PGPPR))
+            {
+                return Forbid();
+            }
+
             var query = new GetProposalWithDetailsQuery(id);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<ProposalWithDetailsResponseDto> { Success = true, Data = result });
@@ -100,6 +113,17 @@ namespace Api.Controllers
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.ProyectoGrado.N4PGPPG,
+                    PermissionCodes.ProyectoGrado.N4PGPPA,
+                    PermissionCodes.ProyectoGrado.N4PGPPR))
+            {
+                return Forbid();
+            }
+
             var query = new GetProposalsByUserQuery(id, status);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<List<ProposalWithDetailsResponseDto>> { Success = true, Data = result });
@@ -111,6 +135,16 @@ namespace Api.Controllers
             int id,
             [FromQuery] PaginatedRequest request)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.ProyectoGrado.N4PGPPG,
+                    PermissionCodes.ProyectoGrado.N4PGPPA))
+            {
+                return Forbid();
+            }
+
             var query = new GetProposalsByTeacherQuery(
                 id,
                 request.PageNumber,
@@ -217,6 +251,27 @@ namespace Api.Controllers
                         Id = dto.Id == 0 ? id : dto.Id,
                         IdStateStage = propRadicadaState.Id,
                         Observation = existingProposal.Observation
+                    };
+                }
+                else
+                {
+                    // El comite/evaluador no puede saltar transiciones de estado ni notificaciones via PUT;
+                    // debe usar PATCH /api/Proposal/{id} (PatchProposalCommand).
+                    var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
+                    var existingProposal = await proposalRepo.GetByIdAsync(id);
+                    if (existingProposal == null)
+                    {
+                        return NotFound(new ApiResponse<ProposalDto>
+                        {
+                            Success = false,
+                            Errors = new List<string> { "Propuesta no encontrada." }
+                        });
+                    }
+
+                    dto = dto with
+                    {
+                        Id = dto.Id == 0 ? id : dto.Id,
+                        IdStateStage = existingProposal.IdStateStage
                     };
                 }
             }

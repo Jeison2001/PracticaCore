@@ -25,16 +25,20 @@ namespace Tests.UnitTests.Application.Commands
     {
         private readonly Mock<IUnitOfWork> _unitOfWorkMock;
         private readonly Mock<IRepository<StateStage, int>> _stateStageRepoMock;
+        private readonly Mock<IRepository<StageModality, int>> _stageModalityRepoMock;
         private readonly Mock<IRepository<InscriptionModality, int>> _inscriptionRepoMock;
 
         public ModalityFinalStateGuardTests()
         {
             _unitOfWorkMock = new Mock<IUnitOfWork>();
             _stateStageRepoMock = new Mock<IRepository<StateStage, int>>();
+            _stageModalityRepoMock = new Mock<IRepository<StageModality, int>>();
             _inscriptionRepoMock = new Mock<IRepository<InscriptionModality, int>>();
 
             _unitOfWorkMock.Setup(u => u.GetRepository<StateStage, int>())
                 .Returns(_stateStageRepoMock.Object);
+            _unitOfWorkMock.Setup(u => u.GetRepository<StageModality, int>())
+                .Returns(_stageModalityRepoMock.Object);
             _unitOfWorkMock.Setup(u => u.GetRepository<InscriptionModality, int>())
                 .Returns(_inscriptionRepoMock.Object);
         }
@@ -106,12 +110,67 @@ namespace Tests.UnitTests.Application.Commands
                     IsRejectionState = false
                 });
 
+            _stageModalityRepoMock.Setup(s => s.GetByIdAsync(1))
+                .ReturnsAsync(new StageModality { Id = 1, IdModality = 1, Code = "S1", Name = "Etapa 1", StatusRegister = true });
+            _stageModalityRepoMock.Setup(s => s.GetByIdAsync(2))
+                .ReturnsAsync(new StageModality { Id = 2, IdModality = 1, Code = "S2", Name = "Etapa 2", StatusRegister = true });
+
             // Act
             Func<Task> act = () => ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
-                _unitOfWorkMock.Object, 1, originalStateId, newStateId);
+                _unitOfWorkMock.Object, 1, originalStateId, newStateId, allowCrossStageWithinSameModality: true);
 
             // Assert
             await act.Should().NotThrowAsync();
+        }
+
+        [Fact]
+        public async Task ModalityStateHelper_WhenCrossStageWithoutOptIn_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            const int originalStateId = 11;
+            const int newStateId = 21;
+
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(originalStateId))
+                .ReturnsAsync(new StateStage { Id = originalStateId, IdStageModality = 1, Code = "S1_OPEN", Name = "Etapa 1 En Curso" });
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(newStateId))
+                .ReturnsAsync(new StateStage { Id = newStateId, IdStageModality = 2, Code = "S2_OPEN", Name = "Etapa 2 En Curso" });
+            _stageModalityRepoMock.Setup(s => s.GetByIdAsync(1))
+                .ReturnsAsync(new StageModality { Id = 1, IdModality = 1, Code = "S1", Name = "Etapa 1", StatusRegister = true });
+            _stageModalityRepoMock.Setup(s => s.GetByIdAsync(2))
+                .ReturnsAsync(new StageModality { Id = 2, IdModality = 1, Code = "S2", Name = "Etapa 2", StatusRegister = true });
+
+            // Act
+            Func<Task> act = () => ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
+                _unitOfWorkMock.Object, 1, originalStateId, newStateId, allowCrossStageWithinSameModality: false);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("No se puede transicionar directamente a un estado perteneciente a otra etapa.");
+        }
+
+        [Fact]
+        public async Task ModalityStateHelper_WhenCrossModality_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            const int originalStateId = 13;
+            const int newStateId = 23;
+
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(originalStateId))
+                .ReturnsAsync(new StateStage { Id = originalStateId, IdStageModality = 1, Code = "M1_OPEN", Name = "Modalidad 1" });
+            _stateStageRepoMock.Setup(s => s.GetByIdAsync(newStateId))
+                .ReturnsAsync(new StateStage { Id = newStateId, IdStageModality = 3, Code = "M2_OPEN", Name = "Modalidad 2" });
+            _stageModalityRepoMock.Setup(s => s.GetByIdAsync(1))
+                .ReturnsAsync(new StageModality { Id = 1, IdModality = 1, Code = "S1", Name = "Etapa M1", StatusRegister = true });
+            _stageModalityRepoMock.Setup(s => s.GetByIdAsync(3))
+                .ReturnsAsync(new StageModality { Id = 3, IdModality = 2, Code = "S3", Name = "Etapa M2", StatusRegister = true });
+
+            // Act
+            Func<Task> act = () => ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
+                _unitOfWorkMock.Object, 1, originalStateId, newStateId, allowCrossStageWithinSameModality: true);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("No se puede transicionar hacia un estado perteneciente a otra modalidad.");
         }
 
         [Fact]

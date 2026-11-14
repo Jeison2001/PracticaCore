@@ -171,7 +171,18 @@ namespace Api.Controllers
 
         [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPA, PermissionCodes.ProyectoGrado.N4PGPAA, PermissionCodes.PracticaAcademica.N4PAF0PA)]
         [HttpPatch("{id}/status")]
-        public override async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto) => await base.UpdateStatus(id, dto);
+        public override async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequestDto dto)
+        {
+            var result = await _mediator.Send(new UpdateTeachingAssignmentStatusCommand(
+                id,
+                dto.StatusRegister,
+                User.GetCurrentUserInfo(),
+                dto.OperationRegister));
+
+            return result
+                ? Ok(new ApiResponse<object> { Success = true, Messages = new List<string> { "Entity status updated successfully" } })
+                : NotFound(new ApiResponse<object> { Success = false, Errors = new List<string> { "Entity not found or update failed" } });
+        }
 
         [NonAction]
         public override Task<IActionResult> GetById(int id)

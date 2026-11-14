@@ -121,6 +121,29 @@ namespace Application.Common.Services.Documents
             PermissionCodes.ModalidadesGrado.N3MGPR,
         };
 
+        private static readonly HashSet<string> StageManagementPermissions = new(StringComparer.Ordinal)
+        {
+            PermissionCodes.Configuraciones.N3CFSU,
+            PermissionCodes.Configuraciones.N2CFDO,
+            PermissionCodes.Configuraciones.N3CFDOT,
+            PermissionCodes.ModalidadesGrado.N3MGPR,
+            PermissionCodes.ProyectoGrado.N4PGPPG,
+            PermissionCodes.ProyectoGrado.N4PGPPA,
+            PermissionCodes.ProyectoGrado.N4PGPAG,
+            PermissionCodes.ProyectoGrado.N4PGPAA,
+            PermissionCodes.ProyectoGrado.N4PGPPRG,
+            PermissionCodes.ProyectoGrado.N4PGPSG,
+            PermissionCodes.PracticaAcademica.N4PAF0PG,
+            PermissionCodes.PracticaAcademica.N4PAF0PA,
+            PermissionCodes.PracticaAcademica.N4PAF1PG,
+            PermissionCodes.PracticaAcademica.N4PAF2PG,
+            PermissionCodes.CoTerminal.N3CTSGG,
+            PermissionCodes.Seminario.N3SASGG,
+            PermissionCodes.PublicacionArticulo.N3PCSGG,
+            PermissionCodes.GradoPromedio.N3GPSGG,
+            PermissionCodes.SaberPro.N3SPSGG,
+        };
+
         private readonly IUnitOfWork _unitOfWork;
 
         public DocumentAccessGuard(IUnitOfWork unitOfWork)
@@ -144,36 +167,93 @@ namespace Application.Common.Services.Documents
 
             var inscriptionId = entity.IdInscriptionModality.Value;
 
-            // Permitir si el usuario es estudiante vinculado a la inscripcion (registro activo).
-            if (await IsStudentInInscriptionAsync(inscriptionId, currentUserId, cancellationToken))
-                return;
+            var inscription = await _unitOfWork.GetRepository<InscriptionModality, int>()
+                .GetFirstOrDefaultAsync(x => x.Id == inscriptionId && x.StatusRegister, cancellationToken);
+            if (inscription == null)
+                throw new ForbiddenAccessException("No tienes permiso para modificar este documento. La inscripcion no existe o esta inactiva.");
 
-            // O si es docente asignado activo, no revocado y confirmado en la inscripcion.
-            var taRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
-            var isTeacherInInscription = await taRepo.AnyAsync(
-                x => x.IdInscriptionModality == inscriptionId &&
-                     x.IdTeacher == currentUserId &&
-                     x.StatusRegister &&
-                     x.RevocationDate == null &&
-                     x.IsConfirmed,
-                cancellationToken);
+            var docType = await _unitOfWork.GetRepository<DocumentType, int>()
+                .GetFirstOrDefaultAsync(x => x.Id == entity.IdDocumentType && x.StatusRegister, cancellationToken);
+            if (docType == null)
+                throw new ForbiddenAccessException("El tipo de documento especificado no existe o esta inactivo.");
 
-            if (isTeacherInInscription)
-                return;
-
-            if (userPermissions != null &&
-                userPermissions.Count > 0 &&
-                await HasContextualReadPermissionAsync(
-                    inscriptionId,
-                    userPermissions,
-                    stageModalityId: null,
-                    documentTypeId: entity.IdDocumentType,
-                    cancellationToken))
+            StageModality? docTypeStage = null;
+            if (docType.IdStageModality.HasValue && docType.IdStageModality.Value > 0)
             {
-                return;
+                docTypeStage = await _unitOfWork.GetRepository<StageModality, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == docType.IdStageModality.Value && x.StatusRegister, cancellationToken);
+                if (docTypeStage == null || docTypeStage.IdModality != inscription.IdModality)
+                    throw new ForbiddenAccessException("El tipo de documento no corresponde a la modalidad de esta inscripcion.");
             }
 
-            throw new ForbiddenAccessException("No tienes permiso para modificar este documento. No estas vinculado a esta inscripcion.");
+            var docClass = await _unitOfWork.GetRepository<DocumentClass, int>()
+                .GetByIdAsync(docType.IdDocumentClass);
+            var docClassCode = docClass?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+
+            var isEvaluationConcept = string.Equals(docClassCode, DocumentClassCodes.DocEvaluacionConcepto, StringComparison.Ordinal);
+            var isAcademicRecord = string.Equals(docClassCode, DocumentClassCodes.DocAcademRegistro, StringComparison.Ordinal);
+            var isGuideOrFormat = string.Equals(docClassCode, DocumentClassCodes.DocGuiaFormato, StringComparison.Ordinal);
+            var isStaffDocument = isEvaluationConcept || isAcademicRecord;
+
+            var isStudent = await IsStudentInInscriptionAsync(inscriptionId, currentUserId, cancellationToken);
+            var modality = await _unitOfWork.GetRepository<Modality, int>()
+                .GetFirstOrDefaultAsync(x => x.Id == inscription.IdModality && x.StatusRegister, cancellationToken);
+            var hasStageManagementPerm = HasStageManagementPermission(modality?.Code, docTypeStage?.Code, userPermissions);
+
+            if (isGuideOrFormat)
+            {
+                if (!hasStageManagementPerm)
+                    throw new ForbiddenAccessException("Solo la administracion o gestion de la etapa puede modificar documentos guia o formatos institucionales.");
+            }
+            else if (!isStaffDocument)
+            {
+                // Entregables del estudiante: estrictamente solo los estudiantes autores activos de la inscripcion.
+                if (!isStudent)
+                    throw new ForbiddenAccessException("Solo los estudiantes autores registrados en esta inscripcion pueden cargar, modificar o eliminar documentos de entrega del estudiante.");
+            }
+            else
+            {
+                // Un estudiante inscrito nunca puede emitir, modificar ni eliminar documentos de evaluacion o actas/registros academicos.
+                if (isStudent)
+                    throw new ForbiddenAccessException("Los estudiantes no pueden cargar, modificar ni eliminar documentos de evaluacion o registro academico.");
+
+                var isConfirmedTeacher = await IsConfirmedTeacherInInscriptionAsync(inscriptionId, currentUserId, cancellationToken);
+                var isProposalEvaluator =
+                    isEvaluationConcept &&
+                    string.Equals(modality?.Code, ModalityCodes.ProyectoGrado, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(docTypeStage?.Code, StageModalityCodes.PgFasePropuesta, StringComparison.OrdinalIgnoreCase) &&
+                    userPermissions != null &&
+                    userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPR);
+
+                var canConfirmedTeacherWrite =
+                    isEvaluationConcept &&
+                    isConfirmedTeacher &&
+                    HasConfirmedTeacherWritePermission(modality?.Code, docTypeStage?.Code, userPermissions);
+
+                // Evaluaciones: docente confirmado de la inscripcion (con permiso de revision/gestion de la fase), evaluador de propuesta o gestion de la etapa.
+                // Registros academicos oficiales (DOC_ACADEM_REGISTRO): exclusivamente gestion de la etapa.
+                if (!canConfirmedTeacherWrite && !isProposalEvaluator && !hasStageManagementPerm)
+                    throw new ForbiddenAccessException("No tienes permiso para cargar o modificar documentos de evaluacion o registro academico en esta inscripcion.");
+
+                // En ediciones/eliminaciones sobre un documento de evaluacion/registro existente,
+                // restringir al autor original (si sigue autorizado) o a gestion/administracion de la etapa.
+                if (entity.Id > 0 &&
+                    entity.IdUserCreatedAt.HasValue &&
+                    entity.IdUserCreatedAt.Value != currentUserId &&
+                    !hasStageManagementPerm)
+                {
+                    throw new ForbiddenAccessException("Solo el autor que emitio este documento de evaluacion o la gestion de la etapa pueden modificarlo.");
+                }
+            }
+
+            await EnsureTargetStageAllowsDocumentMutationAsync(
+                inscription,
+                modality,
+                docTypeStage,
+                isAcademicRecord,
+                isExistingDocument: entity.Id > 0,
+                hasStageManagementPerm,
+                cancellationToken);
         }
 
         public async Task EnsureUserCanReadAsync(
@@ -200,16 +280,7 @@ namespace Application.Common.Services.Documents
             if (await IsStudentInInscriptionAsync(inscriptionId, userId, cancellationToken))
                 return;
 
-            var taRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
-            var isConfirmedTeacher = await taRepo.AnyAsync(
-                x => x.IdInscriptionModality == inscriptionId &&
-                     x.IdTeacher == userId &&
-                     x.StatusRegister &&
-                     x.RevocationDate == null &&
-                     x.IsConfirmed,
-                cancellationToken);
-
-            if (isConfirmedTeacher)
+            if (await IsConfirmedTeacherInInscriptionAsync(inscriptionId, userId, cancellationToken))
                 return;
 
             if (currentUser.Permissions != null &&
@@ -247,25 +318,28 @@ namespace Application.Common.Services.Documents
                 return false;
 
             var stageRepo = _unitOfWork.GetRepository<StageModality, int>();
-            int? effectiveStageId = null;
+            int? effectiveStageId = stageModalityId is > 0 ? stageModalityId.Value : null;
 
-            if (stageModalityId.HasValue && stageModalityId.Value > 0)
+            if (documentTypeId.HasValue && documentTypeId.Value > 0)
             {
-                effectiveStageId = stageModalityId.Value;
-            }
-            else
-            {
-                if (documentTypeId.HasValue && documentTypeId.Value > 0)
+                var docType = await _unitOfWork.GetRepository<DocumentType, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == documentTypeId.Value && x.StatusRegister, cancellationToken);
+                if (docType == null)
+                    return false;
+
+                // Evitar contrabando de filtro dual: si stageModalityId y docType.IdStageModality apuntan a etapas distintas, denegar.
+                if (effectiveStageId.HasValue &&
+                    docType.IdStageModality.HasValue &&
+                    docType.IdStageModality.Value > 0 &&
+                    docType.IdStageModality.Value != effectiveStageId.Value)
                 {
-                    var docType = await _unitOfWork.GetRepository<DocumentType, int>()
-                        .GetFirstOrDefaultAsync(x => x.Id == documentTypeId.Value && x.StatusRegister, cancellationToken);
-                    if (docType == null)
-                        return false;
-                    effectiveStageId = docType.IdStageModality;
+                    return false;
                 }
 
-                effectiveStageId ??= inscription.IdStageModality;
+                effectiveStageId ??= docType.IdStageModality;
             }
+
+            effectiveStageId ??= inscription.IdStageModality;
 
             StageModality? effectiveStage = null;
             if (effectiveStageId.HasValue)
@@ -345,6 +419,287 @@ namespace Application.Common.Services.Documents
             return uimRepo.AnyAsync(
                 x => x.IdInscriptionModality == inscriptionId && x.IdUser == userId && x.StatusRegister,
                 cancellationToken);
+        }
+
+        private Task<bool> IsConfirmedTeacherInInscriptionAsync(int inscriptionId, int userId, CancellationToken cancellationToken)
+        {
+            var taRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
+            return taRepo.AnyAsync(
+                x => x.IdInscriptionModality == inscriptionId &&
+                     x.IdTeacher == userId &&
+                     x.StatusRegister &&
+                     x.RevocationDate == null &&
+                     x.IsConfirmed,
+                cancellationToken);
+        }
+
+        private static bool HasConfirmedTeacherWritePermission(
+            string? modalityCode,
+            string? stageCode,
+            IReadOnlyCollection<string>? userPermissions)
+        {
+            if (userPermissions == null || userPermissions.Count == 0)
+                return false;
+
+            if (HasStageManagementPermission(modalityCode, stageCode, userPermissions))
+                return true;
+
+            if (string.IsNullOrWhiteSpace(modalityCode))
+                return false;
+
+            var contextualPerms = GetContextualReadPermissions(modalityCode, stageCode);
+            if (userPermissions.Any(contextualPerms.Contains))
+                return true;
+
+            return modalityCode.ToUpperInvariant() switch
+            {
+                ModalityCodes.ProyectoGrado => stageCode?.ToUpperInvariant() switch
+                {
+                    StageModalityCodes.PgFasePropuesta =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPC) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPR),
+                    StageModalityCodes.PgFaseAnteproyecto =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAR),
+                    StageModalityCodes.PgFaseProyectoInforme or StageModalityCodes.PgFaseProyecto =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPRR),
+                    StageModalityCodes.PgFaseSustentacion =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPSR),
+                    null or "" =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPC) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPR) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAR) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPRR) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPSR),
+                    _ => false,
+                },
+                ModalityCodes.PracticaAcademica => stageCode?.ToUpperInvariant() switch
+                {
+                    StageModalityCodes.PaFaseInscripcion =>
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PR),
+                    StageModalityCodes.PaFaseDesarrollo =>
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF1PR),
+                    StageModalityCodes.PaFaseEvaluacion =>
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF2PR),
+                    null or "" =>
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PR) ||
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF1PR) ||
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF2PR),
+                    _ => false,
+                },
+                _ => false,
+            };
+        }
+
+        private static bool HasStageManagementPermission(
+            string? modalityCode,
+            string? stageCode,
+            IReadOnlyCollection<string>? userPermissions)
+        {
+            if (userPermissions == null || userPermissions.Count == 0)
+                return false;
+
+            if (userPermissions.Any(GlobalDocumentAdminPermissions.Contains))
+                return true;
+
+            if (string.IsNullOrWhiteSpace(modalityCode))
+                return false;
+
+            return modalityCode.ToUpperInvariant() switch
+            {
+                ModalityCodes.ProyectoGrado => stageCode?.ToUpperInvariant() switch
+                {
+                    StageModalityCodes.PgFasePropuesta =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPA),
+                    StageModalityCodes.PgFaseAnteproyecto =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAG) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAA),
+                    StageModalityCodes.PgFaseProyectoInforme or StageModalityCodes.PgFaseProyecto =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPRG),
+                    StageModalityCodes.PgFaseSustentacion =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPSG),
+                    _ =>
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAG) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAA) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPRG) ||
+                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPSG),
+                },
+                ModalityCodes.PracticaAcademica => stageCode?.ToUpperInvariant() switch
+                {
+                    StageModalityCodes.PaFaseInscripcion =>
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PG) ||
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA),
+                    StageModalityCodes.PaFaseDesarrollo =>
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF1PG),
+                    StageModalityCodes.PaFaseEvaluacion =>
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF2PG),
+                    _ =>
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PG) ||
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA) ||
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF1PG) ||
+                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF2PG),
+                },
+                ModalityCodes.CoTerminal => userPermissions.Contains(PermissionCodes.CoTerminal.N3CTSGG),
+                ModalityCodes.SeminarioAct => userPermissions.Contains(PermissionCodes.Seminario.N3SASGG),
+                ModalityCodes.PublicacionArticulo => userPermissions.Contains(PermissionCodes.PublicacionArticulo.N3PCSGG),
+                ModalityCodes.GradoPromedio => userPermissions.Contains(PermissionCodes.GradoPromedio.N3GPSGG),
+                ModalityCodes.SaberPro => userPermissions.Contains(PermissionCodes.SaberPro.N3SPSGG),
+                _ => false,
+            };
+        }
+
+        private async Task EnsureTargetStageAllowsDocumentMutationAsync(
+            InscriptionModality inscription,
+            Modality? modality,
+            StageModality? docTypeStage,
+            bool isAcademicRecord,
+            bool isExistingDocument,
+            bool hasStageManagementPerm,
+            CancellationToken cancellationToken)
+        {
+            // No bloquear por StateInscription.IsFinalStateForStage porque APROBADO marca esa bandera tras aprobar la inscripcion inicial.
+            if (inscription.IsFinalRejection)
+                throw new InvalidOperationException("La inscripcion se encuentra en estado de rechazo definitivo; no se permiten modificaciones de documentos.");
+
+            var stateInscription = await _unitOfWork.GetRepository<StateInscription, int>()
+                .GetByIdAsync(inscription.IdStateInscription);
+            if (stateInscription != null && stateInscription.IsRejectionState)
+                throw new InvalidOperationException($"La inscripcion se encuentra en estado de rechazo ('{stateInscription.Name}'); no se permiten modificaciones de documentos.");
+
+            StageModality? currentInscriptionStage = null;
+            if (inscription.IdStageModality.HasValue && inscription.IdStageModality.Value > 0)
+            {
+                currentInscriptionStage = await _unitOfWork.GetRepository<StageModality, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == inscription.IdStageModality.Value && x.StatusRegister, cancellationToken);
+            }
+
+            var allowOfficialRecordUploadOnNonRejectedClosedStage =
+                isAcademicRecord && !isExistingDocument && hasStageManagementPerm;
+
+            if (modality == null || string.IsNullOrWhiteSpace(modality.Code))
+                return;
+
+            var targetStateStage = await ResolveTargetStateStageAsync(
+                inscription,
+                modality.Code,
+                docTypeStage ?? currentInscriptionStage,
+                cancellationToken);
+
+            if (targetStateStage != null && targetStateStage.IsRejectionState)
+            {
+                throw new InvalidOperationException($"La etapa se encuentra en estado de rechazo ('{targetStateStage.Name}'); no se permiten cargas ni modificaciones de documentos.");
+            }
+
+            var isSupersededStage =
+                docTypeStage != null &&
+                currentInscriptionStage != null &&
+                docTypeStage.Id != currentInscriptionStage.Id &&
+                docTypeStage.StageOrder < currentInscriptionStage.StageOrder;
+
+            if (isSupersededStage)
+            {
+                var currentStateStage = await ResolveTargetStateStageAsync(
+                    inscription,
+                    modality.Code,
+                    currentInscriptionStage,
+                    cancellationToken);
+
+                if (currentStateStage != null && currentStateStage.IsRejectionState)
+                {
+                    throw new InvalidOperationException($"La modalidad se encuentra en estado de rechazo ('{currentStateStage.Name}'); no se permiten cargas ni modificaciones de documentos.");
+                }
+
+                if (!allowOfficialRecordUploadOnNonRejectedClosedStage)
+                {
+                    throw new InvalidOperationException("La fase del tipo de documento ya fue superada y cerrada; no se permiten cargas, modificaciones ni eliminaciones.");
+                }
+
+                return;
+            }
+
+            if (targetStateStage != null &&
+                (targetStateStage.IsFinalStateForStage || targetStateStage.IsFinalStateForModalityOverall) &&
+                !allowOfficialRecordUploadOnNonRejectedClosedStage)
+            {
+                throw new InvalidOperationException($"La etapa actual ya se encuentra cerrada ('{targetStateStage.Name}'); no se permiten cargas, modificaciones ni eliminaciones de documentos.");
+            }
+        }
+
+        private async Task<StateStage?> ResolveTargetStateStageAsync(
+            InscriptionModality inscription,
+            string modalityCode,
+            StageModality? targetStage,
+            CancellationToken cancellationToken)
+        {
+            int? stateStageId = null;
+            var normalizedModality = modalityCode.ToUpperInvariant();
+
+            if (normalizedModality == ModalityCodes.ProyectoGrado)
+            {
+                switch (targetStage?.Code?.ToUpperInvariant())
+                {
+                    case StageModalityCodes.PgFasePropuesta:
+                        stateStageId = (await _unitOfWork.GetRepository<Proposal, int>()
+                            .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+                        break;
+                    case StageModalityCodes.PgFaseAnteproyecto:
+                        stateStageId = (await _unitOfWork.GetRepository<PreliminaryProject, int>()
+                            .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+                        break;
+                    case StageModalityCodes.PgFaseProyectoInforme:
+                    case StageModalityCodes.PgFaseProyecto:
+                        stateStageId = (await _unitOfWork.GetRepository<ProjectFinal, int>()
+                            .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+                        break;
+                    case StageModalityCodes.PgFaseSustentacion:
+                        var latestPresentation = (await _unitOfWork.GetRepository<ProjectPresentation, int>()
+                            .GetAllAsync(
+                                filter: x => x.IdInscriptionModality == inscription.Id && x.StatusRegister,
+                                orderBy: q => q.OrderByDescending(x => x.AttemptNumber).ThenByDescending(x => x.Id),
+                                pageNumber: 1,
+                                pageSize: 1))
+                            .FirstOrDefault();
+                        stateStageId = latestPresentation?.IdStateStage;
+                        break;
+                }
+            }
+            else if (normalizedModality == ModalityCodes.PracticaAcademica)
+            {
+                stateStageId = (await _unitOfWork.GetRepository<AcademicPractice, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+            }
+            else if (normalizedModality == ModalityCodes.CoTerminal)
+            {
+                stateStageId = (await _unitOfWork.GetRepository<CoTerminal, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+            }
+            else if (normalizedModality == ModalityCodes.SeminarioAct)
+            {
+                stateStageId = (await _unitOfWork.GetRepository<Seminar, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+            }
+            else if (normalizedModality == ModalityCodes.PublicacionArticulo)
+            {
+                stateStageId = (await _unitOfWork.GetRepository<ScientificArticle, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+            }
+            else if (normalizedModality == ModalityCodes.GradoPromedio)
+            {
+                stateStageId = (await _unitOfWork.GetRepository<AcademicAverage, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+            }
+            else if (normalizedModality == ModalityCodes.SaberPro)
+            {
+                stateStageId = (await _unitOfWork.GetRepository<SaberPro, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == inscription.Id && x.StatusRegister, cancellationToken))?.IdStateStage;
+            }
+
+            if (stateStageId is null or <= 0)
+                return null;
+
+            return await _unitOfWork.GetRepository<StateStage, int>().GetByIdAsync(stateStageId.Value);
         }
     }
 }

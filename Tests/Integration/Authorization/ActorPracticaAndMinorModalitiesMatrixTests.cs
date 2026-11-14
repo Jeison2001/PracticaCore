@@ -1064,5 +1064,69 @@ namespace Tests.Integration.Authorization
                 await cleanupContext.SaveChangesAsync();
             }
         }
+
+        [Fact]
+        public async Task AcademicPractice_UnlinkedN4PAF0PR_WithoutManagement_GetsForbiddenEvenInPendDoc_AndInactiveByUserExcluded()
+        {
+            int practiceId = 0;
+            using (var context = GetFreshDbContext())
+            {
+                var seed = SeedAcademicPracticeScenario(context);
+                practiceId = seed.Practice301Id;
+                EnsureBaseUsersAndPeriod(context, 499);
+            }
+
+            // 1. Docente no vinculado (499) con solo N4PAF0PR (sin N4PAF0PG/N4PAF0PA) en PA_INSCRIPCION_PEND_DOC -> 403 Forbidden
+            using (var req = CreateRequest(HttpMethod.Put, $"/api/AcademicPractice/UpdatePhaseApproval/{practiceId}", PermissionCodes.PracticaAcademica.N4PAF0PR, "499"))
+            {
+                req.Content = JsonContent.Create(new UpdatePhaseApprovalDto
+                {
+                    Id = practiceId,
+                    NewStateStageId = 11,
+                    Observations = "Bypass sin asignacion"
+                });
+                var res = await _client.SendAsync(req);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 2. Anti-IDOR en WithDetails y ByUser cruzado para otro estudiante
+            using (var crossByUser = CreateRequest(HttpMethod.Get, "/api/AcademicPractice/ByUser/301", PermissionCodes.PracticaAcademica.N3PAF0C, "405"))
+            {
+                (await _client.SendAsync(crossByUser)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+            using (var unlinkedDetails = CreateRequest(HttpMethod.Get, $"/api/AcademicPractice/WithDetails/{practiceId}", PermissionCodes.PracticaAcademica.N3PAF0C, "405"))
+            {
+                (await _client.SendAsync(unlinkedDetails)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 3. Desactivar UserInscriptionModality excluye practica de ByUser/{id}
+            try
+            {
+                using (var deactivateScope = _factory.Services.CreateScope())
+                {
+                    var deactivateContext = deactivateScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var uim = deactivateContext.Set<UserInscriptionModality>().First(x => x.IdInscriptionModality == practiceId && x.IdUser == 301);
+                    uim.StatusRegister = false;
+                    await deactivateContext.SaveChangesAsync();
+                }
+
+                using var ownByUser = CreateRequest(HttpMethod.Get, "/api/AcademicPractice/ByUser/301", PermissionCodes.PracticaAcademica.N3PAF0C, "301");
+                var resp = await _client.SendAsync(ownByUser);
+                resp.StatusCode.Should().Be(HttpStatusCode.OK);
+                var body = await resp.Content.ReadFromJsonAsync<ApiResponse<List<AcademicPracticeWithDetailsResponseDto>>>();
+                body!.Data!.Should().NotContain(x => x.AcademicPractice!.Id == practiceId);
+            }
+            finally
+            {
+                using var restoreScope = _factory.Services.CreateScope();
+                var restoreContext = restoreScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var uim = restoreContext.Set<UserInscriptionModality>().FirstOrDefault(x => x.IdInscriptionModality == practiceId && x.IdUser == 301);
+                if (uim != null)
+                {
+                    uim.StatusRegister = true;
+                    await restoreContext.SaveChangesAsync();
+                }
+            }
+        }
     }
 }

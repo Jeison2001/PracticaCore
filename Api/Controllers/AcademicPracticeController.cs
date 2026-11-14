@@ -62,6 +62,20 @@ namespace Api.Controllers
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            if (await this.IsInscriptionReadAccessDeniedAsync(
+                    id,
+                    ct,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.PracticaAcademica.N4PAF0PG,
+                    PermissionCodes.PracticaAcademica.N4PAF0PA,
+                    PermissionCodes.PracticaAcademica.N4PAF1PG,
+                    PermissionCodes.PracticaAcademica.N4PAF2PG))
+            {
+                return Forbid();
+            }
+
             var query = new GetAcademicPracticeWithDetailsQuery(id);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<AcademicPracticeWithDetailsResponseDto> { Success = true, Data = result });
@@ -77,6 +91,18 @@ namespace Api.Controllers
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.PracticaAcademica.N4PAF0PG,
+                    PermissionCodes.PracticaAcademica.N4PAF0PA,
+                    PermissionCodes.PracticaAcademica.N4PAF1PG,
+                    PermissionCodes.PracticaAcademica.N4PAF2PG))
+            {
+                return Forbid();
+            }
+
             var query = new GetAcademicPracticesByUserQuery(id, status);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<List<AcademicPracticeWithDetailsResponseDto>> { Success = true, Data = result });
@@ -91,6 +117,18 @@ namespace Api.Controllers
             int id,
             [FromQuery] PaginatedRequest request)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.PracticaAcademica.N4PAF0PG,
+                    PermissionCodes.PracticaAcademica.N4PAF0PA,
+                    PermissionCodes.PracticaAcademica.N4PAF1PG,
+                    PermissionCodes.PracticaAcademica.N4PAF2PG))
+            {
+                return Forbid();
+            }
+
             var query = new GetAcademicPracticesByTeacherQuery(
                 id,
                 request.PageNumber,

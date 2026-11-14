@@ -60,13 +60,15 @@ namespace Application.Shared.Commands.Documents.Handlers
                 idDocumentType = docType.Id;
             }
 
-            if (request.Dto.IdInscriptionModality != entity.IdInscriptionModality)
+            if (request.Dto.IdInscriptionModality != entity.IdInscriptionModality || idDocumentType != entity.IdDocumentType)
             {
                 await _accessGuard.EnsureUserCanModifyAsync(
                     new Document
                     {
+                        Id = entity.Id,
                         IdInscriptionModality = request.Dto.IdInscriptionModality,
-                        IdDocumentType = idDocumentType
+                        IdDocumentType = idDocumentType,
+                        IdUserCreatedAt = entity.IdUserCreatedAt
                     },
                     request.CurrentUser.UserId ?? 0,
                     cancellationToken,

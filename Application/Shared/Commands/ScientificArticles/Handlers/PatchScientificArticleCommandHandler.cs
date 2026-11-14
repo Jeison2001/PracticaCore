@@ -68,6 +68,7 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
                     entity.Id,
                     originalStateId,
                     request.Dto.IdStateStage.Value,
+                    allowCrossStageWithinSameModality: true,
                     cancellationToken);
 
                 entity.IdStateStage = request.Dto.IdStateStage.Value;

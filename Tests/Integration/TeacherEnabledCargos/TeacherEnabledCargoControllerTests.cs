@@ -46,8 +46,24 @@ namespace Tests.Integration.TeacherEnabledCargos
             var asesor = new TypeTeachingAssignment { Code = "ASESOR", Name = "Asesor", Description = "Asesor", MaxAssignments = 15, StatusRegister = true };
             var jurado = new TypeTeachingAssignment { Code = "JURADO_EVALUADOR", Name = "Jurado Evaluador", Description = "Jurado", MaxAssignments = 20, StatusRegister = true };
 
+            var teacherRole = context.Set<Role>().FirstOrDefault(r => r.Code == "TEACHER" && r.StatusRegister)
+                ?? new Role { Code = "TEACHER", Name = "Docente", Description = "Docente", StatusRegister = true };
+            if (teacherRole.Id == 0)
+            {
+                context.Set<Role>().Add(teacherRole);
+                await context.SaveChangesAsync();
+            }
+
             context.Set<User>().Add(teacher);
             context.Set<TypeTeachingAssignment>().AddRange(director, asesor, jurado);
+            await context.SaveChangesAsync();
+
+            context.Set<UserRole>().Add(new UserRole
+            {
+                IdUser = teacher.Id,
+                IdRole = teacherRole.Id,
+                StatusRegister = true
+            });
             await context.SaveChangesAsync();
 
             return (teacher, new List<TypeTeachingAssignment> { director, asesor, jurado });
@@ -140,7 +156,7 @@ namespace Tests.Integration.TeacherEnabledCargos
         }
 
         [Fact]
-        public async Task PostByUser_WithEmptyList_DeactivatesAllCargos()
+        public async Task PostByUser_WithEmptyList_ReturnsBadRequestAndPreservesExistingCargos()
         {
             var (teacher, cargos) = await SeedDataAsync();
             var ids = new List<int> { cargos[0].Id, cargos[1].Id };
@@ -148,11 +164,40 @@ namespace Tests.Integration.TeacherEnabledCargos
             await _client.PostAsJsonAsync("/api/TeacherEnabledCargo/ByUser", AssignmentBody(teacher.Id, ids));
 
             var emptyResponse = await _client.PostAsJsonAsync("/api/TeacherEnabledCargo/ByUser", AssignmentBody(teacher.Id, new List<int>()));
-            emptyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+            emptyResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
             var getResponse = await _client.GetAsync($"/api/TeacherEnabledCargo/ByUser/{teacher.Id}");
             var result = await getResponse.Content.ReadFromJsonAsync<ApiResponse<List<TeacherEnabledCargoDto>>>();
-            result!.Data.Should().BeEmpty();
+            result!.Data.Should().HaveCount(2);
+            result.Data.Select(c => c.IdTypeTeachingAssignment).Should().BeEquivalentTo(ids);
+        }
+
+        [Fact]
+        public async Task PostByUser_WithoutActiveTeacherRole_ReturnsBadRequest()
+        {
+            var (teacher, cargos) = await SeedDataAsync();
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var nonTeacher = new User
+                {
+                    FirstName = "No",
+                    LastName = "Teacher",
+                    Email = $"noteacher_{Guid.NewGuid():N}@test.com",
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    IdIdentificationType = teacher.IdIdentificationType,
+                    IdAcademicProgram = teacher.IdAcademicProgram,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(nonTeacher);
+                await context.SaveChangesAsync();
+
+                var response = await _client.PostAsJsonAsync(
+                    "/api/TeacherEnabledCargo/ByUser",
+                    AssignmentBody(nonTeacher.Id, new List<int> { cargos[0].Id }));
+                response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
         }
 
         [Fact]

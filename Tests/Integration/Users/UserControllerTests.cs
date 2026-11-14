@@ -551,5 +551,91 @@ namespace Tests.Integration.Users
             var refreshResponse = await _client.SendAsync(refreshRequest);
             refreshResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
+
+        [Fact]
+        public async Task Update_SelfWithoutN3CFSU_PreservesImmutableAndAcademicFields()
+        {
+            var (idType, program) = await SeedDependenciesAsync();
+            int userId;
+            string originalEmail = $"protected_{Guid.NewGuid():N}@test.com";
+            string originalIdentification = Guid.NewGuid().ToString("N")[..10];
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = new User
+                {
+                    FirstName = "Original",
+                    LastName = "Student",
+                    Email = originalEmail,
+                    Identification = originalIdentification,
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    CurrentAcademicPeriod = "2025-1",
+                    CumulativeAverage = 3.8,
+                    ApprovedCredits = 100,
+                    TotalAcademicCredits = 160,
+                    Observation = "Observacion oficial",
+                    IdStudyPlan = 12,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(user);
+                await context.SaveChangesAsync();
+                userId = user.Id;
+            }
+
+            var tamperedDto = new UserDto
+            {
+                Id = userId,
+                FirstName = "UpdatedName",
+                LastName = "UpdatedLastName",
+                PhoneNumber = "3001234567",
+                Email = $"tampered_{Guid.NewGuid():N}@evil.com",
+                Identification = "9999999999",
+                IdIdentificationType = 999,
+                IdAcademicProgram = 999,
+                IdStudyPlan = 999,
+                CurrentAcademicPeriod = "2099-2",
+                CumulativeAverage = 5.0,
+                ApprovedCredits = 160,
+                TotalAcademicCredits = 160,
+                Observation = "Manipulada",
+                StatusRegister = false,
+                Roles = new List<Application.Shared.DTOs.Roles.RoleSimpleDto>
+                {
+                    new() { Id = 1, Code = "ADMIN", Name = "Admin" }
+                }
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"{BaseUrl}/{userId}")
+            {
+                Content = JsonContent.Create(tamperedDto)
+            };
+            request.Headers.Add("X-Test-Permissions", PermissionCodes.Configuraciones.N2CFP);
+            request.Headers.Add("X-Test-UserId", userId.ToString());
+
+            var response = await _client.SendAsync(request);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using (var verifyScope = _factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persisted = await verifyContext.Set<User>().AsNoTracking().FirstAsync(u => u.Id == userId);
+                persisted.FirstName.Should().Be("UpdatedName");
+                persisted.LastName.Should().Be("UpdatedLastName");
+                persisted.PhoneNumber.Should().Be("3001234567");
+                persisted.Email.Should().Be(originalEmail);
+                persisted.Identification.Should().Be(originalIdentification);
+                persisted.IdIdentificationType.Should().Be(idType.Id);
+                persisted.IdAcademicProgram.Should().Be(program.Id);
+                persisted.IdStudyPlan.Should().Be(12);
+                persisted.CurrentAcademicPeriod.Should().Be("2025-1");
+                persisted.CumulativeAverage.Should().Be(3.8);
+                persisted.ApprovedCredits.Should().Be(100);
+                persisted.TotalAcademicCredits.Should().Be(160);
+                persisted.Observation.Should().Be("Observacion oficial");
+                persisted.StatusRegister.Should().BeTrue();
+            }
+        }
     }
 }

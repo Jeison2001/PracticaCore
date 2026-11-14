@@ -56,6 +56,17 @@ namespace Api.Controllers
         [HttpGet("WithDetails/{id}")]
         public async Task<IActionResult> GetWithDetails(int id)
         {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            if (await this.IsInscriptionReadAccessDeniedAsync(
+                    id,
+                    ct,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.Seminario.N3SASGG))
+            {
+                return Forbid();
+            }
+
             var result = await _mediator.Send(new GetSeminarWithDetailsQuery(id));
             return Ok(new ApiResponse<SeminarWithDetailsDto> { Success = true, Data = result });
         }
@@ -64,6 +75,15 @@ namespace Api.Controllers
         [HttpGet("ByUser/{id}")]
         public async Task<IActionResult> GetByUserId(int id, bool? status = null)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.Seminario.N3SASGG))
+            {
+                return Forbid();
+            }
+
             var query = new GetSeminarsByUserQuery(id, status);
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<List<SeminarWithDetailsDto>> { Success = true, Data = result });
@@ -73,6 +93,15 @@ namespace Api.Controllers
         [HttpGet("ByTeacher/{id}")]
         public async Task<IActionResult> GetByTeacherId(int id, [FromQuery] PaginatedRequest request)
         {
+            if (this.IsCrossActorAccessDenied(
+                    id,
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    PermissionCodes.ModalidadesGrado.N3MGPG,
+                    PermissionCodes.Seminario.N3SASGG))
+            {
+                return Forbid();
+            }
+
             var query = new GetSeminarsByTeacherQuery(
                 id,
                 request.PageNumber,

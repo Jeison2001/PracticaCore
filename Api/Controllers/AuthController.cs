@@ -4,8 +4,9 @@ using AutoMapper;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api.Controllers
 {
@@ -121,6 +122,7 @@ namespace Api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
+            var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
             var errors = new List<string>();
 
             if (request.IdIdentificationType <= 0)
@@ -133,12 +135,32 @@ namespace Api.Controllers
                 errors.Add("Primer nombre es requerido");
             if (string.IsNullOrEmpty(request.LastName))
                 errors.Add("Apellido es requerido");
+            if (request.IdAcademicProgram <= 0)
+                errors.Add("Programa académico es requerido");
+
+            // TODO: Cuando se habilite el registro restringido al correo institucional
+            // (p. ej. dominio @unicesar.edu.co), validar aquí el dominio permitido del email
+            // antes de consultar o persistir el usuario.
 
             if (errors.Any())
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = errors });
 
             try
             {
+                var idTypeRepo = _unitOfWork.GetRepository<Domain.Entities.IdentificationType, int>();
+                var identificationType = await idTypeRepo.GetFirstOrDefaultAsync(
+                    t => t.Id == request.IdIdentificationType && t.StatusRegister,
+                    cancellationToken);
+                if (identificationType == null)
+                    return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El tipo de identificación especificado no existe o no está activo." } });
+
+                var programRepo = _unitOfWork.GetRepository<Domain.Entities.AcademicProgram, int>();
+                var academicProgram = await programRepo.GetFirstOrDefaultAsync(
+                    p => p.Id == request.IdAcademicProgram && p.StatusRegister,
+                    cancellationToken);
+                if (academicProgram == null)
+                    return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El programa académico especificado no existe o no está activo." } });
+
                 var existingUser = await _userInfoRepository.FindUserByEmailAsync(request.Email);
                 if (existingUser != null)
                     return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El email ya está registrado" } });
@@ -150,14 +172,14 @@ namespace Api.Controllers
                 var roleRepo = _unitOfWork.GetRepository<Domain.Entities.Role, int>();
                 var studentRole = await roleRepo.GetFirstOrDefaultAsync(
                     r => r.Code == "STUDENT" && r.StatusRegister,
-                    HttpContext?.RequestAborted ?? CancellationToken.None);
+                    cancellationToken);
                 if (studentRole == null)
                     return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El rol de Estudiante no está configurado." } });
 
                 if (request.RoleId > 0 && request.RoleId != studentRole.Id)
                     return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "Solo se permite el registro con el rol de Estudiante." } });
 
-                await using var transaction = await _unitOfWork.BeginTransactionAsync();
+                await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
                 var user = new Domain.Entities.User
                 {
@@ -172,12 +194,12 @@ namespace Api.Controllers
                     OperationRegister = "User Registration"
                 };
 
-                var userRepo = _unitOfWork.GetRepository<Domain.Entities.User, int>();
-                await userRepo.AddAsync(user);
-                await _unitOfWork.CommitAsync();
-
                 try
                 {
+                    var userRepo = _unitOfWork.GetRepository<Domain.Entities.User, int>();
+                    await userRepo.AddAsync(user);
+                    await _unitOfWork.CommitAsync(cancellationToken);
+
                     var userRole = new Domain.Entities.UserRole
                     {
                         IdUser = user.Id,
@@ -188,15 +210,20 @@ namespace Api.Controllers
 
                     var userRoleRepo = _unitOfWork.GetRepository<Domain.Entities.UserRole, int>();
                     await userRoleRepo.AddAsync(userRole);
-                    await _unitOfWork.CommitAsync();
+                    await _unitOfWork.CommitAsync(cancellationToken);
+
+                    await transaction.CommitAsync(cancellationToken);
+                }
+                catch (DbUpdateException)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El email o número de identificación ya se encuentra registrado." } });
                 }
                 catch
                 {
-                    await transaction.RollbackAsync();
+                    await transaction.RollbackAsync(cancellationToken);
                     throw;
                 }
-
-                await transaction.CommitAsync();
 
                 var response = new RegisterResponse
                 {
@@ -220,6 +247,8 @@ namespace Api.Controllers
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "No se proporcionó refresh token." } });
 
             var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
+            await using var transaction = await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
             var rtEntity = await _refreshTokenService.ValidateTokenForReuseAsync(refreshTokenString, cancellationToken);
 
             if (rtEntity == null)
@@ -231,6 +260,7 @@ namespace Api.Controllers
             if (rtEntity.RevokedAt != null)
             {
                 await _refreshTokenService.RevokeAllTokensForUserAsync(rtEntity.IdUser, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
                 ClearAuthCookies();
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Fraude o reúso de sesión detectado. Todas las sesiones han sido revocadas." } });
             }
@@ -241,13 +271,22 @@ namespace Api.Controllers
             if (user == null || !user.StatusRegister)
             {
                 await _refreshTokenService.RevokeAllTokensForUserAsync(rtEntity.IdUser, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
                 ClearAuthCookies();
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Usuario inválido o inactivo." } });
             }
 
-            await _refreshTokenService.RevokeAsync(refreshTokenString, cancellationToken);
+            if (!await _refreshTokenService.TryRevokeAtomicallyAsync(refreshTokenString, cancellationToken))
+            {
+                await _refreshTokenService.RevokeAllTokensForUserAsync(rtEntity.IdUser, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                ClearAuthCookies();
+                return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Fraude o reúso de sesión detectado. Todas las sesiones han sido revocadas." } });
+            }
+
             await _refreshTokenService.PurgeExpiredAsync(rtEntity.IdUser, cancellationToken);
             var newRefreshToken = await _refreshTokenService.GenerateAsync(rtEntity.IdUser, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             SetRefreshTokenCookie(newRefreshToken.Token);
 
             var loginData = await _userInfoRepository.GetUserLoginDataAsync(user.Id);

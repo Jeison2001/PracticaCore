@@ -234,10 +234,8 @@ namespace Tests.Integration.Authorization
             ownPayload!.Success.Should().BeTrue();
             ownPayload.Data.Should().ContainSingle(i => i.InscriptionModality.Id == seed.PgInscriptionId);
 
-            // GetByUserId solo exige [RequirePermission] sin filtro anti-IDOR por claim sub; para 999 sin registros retorna 200 con lista vacia.
-            otherByUserRes.StatusCode.Should().Be(HttpStatusCode.OK);
-            var otherPayload = await otherByUserRes.Content.ReadFromJsonAsync<ApiResponse<List<InscriptionWithStudentsResponseDto>>>();
-            otherPayload!.Data.Should().BeEmpty();
+            // Anti-IDOR en GetByUserId: otro usuario sin permiso de gestion recibe 403 Forbidden.
+            otherByUserRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
             getAllStudentRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             patchStudentRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -679,11 +677,52 @@ namespace Tests.Integration.Authorization
             const int coordPaId = 9403;
 
             int docTypePropuestaId;
+            int docTypeEstSustId;
+            int docTypeEvalSustId;
             using (var scope = factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var doc1 = await context.Set<Document>().FindAsync(seed.Doc1PropuestaId);
                 docTypePropuestaId = doc1!.IdDocumentType;
+
+                var studentDocClass = context.Set<DocumentClass>().FirstOrDefault(dc => dc.Code == DocumentClassCodes.DocEntregableEst)
+                    ?? new DocumentClass
+                    {
+                        Code = DocumentClassCodes.DocEntregableEst,
+                        Name = "Entregable Estudiante",
+                        Description = "Entregable Estudiante",
+                        StatusRegister = true
+                    };
+                if (studentDocClass.Id == 0) context.Set<DocumentClass>().Add(studentDocClass);
+
+                var evalDocClass = context.Set<DocumentClass>().FirstOrDefault(dc => dc.Code == DocumentClassCodes.DocEvaluacionConcepto)
+                    ?? new DocumentClass
+                    {
+                        Code = DocumentClassCodes.DocEvaluacionConcepto,
+                        Name = "Evaluacion Concepto",
+                        Description = "Evaluacion Concepto",
+                        StatusRegister = true
+                    };
+                if (evalDocClass.Id == 0) context.Set<DocumentClass>().Add(evalDocClass);
+                await context.SaveChangesAsync();
+
+                var docTypeEstSust = new DocumentType
+                {
+                    Name = "Entregable Sustentacion",
+                    Description = "Entregable en etapa activa de sustentacion",
+                    IdDocumentClass = studentDocClass.Id,
+                    IdStageModality = seed.SustentacionStageId,
+                    StatusRegister = true
+                };
+                var docTypeEvalSust = new DocumentType
+                {
+                    Name = "Concepto Evaluador Sustentacion",
+                    Description = "Concepto evaluador en etapa activa de sustentacion",
+                    IdDocumentClass = evalDocClass.Id,
+                    IdStageModality = seed.SustentacionStageId,
+                    StatusRegister = true
+                };
+                context.Set<DocumentType>().AddRange(docTypeEstSust, docTypeEvalSust);
 
                 var directorCargo = new TypeTeachingAssignment
                 {
@@ -693,6 +732,8 @@ namespace Tests.Integration.Authorization
                 };
                 context.Set<TypeTeachingAssignment>().Add(directorCargo);
                 await context.SaveChangesAsync();
+                docTypeEstSustId = docTypeEstSust.Id;
+                docTypeEvalSustId = docTypeEvalSust.Id;
 
                 context.Set<TeachingAssignment>().AddRange(
                     new TeachingAssignment
@@ -717,30 +758,36 @@ namespace Tests.Integration.Authorization
             }
 
             // 1. UnlinkedStudent en POST y PUT -> 403 Forbidden
-            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", unlinkedStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Intento ajeno"))
-            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{seed.Doc1PropuestaId}", unlinkedStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Intento ajeno PUT"))
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", unlinkedStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypeEstSustId, "Intento ajeno"))
+            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{seed.Doc1PropuestaId}", unlinkedStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypeEstSustId, "Intento ajeno PUT"))
             {
                 (await client.SendAsync(postReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
                 (await client.SendAsync(putReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
 
-            // 2. ProposedTeacher (IsConfirmed = false) con N4PGPAR (otra etapa) en POST y PUT -> 403 Forbidden
-            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", proposedTeacherId, PermissionCodes.ProyectoGrado.N4PGPAR, seed.PgInscriptionId, docTypePropuestaId, "Intento no confirmado"))
-            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{seed.Doc1PropuestaId}", proposedTeacherId, PermissionCodes.ProyectoGrado.N4PGPAR, seed.PgInscriptionId, docTypePropuestaId, "Intento no confirmado PUT"))
+            // 2. ProposedTeacher (IsConfirmed = false) con N4PGPSR en POST y PUT -> 403 Forbidden
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", proposedTeacherId, PermissionCodes.ProyectoGrado.N4PGPSR, seed.PgInscriptionId, docTypeEvalSustId, "Intento no confirmado"))
+            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{seed.Doc1PropuestaId}", proposedTeacherId, PermissionCodes.ProyectoGrado.N4PGPSR, seed.PgInscriptionId, docTypeEvalSustId, "Intento no confirmado PUT"))
             {
                 (await client.SendAsync(postReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
                 (await client.SendAsync(putReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
 
             // 3. CoordPa (otra modalidad: N4PAF0PG) intentando POST en inscripcion PG -> 403 Forbidden
-            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", coordPaId, PermissionCodes.PracticaAcademica.N4PAF0PG, seed.PgInscriptionId, docTypePropuestaId, "Intento otra modalidad"))
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", coordPaId, PermissionCodes.PracticaAcademica.N4PAF0PG, seed.PgInscriptionId, docTypeEvalSustId, "Intento otra modalidad"))
             {
                 (await client.SendAsync(postReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
 
-            // 4. AssignedDirector (IsConfirmed = true) -> POST 201 Created y PUT 200 OK
+            // 4a. AssignedDirector intentando cargar un entregable de estudiante -> 403 Forbidden
+            using (var teacherOnStudentDocReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", assignedDirectorId, PermissionCodes.ProyectoGrado.N4PGPSR, seed.PgInscriptionId, docTypeEstSustId, "Docente en entregable estudiante"))
+            {
+                (await client.SendAsync(teacherOnStudentDocReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 4b. AssignedDirector (IsConfirmed = true) cargando DOC_EVALUACION_CONCEPTO -> POST 201 Created y PUT 200 OK
             int directorDocId;
-            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", assignedDirectorId, PermissionCodes.ProyectoGrado.N4PGPPC, seed.PgInscriptionId, docTypePropuestaId, "Doc Director"))
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", assignedDirectorId, PermissionCodes.ProyectoGrado.N4PGPSR, seed.PgInscriptionId, docTypeEvalSustId, "Doc Evaluacion Director"))
             {
                 var postRes = await client.SendAsync(postReq);
                 postRes.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -749,18 +796,30 @@ namespace Tests.Integration.Authorization
                 created!.Success.Should().BeTrue();
                 directorDocId = created.Data!.Id;
             }
-            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{directorDocId}", assignedDirectorId, PermissionCodes.ProyectoGrado.N4PGPPC, seed.PgInscriptionId, docTypePropuestaId, "Doc Director v2"))
+            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{directorDocId}", assignedDirectorId, PermissionCodes.ProyectoGrado.N4PGPSR, seed.PgInscriptionId, docTypeEvalSustId, "Doc Evaluacion Director v2"))
             {
                 var putRes = await client.SendAsync(putReq);
                 putRes.StatusCode.Should().Be(HttpStatusCode.OK);
                 var updated = await putRes.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>();
                 updated!.Success.Should().BeTrue();
-                updated.Data!.Name.Should().Be("Doc Director v2");
+                updated.Data!.Name.Should().Be("Doc Evaluacion Director v2");
             }
 
-            // 5. OwnerStudent -> POST 201 Created y PUT 200 OK
+            // 5a. OwnerStudent intentando cargar DOC_EVALUACION_CONCEPTO -> 403 Forbidden
+            using (var studentOnEvalDocReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypeEvalSustId, "Estudiante en evaluacion"))
+            {
+                (await client.SendAsync(studentOnEvalDocReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 5b. OwnerStudent intentando cargar sobre fase superada (Propuesta cuando ya va en Sustentacion) -> 400 BadRequest
+            using (var supersededStageReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Entregable fase superada"))
+            {
+                (await client.SendAsync(supersededStageReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // 5c. OwnerStudent cargando entregable en etapa activa -> POST 201 Created y PUT 200 OK
             int studentDocId;
-            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Doc Estudiante"))
+            using (var postReq = CreateMultipartUploadRequest(HttpMethod.Post, "/api/Document", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypeEstSustId, "Doc Estudiante"))
             {
                 var postRes = await client.SendAsync(postReq);
                 postRes.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -768,7 +827,7 @@ namespace Tests.Integration.Authorization
                 created!.Success.Should().BeTrue();
                 studentDocId = created.Data!.Id;
             }
-            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{studentDocId}", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypePropuestaId, "Doc Estudiante v2"))
+            using (var putReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{studentDocId}", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PgInscriptionId, docTypeEstSustId, "Doc Estudiante v2"))
             {
                 var putRes = await client.SendAsync(putReq);
                 putRes.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -778,7 +837,7 @@ namespace Tests.Integration.Authorization
             }
 
             // 6. OwnerStudent intentando mover su documento a otra inscripcion ajena (PaInscriptionId) -> 403 Forbidden
-            using (var moveReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{studentDocId}", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PaInscriptionId, docTypePropuestaId, "Movimiento ilegal"))
+            using (var moveReq = CreateMultipartUploadRequest(HttpMethod.Put, $"/api/Document/{studentDocId}", ownerStudentId, PermissionCodes.ProyectoGrado.N3PGRP, seed.PaInscriptionId, docTypeEstSustId, "Movimiento ilegal"))
             {
                 var moveRes = await client.SendAsync(moveReq);
                 moveRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -1005,6 +1064,83 @@ namespace Tests.Integration.Authorization
                         await cleanupContext.SaveChangesAsync();
                     }
                 }
+            }
+        }
+
+        [Fact]
+        public async Task DualFilterSmuggling_And_EvaluationHistoryProjectPresentation_EnforceAuthorization()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var factory = CreateFactoryWithMockStorage(storageMock);
+            using var client = factory.CreateClient();
+            var seed = await SeedDocumentAndInscriptionMatrixAsync(factory.Services, storageMock);
+
+            int presentationId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var stageState = new StateStage
+                {
+                    Code = $"SUST_{Guid.NewGuid():N}"[..16],
+                    Name = "Programada",
+                    IdStageModality = seed.SustentacionStageId,
+                    StatusRegister = true
+                };
+                context.Set<StateStage>().Add(stageState);
+                await context.SaveChangesAsync();
+
+                var pres = new ProjectPresentation
+                {
+                    Id = seed.PgInscriptionId + 50000,
+                    IdInscriptionModality = seed.PgInscriptionId,
+                    IdStateStage = stageState.Id,
+                    AttemptNumber = 1,
+                    StatusRegister = true
+                };
+                context.Set<ProjectPresentation>().Add(pres);
+                await context.SaveChangesAsync();
+                presentationId = pres.Id;
+            }
+
+            // 1. Contrabando de filtro dual: usuario con permiso solo de Propuesta pasa idStageModality=Propuesta
+            // y Filters[idDocumentType]=Informe -> 403 Forbidden.
+            using (var smuggleReq = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Document/ByInscriptionModality/{seed.PgInscriptionId}?idStageModality={seed.PropuestaStageId}&Filters[idDocumentType]={seed.DocTypeInformeId}&PageNumber=1&PageSize=10",
+                501,
+                PermissionCodes.ProyectoGrado.N4PGPPG))
+            {
+                var smuggleRes = await client.SendAsync(smuggleReq);
+                smuggleRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 2. Evaluation/history para ProjectPresentation cuyo Id != IdInscriptionModality:
+            // Estudiante no miembro -> 403, usuario sin permisos -> 403, estudiante dueno -> 200 OK.
+            using (var alienPresHist = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(ProjectPresentation)}/{presentationId}",
+                999,
+                PermissionCodes.ModalidadesGrado.N2MGC))
+            {
+                (await client.SendAsync(alienPresHist)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            using (var noPermPresHist = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(ProjectPresentation)}/{presentationId}",
+                101,
+                "NONE"))
+            {
+                (await client.SendAsync(noPermPresHist)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            using (var ownerPresHist = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(ProjectPresentation)}/{presentationId}",
+                101,
+                PermissionCodes.ModalidadesGrado.N2MGC))
+            {
+                (await client.SendAsync(ownerPresHist)).StatusCode.Should().Be(HttpStatusCode.OK);
             }
         }
     }

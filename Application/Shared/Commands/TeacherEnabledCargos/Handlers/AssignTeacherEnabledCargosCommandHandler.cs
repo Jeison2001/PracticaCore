@@ -1,4 +1,5 @@
 using Application.Shared.DTOs.TeacherEnabledCargos;
+using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using MediatR;
 
@@ -23,9 +24,44 @@ namespace Application.Shared.Commands.TeacherEnabledCargos.Handlers
 
         public async Task<List<TeacherEnabledCargoDto>> Handle(AssignTeacherEnabledCargosCommand request, CancellationToken cancellationToken)
         {
+            var requestedIds = request.TypeTeachingAssignmentIds?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<int>();
+
+            if (requestedIds.Count == 0)
+            {
+                throw new InvalidOperationException("Debe especificar al menos un cargo docente habilitado.");
+            }
+
+            var user = await _unitOfWork.GetRepository<User, int>()
+                .GetFirstOrDefaultAsync(u => u.Id == request.UserId && u.StatusRegister, cancellationToken);
+            if (user == null)
+            {
+                throw new KeyNotFoundException($"El usuario con ID {request.UserId} no existe o está inactivo.");
+            }
+
+            var teacherRole = await _unitOfWork.GetRepository<Role, int>()
+                .GetFirstOrDefaultAsync(r => r.Code == "TEACHER" && r.StatusRegister, cancellationToken);
+
+            var hasActiveTeacherRole = teacherRole != null && await _unitOfWork.GetRepository<UserRole, int>()
+                .AnyAsync(ur => ur.IdUser == request.UserId && ur.IdRole == teacherRole.Id && ur.StatusRegister, cancellationToken);
+
+            if (!hasActiveTeacherRole)
+            {
+                throw new InvalidOperationException("Solo se pueden habilitar cargos docentes a usuarios con el rol activo de Docente (TEACHER).");
+            }
+
+            var activeCargoCount = await _unitOfWork.GetRepository<TypeTeachingAssignment, int>()
+                .CountAsync(t => requestedIds.Contains(t.Id) && t.StatusRegister, cancellationToken);
+            if (activeCargoCount != requestedIds.Count)
+            {
+                throw new InvalidOperationException("Uno o más cargos docentes especificados no existen o están inactivos.");
+            }
+
             await _repository.BulkAssignAsync(
                 request.UserId,
-                request.TypeTeachingAssignmentIds,
+                requestedIds,
                 request.CurrentUser.UserId,
                 cancellationToken);
 

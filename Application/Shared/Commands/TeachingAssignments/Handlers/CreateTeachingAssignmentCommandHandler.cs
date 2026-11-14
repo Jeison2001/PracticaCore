@@ -369,7 +369,8 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                     entity.IdInscriptionModality,
                     type.Id,
                     userId,
-                    cancellationToken);
+                    cancellationToken,
+                    _jobEnqueuer);
             }
         }
 

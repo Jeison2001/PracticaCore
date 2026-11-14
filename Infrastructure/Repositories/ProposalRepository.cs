@@ -161,7 +161,7 @@ namespace Infrastructure.Repositories
             // 1. Obtener IDs de modalidades donde participa el usuario
             var inscriptionModalityIds = await _dbContext.Set<UserInscriptionModality>()
                 .AsNoTracking()
-                .Where(uim => uim.IdUser == userId)
+                .Where(uim => uim.IdUser == userId && uim.StatusRegister)
                 .Select(uim => uim.IdInscriptionModality)
                 .Distinct()
                 .ToListAsync(cancellationToken);

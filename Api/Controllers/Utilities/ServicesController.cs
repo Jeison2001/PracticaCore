@@ -1,9 +1,11 @@
 using Api.Responses;
 using Domain.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers.Utilities
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class ServicesController : ControllerBase

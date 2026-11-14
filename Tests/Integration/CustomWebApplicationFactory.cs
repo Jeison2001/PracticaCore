@@ -100,9 +100,6 @@ namespace Tests.Integration
                 if (serviceProvider == null)
                     throw new InvalidOperationException("ServiceProvider not available");
 
-                // Crear una nueva base de datos en memoria con nombre único
-                var newDbName = Guid.NewGuid().ToString();
-
                 // Crear un nuevo scope de servicios
                 var scope = serviceProvider.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
