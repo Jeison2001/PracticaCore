@@ -43,8 +43,9 @@ namespace Application.Common.Services.Notifications.Dispatcher
             }
             catch (Exception ex)
             {
-                _logger.LogCritical(ex, "CRITICAL ERROR DISPATCHING CHANGE NOTIFICATION - Notification was dropped. EntityType: {EntityType}, ID: {Id}. This error was swallowed to prevent breaking main transaction, but requires review.", 
+                _logger.LogCritical(ex, "CRITICAL ERROR DISPATCHING CHANGE NOTIFICATION. EntityType: {EntityType}, ID: {Id}.",
                     typeof(T).Name, newEntity.Id);
+                throw;
             }
         }
 
@@ -70,8 +71,9 @@ namespace Application.Common.Services.Notifications.Dispatcher
             }
             catch (Exception ex)
             {
-                _logger.LogCritical(ex, "CRITICAL ERROR DISPATCHING CREATION NOTIFICATION - Notification was dropped. EntityType: {EntityType}, ID: {Id}. This error was swallowed to prevent breaking main transaction, but requires review.", 
+                _logger.LogCritical(ex, "CRITICAL ERROR DISPATCHING CREATION NOTIFICATION. EntityType: {EntityType}, ID: {Id}.",
                     typeof(T).Name, entity.Id);
+                throw;
             }
         }
     }

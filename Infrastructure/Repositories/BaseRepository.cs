@@ -195,8 +195,6 @@ namespace Infrastructure.Repositories
         public Task UpdatePartialAsync(T entity, Expression<Func<T, object?>>[] updatedProperties)
         {
             var entry = _context.Entry(entity);
-            if (entry.State == EntityState.Unchanged)
-                entry.State = EntityState.Modified;
 
             foreach (var property in updatedProperties)
                 entry.Property(property).IsModified = true;

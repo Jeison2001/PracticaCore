@@ -55,20 +55,20 @@ namespace Infrastructure.Repositories
             {
                 var programIds = filter.AcademicProgramIds;
                 query = query.Where(i => i.UserInscriptionModalities.Any(uim =>
-                    uim.StatusRegister && uim.User != null && programIds.Contains(uim.User.IdAcademicProgram)));
+                    uim.StatusRegister && uim.IsConfirmed && uim.User != null && programIds.Contains(uim.User.IdAcademicProgram)));
             }
             if (filter.FacultyIds is { Count: > 0 })
             {
                 var facultyIds = filter.FacultyIds;
                 query = query.Where(i => i.UserInscriptionModalities.Any(uim =>
-                    uim.StatusRegister && uim.User != null && facultyIds.Contains(uim.User.AcademicProgram.IdFaculty)));
+                    uim.StatusRegister && uim.IsConfirmed && uim.User != null && facultyIds.Contains(uim.User.AcademicProgram.IdFaculty)));
             }
 
-            // Conteo de estudiantes vinculados (UserInscriptionModality activos).
+            // Conteo de estudiantes vinculados (UserInscriptionModality activos y confirmados).
             if (filter.MinStudents.HasValue)
-                query = query.Where(i => i.UserInscriptionModalities.Count(uim => uim.StatusRegister) >= filter.MinStudents.Value);
+                query = query.Where(i => i.UserInscriptionModalities.Count(uim => uim.StatusRegister && uim.IsConfirmed) >= filter.MinStudents.Value);
             if (filter.MaxStudents.HasValue)
-                query = query.Where(i => i.UserInscriptionModalities.Count(uim => uim.StatusRegister) <= filter.MaxStudents.Value);
+                query = query.Where(i => i.UserInscriptionModalities.Count(uim => uim.StatusRegister && uim.IsConfirmed) <= filter.MaxStudents.Value);
 
             // Conteo de docentes asignados (TeachingAssignment activos y no revocados).
             if (filter.MinTeachers.HasValue)
@@ -273,7 +273,7 @@ namespace Infrastructure.Repositories
 
             // Programa y facultad: una inscripción puede tener varios estudiantes; se cuenta por estudiante vinculado.
             var byProgramRaw = await baseQuery
-                .SelectMany(i => i.UserInscriptionModalities.Where(uim => uim.StatusRegister && uim.User != null))
+                .SelectMany(i => i.UserInscriptionModalities.Where(uim => uim.StatusRegister && uim.IsConfirmed && uim.User != null))
                 .GroupBy(uim => uim.User!.AcademicProgram.Name)
                 .Select(g => new { Name = g.Key, Count = g.Count() })
                 .ToListAsync(cancellationToken);
@@ -283,7 +283,7 @@ namespace Infrastructure.Repositories
                 .ToList();
 
             var byFacultyRaw = await baseQuery
-                .SelectMany(i => i.UserInscriptionModalities.Where(uim => uim.StatusRegister && uim.User != null))
+                .SelectMany(i => i.UserInscriptionModalities.Where(uim => uim.StatusRegister && uim.IsConfirmed && uim.User != null))
                 .GroupBy(uim => uim.User!.AcademicProgram.Faculty.Name)
                 .Select(g => new { Name = g.Key, Count = g.Count() })
                 .ToListAsync(cancellationToken);
@@ -305,7 +305,7 @@ namespace Infrastructure.Repositories
 
             // Distribución por número de estudiantes vinculados (individual vs grupal).
             var studentCountRaw = await baseQuery
-                .Select(i => i.UserInscriptionModalities.Count(uim => uim.StatusRegister))
+                .Select(i => i.UserInscriptionModalities.Count(uim => uim.StatusRegister && uim.IsConfirmed))
                 .GroupBy(c => c)
                 .Select(g => new { Students = g.Key, Count = g.Count() })
                 .ToListAsync(cancellationToken);
@@ -694,15 +694,15 @@ namespace Infrastructure.Repositories
                     State = i.StateInscription != null ? i.StateInscription.Name : "",
                     Period = i.AcademicPeriod != null ? i.AcademicPeriod.Code : "",
                     Students = i.UserInscriptionModalities
-                        .Where(uim => uim.StatusRegister && uim.User != null)
+                        .Where(uim => uim.StatusRegister && uim.IsConfirmed && uim.User != null)
                         .Select(uim => uim.User!.FirstName + " " + uim.User.LastName)
                         .ToList(),
                     Program = i.UserInscriptionModalities
-                        .Where(uim => uim.StatusRegister && uim.User != null)
+                        .Where(uim => uim.StatusRegister && uim.IsConfirmed && uim.User != null)
                         .Select(uim => uim.User!.AcademicProgram.Name)
                         .FirstOrDefault() ?? "",
                     Faculty = i.UserInscriptionModalities
-                        .Where(uim => uim.StatusRegister && uim.User != null)
+                        .Where(uim => uim.StatusRegister && uim.IsConfirmed && uim.User != null)
                         .Select(uim => uim.User!.AcademicProgram.Faculty.Name)
                         .FirstOrDefault() ?? "",
                     i.CreatedAt,

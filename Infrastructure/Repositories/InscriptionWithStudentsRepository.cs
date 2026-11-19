@@ -163,7 +163,7 @@ namespace Infrastructure.Repositories
             var students = await _context.Set<UserInscriptionModality>()
                 .Include(uim => uim.User)
                 .AsNoTracking()
-                .Where(uim => pageIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => pageIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister)
                 .ToListAsync(cancellationToken);
 
             var studentsByInscription = students
@@ -184,6 +184,7 @@ namespace Infrastructure.Repositories
                     : new List<UserInscriptionModality>(),
             }).ToList();
 
+            var lastRow = pageRows.LastOrDefault();
             return new PaginatedResult<InscriptionWithStudents>
             {
                 Items = items,
@@ -191,6 +192,8 @@ namespace Infrastructure.Repositories
                 PageNumber = pageNumber,
                 PageSize = pageSize,
                 HasMoreRows = hasMoreRows,
+                CursorCreatedAt = lastRow?.Inscription.CreatedAt,
+                CursorId = lastRow != null ? (long)lastRow.Inscription.Id : null,
             };
         }
 

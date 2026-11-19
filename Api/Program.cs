@@ -18,7 +18,10 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplicationLayer();
 
 // Configurar Hangfire
-if (!builder.Environment.IsEnvironment("Testing"))
+var useHangfire = !builder.Environment.IsEnvironment("Testing")
+    && Environment.GetEnvironmentVariable("UseInMemoryDatabase") != "true";
+
+if (useHangfire)
 {
     builder.Services.AddHangfireDefault(builder.Configuration);
     builder.Services.AddHangfireServer();
@@ -137,6 +140,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseMiddleware<CsrfProtectionMiddleware>();
 
 // Añadir autenticación al pipeline
 app.UseAuthentication();
@@ -144,7 +148,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-if (!app.Environment.IsEnvironment("Testing"))
+if (useHangfire)
 {
     app.MapHangfireConfiguration(builder.Configuration, app.Environment);
 }

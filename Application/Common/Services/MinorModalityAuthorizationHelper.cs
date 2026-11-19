@@ -1,5 +1,6 @@
 using Domain.Common.Users;
 using Domain.Constants;
+using Domain.Exceptions;
 using Domain.Interfaces.Repositories;
 
 namespace Application.Common.Services
@@ -17,12 +18,14 @@ namespace Application.Common.Services
             string[] managementAndReviewerPerms,
             CancellationToken cancellationToken = default)
         {
-            if (currentUser?.Permissions is not { Count: > 0 } perms)
-                return;
+            if (currentUser == null ||
+                currentUser.UserId is not > 0 ||
+                currentUser.Permissions is not { Count: > 0 } perms)
+            {
+                throw new ForbiddenAccessException("No tiene permisos vigentes para realizar esta acción.");
+            }
 
-            if (perms.Contains(PermissionCodes.Configuraciones.N3CFSU) ||
-                perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR) ||
-                managementAndReviewerPerms.Any(perms.Contains))
+            if (managementAndReviewerPerms.Any(perms.Contains))
             {
                 return;
             }

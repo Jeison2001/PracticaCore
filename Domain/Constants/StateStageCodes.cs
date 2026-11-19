@@ -7,7 +7,10 @@ namespace Domain.Constants
     {
         // Práctica Académica
         public const string PaInscripcionPendDoc       = "PA_INSCRIPCION_PEND_DOC";
+        public const string PaInscripcionEnRevision    = "PA_INSCRIPCION_EN_REVISION";
+        public const string PaInscripcionObservaciones = "PA_INSCRIPCION_OBSERVACIONES";
         public const string PaInscripcionAprobada      = "PA_INSCRIPCION_APROBADA";
+        public const string PaInscripcionRechazada     = "PA_INSCRIPCION_RECHAZADA";
         public const string PaDesarrolloAprobada       = "PA_DESARROLLO_APROBADA";
         public const string PaInformeFinalEnRevision  = "PA_INFORME_FINAL_EN_REVISION";
         public const string PaAprobado                = "PA_APROBADO";

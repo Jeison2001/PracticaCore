@@ -154,5 +154,44 @@ namespace Tests.UnitTests.Infrastructure.Repositories
                 .CountAsync(up => up.IdUser == 30);
             persistedCount.Should().Be(2);
         }
+
+        [Fact]
+        public async Task FindUserByEmailAsync_IsCaseInsensitiveAndTrimsWhitespace()
+        {
+            using var context = CreateInMemoryContext();
+            context.Users.Add(new User
+            {
+                Id = 50,
+                Email = "student.case@unicesar.edu.co",
+                FirstName = "Case",
+                LastName = "Tester",
+                Identification = "100050",
+                IdIdentificationType = 1,
+                IdAcademicProgram = 1,
+                StatusRegister = true
+            });
+            await context.SaveChangesAsync();
+
+            var repo = CreateRepository(context);
+
+            var found = await repo.FindUserByEmailAsync("  STUDENT.CASE@UniCesar.EDU.CO  ");
+
+            found.Should().NotBeNull();
+            found!.Id.Should().Be(50);
+            found.Email.Should().Be("student.case@unicesar.edu.co");
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task FindUserByEmailAsync_WhenNullOrWhitespace_ReturnsNull(string email)
+        {
+            using var context = CreateInMemoryContext();
+            var repo = CreateRepository(context);
+
+            var found = await repo.FindUserByEmailAsync(email);
+
+            found.Should().BeNull();
+        }
     }
 }

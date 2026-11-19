@@ -41,26 +41,30 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
             if (entity == null)
                 throw new KeyNotFoundException($"ProjectPresentation with ID {request.Id} not found.");
 
-            var inscriptionId = entity.IdInscriptionModality > 0 ? entity.IdInscriptionModality : entity.Id;
+            var inscriptionId = entity.Id;
             var originalStateId = entity.IdStateStage;
             var originalObservations = entity.Observations;
 
-            var perms = request.CurrentUser?.Permissions;
-            var hasScopedPermissions = perms is { Count: > 0 };
-            var isGlobalAdmin = hasScopedPermissions &&
-                (perms!.Contains(PermissionCodes.Configuraciones.N3CFSU) ||
-                 perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR));
-            var hasSchedulePerm = !hasScopedPermissions || isGlobalAdmin ||
-                perms!.Contains(PermissionCodes.ProyectoGrado.N4PGPSG);
-            var hasReviewPerm = !hasScopedPermissions || isGlobalAdmin ||
-                perms!.Contains(PermissionCodes.ProyectoGrado.N4PGPSR);
+            if (request.CurrentUser?.UserId is not > 0 ||
+                request.CurrentUser.Permissions is not { Count: > 0 } perms)
+            {
+                throw new ForbiddenAccessException("No tiene permisos vigentes para realizar esta acción.");
+            }
 
-            if (hasScopedPermissions && !hasSchedulePerm)
+            var hasSchedulePerm = perms.Contains(PermissionCodes.ProyectoGrado.N4PGPSG);
+            var hasReviewPerm = perms.Contains(PermissionCodes.ProyectoGrado.N4PGPSR);
+
+            if (!hasSchedulePerm && !hasReviewPerm)
+            {
+                throw new ForbiddenAccessException("No tiene permisos vigentes para realizar esta acción.");
+            }
+
+            if (!hasSchedulePerm)
             {
                 await ModalityAccessAuthorizationHelper.EnsureConfirmedTeacherInInscriptionAsync(
                     _unitOfWork,
                     inscriptionId,
-                    request.CurrentUser!,
+                    request.CurrentUser,
                     "El docente no tiene una asignación confirmada activa en esta sustentación.",
                     cancellationToken);
             }
@@ -183,15 +187,12 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                             "Solo un evaluador autorizado con permiso de revisión de sustentación (N4PGPSR) puede registrar el veredicto.");
                     }
 
-                    if (hasScopedPermissions && !isGlobalAdmin)
-                    {
-                        await ModalityAccessAuthorizationHelper.EnsureConfirmedTeacherInInscriptionAsync(
-                            _unitOfWork,
-                            inscriptionId,
-                            request.CurrentUser!,
-                            "El docente debe tener una asignación confirmada activa en la inscripción para calificar la sustentación.",
-                            cancellationToken);
-                    }
+                    await ModalityAccessAuthorizationHelper.EnsureConfirmedTeacherInInscriptionAsync(
+                        _unitOfWork,
+                        inscriptionId,
+                        request.CurrentUser,
+                        "El docente debe tener una asignación confirmada activa en la inscripción para calificar la sustentación.",
+                        cancellationToken);
 
                     if (currentState?.Code != StateStageCodes.SustProgramada)
                     {
@@ -252,7 +253,9 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                 _jobEnqueuer.Enqueue<INotificationBackgroundJob>(x => x.HandleProjectPresentationChangeAsync(request.Id, originalStateId));
             }
 
-            return _mapper.Map<ProjectPresentationDto>(entity);
+            var resultDto = _mapper.Map<ProjectPresentationDto>(entity);
+            resultDto.IdInscriptionModality = entity.Id;
+            return resultDto;
         }
     }
 }

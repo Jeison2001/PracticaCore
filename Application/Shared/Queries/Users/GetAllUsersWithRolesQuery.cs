@@ -12,7 +12,7 @@ namespace Application.Shared.Queries.Users
         public bool IsDescending { get; init; } = false;
         public Dictionary<string, string>? Filters { get; init; }
         public DateTimeOffset? CursorCreatedAt { get; init; }
-        public int? CursorId { get; init; }
+        public long? CursorId { get; init; }
         public bool? SkipTotalCount { get; init; }
     }
 }

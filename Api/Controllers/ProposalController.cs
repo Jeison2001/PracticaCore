@@ -91,11 +91,7 @@ namespace Api.Controllers
             if (await this.IsInscriptionReadAccessDeniedAsync(
                     id,
                     ct,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.ProyectoGrado.N4PGPPG,
-                    PermissionCodes.ProyectoGrado.N4PGPPA,
-                    PermissionCodes.ProyectoGrado.N4PGPPR))
+                    ModalityPermissionCatalog.PgPropuestaRead))
             {
                 return Forbid();
             }
@@ -115,11 +111,7 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.ProyectoGrado.N4PGPPG,
-                    PermissionCodes.ProyectoGrado.N4PGPPA,
-                    PermissionCodes.ProyectoGrado.N4PGPPR))
+                    ModalityPermissionCatalog.PgPropuestaRead))
             {
                 return Forbid();
             }
@@ -137,10 +129,7 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.ProyectoGrado.N4PGPPG,
-                    PermissionCodes.ProyectoGrado.N4PGPPA))
+                    ModalityPermissionCatalog.PgPropuestaManagement))
             {
                 return Forbid();
             }
@@ -189,91 +178,90 @@ namespace Api.Controllers
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] ProposalDto dto)
         {
+            if (User?.Identity?.IsAuthenticated != true)
+                return Forbid();
+
             int? previousStateId = null;
 
-            if (User?.Identity?.IsAuthenticated == true)
+            var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+            var isCommitteeOrEvaluator =
+                permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPR);
+
+            if (!isCommitteeOrEvaluator)
             {
-                var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
-                var isCommitteeOrEvaluator =
-                    permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPR) ||
-                    permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPG);
+                var currentUserId = User.GetUserId();
+                if (!currentUserId.HasValue)
+                    return Forbid();
 
-                if (!isCommitteeOrEvaluator)
+                var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
+                var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
+                var isMember = await userInscriptionRepo.GetFirstOrDefaultAsync(
+                    x => x.IdInscriptionModality == id && x.IdUser == currentUserId.Value && x.StatusRegister && x.IsConfirmed,
+                    cancellationToken);
+                if (isMember == null)
+                    return Forbid();
+
+                var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
+                var existingProposal = await proposalRepo.GetByIdAsync(id);
+                if (existingProposal == null)
                 {
-                    var currentUserId = User.GetUserId();
-                    if (!currentUserId.HasValue)
-                        return Forbid();
-
-                    var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
-                    var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
-                    var isMember = await userInscriptionRepo.GetFirstOrDefaultAsync(
-                        x => x.IdInscriptionModality == id && x.IdUser == currentUserId.Value && x.StatusRegister,
-                        cancellationToken);
-                    if (isMember == null)
-                        return Forbid();
-
-                    var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
-                    var existingProposal = await proposalRepo.GetByIdAsync(id);
-                    if (existingProposal == null)
+                    return NotFound(new ApiResponse<ProposalDto>
                     {
-                        return NotFound(new ApiResponse<ProposalDto>
-                        {
-                            Success = false,
-                            Errors = new List<string> { "Propuesta no encontrada." }
-                        });
-                    }
-
-                    var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
-                    var currentState = await stateStageRepo.GetByIdAsync(existingProposal.IdStateStage);
-                    if (currentState == null
-                        || !currentState.StatusRegister
-                        || currentState.Code != StateStageCodes.PropNoPertinente
-                        || currentState.IsFinalStateForStage
-                        || currentState.IsFinalStateForModalityOverall)
-                    {
-                        return BadRequest(new ApiResponse<ProposalDto>
-                        {
-                            Success = false,
-                            Errors = new List<string> { "Solo se puede subsanar una propuesta cuando se encuentra en estado Propuesta No Pertinente." }
-                        });
-                    }
-
-                    var propRadicadaState = await stateStageRepo.GetFirstOrDefaultAsync(
-                        s => s.Code == StateStageCodes.PropRadicada && s.StatusRegister,
-                        cancellationToken);
-                    if (propRadicadaState == null)
-                        throw new InvalidOperationException($"Active StateStage '{StateStageCodes.PropRadicada}' was not found.");
-
-                    previousStateId = existingProposal.IdStateStage;
-
-                    dto = dto with
-                    {
-                        Id = dto.Id == 0 ? id : dto.Id,
-                        IdStateStage = propRadicadaState.Id,
-                        Observation = existingProposal.Observation
-                    };
+                        Success = false,
+                        Errors = new List<string> { "Propuesta no encontrada." }
+                    });
                 }
-                else
+
+                var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
+                var currentState = await stateStageRepo.GetByIdAsync(existingProposal.IdStateStage);
+                if (currentState == null
+                    || !currentState.StatusRegister
+                    || currentState.Code != StateStageCodes.PropNoPertinente
+                    || currentState.IsFinalStateForStage
+                    || currentState.IsFinalStateForModalityOverall)
                 {
-                    // El comite/evaluador no puede saltar transiciones de estado ni notificaciones via PUT;
-                    // debe usar PATCH /api/Proposal/{id} (PatchProposalCommand).
-                    var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
-                    var existingProposal = await proposalRepo.GetByIdAsync(id);
-                    if (existingProposal == null)
+                    return BadRequest(new ApiResponse<ProposalDto>
                     {
-                        return NotFound(new ApiResponse<ProposalDto>
-                        {
-                            Success = false,
-                            Errors = new List<string> { "Propuesta no encontrada." }
-                        });
-                    }
-
-                    dto = dto with
-                    {
-                        Id = dto.Id == 0 ? id : dto.Id,
-                        IdStateStage = existingProposal.IdStateStage
-                    };
+                        Success = false,
+                        Errors = new List<string> { "Solo se puede subsanar una propuesta cuando se encuentra en estado Propuesta No Pertinente." }
+                    });
                 }
+
+                var propRadicadaState = await stateStageRepo.GetFirstOrDefaultAsync(
+                    s => s.Code == StateStageCodes.PropRadicada && s.StatusRegister,
+                    cancellationToken);
+                if (propRadicadaState == null)
+                    throw new InvalidOperationException($"Active StateStage '{StateStageCodes.PropRadicada}' was not found.");
+
+                previousStateId = existingProposal.IdStateStage;
+
+                dto = dto with
+                {
+                    Id = dto.Id == 0 ? id : dto.Id,
+                    IdStateStage = propRadicadaState.Id,
+                    Observation = existingProposal.Observation
+                };
+            }
+            else
+            {
+                // El comite/evaluador no puede saltar transiciones de estado ni notificaciones via PUT;
+                // debe usar PATCH /api/Proposal/{id} (PatchProposalCommand).
+                var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
+                var existingProposal = await proposalRepo.GetByIdAsync(id);
+                if (existingProposal == null)
+                {
+                    return NotFound(new ApiResponse<ProposalDto>
+                    {
+                        Success = false,
+                        Errors = new List<string> { "Propuesta no encontrada." }
+                    });
+                }
+
+                dto = dto with
+                {
+                    Id = dto.Id == 0 ? id : dto.Id,
+                    IdStateStage = existingProposal.IdStateStage
+                };
             }
 
             var updateResult = await base.Update(id, dto);

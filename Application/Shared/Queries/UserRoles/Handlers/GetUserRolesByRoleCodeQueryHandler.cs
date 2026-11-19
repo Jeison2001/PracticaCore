@@ -52,9 +52,12 @@ namespace Application.Shared.Queries.UserRoles.Handlers
                     return new PaginatedResult<UserRoleWithUserDetailsDto>
                     {
                         Items = new List<UserRoleWithUserDetailsDto>(),
-                        TotalRecords = 0,
+                        TotalRecords = userRolesResult.TotalRecords,
                         PageNumber = request.PageNumber,
-                        PageSize = request.PageSize
+                        PageSize = request.PageSize,
+                        HasMoreRows = userRolesResult.HasMoreRows,
+                        CursorCreatedAt = userRolesResult.CursorCreatedAt,
+                        CursorId = userRolesResult.CursorId
                     };
                 }
 
@@ -157,7 +160,10 @@ namespace Application.Shared.Queries.UserRoles.Handlers
                     Items = resultItems,
                     TotalRecords = userRolesResult.TotalRecords,
                     PageNumber = request.PageNumber,
-                    PageSize = request.PageSize
+                    PageSize = request.PageSize,
+                    HasMoreRows = userRolesResult.HasMoreRows,
+                    CursorCreatedAt = userRolesResult.CursorCreatedAt,
+                    CursorId = userRolesResult.CursorId
                 };
             }
             catch (Exception ex)

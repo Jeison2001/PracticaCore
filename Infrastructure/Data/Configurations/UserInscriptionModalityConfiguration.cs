@@ -13,6 +13,7 @@ namespace Infrastructure.Data.Configurations
             
             builder.Property(e => e.IdInscriptionModality).IsRequired().HasColumnName("IdInscriptionModality");
             builder.Property(e => e.IdUser).IsRequired().HasColumnName("IdUser");
+            builder.Property(e => e.IsConfirmed).IsRequired().HasDefaultValue(true).HasColumnName("IsConfirmed");
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);
 
             // Relación solo con User — la FK a InscriptionModality es via IdInscriptionModality (sin navegación)

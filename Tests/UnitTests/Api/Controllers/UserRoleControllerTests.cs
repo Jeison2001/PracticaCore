@@ -1,9 +1,13 @@
+using System.Security.Claims;
+using System.Text.Json;
 using Api.Controllers;
 using Api.Responses;
 using Application.Shared.DTOs.Roles;
 using Application.Shared.DTOs.UserRoles;
 using Application.Shared.Queries.UserRoles;
+using Domain.Constants;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
@@ -19,6 +23,26 @@ namespace Tests.UnitTests.Api.Controllers
         {
             _mediatorMock = new Mock<IMediator>();
             _controller = new UserRoleController(_mediatorMock.Object);
+            SetAuthenticatedAdminUser(_controller);
+        }
+
+        private static void SetAuthenticatedAdminUser(ControllerBase controller, int userId = 1)
+        {
+            var identity = new ClaimsIdentity(
+                new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                    new Claim("permissions", JsonSerializer.Serialize(new[] { PermissionCodes.Configuraciones.N3CFSU }))
+                },
+                "TestScheme");
+
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(identity)
+                }
+            };
         }        [Fact]
         public async Task GetUserRolesByUserId_ReturnsOkResult_WithUserRolesList()
         {
@@ -153,6 +177,23 @@ namespace Tests.UnitTests.Api.Controllers
                 It.Is<GetUserRolesByUserIdQuery>(q => q.UserId == userId), 
                 It.IsAny<CancellationToken>()), 
                 Times.Once);
+        }
+
+        [Fact]
+        public async Task GetUserRolesByUserId_ReturnsForbid_WhenUserIsNotAuthenticated()
+        {
+            // Arrange
+            _controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            };
+
+            // Act
+            var result = await _controller.GetUserRolesByUserId(1);
+
+            // Assert
+            Assert.IsType<ForbidResult>(result.Result);
+            _mediatorMock.Verify(m => m.Send(It.IsAny<GetUserRolesByUserIdQuery>(), It.IsAny<CancellationToken>()), Times.Never);
         }
     }
 }

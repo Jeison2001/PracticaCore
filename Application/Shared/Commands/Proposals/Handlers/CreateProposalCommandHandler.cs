@@ -43,20 +43,20 @@ namespace Application.Shared.Commands.Proposals.Handlers
             if (inscription == null)
                 throw new InvalidOperationException($"No se encontró la inscripción de modalidad con ID {request.Dto.Id}");
 
-            if (request.CurrentUser?.Permissions is { Count: > 0 } perms &&
-                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) &&
-                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) &&
-                !perms.Contains(PermissionCodes.Configuraciones.N3CFSU) &&
-                !perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR))
+            if (request.CurrentUser?.UserId is not int userId ||
+                userId <= 0 ||
+                request.CurrentUser.Permissions is not { Count: > 0 } perms)
             {
-                var userId = request.CurrentUser.UserId ?? 0;
-                if (userId <= 0 ||
-                    !await ModalityAccessAuthorizationHelper.IsUserInInscriptionAsync(
-                        _unitOfWork, request.Dto.Id, userId, cancellationToken))
-                {
-                    throw new ForbiddenAccessException(
-                        "No está autorizado para registrar la propuesta de otra inscripción.");
-                }
+                throw new ForbiddenAccessException(
+                    "No tiene permisos vigentes para registrar una propuesta.");
+            }
+
+            if (!perms.Any(ModalityPermissionCatalog.PgPropuestaManagement.Contains) &&
+                !await ModalityAccessAuthorizationHelper.IsUserInInscriptionAsync(
+                    _unitOfWork, request.Dto.Id, userId, cancellationToken))
+            {
+                throw new ForbiddenAccessException(
+                    "No está autorizado para registrar la propuesta de otra inscripción.");
             }
 
             // 1b. Obtener MaxSpecificObjectives de la modalidad y validar límite de objetivos

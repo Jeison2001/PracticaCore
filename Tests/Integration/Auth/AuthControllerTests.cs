@@ -290,6 +290,7 @@ namespace Tests.Integration.Auth
             using var request = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
             request.Headers.Add("X-Test-Anonymous", "true");
             request.Headers.Add("Cookie", $"refreshToken={tokenToUse}");
+            request.Headers.Add("X-Requested-With", "XMLHttpRequest");
 
             var response = await _client.SendAsync(request);
 
@@ -326,6 +327,7 @@ namespace Tests.Integration.Auth
             using var request = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
             request.Headers.Add("X-Test-Anonymous", "true");
             request.Headers.Add("Cookie", $"refreshToken={initialToken}");
+            request.Headers.Add("X-Requested-With", "XMLHttpRequest");
 
             var response = await _client.SendAsync(request);
 
@@ -358,6 +360,7 @@ namespace Tests.Integration.Auth
             using var reuseRequest = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
             reuseRequest.Headers.Add("X-Test-Anonymous", "true");
             reuseRequest.Headers.Add("Cookie", $"refreshToken={initialToken}");
+            reuseRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
 
             var reuseResponse = await _client.SendAsync(reuseRequest);
             reuseResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

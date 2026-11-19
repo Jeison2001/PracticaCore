@@ -123,10 +123,6 @@ namespace Application.Shared.Commands.Handlers
                 
                 throw new InvalidOperationException("Error al guardar en la base de datos.", ex);
             }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Error inesperado al crear la entidad.", ex);
-            }
         }
 private string ExtractConstraintName(string errorMessage)
         {

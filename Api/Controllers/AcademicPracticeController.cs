@@ -66,12 +66,7 @@ namespace Api.Controllers
             if (await this.IsInscriptionReadAccessDeniedAsync(
                     id,
                     ct,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.PracticaAcademica.N4PAF0PG,
-                    PermissionCodes.PracticaAcademica.N4PAF0PA,
-                    PermissionCodes.PracticaAcademica.N4PAF1PG,
-                    PermissionCodes.PracticaAcademica.N4PAF2PG))
+                    ModalityPermissionCatalog.PracticaAcademicaManagement))
             {
                 return Forbid();
             }
@@ -93,12 +88,7 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.PracticaAcademica.N4PAF0PG,
-                    PermissionCodes.PracticaAcademica.N4PAF0PA,
-                    PermissionCodes.PracticaAcademica.N4PAF1PG,
-                    PermissionCodes.PracticaAcademica.N4PAF2PG))
+                    ModalityPermissionCatalog.PracticaAcademicaManagement))
             {
                 return Forbid();
             }
@@ -119,12 +109,7 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.PracticaAcademica.N4PAF0PG,
-                    PermissionCodes.PracticaAcademica.N4PAF0PA,
-                    PermissionCodes.PracticaAcademica.N4PAF1PG,
-                    PermissionCodes.PracticaAcademica.N4PAF2PG))
+                    ModalityPermissionCatalog.PracticaAcademicaManagement))
             {
                 return Forbid();
             }
@@ -171,9 +156,7 @@ namespace Api.Controllers
             PermissionCodes.PracticaAcademica.N4PAF1PR,
             PermissionCodes.PracticaAcademica.N4PAF2PR,
             PermissionCodes.PracticaAcademica.N3PAF1R,
-            PermissionCodes.PracticaAcademica.N3PAF2R,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-            PermissionCodes.Configuraciones.N3CFSU)]
+            PermissionCodes.PracticaAcademica.N3PAF2R)]
         [HttpPut("UpdatePhaseApproval/{id}")]
         public async Task<IActionResult> UpdatePhaseApproval(int id, [FromBody] UpdatePhaseApprovalDto request)
         {

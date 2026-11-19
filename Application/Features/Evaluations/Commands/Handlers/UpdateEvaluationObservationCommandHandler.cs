@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
+using Application.Common.Services;
 using Application.Shared.DTOs.Evaluations;
+using Domain.Common.Users;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Exceptions;
@@ -39,6 +41,13 @@ namespace Application.Features.Evaluations.Commands.Handlers
 
             if (evaluation.IdEvaluator != currentUserId.Value)
                 throw new ForbiddenAccessException("Solo el autor de la observación puede editarla.");
+
+            await EnsureAuthorStillAuthorizedAsync(
+                request.CurrentUser,
+                evaluation.EntityType,
+                evaluation.EntityId,
+                currentUserId.Value,
+                cancellationToken);
 
             var trimmedNew = request.Dto.Observations?.Trim();
             if (string.IsNullOrWhiteSpace(trimmedNew))
@@ -198,7 +207,7 @@ namespace Application.Features.Evaluations.Commands.Handlers
 
                 case nameof(ProjectPresentation):
                     return await PrepareStandardStageEntityAsync<ProjectPresentation>(
-                        entityId, e => e.IdStateStage, e => e.IdInscriptionModality,
+                        entityId, e => e.IdStateStage, e => e.Id,
                         (e, obs) => e.Observations = obs, e => e.Observations);
 
                 case nameof(AcademicAverage):
@@ -277,5 +286,119 @@ namespace Application.Features.Evaluations.Commands.Handlers
 
             return entity;
         }
+
+        private async Task EnsureAuthorStillAuthorizedAsync(
+            CurrentUserInfo? currentUser,
+            string entityType,
+            int entityId,
+            int evaluatorId,
+            CancellationToken cancellationToken)
+        {
+            var perms = currentUser?.Permissions;
+            if (perms == null || perms.Count == 0)
+            {
+                throw new ForbiddenAccessException(
+                    "No tiene permisos vigentes para editar esta observación.");
+            }
+
+            if (HasEntityManagementOrReviewPermission(perms, entityType))
+                return;
+
+            if (HasEntityTeacherEvaluatorPermission(perms, entityType))
+            {
+                var inscriptionId = await ResolveInscriptionIdAsync(entityType, entityId, cancellationToken);
+                if (inscriptionId > 0 &&
+                    await ModalityAccessAuthorizationHelper.IsConfirmedTeacherInInscriptionAsync(
+                        _unitOfWork,
+                        inscriptionId,
+                        evaluatorId,
+                        cancellationToken))
+                {
+                    return;
+                }
+
+                throw new ForbiddenAccessException(
+                    "Su asignación docente no se encuentra activa y confirmada para editar esta observación.");
+            }
+
+            throw new ForbiddenAccessException(
+                "No tiene permisos de revisión o gestión vigentes sobre esta entidad para editar la observación.");
+        }
+
+        private static bool HasEntityManagementOrReviewPermission(
+            IReadOnlyCollection<string> perms,
+            string? entityType)
+        {
+            if (string.IsNullOrWhiteSpace(entityType))
+                return false;
+
+            var normalized = entityType.Trim();
+
+            if (ModalityPermissionCatalog.ObservationHistoryManagementByEntityType.TryGetValue(
+                    normalized,
+                    out var managementPerms) &&
+                perms.Any(managementPerms.Contains))
+            {
+                return true;
+            }
+
+            return MinorReviewPermissionsByEntityType.TryGetValue(normalized, out var minorPerms) &&
+                   perms.Any(minorPerms.Contains);
+        }
+
+        private static bool HasEntityTeacherEvaluatorPermission(
+            IReadOnlyCollection<string> perms,
+            string? entityType)
+        {
+            if (string.IsNullOrWhiteSpace(entityType))
+                return false;
+
+            return TeacherEvaluatorPermissionsByEntityType.TryGetValue(
+                       entityType.Trim(),
+                       out var teacherPerms) &&
+                   perms.Any(teacherPerms.Contains);
+        }
+
+        private async Task<int> ResolveInscriptionIdAsync(
+            string entityType,
+            int entityId,
+            CancellationToken cancellationToken)
+        {
+            if (entityId <= 0 || string.IsNullOrWhiteSpace(entityType))
+                return 0;
+
+            if (string.Equals(entityType, nameof(ProjectPresentation), StringComparison.OrdinalIgnoreCase))
+            {
+                var presentation = await _unitOfWork.GetRepository<ProjectPresentation, int>()
+                    .GetFirstOrDefaultAsync(x => x.Id == entityId && x.StatusRegister, cancellationToken);
+                return presentation != null ? entityId : 0;
+            }
+
+            return entityId;
+        }
+
+        private static readonly IReadOnlyDictionary<string, string[]> MinorReviewPermissionsByEntityType =
+            new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                [nameof(CoTerminal)] = ModalityPermissionCatalog.CoTerminalManagementAndReview,
+                [nameof(Seminar)] = ModalityPermissionCatalog.SeminarioManagementAndReview,
+                [nameof(ScientificArticle)] = ModalityPermissionCatalog.PublicacionArticuloManagementAndReview,
+                [nameof(AcademicAverage)] = ModalityPermissionCatalog.GradoPromedioManagementAndReview,
+                [nameof(SaberPro)] = ModalityPermissionCatalog.SaberProManagementAndReview,
+            };
+
+        private static readonly IReadOnlyDictionary<string, string[]> TeacherEvaluatorPermissionsByEntityType =
+            new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                [nameof(PreliminaryProject)] = [PermissionCodes.ProyectoGrado.N4PGPAR],
+                [nameof(ProjectFinal)] = [PermissionCodes.ProyectoGrado.N4PGPPRR],
+                [nameof(ProjectPresentation)] = [PermissionCodes.ProyectoGrado.N4PGPSR],
+                [nameof(AcademicPractice)] =
+                [
+                    PermissionCodes.PracticaAcademica.N4PAF0PR,
+                    PermissionCodes.PracticaAcademica.N4PAF1PR,
+                    PermissionCodes.PracticaAcademica.N4PAF2PR
+                ],
+            };
     }
 }

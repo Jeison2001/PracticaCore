@@ -1018,6 +1018,7 @@ namespace Tests.Integration.Authorization
             using (var rotateReq = CreateRequest(HttpMethod.Post, "/api/Auth/refresh", anonymous: true))
             {
                 rotateReq.Headers.Add("Cookie", $"refreshToken={refreshCookieValue}");
+                rotateReq.Headers.Add("X-Requested-With", "XMLHttpRequest");
                 var rotateRes = await noCookieClient.SendAsync(rotateReq);
                 rotateRes.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -1054,6 +1055,7 @@ namespace Tests.Integration.Authorization
             using (var revokedReq = CreateRequest(HttpMethod.Post, "/api/Auth/refresh", anonymous: true))
             {
                 revokedReq.Headers.Add("Cookie", $"refreshToken={rotatedRefreshCookieValue}");
+                revokedReq.Headers.Add("X-Requested-With", "XMLHttpRequest");
                 var revokedRes = await noCookieClient.SendAsync(revokedReq);
                 revokedRes.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
             }

@@ -547,6 +547,7 @@ namespace Tests.Integration.Users
             using var refreshRequest = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
             refreshRequest.Headers.Add("X-Test-Anonymous", "true");
             refreshRequest.Headers.Add("Cookie", $"refreshToken={primaryToken}");
+            refreshRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
 
             var refreshResponse = await _client.SendAsync(refreshRequest);
             refreshResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

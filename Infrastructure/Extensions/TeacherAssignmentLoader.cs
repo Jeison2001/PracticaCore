@@ -97,24 +97,59 @@ namespace Infrastructure.Extensions
                                   || CargoId != null || CargoCode != null || CargoName != null;
         }
 
-        /// <summary>Aplica filtros por docente asignado activo sobre entidades cuyo Id coincide con IdInscriptionModality.</summary>
+        /// <summary>
+        /// Aplica filtros por docente asignado activo sobre entidades cuyo Id coincide con IdInscriptionModality.
+        /// </summary>
+        /// <param name="query">Consulta base de la entidad de fase.</param>
+        /// <param name="context">Contexto EF Core activo.</param>
+        /// <param name="tf">Criterios de docente y cargo extraídos de la petición.</param>
+        /// <param name="confirmedOnly">
+        /// Si es <c>true</c>, exige <c>ta.IsConfirmed</c>. Debe ser <c>false</c> en Propuesta
+        /// (donde también se listan y buscan docentes preseleccionados aún no confirmados) y
+        /// <c>true</c> en fases posteriores (Anteproyecto, Proyecto Final, Sustentación y Práctica Académica).
+        /// </param>
         public static IQueryable<T> ApplyTeacherFilterById<T>(
             this IQueryable<T> query,
             AppDbContext context,
-            TeacherFilterSet tf) where T : class
+            TeacherFilterSet tf,
+            bool confirmedOnly = false) where T : class
         {
             if (!tf.HasAny) return query;
 
-            var namePattern = tf.Name != null ? LikePattern(tf.Name) : null;
-            var emailPattern = tf.Email != null ? LikePattern(tf.Email) : null;
+            var isInMemory = context.Database.ProviderName?.Contains("InMemory") == true
+                || Environment.GetEnvironmentVariable("UseInMemoryDatabase") == "true";
+
             var teacherId = tf.Id;
             var cargoId = tf.CargoId;
             var cargoCode = tf.CargoCode;
             var cargoName = tf.CargoName;
 
+            if (isInMemory)
+            {
+                var rawName = tf.Name?.Trim().ToLowerInvariant();
+                var rawEmail = tf.Email?.Trim().ToLowerInvariant();
+                return query.Where(x => context.Set<TeachingAssignment>().Any(ta =>
+                    ta.IdInscriptionModality == EF.Property<int>(x, "Id") &&
+                    ta.StatusRegister && ta.RevocationDate == null &&
+                    (!confirmedOnly || ta.IsConfirmed) &&
+                    (rawName == null || (ta.Teacher != null &&
+                        ((ta.Teacher.FirstName + " " + ta.Teacher.LastName).ToLower().Contains(rawName) ||
+                         ta.Teacher.FirstName.ToLower().Contains(rawName) ||
+                         ta.Teacher.LastName.ToLower().Contains(rawName)))) &&
+                    (rawEmail == null || (ta.Teacher != null && ta.Teacher.Email.ToLower().Contains(rawEmail))) &&
+                    (teacherId == null || ta.IdTeacher == teacherId) &&
+                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
+                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
+                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
+            }
+
+            var namePattern = tf.Name != null ? LikePattern(tf.Name) : null;
+            var emailPattern = tf.Email != null ? LikePattern(tf.Email) : null;
+
             return query.Where(x => context.Set<TeachingAssignment>().Any(ta =>
                 ta.IdInscriptionModality == EF.Property<int>(x, "Id") &&
                 ta.StatusRegister && ta.RevocationDate == null &&
+                (!confirmedOnly || ta.IsConfirmed) &&
                 (namePattern == null || (ta.Teacher != null &&
                     (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
                      EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||

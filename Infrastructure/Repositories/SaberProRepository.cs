@@ -129,13 +129,16 @@ namespace Infrastructure.Repositories
                 resultItems.Add(PopulateDetails(item, detailsBatch));
             }
 
+            var lastItem = items.LastOrDefault();
             return new PaginatedResult<SaberProWithDetails>
             {
                 Items = resultItems,
                 TotalRecords = totalCount,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
-                HasMoreRows = hasMoreRows
+                HasMoreRows = hasMoreRows,
+                CursorCreatedAt = lastItem?.CreatedAt,
+                CursorId = lastItem != null ? (long)lastItem.Id : null
             };
         }
 
@@ -143,7 +146,7 @@ namespace Infrastructure.Repositories
         {
             var inscriptionIds = await _context.Set<UserInscriptionModality>()
                 .AsNoTracking()
-                .Where(uim => uim.IdUser == userId && uim.StatusRegister)
+                .Where(uim => uim.IdUser == userId && uim.StatusRegister && uim.IsConfirmed)
                 .Select(uim => uim.IdInscriptionModality)
                 .ToListAsync(cancellationToken);
 
@@ -285,13 +288,16 @@ namespace Infrastructure.Repositories
                 resultItems.Add(PopulateDetails(item, detailsBatch));
             }
 
+            var lastItem = items.LastOrDefault();
             return new PaginatedResult<SaberProWithDetails>
             {
                 Items = resultItems,
                 TotalRecords = totalCount,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
-                HasMoreRows = hasMoreRows
+                HasMoreRows = hasMoreRows,
+                CursorCreatedAt = lastItem?.CreatedAt,
+                CursorId = lastItem != null ? (long)lastItem.Id : null
             };
         }
 
@@ -299,7 +305,7 @@ namespace Infrastructure.Repositories
         {
             var userInscriptionModalities = await _context.Set<UserInscriptionModality>()
                 .AsNoTracking()
-                .Where(uim => uim.IdInscriptionModality == entity.Id)
+                .Where(uim => uim.IdInscriptionModality == entity.Id && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .ToListAsync(cancellationToken);
 
@@ -396,6 +402,7 @@ namespace Infrastructure.Repositories
                             query = query.Where(x => _context.Set<UserInscriptionModality>().Any(uim =>
                                 uim.IdInscriptionModality == x.Id &&
                                 uim.StatusRegister &&
+                                uim.IsConfirmed &&
                                 uim.User != null &&
                                 (EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName + " " + uim.User.LastName), pattern) ||
                                  EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName), pattern) ||

@@ -49,7 +49,7 @@ namespace Application.Shared.Queries.ProjectPresentations.Handlers
                 ProjectPresentation = new ProjectPresentationDetailsDto
                 {
                     Id = presentation.Id,
-                    IdInscriptionModality = presentation.IdInscriptionModality,
+                    IdInscriptionModality = presentation.Id,
                     IdStateStage = presentation.IdStateStage,
                     ScheduledDateTime = presentation.ScheduledDateTime,
                     ActualDateTime = presentation.ActualDateTime,

@@ -9,140 +9,55 @@ namespace Application.Common.Services.Documents
 {
     /// <summary>
     /// Guard de acceso a documentos. Centraliza la autorizacion a nivel de dato: es
-    /// fail-closed, deniega salvo que el usuario sea administrador de configuracion documental,
-    /// este explicitamente vinculado a la inscripcion (estudiante o docente confirmado) o
-    /// posea un permiso transversal contextualmente valido para la modalidad y fase del documento.
+    /// fail-closed, deniega salvo que el usuario este explicitamente vinculado a la
+    /// inscripcion (estudiante o docente confirmado) o posea un permiso transversal
+    /// contextualmente valido para la modalidad y fase del documento.
     /// </summary>
     public class DocumentAccessGuard : IDocumentAccessGuard
     {
-        // Permisos globales de administracion del catalogo/seguridad que habilitan lectura transversal
-        // con independencia de la modalidad o fase de la inscripcion.
-        private static readonly HashSet<string> GlobalDocumentAdminPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.Configuraciones.N3CFSU,
-            PermissionCodes.Configuraciones.N2CFDO,
-            PermissionCodes.Configuraciones.N3CFDOT,
-        };
-
         private static readonly HashSet<string> EmptyPermissions = new(StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PgPropuestaPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.ProyectoGrado.N4PGPPG,
-            PermissionCodes.ProyectoGrado.N4PGPPR,
-            PermissionCodes.ProyectoGrado.N4PGPPA,
-        };
+        private static readonly HashSet<string> PgPropuestaPermissions =
+            new(ModalityPermissionCatalog.PgPropuestaRead, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PgAnteproyectoPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.ProyectoGrado.N4PGPAG,
-            PermissionCodes.ProyectoGrado.N4PGPAA,
-        };
+        private static readonly HashSet<string> PgAnteproyectoPermissions =
+            new(ModalityPermissionCatalog.PgAnteproyectoManagement, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PgProyectoPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.ProyectoGrado.N4PGPPRG,
-        };
+        private static readonly HashSet<string> PgProyectoPermissions =
+            new(ModalityPermissionCatalog.PgProyectoManagement, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PgSustentacionPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.ProyectoGrado.N4PGPSG,
-        };
+        private static readonly HashSet<string> PgSustentacionPermissions =
+            new(ModalityPermissionCatalog.PgSustentacionManagement, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> ProyectoGradoAnyStagePermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.ProyectoGrado.N4PGPPG,
-            PermissionCodes.ProyectoGrado.N4PGPPR,
-            PermissionCodes.ProyectoGrado.N4PGPPA,
-            PermissionCodes.ProyectoGrado.N4PGPAG,
-            PermissionCodes.ProyectoGrado.N4PGPAA,
-            PermissionCodes.ProyectoGrado.N4PGPPRG,
-            PermissionCodes.ProyectoGrado.N4PGPSG,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-        };
+        private static readonly HashSet<string> ProyectoGradoAnyStagePermissions =
+            new(ModalityPermissionCatalog.ProyectoGradoAllRead, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PaInscripcionPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.PracticaAcademica.N4PAF0PG,
-            PermissionCodes.PracticaAcademica.N4PAF0PA,
-        };
+        private static readonly HashSet<string> PaInscripcionPermissions =
+            new(ModalityPermissionCatalog.PaInscripcionManagement, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PaDesarrolloPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.PracticaAcademica.N4PAF1PG,
-        };
+        private static readonly HashSet<string> PaDesarrolloPermissions =
+            new(ModalityPermissionCatalog.PaDesarrolloManagement, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PaEvaluacionPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.PracticaAcademica.N4PAF2PG,
-        };
+        private static readonly HashSet<string> PaEvaluacionPermissions =
+            new(ModalityPermissionCatalog.PaEvaluacionManagement, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PracticaAcademicaAnyStagePermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.PracticaAcademica.N4PAF0PG,
-            PermissionCodes.PracticaAcademica.N4PAF0PA,
-            PermissionCodes.PracticaAcademica.N4PAF1PG,
-            PermissionCodes.PracticaAcademica.N4PAF2PG,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-        };
+        private static readonly HashSet<string> PracticaAcademicaAnyStagePermissions =
+            new(ModalityPermissionCatalog.PracticaAcademicaManagement, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> CoTerminalPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.CoTerminal.N3CTSGG,
-            PermissionCodes.CoTerminal.N3CTSGR,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-        };
+        private static readonly HashSet<string> CoTerminalPermissions =
+            new(ModalityPermissionCatalog.CoTerminalManagementAndReview, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> SeminarioPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.Seminario.N3SASGG,
-            PermissionCodes.Seminario.N3SASGR,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-        };
+        private static readonly HashSet<string> SeminarioPermissions =
+            new(ModalityPermissionCatalog.SeminarioManagementAndReview, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> PublicacionArticuloPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.PublicacionArticulo.N3PCSGG,
-            PermissionCodes.PublicacionArticulo.N3PCSGR,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-        };
+        private static readonly HashSet<string> PublicacionArticuloPermissions =
+            new(ModalityPermissionCatalog.PublicacionArticuloManagementAndReview, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> GradoPromedioPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.GradoPromedio.N3GPSGG,
-            PermissionCodes.GradoPromedio.N3GPSGR,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-        };
+        private static readonly HashSet<string> GradoPromedioPermissions =
+            new(ModalityPermissionCatalog.GradoPromedioManagementAndReview, StringComparer.Ordinal);
 
-        private static readonly HashSet<string> SaberProPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.SaberPro.N3SPSGG,
-            PermissionCodes.SaberPro.N3SPSGR,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-        };
-
-        private static readonly HashSet<string> StageManagementPermissions = new(StringComparer.Ordinal)
-        {
-            PermissionCodes.Configuraciones.N3CFSU,
-            PermissionCodes.Configuraciones.N2CFDO,
-            PermissionCodes.Configuraciones.N3CFDOT,
-            PermissionCodes.ModalidadesGrado.N3MGPR,
-            PermissionCodes.ProyectoGrado.N4PGPPG,
-            PermissionCodes.ProyectoGrado.N4PGPPA,
-            PermissionCodes.ProyectoGrado.N4PGPAG,
-            PermissionCodes.ProyectoGrado.N4PGPAA,
-            PermissionCodes.ProyectoGrado.N4PGPPRG,
-            PermissionCodes.ProyectoGrado.N4PGPSG,
-            PermissionCodes.PracticaAcademica.N4PAF0PG,
-            PermissionCodes.PracticaAcademica.N4PAF0PA,
-            PermissionCodes.PracticaAcademica.N4PAF1PG,
-            PermissionCodes.PracticaAcademica.N4PAF2PG,
-            PermissionCodes.CoTerminal.N3CTSGG,
-            PermissionCodes.Seminario.N3SASGG,
-            PermissionCodes.PublicacionArticulo.N3PCSGG,
-            PermissionCodes.GradoPromedio.N3GPSGG,
-            PermissionCodes.SaberPro.N3SPSGG,
-        };
+        private static readonly HashSet<string> SaberProPermissions =
+            new(ModalityPermissionCatalog.SaberProManagementAndReview, StringComparer.Ordinal);
 
         private readonly IUnitOfWork _unitOfWork;
 
@@ -270,9 +185,6 @@ namespace Application.Common.Services.Documents
             // Sin inscripcion asociada (nula o invalida) => denegar.
             if (inscriptionModalityId is null or <= 0)
                 throw new ForbiddenAccessException("El documento no esta asociado a ninguna inscripcion. No tienes permiso para consultarlo.");
-
-            if (currentUser.Permissions != null && currentUser.Permissions.Any(GlobalDocumentAdminPermissions.Contains))
-                return;
 
             var userId = currentUser.UserId.Value;
             var inscriptionId = inscriptionModalityId.Value;
@@ -417,7 +329,7 @@ namespace Application.Common.Services.Documents
         {
             var uimRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
             return uimRepo.AnyAsync(
-                x => x.IdInscriptionModality == inscriptionId && x.IdUser == userId && x.StatusRegister,
+                x => x.IdInscriptionModality == inscriptionId && x.IdUser == userId && x.StatusRegister && x.IsConfirmed,
                 cancellationToken);
         }
 
@@ -495,13 +407,7 @@ namespace Application.Common.Services.Documents
             string? stageCode,
             IReadOnlyCollection<string>? userPermissions)
         {
-            if (userPermissions == null || userPermissions.Count == 0)
-                return false;
-
-            if (userPermissions.Any(GlobalDocumentAdminPermissions.Contains))
-                return true;
-
-            if (string.IsNullOrWhiteSpace(modalityCode))
+            if (userPermissions == null || userPermissions.Count == 0 || string.IsNullOrWhiteSpace(modalityCode))
                 return false;
 
             return modalityCode.ToUpperInvariant() switch
@@ -509,37 +415,26 @@ namespace Application.Common.Services.Documents
                 ModalityCodes.ProyectoGrado => stageCode?.ToUpperInvariant() switch
                 {
                     StageModalityCodes.PgFasePropuesta =>
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) ||
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPA),
+                        ModalityPermissionCatalog.PgPropuestaManagement.Any(userPermissions.Contains),
                     StageModalityCodes.PgFaseAnteproyecto =>
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAG) ||
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAA),
+                        ModalityPermissionCatalog.PgAnteproyectoManagement.Any(userPermissions.Contains),
                     StageModalityCodes.PgFaseProyectoInforme or StageModalityCodes.PgFaseProyecto =>
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPRG),
+                        ModalityPermissionCatalog.PgProyectoManagement.Any(userPermissions.Contains),
                     StageModalityCodes.PgFaseSustentacion =>
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPSG),
+                        ModalityPermissionCatalog.PgSustentacionManagement.Any(userPermissions.Contains),
                     _ =>
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) ||
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) ||
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAG) ||
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAA) ||
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPRG) ||
-                        userPermissions.Contains(PermissionCodes.ProyectoGrado.N4PGPSG),
+                        ModalityPermissionCatalog.ProyectoGradoAllStageManagement.Any(userPermissions.Contains),
                 },
                 ModalityCodes.PracticaAcademica => stageCode?.ToUpperInvariant() switch
                 {
                     StageModalityCodes.PaFaseInscripcion =>
-                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PG) ||
-                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA),
+                        ModalityPermissionCatalog.PaInscripcionManagement.Any(userPermissions.Contains),
                     StageModalityCodes.PaFaseDesarrollo =>
-                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF1PG),
+                        ModalityPermissionCatalog.PaDesarrolloManagement.Any(userPermissions.Contains),
                     StageModalityCodes.PaFaseEvaluacion =>
-                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF2PG),
+                        ModalityPermissionCatalog.PaEvaluacionManagement.Any(userPermissions.Contains),
                     _ =>
-                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PG) ||
-                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA) ||
-                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF1PG) ||
-                        userPermissions.Contains(PermissionCodes.PracticaAcademica.N4PAF2PG),
+                        ModalityPermissionCatalog.PracticaAcademicaManagement.Any(userPermissions.Contains),
                 },
                 ModalityCodes.CoTerminal => userPermissions.Contains(PermissionCodes.CoTerminal.N3CTSGG),
                 ModalityCodes.SeminarioAct => userPermissions.Contains(PermissionCodes.Seminario.N3SASGG),
@@ -656,7 +551,7 @@ namespace Application.Common.Services.Documents
                     case StageModalityCodes.PgFaseSustentacion:
                         var latestPresentation = (await _unitOfWork.GetRepository<ProjectPresentation, int>()
                             .GetAllAsync(
-                                filter: x => x.IdInscriptionModality == inscription.Id && x.StatusRegister,
+                                filter: x => x.Id == inscription.Id && x.StatusRegister,
                                 orderBy: q => q.OrderByDescending(x => x.AttemptNumber).ThenByDescending(x => x.Id),
                                 pageNumber: 1,
                                 pageSize: 1))

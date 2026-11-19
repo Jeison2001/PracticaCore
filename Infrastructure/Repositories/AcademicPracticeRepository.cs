@@ -37,7 +37,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // Get related data
         var userInscriptionModalities = await _context.Set<UserInscriptionModality>()
             .AsNoTracking()
-            .Where(uim => uim.IdInscriptionModality == academicPractice.Id)
+            .Where(uim => uim.IdInscriptionModality == academicPractice.Id && uim.StatusRegister && uim.IsConfirmed)
             .Include(uim => uim.User)
             .ToListAsync(cancellationToken);
 
@@ -106,49 +106,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // Extraer filtros por docente/cargo
         var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
         var remainingFilters = tf.Remaining;
-        if (tf.HasAny)
-        {
-            var isInMemory = _context.Database.ProviderName?.Contains("InMemory") == true
-                || Environment.GetEnvironmentVariable("UseInMemoryDatabase") == "true";
-
-            var teacherId = tf.Id;
-            var cargoId = tf.CargoId;
-            var cargoCode = tf.CargoCode;
-            var cargoName = tf.CargoName;
-
-            if (isInMemory)
-            {
-                var rawName = tf.Name?.Trim().ToLowerInvariant();
-                var rawEmail = tf.Email?.Trim().ToLowerInvariant();
-                query = query.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
-                    ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
-                    (rawName == null || (ta.Teacher != null &&
-                        ((ta.Teacher.FirstName + " " + ta.Teacher.LastName).ToLower().Contains(rawName) ||
-                         ta.Teacher.FirstName.ToLower().Contains(rawName) ||
-                         ta.Teacher.LastName.ToLower().Contains(rawName)))) &&
-                    (rawEmail == null || (ta.Teacher != null && ta.Teacher.Email.ToLower().Contains(rawEmail))) &&
-                    (teacherId == null || ta.IdTeacher == teacherId) &&
-                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
-                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
-                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
-            }
-            else
-            {
-                var namePattern = tf.Name != null ? TeacherAssignmentLoader.LikePattern(tf.Name) : null;
-                var emailPattern = tf.Email != null ? TeacherAssignmentLoader.LikePattern(tf.Email) : null;
-                query = query.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
-                    ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
-                    (namePattern == null || (ta.Teacher != null &&
-                        (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
-                          EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
-                          EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
-                    (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
-                    (teacherId == null || ta.IdTeacher == teacherId) &&
-                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
-                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
-                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
-            }
-        }
+        query = query.ApplyTeacherFilterById(_context, tf, confirmedOnly: true);
 
         // Usar el sistema genérico de filtros en lugar de filtros manuales
         query = query.ApplyFilters<AcademicPractice, int>(remainingFilters);
@@ -232,7 +190,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // Load students for these specific academic practices
         var userInscriptionModalities = await _context.Set<UserInscriptionModality>()
             .AsNoTracking()
-            .Where(uim => academicPracticeIds.Contains(uim.IdInscriptionModality))
+            .Where(uim => academicPracticeIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
             .Include(uim => uim.User)
             .ToListAsync(cancellationToken);
 
@@ -264,13 +222,16 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             Documents = new List<Document>()
         }).ToList();
 
+        var lastItem = academicPractices.LastOrDefault();
         return new PaginatedResult<AcademicPracticeWithDetails>
         {
             Items = items,
             TotalRecords = totalCount,
             PageNumber = pageNumber,
             PageSize = pageSize,
-            HasMoreRows = hasMoreRows
+            HasMoreRows = hasMoreRows,
+            CursorCreatedAt = lastItem?.CreatedAt,
+            CursorId = lastItem != null ? (long)lastItem.Id : null
         };
     }
 
@@ -389,7 +350,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         var pagedPracticeIds = academicPractices.Select(ap => ap.Id).ToList();
         var userInscriptions = await _context.Set<UserInscriptionModality>()
             .AsNoTracking()
-            .Where(uim => pagedPracticeIds.Contains(uim.IdInscriptionModality))
+            .Where(uim => pagedPracticeIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
             .Include(uim => uim.User)
             .ToListAsync(cancellationToken);
         var usersByInscription = userInscriptions
@@ -419,13 +380,16 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
             Documents = new List<Document>()
         }).ToList();
 
+        var lastItem = academicPractices.LastOrDefault();
         return new PaginatedResult<AcademicPracticeWithDetails>
         {
             Items = items,
             TotalRecords = totalCount,
             PageNumber = pageNumber,
             PageSize = pageSize,
-            HasMoreRows = hasMoreRows
+            HasMoreRows = hasMoreRows,
+            CursorCreatedAt = lastItem?.CreatedAt,
+            CursorId = lastItem != null ? (long)lastItem.Id : null
         };
     }
 
@@ -437,7 +401,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         // Get academic practices for a user through UserInscriptionModality
         var academicPracticeIds = await _context.Set<UserInscriptionModality>()
             .AsNoTracking()
-            .Where(uim => uim.IdUser == userId && uim.StatusRegister)
+            .Where(uim => uim.IdUser == userId && uim.StatusRegister && uim.IsConfirmed)
             .Select(uim => uim.IdInscriptionModality)
             .ToListAsync(cancellationToken);
 
@@ -478,7 +442,7 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
         var practiceIds = academicPractices.Select(ap => ap.Id).ToList();
         var userInscriptions = await _context.Set<UserInscriptionModality>()
             .AsNoTracking()
-            .Where(uim => practiceIds.Contains(uim.IdInscriptionModality))
+            .Where(uim => practiceIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
             .Include(uim => uim.User)
             .ToListAsync(cancellationToken);
         var usersByInscription = userInscriptions
@@ -513,9 +477,8 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
 
     /// <summary>
     /// Asigna el nuevo estado (IdStateStage) a la práctica académica y, opcionalmente,
-    /// sus observaciones generales y del evaluador; luego persiste los cambios.
-    /// El cambio de IdStateStage encola AcademicPracticeStateChangedEvent, que se despacha
-    /// en el CommitAsync del UnitOfWork para el avance de fase, permisos y estampado de fechas.
+    /// sus observaciones generales y del evaluador sin persistir inmediatamente; los cambios
+    /// y AcademicPracticeStateChangedEvent se confirman atómicamente en el CommitAsync del UnitOfWork.
     /// </summary>
     public async Task<bool> UpdateAcademicPracticeStateAsync(
         int id, 
@@ -543,7 +506,6 @@ public class AcademicPracticeRepository : BaseRepository<AcademicPractice, int>,
 
         academicPractice.UpdatedAt = DateTimeOffset.UtcNow;
 
-        await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
 

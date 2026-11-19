@@ -594,10 +594,20 @@ namespace Tests.Integration.Authorization
         {
             int practice301Id;
             int practice302Id;
+            int f0StageId;
+            int f1StageId;
+            int f2StageId;
+            int paInscripcionEnRevisionId;
             int paInscripcionAprobadaId;
-            int paAprobadoId;
-            int paObservacionesId;
+            int paInscripcionRechazadaId;
+            int paDesarrolloPendDocId;
+            int paDesarrolloEnRevisionId;
+            int paDesarrolloAprobadaId;
+            int paDesarrolloRechazadaId;
+            int paEvaluacionPendDocId;
             int paInformeEnRevisionId;
+            int paAprobadoId;
+            int paEvaluacionRechazadaId;
 
             using (var context = GetFreshDbContext())
             {
@@ -606,63 +616,55 @@ namespace Tests.Integration.Authorization
                 practice302Id = seed.Practice302Id;
                 EnsureBaseUsersAndPeriod(context, 405, 501);
 
+                var stageRepo = context.Set<StageModality>();
+                f0StageId = stageRepo.First(s => s.Code == StageModalityCodes.PaFaseInscripcion).Id;
+                f1StageId = stageRepo.First(s => s.Code == StageModalityCodes.PaFaseDesarrollo).Id;
+                f2StageId = stageRepo.First(s => s.Code == StageModalityCodes.PaFaseEvaluacion).Id;
+
                 var stateRepo = context.Set<StateStage>();
+
+                StateStage EnsurePaState(string code, string name, int stageId, bool isFinalStage = false, bool isFinalOverall = false, bool isRejection = false)
+                {
+                    var existing = stateRepo.FirstOrDefault(s => s.Code == code);
+                    if (existing != null) return existing;
+
+                    var state = new StateStage
+                    {
+                        Code = code,
+                        Name = name,
+                        IdStageModality = stageId,
+                        IsFinalStateForStage = isFinalStage,
+                        IsFinalStateForModalityOverall = isFinalOverall,
+                        IsRejectionState = isRejection,
+                        StatusRegister = true,
+                        OperationRegister = "Seed"
+                    };
+                    stateRepo.Add(state);
+                    return state;
+                }
+
                 paInscripcionAprobadaId = stateRepo.First(s => s.Code == StateStageCodes.PaInscripcionAprobada).Id;
+                paInscripcionRechazadaId = stateRepo.First(s => s.Code == StateStageCodes.PaInscripcionRechazada).Id;
+                paDesarrolloAprobadaId = stateRepo.First(s => s.Code == StateStageCodes.PaDesarrolloAprobada).Id;
 
-                var paAprobado = stateRepo.FirstOrDefault(s => s.Code == StateStageCodes.PaAprobado);
-                if (paAprobado == null)
-                {
-                    paAprobado = new StateStage
-                    {
-                        Code = StateStageCodes.PaAprobado,
-                        Name = "Practica Aprobada",
-                        IdStageModality = 3,
-                        IsFinalStateForStage = true,
-                        IsFinalStateForModalityOverall = true,
-                        StatusRegister = true,
-                        OperationRegister = "Seed"
-                    };
-                    stateRepo.Add(paAprobado);
-                }
-
-                var paObservaciones = stateRepo.FirstOrDefault(s => s.Code == "PA_INSCRIPCION_OBSERVACIONES");
-                if (paObservaciones == null)
-                {
-                    paObservaciones = new StateStage
-                    {
-                        Code = "PA_INSCRIPCION_OBSERVACIONES",
-                        Name = "Inscripcion Con Observaciones",
-                        IdStageModality = 1,
-                        IsFinalStateForStage = false,
-                        IsFinalStateForModalityOverall = false,
-                        IsRejectionState = true,
-                        StatusRegister = true,
-                        OperationRegister = "Seed"
-                    };
-                    stateRepo.Add(paObservaciones);
-                }
-
-                var paInformeEnRevision = stateRepo.FirstOrDefault(s => s.Code == StateStageCodes.PaInformeFinalEnRevision);
-                if (paInformeEnRevision == null)
-                {
-                    paInformeEnRevision = new StateStage
-                    {
-                        Code = StateStageCodes.PaInformeFinalEnRevision,
-                        Name = "Informe Final En Revision",
-                        IdStageModality = 3,
-                        IsFinalStateForStage = false,
-                        IsFinalStateForModalityOverall = false,
-                        IsRejectionState = false,
-                        StatusRegister = true,
-                        OperationRegister = "Seed"
-                    };
-                    stateRepo.Add(paInformeEnRevision);
-                }
+                var paInscripcionEnRevision = EnsurePaState(StateStageCodes.PaInscripcionEnRevision, "Inscripcion En Revision", f0StageId);
+                var paDesarrolloPendDoc = EnsurePaState("PA_DESARROLLO_PEND_DOC", "Desarrollo Pendiente Documentos", f1StageId);
+                var paDesarrolloEnRevision = EnsurePaState("PA_DESARROLLO_EN_REVISION", "Desarrollo En Revision", f1StageId);
+                var paDesarrolloRechazada = EnsurePaState("PA_DESARROLLO_RECHAZADA", "Desarrollo Rechazada", f1StageId, isFinalStage: true, isFinalOverall: true, isRejection: true);
+                var paEvaluacionPendDoc = EnsurePaState("PA_EVALUACION_PEND_DOC", "Evaluacion Pendiente Documentos", f2StageId);
+                var paInformeEnRevision = EnsurePaState(StateStageCodes.PaInformeFinalEnRevision, "Informe Final En Revision", f2StageId);
+                var paAprobado = EnsurePaState(StateStageCodes.PaAprobado, "Practica Aprobada", f2StageId, isFinalStage: true, isFinalOverall: true);
+                var paEvaluacionRechazada = EnsurePaState("PA_EVALUACION_RECHAZADA", "Evaluacion Rechazada", f2StageId, isFinalStage: true, isFinalOverall: true, isRejection: true);
 
                 context.SaveChanges();
-                paAprobadoId = paAprobado.Id;
-                paObservacionesId = paObservaciones.Id;
+                paInscripcionEnRevisionId = paInscripcionEnRevision.Id;
+                paDesarrolloPendDocId = paDesarrolloPendDoc.Id;
+                paDesarrolloEnRevisionId = paDesarrolloEnRevision.Id;
+                paDesarrolloRechazadaId = paDesarrolloRechazada.Id;
+                paEvaluacionPendDocId = paEvaluacionPendDoc.Id;
                 paInformeEnRevisionId = paInformeEnRevision.Id;
+                paAprobadoId = paAprobado.Id;
+                paEvaluacionRechazadaId = paEvaluacionRechazada.Id;
             }
 
             async Task<HttpResponseMessage> SendApprovalAsync(int practiceId, string userId, string permissions, int targetStateId, string obs = "Matrix obs")
@@ -678,69 +680,60 @@ namespace Tests.Integration.Authorization
                 return await _client.SendAsync(req);
             }
 
-            var studentPerms = string.Join(",",
-                PermissionCodes.PracticaAcademica.N3PAF1R,
-                PermissionCodes.PracticaAcademica.N3PAF2R);
-            var teacherPerms = string.Join(",",
-                PermissionCodes.PracticaAcademica.N4PAF1PR,
-                PermissionCodes.PracticaAcademica.N4PAF2PR);
-            // Nota: AcademicPracticeController.UpdatePhaseApproval exige N4PAF0PR/N4PAF1PR/N4PAF2PR en [RequirePermission],
-            // combinable con N4PAF0PG/N4PAF1PG/N4PAF2PG (como en RolePermission.sql) para habilitar isManagementOrAdmin sin asignacion docente.
-            var coordPerms = string.Join(",",
+            async Task SetPracticeStageAndStateAsync(int practiceId, int stageId, int stateStageId)
+            {
+                using var scope = _factory.Services.CreateScope();
+                var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var ap = await ctx.Set<AcademicPractice>().FindAsync(practiceId);
+                ap!.IdStateStage = stateStageId;
+                var insc = await ctx.Set<InscriptionModality>().FindAsync(practiceId);
+                insc!.IdStageModality = stageId;
+                insc.IsFinalRejection = false;
+                await ctx.SaveChangesAsync();
+            }
+
+            var committeeDirectorPerms = string.Join(",",
                 PermissionCodes.PracticaAcademica.N4PAF0PG,
+                PermissionCodes.PracticaAcademica.N4PAF0PA,
                 PermissionCodes.PracticaAcademica.N4PAF1PG,
-                PermissionCodes.PracticaAcademica.N4PAF2PG,
-                PermissionCodes.PracticaAcademica.N4PAF0PR);
+                PermissionCodes.PracticaAcademica.N4PAF2PG);
 
             try
             {
+                // ── FASE 0 (PA_FASE_INSCRIPCION) ───────────────────────────────────────────
                 // 1. OtherStudent (405) no vinculado a practice301 -> 403 Forbidden
-                var otherStudentRes = await SendApprovalAsync(practice301Id, "405", studentPerms, paInformeEnRevisionId);
-                otherStudentRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-
-                // 2. OwnerStudent (301) intentando aprobar o rechazar -> 403 Forbidden
-                (await SendApprovalAsync(practice301Id, "301", studentPerms, paInscripcionAprobadaId))
-                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
-                (await SendApprovalAsync(practice301Id, "301", studentPerms, paAprobadoId))
-                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
-                (await SendApprovalAsync(practice301Id, "301", studentPerms, paObservacionesId))
+                (await SendApprovalAsync(practice301Id, "405", PermissionCodes.PracticaAcademica.N3PAF1R, paInscripcionEnRevisionId))
                     .StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-                using (var checkScope = _factory.Services.CreateScope())
-                {
-                    var checkContext = checkScope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    checkContext.Set<AcademicPractice>().Find(practice301Id)!.IdStateStage.Should().Be(10);
-                }
+                // 2. OwnerStudent (301) con N3PAF0R en UpdatePhaseApproval -> 403 Forbidden (en F0 el estudiante radica vía UpdateInstitutionInfo)
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF0R, paInscripcionEnRevisionId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF0R, paInscripcionAprobadaId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF0R, paInscripcionRechazadaId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-                // 3. ProposedTeacher (402, IsConfirmed = false en practice302) -> 403 Forbidden
-                var proposedTeacherRes = await SendApprovalAsync(practice302Id, "402", teacherPerms, paInformeEnRevisionId);
-                proposedTeacherRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                // 3. ProposedTeacher (402, IsConfirmed = false en practice302) con N4PAF0PR -> 403 Forbidden
+                (await SendApprovalAsync(practice302Id, "402", PermissionCodes.PracticaAcademica.N4PAF0PR, paInscripcionEnRevisionId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-                using (var checkScope = _factory.Services.CreateScope())
-                {
-                    var checkContext = checkScope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    checkContext.Set<AcademicPractice>().Find(practice302Id)!.IdStateStage.Should().Be(10);
-                }
+                // 4. Cross-phase negativo en F0: N4PAF1PR intentando modificar F0 -> 403 Forbidden
+                (await SendApprovalAsync(practice301Id, "401", PermissionCodes.PracticaAcademica.N4PAF1PR, paInscripcionEnRevisionId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-                // 4. OwnerStudent (301) radicando avance no final (PA_INFORME_FINAL_EN_REVISION) -> 200 OK
-                var studentAdvanceRes = await SendApprovalAsync(practice301Id, "301", studentPerms, paInformeEnRevisionId, "Radico informe final");
-                studentAdvanceRes.StatusCode.Should().Be(HttpStatusCode.OK);
-                var studentAdvancePayload = await studentAdvanceRes.Content.ReadFromJsonAsync<ApiResponse<object>>();
-                studentAdvancePayload.Should().NotBeNull();
-                studentAdvancePayload!.Success.Should().BeTrue();
+                // 5. Cross-phase negativo: COMMITTEE_DIRECTOR con F0+F1+F2 intentando salto directo F0 -> F2 -> 400 BadRequest
+                var directJumpRes = await SendApprovalAsync(practice301Id, "501", committeeDirectorPerms, paInformeEnRevisionId, "Salto directo prohibido");
+                directJumpRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
-                using (var checkScope = _factory.Services.CreateScope())
-                {
-                    var checkContext = checkScope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    checkContext.Set<AcademicPractice>().Find(practice301Id)!.IdStateStage.Should().Be(paInformeEnRevisionId);
-                }
+                // 6. F0 Evaluador confirmado (401 con N4PAF0PR) -> 200 OK
+                (await SendApprovalAsync(practice301Id, "401", PermissionCodes.PracticaAcademica.N4PAF0PR, paInscripcionEnRevisionId, "Revisión F0 docente"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
 
-                // 5. ConfirmedTeacher (401, IsConfirmed = true en practice301) -> 200 OK
-                var confirmedTeacherRes = await SendApprovalAsync(practice301Id, "401", teacherPerms, paInscripcionAprobadaId, "Evaluacion aprobada por tutor");
-                confirmedTeacherRes.StatusCode.Should().Be(HttpStatusCode.OK);
-                var confirmedTeacherPayload = await confirmedTeacherRes.Content.ReadFromJsonAsync<ApiResponse<object>>();
-                confirmedTeacherPayload.Should().NotBeNull();
-                confirmedTeacherPayload!.Success.Should().BeTrue();
+                // 7. F0 Gestores (N4PAF0PG y N4PAF0PA) -> 200 OK
+                (await SendApprovalAsync(practice301Id, "501", PermissionCodes.PracticaAcademica.N4PAF0PG, paInscripcionEnRevisionId, "Gestión F0 N4PAF0PG"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
+                (await SendApprovalAsync(practice301Id, "501", PermissionCodes.PracticaAcademica.N4PAF0PA, paInscripcionAprobadaId, "Aval F0 N4PAF0PA"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
 
                 using (var checkScope = _factory.Services.CreateScope())
                 {
@@ -748,12 +741,67 @@ namespace Tests.Integration.Authorization
                     checkContext.Set<AcademicPractice>().Find(practice301Id)!.IdStateStage.Should().Be(paInscripcionAprobadaId);
                 }
 
-                // 6. CoordPa (501 sin asignacion docente, con N4PAF0PG/N4PAF1PG/N4PAF2PG + N4PAF0PR) -> 200 OK
-                var coordRes = await SendApprovalAsync(practice301Id, "501", coordPerms, paAprobadoId, "Avalado por coordinacion");
-                coordRes.StatusCode.Should().Be(HttpStatusCode.OK);
-                var coordPayload = await coordRes.Content.ReadFromJsonAsync<ApiResponse<object>>();
-                coordPayload.Should().NotBeNull();
-                coordPayload!.Success.Should().BeTrue();
+                // ── FASE 1 (PA_FASE_DESARROLLO) ────────────────────────────────────────────
+                await SetPracticeStageAndStateAsync(practice301Id, f1StageId, paDesarrolloPendDocId);
+
+                // 1. Cross-phase negativo: N4PAF0PR intentando modificar F1 -> 403 Forbidden
+                (await SendApprovalAsync(practice301Id, "401", PermissionCodes.PracticaAcademica.N4PAF0PR, paDesarrolloEnRevisionId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+                // 2. Cross-phase negativo: N3PAF1R intentando enviar estado de F2 (PA_INFORME_FINAL_EN_REVISION) -> 403 Forbidden
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF1R, paInformeEnRevisionId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+                // 3. OwnerStudent (301 con N3PAF1R) intentando final o rechazo en F1 -> 403 Forbidden
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF1R, paDesarrolloAprobadaId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF1R, paDesarrolloRechazadaId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+                // 4. OwnerStudent (301 con N3PAF1R) avanzando a PA_DESARROLLO_EN_REVISION -> 200 OK
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF1R, paDesarrolloEnRevisionId, "Radico avance F1"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
+
+                // 5. Evaluador confirmado (401 con N4PAF1PR) en F1 -> 200 OK
+                (await SendApprovalAsync(practice301Id, "401", PermissionCodes.PracticaAcademica.N4PAF1PR, paDesarrolloEnRevisionId, "Revisión tutor F1"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
+
+                // 6. Gestor F1 (501 con N4PAF1PG) aprobando F1 -> 200 OK
+                (await SendApprovalAsync(practice301Id, "501", PermissionCodes.PracticaAcademica.N4PAF1PG, paDesarrolloAprobadaId, "Aprobación F1"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
+
+                using (var checkScope = _factory.Services.CreateScope())
+                {
+                    var checkContext = checkScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    checkContext.Set<AcademicPractice>().Find(practice301Id)!.IdStateStage.Should().Be(paDesarrolloAprobadaId);
+                }
+
+                // ── FASE 2 (PA_FASE_EVALUACION) ────────────────────────────────────────────
+                await SetPracticeStageAndStateAsync(practice301Id, f2StageId, paEvaluacionPendDocId);
+
+                // 1. Cross-phase negativo: N4PAF0PR y N4PAF1PR intentando modificar F2 -> 403 Forbidden
+                (await SendApprovalAsync(practice301Id, "401", PermissionCodes.PracticaAcademica.N4PAF0PR, paInformeEnRevisionId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                (await SendApprovalAsync(practice301Id, "401", PermissionCodes.PracticaAcademica.N4PAF1PR, paInformeEnRevisionId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+                // 2. OwnerStudent (301 con N3PAF2R) intentando final o rechazo en F2 -> 403 Forbidden
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF2R, paAprobadoId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF2R, paEvaluacionRechazadaId))
+                    .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+                // 3. OwnerStudent (301 con N3PAF2R) avanzando a PA_INFORME_FINAL_EN_REVISION -> 200 OK
+                (await SendApprovalAsync(practice301Id, "301", PermissionCodes.PracticaAcademica.N3PAF2R, paInformeEnRevisionId, "Radico informe final F2"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
+
+                // 4. Evaluador confirmado (401 con N4PAF2PR) en F2 -> 200 OK
+                (await SendApprovalAsync(practice301Id, "401", PermissionCodes.PracticaAcademica.N4PAF2PR, paInformeEnRevisionId, "Revisión jurado F2"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
+
+                // 5. Gestor F2 (501 con N4PAF2PG) aprobando F2 -> 200 OK
+                (await SendApprovalAsync(practice301Id, "501", PermissionCodes.PracticaAcademica.N4PAF2PG, paAprobadoId, "Aprobación final F2"))
+                    .StatusCode.Should().Be(HttpStatusCode.OK);
 
                 using (var checkScope = _factory.Services.CreateScope())
                 {
@@ -773,11 +821,13 @@ namespace Tests.Integration.Authorization
                     practice.FinalApprovalDate = null;
                     practice.AvalApprovalDate = null;
                     practice.PlanApprovalDate = null;
+                    practice.DevelopmentCompletionDate = null;
                 }
                 var insc = await restoreContext.Set<InscriptionModality>().FindAsync(practice301Id);
                 if (insc != null)
                 {
                     insc.IdStageModality = 1;
+                    insc.IsFinalRejection = false;
                 }
                 await restoreContext.SaveChangesAsync();
             }
@@ -1127,6 +1177,443 @@ namespace Tests.Integration.Authorization
                     await restoreContext.SaveChangesAsync();
                 }
             }
+        }
+
+        [Fact]
+        public async Task MinorModalities_ReviewerWithOnlySGR_CanReadOwnWithDetails_AndGetsForbiddenOnOtherModality()
+        {
+            using var context = GetFreshDbContext();
+            var ids = SeedMinorModalitiesForStudent301(context);
+
+            var cases = new[]
+            {
+                (Url: $"/api/CoTerminal/WithDetails/{ids.CoTerminalId}", OwnPerm: PermissionCodes.CoTerminal.N3CTSGR, OtherPerm: PermissionCodes.Seminario.N3SASGR),
+                (Url: $"/api/Seminar/WithDetails/{ids.SeminarId}", OwnPerm: PermissionCodes.Seminario.N3SASGR, OtherPerm: PermissionCodes.CoTerminal.N3CTSGR),
+                (Url: $"/api/ScientificArticle/WithDetails/{ids.ScientificArticleId}", OwnPerm: PermissionCodes.PublicacionArticulo.N3PCSGR, OtherPerm: PermissionCodes.CoTerminal.N3CTSGR),
+                (Url: $"/api/AcademicAverage/WithDetails/{ids.AcademicAverageId}", OwnPerm: PermissionCodes.GradoPromedio.N3GPSGR, OtherPerm: PermissionCodes.CoTerminal.N3CTSGR),
+                (Url: $"/api/SaberPro/WithDetails/{ids.SaberProId}", OwnPerm: PermissionCodes.SaberPro.N3SPSGR, OtherPerm: PermissionCodes.CoTerminal.N3CTSGR),
+            };
+
+            foreach (var c in cases)
+            {
+                using var ownReq = CreateRequest(HttpMethod.Get, c.Url, c.OwnPerm, userId: "650");
+                var ownResp = await _client.SendAsync(ownReq);
+                ownResp.StatusCode.Should().Be(HttpStatusCode.OK, $"reviewer with only {c.OwnPerm} should access {c.Url}");
+
+                using var crossReq = CreateRequest(HttpMethod.Get, c.Url, c.OtherPerm, userId: "651");
+                var crossResp = await _client.SendAsync(crossReq);
+                crossResp.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"reviewer with {c.OtherPerm} must be forbidden on {c.Url}");
+            }
+        }
+
+        [Fact]
+        public async Task AcademicPractice_UpdateInstitutionInfo_WithoutStateChange_AllowsOnlyEditablePhase0StatesForStudent()
+        {
+            int practiceId = 0;
+            int statePendDocId;
+            int stateEnRevisionId = 0;
+            int stateObservacionesId = 0;
+            int stateInscripcionAprobadaId;
+            int stateInscripcionRechazadaId;
+            int stateDesarrolloPendId = 0;
+            int stateInformeEnRevisionId = 0;
+            int stateAprobadoId = 0;
+            var createdStateIds = new List<int>();
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                SeedingUtilities.SeedCatalogs(context);
+
+                var period = context.Set<AcademicPeriod>().FirstOrDefault()
+                    ?? new AcademicPeriod { Code = $"P6C_{Guid.NewGuid():N}"[..10], StartDate = DateTime.UtcNow, EndDate = DateTime.UtcNow.AddMonths(6), StatusRegister = true };
+                if (period.Id == 0)
+                {
+                    context.Set<AcademicPeriod>().Add(period);
+                    await context.SaveChangesAsync();
+                }
+
+                StateStage EnsureStageState(string code, string name, int stageId, bool isFinalStage = false, bool isFinalOverall = false, bool isRejection = false)
+                {
+                    var existing = context.Set<StateStage>().FirstOrDefault(s => s.Code == code);
+                    if (existing != null)
+                    {
+                        // Si otro test previo dejo PA_INSCRIPCION_OBSERVACIONES con IsRejectionState=true, usamos una instancia limpia aislada para este escenario.
+                        if (code == StateStageCodes.PaInscripcionObservaciones && existing.IsRejectionState != isRejection)
+                        {
+                            var isolated = new StateStage
+                            {
+                                Code = code,
+                                Name = name,
+                                IdStageModality = stageId,
+                                IsFinalStateForStage = isFinalStage,
+                                IsFinalStateForModalityOverall = isFinalOverall,
+                                IsRejectionState = isRejection,
+                                StatusRegister = true,
+                                OperationRegister = "TestF6c"
+                            };
+                            context.Set<StateStage>().Add(isolated);
+                            context.SaveChanges();
+                            createdStateIds.Add(isolated.Id);
+                            return isolated;
+                        }
+                        return existing;
+                    }
+
+                    var created = new StateStage
+                    {
+                        Code = code,
+                        Name = name,
+                        IdStageModality = stageId,
+                        IsFinalStateForStage = isFinalStage,
+                        IsFinalStateForModalityOverall = isFinalOverall,
+                        IsRejectionState = isRejection,
+                        StatusRegister = true,
+                        OperationRegister = "TestF6c"
+                    };
+                    context.Set<StateStage>().Add(created);
+                    context.SaveChanges();
+                    createdStateIds.Add(created.Id);
+                    return created;
+                }
+
+                statePendDocId = 10; // PA_INSCRIPCION_PEND_DOC (Stage 1)
+                stateInscripcionAprobadaId = 1; // PA_INSCRIPCION_APROBADA (Stage 1, IsFinalStateForStage = true)
+                stateInscripcionRechazadaId = 16; // PA_INSCRIPCION_RECHAZADA (Stage 1, IsRejectionState = true)
+                stateEnRevisionId = EnsureStageState(StateStageCodes.PaInscripcionEnRevision, "En Revision F0", 1).Id;
+                stateObservacionesId = EnsureStageState(StateStageCodes.PaInscripcionObservaciones, "Con Observaciones F0", 1).Id;
+                stateDesarrolloPendId = EnsureStageState("PA_DESARROLLO_PEND_DOC", "Desarrollo Pend Doc", 2).Id;
+                stateInformeEnRevisionId = EnsureStageState(StateStageCodes.PaInformeFinalEnRevision, "Informe Final En Revision", 3).Id;
+                stateAprobadoId = EnsureStageState(StateStageCodes.PaAprobado, "Practica Aprobada", 3, isFinalStage: true, isFinalOverall: true).Id;
+
+                var insc = new InscriptionModality
+                {
+                    IdModality = 2,
+                    IdStageModality = 1,
+                    IdStateInscription = 1,
+                    IdAcademicPeriod = period.Id,
+                    Observations = "Práctica F6.c",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                context.Set<InscriptionModality>().Add(insc);
+                await context.SaveChangesAsync();
+                practiceId = insc.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = practiceId,
+                    IdUser = 301,
+                    StatusRegister = true
+                });
+                context.Set<AcademicPractice>().Add(new AcademicPractice
+                {
+                    Id = practiceId,
+                    Title = "Práctica F6c",
+                    InstitutionName = "Empresa F6c",
+                    InstitutionContact = "f6c@empresa.com",
+                    PracticeStartDate = DateTimeOffset.UtcNow.AddDays(1),
+                    PracticeEndDate = DateTimeOffset.UtcNow.AddMonths(4),
+                    PracticeHours = 320,
+                    IdStateStage = statePendDocId,
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+                await context.SaveChangesAsync();
+            }
+
+            async Task<HttpResponseMessage> SendStudentInstitutionUpdateAsync(string titleSuffix)
+            {
+                using var req = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/AcademicPractice/UpdateInstitutionInfo/{practiceId}",
+                    PermissionCodes.PracticaAcademica.N3PAF0R,
+                    userId: "301");
+                req.Content = JsonContent.Create(new Application.Shared.DTOs.AcademicPractices.UpdateInstitutionInfoDto
+                {
+                    Id = practiceId,
+                    Title = $"Práctica F6c {titleSuffix}",
+                    InstitutionName = $"Empresa {titleSuffix}",
+                    InstitutionContact = "f6c@empresa.com",
+                    PracticeStartDate = DateTimeOffset.UtcNow.AddDays(2),
+                    PracticeEndDate = DateTimeOffset.UtcNow.AddMonths(5),
+                    PracticeHours = 360,
+                    NewStateStageId = null
+                });
+                return await _client.SendAsync(req);
+            }
+
+            async Task SetPracticeStateAsync(int stateStageId, bool isFinalRejection = false)
+            {
+                using var scope = _factory.Services.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var ap = await context.Set<AcademicPractice>().FindAsync(practiceId);
+                ap!.IdStateStage = stateStageId;
+                var insc = await context.Set<InscriptionModality>().FindAsync(practiceId);
+                insc!.IsFinalRejection = isFinalRejection;
+                await context.SaveChangesAsync();
+            }
+
+            try
+            {
+                // 1. Estados editables de Fase 0 -> 200 OK
+                (await SendStudentInstitutionUpdateAsync("PendDoc")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+                await SetPracticeStateAsync(stateObservacionesId);
+                (await SendStudentInstitutionUpdateAsync("Observaciones")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+                // 2. Estado en revision de Fase 0, aprobado de Fase 0, rechazado, Fase 1, Fase 2 y aprobado final -> 400 BadRequest
+                foreach (var blockedStateId in new[]
+                {
+                    stateEnRevisionId,
+                    stateInscripcionAprobadaId,
+                    stateInscripcionRechazadaId,
+                    stateDesarrolloPendId,
+                    stateInformeEnRevisionId,
+                    stateAprobadoId
+                })
+                {
+                    await SetPracticeStateAsync(blockedStateId);
+                    var resp = await SendStudentInstitutionUpdateAsync($"Blocked_{blockedStateId}");
+                    resp.StatusCode.Should().Be(HttpStatusCode.BadRequest, $"student must not edit institution info when stateId={blockedStateId}");
+                }
+
+                // 3. Incluso en estado PendDoc, si la inscripción tiene IsFinalRejection = true -> 400 BadRequest
+                await SetPracticeStateAsync(statePendDocId, isFinalRejection: true);
+                (await SendStudentInstitutionUpdateAsync("FinalRejection")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+            finally
+            {
+                using var cleanupScope = _factory.Services.CreateScope();
+                var cleanupContext = cleanupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var uims = cleanupContext.Set<UserInscriptionModality>().Where(x => x.IdInscriptionModality == practiceId).ToList();
+                if (uims.Count > 0) cleanupContext.Set<UserInscriptionModality>().RemoveRange(uims);
+                var practice = await cleanupContext.Set<AcademicPractice>().FindAsync(practiceId);
+                if (practice != null) cleanupContext.Set<AcademicPractice>().Remove(practice);
+                var insc = await cleanupContext.Set<InscriptionModality>().FindAsync(practiceId);
+                if (insc != null) cleanupContext.Set<InscriptionModality>().Remove(insc);
+                foreach (var stId in createdStateIds)
+                {
+                    var st = await cleanupContext.Set<StateStage>().FindAsync(stId);
+                    if (st != null) cleanupContext.Set<StateStage>().Remove(st);
+                }
+                await cleanupContext.SaveChangesAsync();
+            }
+        }
+
+        [Fact]
+        public async Task AcademicPractice_UpdatePhaseApproval_CrossPhaseManagementAndStudentBlocks_ReturnForbidden()
+        {
+            using var context = GetFreshDbContext();
+            var seed = SeedAcademicPracticeScenario(context);
+
+            var f0StageId = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseInscripcion).Id;
+            var f1StageId = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseDesarrollo).Id;
+            var f2StageId = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseEvaluacion).Id;
+
+            StateStage EnsurePaState(string code, string name, int stageId)
+            {
+                var existing = context.Set<StateStage>().FirstOrDefault(s => s.Code == code);
+                if (existing != null) return existing;
+                var created = new StateStage
+                {
+                    Code = code,
+                    Name = name,
+                    IdStageModality = stageId,
+                    StatusRegister = true,
+                    OperationRegister = "SeedCrossPhase"
+                };
+                context.Set<StateStage>().Add(created);
+                return created;
+            }
+
+            var f0Rev = EnsurePaState(StateStageCodes.PaInscripcionEnRevision, "F0 En Revision", f0StageId);
+            var f1Pend = EnsurePaState("PA_DESARROLLO_PEND_DOC", "F1 Pendiente Doc", f1StageId);
+            var f1Rev = EnsurePaState("PA_DESARROLLO_EN_REVISION", "F1 En Revision", f1StageId);
+            var f2Pend = EnsurePaState("PA_EVALUACION_PEND_DOC", "F2 Pendiente Doc", f2StageId);
+            var f2Rev = EnsurePaState(StateStageCodes.PaInformeFinalEnRevision, "F2 Informe En Revision", f2StageId);
+            await context.SaveChangesAsync();
+
+            async Task SetPhaseAsync(int stageId, int stateStageId)
+            {
+                using var scope = _factory.Services.CreateScope();
+                var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var ap = await ctx.Set<AcademicPractice>().FindAsync(seed.Practice301Id);
+                ap!.IdStateStage = stateStageId;
+                var insc = await ctx.Set<InscriptionModality>().FindAsync(seed.Practice301Id);
+                insc!.IdStageModality = stageId;
+                await ctx.SaveChangesAsync();
+            }
+
+            async Task<HttpResponseMessage> PutPhaseApprovalAsync(string userId, string perm, int targetStateId)
+            {
+                using var req = CreateRequest(HttpMethod.Put, $"/api/AcademicPractice/UpdatePhaseApproval/{seed.Practice301Id}", perm, userId);
+                req.Content = JsonContent.Create(new UpdatePhaseApprovalDto
+                {
+                    Id = seed.Practice301Id,
+                    NewStateStageId = targetStateId,
+                    Observations = "Cross-phase test"
+                });
+                return await _client.SendAsync(req);
+            }
+
+            // Fase 0: N4PAF1PG, N4PAF2PG, estudiante N3PAF1R y estudiante N3PAF2R -> 403 Forbidden
+            foreach (var (actorId, perm) in new[]
+            {
+                ("501", PermissionCodes.PracticaAcademica.N4PAF1PG),
+                ("501", PermissionCodes.PracticaAcademica.N4PAF2PG),
+                ("301", PermissionCodes.PracticaAcademica.N3PAF1R),
+                ("301", PermissionCodes.PracticaAcademica.N3PAF2R)
+            })
+            {
+                (await PutPhaseApprovalAsync(actorId, perm, f0Rev.Id)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Fase 1: N4PAF0PG, N4PAF0PA, N4PAF2PG y estudiante N3PAF2R -> 403 Forbidden
+            await SetPhaseAsync(f1StageId, f1Pend.Id);
+            foreach (var (actorId, perm) in new[]
+            {
+                ("501", PermissionCodes.PracticaAcademica.N4PAF0PG),
+                ("501", PermissionCodes.PracticaAcademica.N4PAF0PA),
+                ("501", PermissionCodes.PracticaAcademica.N4PAF2PG),
+                ("301", PermissionCodes.PracticaAcademica.N3PAF2R)
+            })
+            {
+                (await PutPhaseApprovalAsync(actorId, perm, f1Rev.Id)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // Fase 2: N4PAF0PG, N4PAF0PA y N4PAF1PG -> 403 Forbidden
+            await SetPhaseAsync(f2StageId, f2Pend.Id);
+            foreach (var perm in new[]
+            {
+                PermissionCodes.PracticaAcademica.N4PAF0PG,
+                PermissionCodes.PracticaAcademica.N4PAF0PA,
+                PermissionCodes.PracticaAcademica.N4PAF1PG
+            })
+            {
+                (await PutPhaseApprovalAsync("501", perm, f2Rev.Id)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+        }
+
+        [Fact]
+        public async Task AcademicPractice_UpdateInstitutionInfo_AllowsManagersN4PAF0PG_F1PG_F2PG_AndDeniesN4PAF0PA()
+        {
+            using var context = GetFreshDbContext();
+            var seed = SeedAcademicPracticeScenario(context);
+
+            async Task<HttpResponseMessage> PutInstitutionInfoAsync(string perm, string suffix)
+            {
+                using var req = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/AcademicPractice/UpdateInstitutionInfo/{seed.Practice301Id}",
+                    perm,
+                    userId: "501");
+                req.Content = JsonContent.Create(new UpdateInstitutionInfoDto
+                {
+                    Id = seed.Practice301Id,
+                    Title = $"Practica {suffix}",
+                    InstitutionName = $"Empresa {suffix}",
+                    InstitutionContact = "contacto@empresa.co",
+                    PracticeStartDate = DateTimeOffset.UtcNow.AddDays(1),
+                    PracticeEndDate = DateTimeOffset.UtcNow.AddMonths(4),
+                    PracticeHours = 320,
+                    Observations = $"Actualizado por {suffix}"
+                });
+                return await _client.SendAsync(req);
+            }
+
+            // N4PAF0PA -> 403 Forbidden
+            (await PutInstitutionInfoAsync(PermissionCodes.PracticaAcademica.N4PAF0PA, "F0PA"))
+                .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // Gestores N4PAF0PG, N4PAF1PG y N4PAF2PG -> 200 OK
+            foreach (var managerPerm in new[]
+            {
+                PermissionCodes.PracticaAcademica.N4PAF0PG,
+                PermissionCodes.PracticaAcademica.N4PAF1PG,
+                PermissionCodes.PracticaAcademica.N4PAF2PG
+            })
+            {
+                (await PutInstitutionInfoAsync(managerPerm, managerPerm))
+                    .StatusCode.Should().Be(HttpStatusCode.OK, $"{managerPerm} debe poder actualizar información de institución");
+            }
+        }
+
+        [Fact]
+        public async Task AcademicPractice_RevokedOrInactiveTeacherAssignment_BlockedWithForbidden_OnUpdatePhaseApproval()
+        {
+            using var context = GetFreshDbContext();
+            var seed = SeedAcademicPracticeScenario(context);
+            EnsureBaseUsersAndPeriod(context, 410, 411, 412);
+
+            var cargo = context.Set<TypeTeachingAssignment>().First(c => c.Code == "TUTOR_PA");
+            context.Set<TeachingAssignment>().AddRange(
+                new TeachingAssignment
+                {
+                    IdInscriptionModality = seed.Practice301Id,
+                    IdTeacher = 410,
+                    IdTypeTeachingAssignment = cargo.Id,
+                    IsConfirmed = true,
+                    RevocationDate = DateTimeOffset.UtcNow.AddDays(-1),
+                    StatusRegister = true,
+                    OperationRegister = "SeedRevoked"
+                },
+                new TeachingAssignment
+                {
+                    IdInscriptionModality = seed.Practice301Id,
+                    IdTeacher = 411,
+                    IdTypeTeachingAssignment = cargo.Id,
+                    IsConfirmed = true,
+                    RevocationDate = null,
+                    StatusRegister = false,
+                    OperationRegister = "SeedInactive"
+                },
+                new TeachingAssignment
+                {
+                    IdInscriptionModality = seed.Practice301Id,
+                    IdTeacher = 412,
+                    IdTypeTeachingAssignment = cargo.Id,
+                    IsConfirmed = true,
+                    RevocationDate = null,
+                    StatusRegister = true,
+                    OperationRegister = "SeedActive"
+                });
+
+            var f0StageId = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PaFaseInscripcion).Id;
+            var f0Rev = context.Set<StateStage>().FirstOrDefault(s => s.Code == StateStageCodes.PaInscripcionEnRevision)
+                ?? context.Set<StateStage>().Add(new StateStage
+                {
+                    Code = StateStageCodes.PaInscripcionEnRevision,
+                    Name = "F0 En Revision",
+                    IdStageModality = f0StageId,
+                    StatusRegister = true
+                }).Entity;
+            await context.SaveChangesAsync();
+
+            async Task<HttpResponseMessage> EvaluateAsync(string teacherId)
+            {
+                using var req = CreateRequest(
+                    HttpMethod.Put,
+                    $"/api/AcademicPractice/UpdatePhaseApproval/{seed.Practice301Id}",
+                    PermissionCodes.PracticaAcademica.N4PAF0PR,
+                    teacherId);
+                req.Content = JsonContent.Create(new UpdatePhaseApprovalDto
+                {
+                    Id = seed.Practice301Id,
+                    NewStateStageId = f0Rev.Id,
+                    EvaluatorObservations = "Evaluación docente"
+                });
+                return await _client.SendAsync(req);
+            }
+
+            // Docente revocado (RevocationDate != null) -> 403 Forbidden
+            (await EvaluateAsync("410")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // Docente inactivo (StatusRegister == false) -> 403 Forbidden
+            (await EvaluateAsync("411")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // Control: docente activo confirmado -> 200 OK
+            (await EvaluateAsync("412")).StatusCode.Should().Be(HttpStatusCode.OK);
         }
     }
 }

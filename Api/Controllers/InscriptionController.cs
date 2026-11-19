@@ -55,6 +55,7 @@ namespace Api.Controllers
             var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
             if (await this.IsInscriptionReadAccessDeniedAsync(
                     id,
+                    allowUnconfirmedStudent: true,
                     ct,
                     PermissionCodes.ModalidadesGrado.N3MGPG,
                     PermissionCodes.ModalidadesGrado.N3MGPR))
@@ -91,6 +92,28 @@ namespace Api.Controllers
             var result = await _mediator.Send(new CreateInscriptionWithStudentsCommand(dto, currentUser));
             return CreatedAtAction(nameof(GetById), new { id = result.InscriptionModality.Id },
                 new ApiResponse<InscriptionWithStudentsDto> { Success = true, Data = result });
+        }
+
+        [RequirePermission(PermissionCodes.ModalidadesGrado.N2MGC, PermissionCodes.ModalidadesGrado.N2MGR)]
+        [HttpPost("{id}/confirm-participation")]
+        public async Task<IActionResult> ConfirmParticipation(int id)
+        {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            var result = await _mediator.Send(
+                new RespondInscriptionInvitationCommand(id, Accept: true, User.GetCurrentUserInfo()),
+                ct);
+            return Ok(new ApiResponse<InscriptionWithStudentsResponseDto> { Success = true, Data = result });
+        }
+
+        [RequirePermission(PermissionCodes.ModalidadesGrado.N2MGC, PermissionCodes.ModalidadesGrado.N2MGR)]
+        [HttpPost("{id}/reject-participation")]
+        public async Task<IActionResult> RejectParticipation(int id)
+        {
+            var ct = HttpContext?.RequestAborted ?? CancellationToken.None;
+            var result = await _mediator.Send(
+                new RespondInscriptionInvitationCommand(id, Accept: false, User.GetCurrentUserInfo()),
+                ct);
+            return Ok(new ApiResponse<InscriptionWithStudentsResponseDto> { Success = true, Data = result });
         }
 
     }

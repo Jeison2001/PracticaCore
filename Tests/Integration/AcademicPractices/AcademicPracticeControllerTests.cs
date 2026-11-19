@@ -64,17 +64,38 @@ namespace Tests.Integration.AcademicPractices
                 context.Set<AcademicPeriod>().Add(academicPeriod);
                 context.SaveChanges();
 
+                var stage = context.Set<StageModality>()
+                    .FirstOrDefault(s => s.Code == StageModalityCodes.PaFaseDesarrollo);
+                if (stage == null)
+                {
+                    stage = new StageModality
+                    {
+                        Code = StageModalityCodes.PaFaseDesarrollo,
+                        Name = "PA Fase Desarrollo",
+                        IdModality = modality.Id,
+                        StageOrder = 2,
+                        StatusRegister = true
+                    };
+                    context.Set<StageModality>().Add(stage);
+                    context.SaveChanges();
+                }
+
                 var inscription = new InscriptionModality
                 {
                     IdModality = modality.Id,
                     IdStateInscription = stateInscription.Id,
-                    IdAcademicPeriod = academicPeriod.Id
+                    IdAcademicPeriod = academicPeriod.Id,
+                    IdStageModality = stage.Id
                 };
                 context.Set<InscriptionModality>().Add(inscription);
                 context.SaveChanges();
 
                 // 2. Seed de StateStage
-                var stateStage = new StateStage { Name = "Stage AP " + Guid.NewGuid() };
+                var stateStage = new StateStage
+                {
+                    Name = "Stage AP " + Guid.NewGuid(),
+                    IdStageModality = stage.Id
+                };
                 context.Set<StateStage>().Add(stateStage);
                 context.SaveChanges();
 
@@ -806,10 +827,16 @@ namespace Tests.Integration.AcademicPractices
                 var idType = new IdentificationType { Code = "CC", Name = "Cedula", Description = "Cedula", StatusRegister = true };
                 var cargo = new TypeTeachingAssignment { Code = $"EVAL_{Guid.NewGuid():N}"[..12], Name = "Evaluador", Description = "Evaluador", StatusRegister = true };
 
+                var stageId = context.Set<StateStage>()
+                    .Where(s => s.Id == entity.IdStateStage)
+                    .Select(s => s.IdStageModality)
+                    .First();
+
                 var intermediateState = new StateStage
                 {
                     Name = "En Revision PA",
                     Code = $"PA_DEV_{Guid.NewGuid():N}"[..14],
+                    IdStageModality = stageId,
                     IsFinalStateForStage = false,
                     IsFinalStateForModalityOverall = false,
                     IsRejectionState = false,
@@ -819,6 +846,7 @@ namespace Tests.Integration.AcademicPractices
                 {
                     Name = "Rechazada PA",
                     Code = $"PA_REJ_{Guid.NewGuid():N}"[..14],
+                    IdStageModality = stageId,
                     IsFinalStateForStage = true,
                     IsFinalStateForModalityOverall = false,
                     IsRejectionState = true,

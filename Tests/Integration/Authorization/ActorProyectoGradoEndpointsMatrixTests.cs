@@ -329,7 +329,6 @@ namespace Tests.Integration.Authorization
                 new ProjectPresentation
                 {
                     Id = inscriptionA.Id,
-                    IdInscriptionModality = inscriptionA.Id,
                     IdStateStage = sustProgramadaState.Id,
                     AttemptNumber = 1,
                     ScheduledDateTime = DateTimeOffset.UtcNow.AddDays(5),
@@ -342,7 +341,6 @@ namespace Tests.Integration.Authorization
                 new ProjectPresentation
                 {
                     Id = inscriptionB.Id,
-                    IdInscriptionModality = inscriptionB.Id,
                     IdStateStage = sustPendienteState.Id,
                     AttemptNumber = 1,
                     Observations = "Sustentación B",
@@ -639,6 +637,97 @@ namespace Tests.Integration.Authorization
         }
 
         [Fact]
+        public async Task Committee_GetAll_TeacherFilter_IncludesUnconfirmedInProposal_ExcludesInSubsequentPhases()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            var committeePermissions = new[]
+            {
+                PermissionCodes.ProyectoGrado.N4PGPPG,
+                PermissionCodes.ProyectoGrado.N4PGPAG,
+                PermissionCodes.ProyectoGrado.N4PGPPRG,
+                PermissionCodes.ProyectoGrado.N4PGPSG
+            };
+
+            var filterPairs = new[]
+            {
+                ("filters[TeacherName@like]=Confirmado", "filters[TeacherName@like]=Preseleccionado"),
+                ($"filters[TeacherId@eq]={Teacher201Id}", $"filters[TeacherId@eq]={Teacher202Id}"),
+                ("filters[TeacherEmail@like]=doc201", "filters[TeacherEmail@like]=doc202")
+            };
+
+            foreach (var (confirmedQuery, unconfirmedQuery) in filterPairs)
+            {
+                // Propuesta: incluye InscriptionA tanto para docente confirmado (201) como preseleccionado (202)
+                using (var reqConfirmed = CreateRequest(HttpMethod.Get, $"/api/Proposal/GetAll?PageNumber=1&PageSize=10&{confirmedQuery}", 1, committeePermissions))
+                using (var reqUnconfirmed = CreateRequest(HttpMethod.Get, $"/api/Proposal/GetAll?PageNumber=1&PageSize=10&{unconfirmedQuery}", 1, committeePermissions))
+                {
+                    var respConfirmed = await client.SendAsync(reqConfirmed);
+                    var respUnconfirmed = await client.SendAsync(reqUnconfirmed);
+                    respConfirmed.StatusCode.Should().Be(HttpStatusCode.OK);
+                    respUnconfirmed.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                    var bodyConfirmed = await respConfirmed.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>>>();
+                    var bodyUnconfirmed = await respUnconfirmed.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProposalWithDetailsResponseDto>>>();
+
+                    bodyConfirmed!.Data!.Items.Should().ContainSingle(x => x.Proposal.Id == scenario.InscriptionAId);
+                    bodyUnconfirmed!.Data!.Items.Should().ContainSingle(x => x.Proposal.Id == scenario.InscriptionAId);
+                    bodyUnconfirmed.Data.Items.Single().Teachers.Should().ContainSingle(t => t.IdTeacher == Teacher202Id && !t.IsConfirmed);
+                }
+
+                // Anteproyecto: incluye 201 (IsConfirmed = true) y excluye 202 (IsConfirmed = false)
+                using (var reqConfirmed = CreateRequest(HttpMethod.Get, $"/api/PreliminaryProject/GetAll?PageNumber=1&PageSize=10&{confirmedQuery}", 1, committeePermissions))
+                using (var reqUnconfirmed = CreateRequest(HttpMethod.Get, $"/api/PreliminaryProject/GetAll?PageNumber=1&PageSize=10&{unconfirmedQuery}", 1, committeePermissions))
+                {
+                    var respConfirmed = await client.SendAsync(reqConfirmed);
+                    var respUnconfirmed = await client.SendAsync(reqUnconfirmed);
+                    respConfirmed.StatusCode.Should().Be(HttpStatusCode.OK);
+                    respUnconfirmed.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                    var bodyConfirmed = await respConfirmed.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<PreliminaryProjectWithDetailsResponseDto>>>();
+                    var bodyUnconfirmed = await respUnconfirmed.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<PreliminaryProjectWithDetailsResponseDto>>>();
+
+                    bodyConfirmed!.Data!.Items.Should().ContainSingle(x => x.PreliminaryProject.Id == scenario.InscriptionAId);
+                    bodyUnconfirmed!.Data!.Items.Should().BeEmpty();
+                }
+
+                // Proyecto Final: incluye 201 (IsConfirmed = true) y excluye 202 (IsConfirmed = false)
+                using (var reqConfirmed = CreateRequest(HttpMethod.Get, $"/api/ProjectFinal/GetAll?PageNumber=1&PageSize=10&{confirmedQuery}", 1, committeePermissions))
+                using (var reqUnconfirmed = CreateRequest(HttpMethod.Get, $"/api/ProjectFinal/GetAll?PageNumber=1&PageSize=10&{unconfirmedQuery}", 1, committeePermissions))
+                {
+                    var respConfirmed = await client.SendAsync(reqConfirmed);
+                    var respUnconfirmed = await client.SendAsync(reqUnconfirmed);
+                    respConfirmed.StatusCode.Should().Be(HttpStatusCode.OK);
+                    respUnconfirmed.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                    var bodyConfirmed = await respConfirmed.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProjectFinalWithDetailsResponseDto>>>();
+                    var bodyUnconfirmed = await respUnconfirmed.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProjectFinalWithDetailsResponseDto>>>();
+
+                    bodyConfirmed!.Data!.Items.Should().ContainSingle(x => x.ProjectFinal.Id == scenario.InscriptionAId);
+                    bodyUnconfirmed!.Data!.Items.Should().BeEmpty();
+                }
+
+                // Sustentación: incluye 201 (IsConfirmed = true) y excluye 202 (IsConfirmed = false)
+                using (var reqConfirmed = CreateRequest(HttpMethod.Get, $"/api/ProjectPresentation/GetAll?PageNumber=1&PageSize=10&{confirmedQuery}", 1, committeePermissions))
+                using (var reqUnconfirmed = CreateRequest(HttpMethod.Get, $"/api/ProjectPresentation/GetAll?PageNumber=1&PageSize=10&{unconfirmedQuery}", 1, committeePermissions))
+                {
+                    var respConfirmed = await client.SendAsync(reqConfirmed);
+                    var respUnconfirmed = await client.SendAsync(reqUnconfirmed);
+                    respConfirmed.StatusCode.Should().Be(HttpStatusCode.OK);
+                    respUnconfirmed.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                    var bodyConfirmed = await respConfirmed.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProjectPresentationWithDetailsResponseDto>>>();
+                    var bodyUnconfirmed = await respUnconfirmed.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<ProjectPresentationWithDetailsResponseDto>>>();
+
+                    bodyConfirmed!.Data!.Items.Should().ContainSingle(x => x.ProjectPresentation.Id == scenario.InscriptionAId);
+                    bodyUnconfirmed!.Data!.Items.Should().BeEmpty();
+                }
+            }
+        }
+
+        [Fact]
         public async Task Committee_ByInscriptionAndPutTeachingAssignment_ShowsUnconfirmedAndRatifiesTeacher202()
         {
             using var factory = new CustomWebApplicationFactory();
@@ -867,7 +956,7 @@ namespace Tests.Integration.Authorization
                 });
 
                 var resp = await client.SendAsync(nonMemberReq);
-                resp.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.Unauthorized);
+                resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
         }
 
@@ -1837,6 +1926,141 @@ namespace Tests.Integration.Authorization
                 prelim!.IdStateStage.Should().Be(apEnEvaluacionId);
             }
             factory.EnqueuedJobs.Should().Contain(j => j.MethodName == "HandlePreliminaryProjectChangeAsync");
+        }
+
+        [Fact]
+        public async Task RevokedOrInactiveTeacherAssignment_BlockedWithForbidden_OnPreliminaryProjectFinalAndPresentation()
+        {
+            using var factory = new CustomWebApplicationFactory();
+            using var client = factory.CreateClient();
+            var scenario = await SeedScenarioAsync(factory);
+
+            const int revokedTeacherId = 205;
+            const int inactiveTeacherId = 206;
+            int apConObsId;
+            int pfObsId;
+            int sustReintentoId;
+
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var idTypeId = context.Set<IdentificationType>().First(x => x.StatusRegister).Id;
+                var programId = context.Set<AcademicProgram>().First(x => x.StatusRegister).Id;
+
+                context.Set<User>().AddRange(
+                    new User
+                    {
+                        Id = revokedTeacherId,
+                        FirstName = "Docente",
+                        LastName = "Revocado",
+                        Email = "doc205@unicesar.edu.co",
+                        Identification = "205205205",
+                        IdIdentificationType = idTypeId,
+                        IdAcademicProgram = programId,
+                        StatusRegister = true
+                    },
+                    new User
+                    {
+                        Id = inactiveTeacherId,
+                        FirstName = "Docente",
+                        LastName = "Inactivo",
+                        Email = "doc206@unicesar.edu.co",
+                        Identification = "206206206",
+                        IdIdentificationType = idTypeId,
+                        IdAcademicProgram = programId,
+                        StatusRegister = true
+                    });
+
+                context.Set<TeachingAssignment>().AddRange(
+                    new TeachingAssignment
+                    {
+                        IdInscriptionModality = scenario.InscriptionAId,
+                        IdTeacher = revokedTeacherId,
+                        IdTypeTeachingAssignment = scenario.JuradoCargoId,
+                        IsConfirmed = true,
+                        RevocationDate = DateTimeOffset.UtcNow.AddDays(-1),
+                        StatusRegister = true,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    },
+                    new TeachingAssignment
+                    {
+                        IdInscriptionModality = scenario.InscriptionAId,
+                        IdTeacher = inactiveTeacherId,
+                        IdTypeTeachingAssignment = scenario.JuradoCargoId,
+                        IsConfirmed = true,
+                        RevocationDate = null,
+                        StatusRegister = false,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    });
+
+                var apStage = context.Set<StageModality>().First(s => s.Code == StageModalityCodes.PgFaseAnteproyecto);
+                var apConObs = context.Set<StateStage>().FirstOrDefault(s => s.Code == StateStageCodes.ApConObservaciones);
+                if (apConObs == null)
+                {
+                    apConObs = new StateStage
+                    {
+                        Code = StateStageCodes.ApConObservaciones,
+                        Name = "Anteproyecto con Observaciones",
+                        IdStageModality = apStage.Id,
+                        StatusRegister = true
+                    };
+                    context.Set<StateStage>().Add(apConObs);
+                }
+
+                await context.SaveChangesAsync();
+
+                apConObsId = apConObs.Id;
+                pfObsId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PfinfInformeConObservaciones).Id;
+                sustReintentoId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.SustNoAprobadaReintento).Id;
+            }
+
+            foreach (var blockedTeacherId in new[] { revokedTeacherId, inactiveTeacherId })
+            {
+                // 1. PreliminaryProject -> 403 Forbidden
+                using (var apReq = CreateRequest(
+                    HttpMethod.Patch,
+                    $"/api/PreliminaryProject/{scenario.InscriptionAId}",
+                    blockedTeacherId,
+                    PermissionCodes.ProyectoGrado.N4PGPAR))
+                {
+                    apReq.Content = JsonContent.Create(new PreliminaryProjectPatchDto
+                    {
+                        IdStateStage = apConObsId,
+                        Observations = "Intento evaluación docente revocado/inactivo"
+                    });
+                    (await client.SendAsync(apReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                }
+
+                // 2. ProjectFinal -> 403 Forbidden
+                using (var pfReq = CreateRequest(
+                    HttpMethod.Patch,
+                    $"/api/ProjectFinal/{scenario.InscriptionAId}",
+                    blockedTeacherId,
+                    PermissionCodes.ProyectoGrado.N4PGPPRR))
+                {
+                    pfReq.Content = JsonContent.Create(new ProjectFinalPatchDto
+                    {
+                        IdStateStage = pfObsId,
+                        Observations = "Intento calificación PF docente revocado/inactivo"
+                    });
+                    (await client.SendAsync(pfReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                }
+
+                // 3. ProjectPresentation -> 403 Forbidden
+                using (var presReq = CreateRequest(
+                    HttpMethod.Patch,
+                    $"/api/ProjectPresentation/{scenario.InscriptionAId}",
+                    blockedTeacherId,
+                    PermissionCodes.ProyectoGrado.N4PGPSR))
+                {
+                    presReq.Content = JsonContent.Create(new ProjectPresentationPatchDto
+                    {
+                        IdStateStage = sustReintentoId,
+                        Observations = "Intento calificación sustentación docente revocado/inactivo"
+                    });
+                    (await client.SendAsync(presReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+                }
+            }
         }
     }
 }

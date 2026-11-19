@@ -41,7 +41,9 @@ namespace Application.Shared.Queries.AcademicPractices.Handlers
                 TotalRecords = result.TotalRecords,
                 PageNumber = result.PageNumber,
                 PageSize = result.PageSize,
-                HasMoreRows = result.HasMoreRows
+                HasMoreRows = result.HasMoreRows,
+                CursorCreatedAt = result.CursorCreatedAt,
+                CursorId = result.CursorId
             };
         }
     }

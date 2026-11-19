@@ -10,6 +10,7 @@ using Domain.Interfaces.Services;
 using Domain.Interfaces.Services.Jobs;
 using Application.Common.Services.Jobs;
 using Domain.Common.Users;
+using Domain.Exceptions;
 
 namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 {
@@ -49,6 +50,9 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             CreateInscriptionWithStudentsCommand request,
             CancellationToken cancellationToken)
         {
+            if (request.CurrentUser?.UserId is not int currentUserId || currentUserId <= 0)
+                throw new ForbiddenAccessException("Usuario autenticado requerido para crear una inscripción.");
+
             if (request.Dto.Students == null || !request.Dto.Students.Any())
                 throw new InvalidOperationException("Se requiere al menos un estudiante para crear una inscripción de modalidad.");
 
@@ -101,6 +105,9 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             }
 
             var userIds = userDictionary.Values.Select(u => u.Id).ToList();
+            if (!userIds.Contains(currentUserId))
+                throw new ForbiddenAccessException("El usuario autenticado debe estar incluido entre los estudiantes de la inscripción.");
+
             var users = await _unitOfWork.GetRepository<User, int>()
                 .GetAllAsync(u => userIds.Contains(u.Id));
             
@@ -136,7 +143,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 var userInfo = userDictionary[student.Identification];
                 
                 var userInscriptions = await userInscriptionRepo.GetAllAsync(
-                    ui => ui.IdUser == userInfo.Id && ui.StatusRegister);
+                    ui => ui.IdUser == userInfo.Id && ui.StatusRegister && ui.IsConfirmed);
                 
                 var inscriptionModalityIds = userInscriptions.Select(ui => ui.IdInscriptionModality).ToList();
                 if (inscriptionModalityIds.Any())
@@ -183,6 +190,7 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                     inscriptionModality.UserInscriptionModalities.Add(new UserInscriptionModality
                     {
                         IdUser = userIdentification.Id,
+                        IsConfirmed = userIdentification.Id == currentUserId,
                         IdUserCreatedAt = request.CurrentUser?.UserId,
                         CreatedAt = DateTimeOffset.UtcNow,
                         StatusRegister = true,
@@ -198,12 +206,11 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 await _unitOfWork.CommitAsync(cancellationToken);
 
                 // 4. Dispatch domain event para activar creación de registro de extensión
-                var primaryStudentId = userDictionary.Values.First().Id;
                 await _mediator.Publish(new Domain.Events.InscriptionStateChangedEvent(
                     InscriptionModalityId: inscriptionModality.Id,
                     ModalityId: modality.Id,
                     NewStateInscriptionId: initialState.Id,
-                    TriggeredByUserId: primaryStudentId
+                    TriggeredByUserId: currentUserId
                 ), cancellationToken);
 
                 // 5. Commit para persistir cambios del handler (permisos, registro extensión)
@@ -211,14 +218,20 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
 
                 // 5. Prepare response
                 var inscriptionModalityId = inscriptionModality.Id;
+                var linksByUserId = inscriptionModality.UserInscriptionModalities
+                    .ToDictionary(l => l.IdUser);
                 var students = request.Dto.Students.Select(s =>
                 {
                     var userIdentification = userDictionary[s.Identification];
+                    var link = linksByUserId[userIdentification.Id];
                     return new UserInscriptionModalityDto
                     {
+                        Id = link.Id,
                         IdInscriptionModality = inscriptionModalityId,
                         IdUser = userIdentification.Id,
-                        UserName = userIdentification.UserName
+                        UserName = userIdentification.UserName,
+                        IsConfirmed = link.IsConfirmed,
+                        StatusRegister = link.StatusRegister
                     };
                 }).ToList();
 

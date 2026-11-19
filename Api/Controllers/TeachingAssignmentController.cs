@@ -64,7 +64,7 @@ namespace Api.Controllers
         private bool IsCrossTeacherAccessDenied(int idTeacher)
         {
             if (User?.Identity?.IsAuthenticated != true)
-                return false;
+                return true;
 
             var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
             if (TeacherReadAllPermissions.Any(permissions.Contains))
@@ -144,18 +144,18 @@ namespace Api.Controllers
         [HttpPost]
         public override async Task<IActionResult> Create([FromBody] TeachingAssignmentDto dto)
         {
-            var effectiveDto = dto;
-            if (User?.Identity?.IsAuthenticated == true)
-            {
-                var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
-                var canAssignOfficially =
-                    permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) ||
-                    permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAA) ||
-                    permissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA);
+            if (User?.Identity?.IsAuthenticated != true)
+                return Forbid();
 
-                if (!canAssignOfficially)
-                    effectiveDto = dto with { IsConfirmed = false };
-            }
+            var effectiveDto = dto;
+            var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+            var canAssignOfficially =
+                permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) ||
+                permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAA) ||
+                permissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA);
+
+            if (!canAssignOfficially)
+                effectiveDto = dto with { IsConfirmed = false };
 
             var result = await _mediator.Send(new CreateTeachingAssignmentCommand(effectiveDto, User.GetCurrentUserInfo()));
             return CreatedAtAction(nameof(GetByIdInscription), new { id = result.IdInscriptionModality }, new ApiResponse<TeachingAssignmentDto> { Success = true, Data = result });

@@ -3,7 +3,7 @@ using Domain.Common;
 
 namespace Domain.Entities
 {
-    public abstract class BaseEntity<TId> where TId : struct
+    public abstract class BaseEntity<TId> : IHasDomainEvents where TId : struct
     {
         public TId Id { get; set; }
         public int? IdUserCreatedAt { get; set; }

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Application.Shared.Commands.InscriptionModalities;
 using Application.Shared.Commands.InscriptionModalities.Handlers;
 using Application.Shared.DTOs.InscriptionModalities;
@@ -24,6 +25,7 @@ namespace Tests.UnitTests.Application.Commands
         private readonly Mock<IRepository<StateInscription, int>> _stateRepoMock;
         private readonly Mock<IRepository<EvaluationType, int>> _evalTypeRepoMock;
         private readonly Mock<IRepository<Evaluation, int>> _evalRepoMock;
+        private readonly Mock<IRepository<UserInscriptionModality, int>> _uimRepoMock;
         private readonly PatchInscriptionModalityCommandHandler _handler;
 
         public PatchInscriptionModalityCommandHandlerTests()
@@ -36,6 +38,7 @@ namespace Tests.UnitTests.Application.Commands
             _stateRepoMock = new Mock<IRepository<StateInscription, int>>();
             _evalTypeRepoMock = new Mock<IRepository<EvaluationType, int>>();
             _evalRepoMock = new Mock<IRepository<Evaluation, int>>();
+            _uimRepoMock = new Mock<IRepository<UserInscriptionModality, int>>();
 
             _unitOfWorkMock.Setup(u => u.GetRepository<StateInscription, int>())
                 .Returns(_stateRepoMock.Object);
@@ -43,6 +46,8 @@ namespace Tests.UnitTests.Application.Commands
                 .Returns(_evalTypeRepoMock.Object);
             _unitOfWorkMock.Setup(u => u.GetRepository<Evaluation, int>())
                 .Returns(_evalRepoMock.Object);
+            _unitOfWorkMock.Setup(u => u.GetRepository<UserInscriptionModality, int>())
+                .Returns(_uimRepoMock.Object);
 
             _handler = new PatchInscriptionModalityCommandHandler(
                 _repositoryMock.Object,
@@ -140,6 +145,20 @@ namespace Tests.UnitTests.Application.Commands
             _stateRepoMock.Setup(s => s.GetByIdAsync(targetStateId))
                 .ReturnsAsync(approvedState);
 
+            _uimRepoMock.Setup(r => r.GetAllAsync(
+                    It.IsAny<Expression<Func<UserInscriptionModality, bool>>>(),
+                    null, null, null))
+                .ReturnsAsync([
+                    new UserInscriptionModality
+                    {
+                        Id = 1,
+                        IdInscriptionModality = inscriptionId,
+                        IdUser = 100,
+                        StatusRegister = true,
+                        IsConfirmed = true
+                    }
+                ]);
+
             var expectedDto = new InscriptionModalityDto
             {
                 Id = inscriptionId,
@@ -234,6 +253,145 @@ namespace Tests.UnitTests.Application.Commands
             result.Should().NotBeNull();
             existingEntity.IsFinalRejection.Should().BeTrue();
             _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task Handle_WhenApprovingWithActiveUnconfirmedStudent_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            const int inscriptionId = 40;
+            const int originalStateId = 1; // PENDIENTE
+            const int approvedStateId = 2; // APROBADO
+
+            var existingEntity = new InscriptionModality
+            {
+                Id = inscriptionId,
+                IdStateInscription = originalStateId,
+                StatusRegister = true
+            };
+
+            var pendingState = new StateInscription
+            {
+                Id = originalStateId,
+                Code = StateInscriptionCodes.Pendiente,
+                Name = "Pendiente",
+                IsFinalStateForStage = false
+            };
+
+            var approvedState = new StateInscription
+            {
+                Id = approvedStateId,
+                Code = StateInscriptionCodes.Aprobado,
+                Name = "Aprobado",
+                IsFinalStateForStage = true
+            };
+
+            _repositoryMock.Setup(r => r.GetByIdAsync(inscriptionId))
+                .ReturnsAsync(existingEntity);
+            _stateRepoMock.Setup(s => s.GetByIdAsync(originalStateId))
+                .ReturnsAsync(pendingState);
+            _stateRepoMock.Setup(s => s.GetByIdAsync(approvedStateId))
+                .ReturnsAsync(approvedState);
+
+            _uimRepoMock.Setup(r => r.GetAllAsync(
+                    It.IsAny<Expression<Func<UserInscriptionModality, bool>>>(),
+                    null, null, null))
+                .ReturnsAsync([
+                    new UserInscriptionModality
+                    {
+                        Id = 1,
+                        IdInscriptionModality = inscriptionId,
+                        IdUser = 100,
+                        StatusRegister = true,
+                        IsConfirmed = true
+                    },
+                    new UserInscriptionModality
+                    {
+                        Id = 2,
+                        IdInscriptionModality = inscriptionId,
+                        IdUser = 101,
+                        StatusRegister = true,
+                        IsConfirmed = false
+                    }
+                ]);
+
+            var command = new PatchInscriptionModalityCommand(
+                inscriptionId,
+                new InscriptionModalityPatchDto
+                {
+                    IdStateInscription = approvedStateId,
+                    Observations = "Aprobación con co-estudiante pendiente"
+                },
+                new CurrentUserInfo { UserId = 42 });
+
+            // Act
+            var act = () => _handler.Handle(command, CancellationToken.None);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("No se puede aprobar la inscripción mientras existan co-estudiantes pendientes de confirmar su participación.");
+            _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task Handle_WhenApprovingWithNoActiveConfirmedStudentsRemaining_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            const int inscriptionId = 50;
+            const int originalStateId = 1; // PENDIENTE
+            const int approvedStateId = 2; // APROBADO
+
+            var existingEntity = new InscriptionModality
+            {
+                Id = inscriptionId,
+                IdStateInscription = originalStateId,
+                StatusRegister = true
+            };
+
+            var pendingState = new StateInscription
+            {
+                Id = originalStateId,
+                Code = StateInscriptionCodes.Pendiente,
+                Name = "Pendiente",
+                IsFinalStateForStage = false
+            };
+
+            var approvedState = new StateInscription
+            {
+                Id = approvedStateId,
+                Code = StateInscriptionCodes.Aprobado,
+                Name = "Aprobado",
+                IsFinalStateForStage = true
+            };
+
+            _repositoryMock.Setup(r => r.GetByIdAsync(inscriptionId))
+                .ReturnsAsync(existingEntity);
+            _stateRepoMock.Setup(s => s.GetByIdAsync(originalStateId))
+                .ReturnsAsync(pendingState);
+            _stateRepoMock.Setup(s => s.GetByIdAsync(approvedStateId))
+                .ReturnsAsync(approvedState);
+
+            _uimRepoMock.Setup(r => r.GetAllAsync(
+                    It.IsAny<Expression<Func<UserInscriptionModality, bool>>>(),
+                    null, null, null))
+                .ReturnsAsync([]);
+
+            var command = new PatchInscriptionModalityCommand(
+                inscriptionId,
+                new InscriptionModalityPatchDto
+                {
+                    IdStateInscription = approvedStateId,
+                    Observations = "Aprobación sin estudiantes confirmados"
+                },
+                new CurrentUserInfo { UserId = 42 });
+
+            // Act
+            var act = () => _handler.Handle(command, CancellationToken.None);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("La inscripción no tiene estudiantes confirmados activos.");
+            _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
         }
     }
 }

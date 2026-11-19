@@ -14,10 +14,14 @@ namespace Infrastructure.Services.Auth
     public class GoogleTokenValidator : ITokenValidator
     {
         private readonly GoogleAuthOptions _options;
+        private readonly Func<string, GoogleJsonWebSignature.ValidationSettings, Task<GoogleJsonWebSignature.Payload>> _validateToken;
 
-        public GoogleTokenValidator(IOptions<GoogleAuthOptions> options)
+        public GoogleTokenValidator(
+            IOptions<GoogleAuthOptions> options,
+            Func<string, GoogleJsonWebSignature.ValidationSettings, Task<GoogleJsonWebSignature.Payload>>? validateToken = null)
         {
             _options = options.Value;
+            _validateToken = validateToken ?? GoogleJsonWebSignature.ValidateAsync;
         }
 
         public string Provider => "google";
@@ -39,7 +43,14 @@ namespace Infrastructure.Services.Auth
                 settings.HostedDomain = _options.HostedDomain;
             }
 
-            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
+            var payload = await _validateToken(idToken, settings);
+
+            if (!payload.EmailVerified)
+            {
+                throw new UnauthorizedAccessException("El correo de Google no está verificado.");
+            }
+
+            AuthValidationHelper.EnsureEmailDomainAllowed(payload.Email, _options.AllowedDomains);
 
             return new TokenPayload
             {

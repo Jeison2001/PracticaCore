@@ -80,7 +80,6 @@ namespace Application.Features.Research.EventHandlers
                     presentation = new ProjectPresentation
                     {
                         Id = notification.InscriptionModalityId,
-                        IdInscriptionModality = notification.InscriptionModalityId,
                         IdStateStage = initialState.Id,
                         AttemptNumber = 1,
                         IdUserCreatedAt = notification.TriggeredByUserId,

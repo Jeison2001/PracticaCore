@@ -80,7 +80,7 @@ namespace Tests.Integration.Inscription
             };
 
             // Act
-            var response = await _client.PostAsJsonAsync("/api/Inscription", dto);
+            var response = await PostInscriptionAsUserAsync(dto, student.Id);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -188,7 +188,7 @@ namespace Tests.Integration.Inscription
             };
 
             // Act
-            var response = await _client.PostAsJsonAsync("/api/Inscription", dto);
+            var response = await PostInscriptionAsUserAsync(dto, student.Id);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -265,7 +265,7 @@ namespace Tests.Integration.Inscription
             };
 
             // Act
-            var response = await _client.PostAsJsonAsync("/api/Inscription", dto);
+            var response = await PostInscriptionAsUserAsync(dto, student.Id);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -342,7 +342,7 @@ namespace Tests.Integration.Inscription
             };
 
             // Act
-            var response = await _client.PostAsJsonAsync("/api/Inscription", dto);
+            var response = await PostInscriptionAsUserAsync(dto, student.Id);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -433,7 +433,7 @@ namespace Tests.Integration.Inscription
             };
 
             // Act
-            var response = await _client.PostAsJsonAsync("/api/Inscription", dto);
+            var response = await PostInscriptionAsUserAsync(dto, student.Id);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -441,6 +441,16 @@ namespace Tests.Integration.Inscription
             result.Should().NotBeNull();
             result!.Success.Should().BeTrue();
             result.Data!.InscriptionModality.Id.Should().NotBe(previousInscription.Id);
+        }
+
+        private async Task<HttpResponseMessage> PostInscriptionAsUserAsync(InscriptionWithStudentsCreateDto dto, int userId)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/Inscription")
+            {
+                Content = JsonContent.Create(dto)
+            };
+            request.Headers.Add("X-Test-UserId", userId.ToString());
+            return await _client.SendAsync(request);
         }
     }
 }

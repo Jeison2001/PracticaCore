@@ -19,5 +19,15 @@ namespace Domain.Configuration
         /// ClientId (Application ID) de la app registrada. Se valida como audience del id_token.
         /// </summary>
         public string ClientId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Lista opcional de Tenant IDs autorizados cuando TenantId es multi-tenant.
+        /// </summary>
+        public string[]? AllowedTenantIds { get; set; }
+
+        /// <summary>
+        /// Lista opcional de dominios de correo electrónico permitidos.
+        /// </summary>
+        public string[]? AllowedDomains { get; set; }
     }
 }

@@ -16,13 +16,15 @@ namespace Application.Common.Services
             IUnitOfWork unitOfWork,
             int inscriptionModalityId,
             int userId,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool requireConfirmed = true)
         {
             var userInscriptionRepo = unitOfWork.GetRepository<UserInscriptionModality, int>();
             return await userInscriptionRepo.AnyAsync(
                 x => x.IdInscriptionModality == inscriptionModalityId &&
                      x.IdUser == userId &&
-                     x.StatusRegister,
+                     x.StatusRegister &&
+                     (!requireConfirmed || x.IsConfirmed),
                 cancellationToken);
         }
 
@@ -96,8 +98,14 @@ namespace Application.Common.Services
             string studentSelfApprovalMessage,
             CancellationToken cancellationToken = default)
         {
-            if (currentUser?.Permissions is not { Count: > 0 } perms ||
-                managementPerms.Any(perms.Contains))
+            if (currentUser == null ||
+                currentUser.UserId is not > 0 ||
+                currentUser.Permissions is not { Count: > 0 } perms)
+            {
+                throw new ForbiddenAccessException("No tiene permisos vigentes para realizar esta acción.");
+            }
+
+            if (managementPerms.Any(perms.Contains))
             {
                 return;
             }

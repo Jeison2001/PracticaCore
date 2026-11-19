@@ -7,5 +7,6 @@ namespace Domain.Interfaces.Repositories
         IRepository<T, TId> GetRepository<T, TId>() where T : BaseEntity<TId> where TId : struct;
         Task<int> CommitAsync(CancellationToken ct = default);
         Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken ct = default);
+        Task ExecuteAfterCommitAsync(Func<CancellationToken, Task> action, CancellationToken ct = default);
     }
 }

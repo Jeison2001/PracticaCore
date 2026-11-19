@@ -37,7 +37,28 @@ namespace Tests.Integration.Evaluations
                 EndDate = DateTime.UtcNow.AddMonths(6)
             };
             context.Set<AcademicPeriod>().Add(period);
-            var stateStage = new StateStage { Name = "Stage " + Guid.NewGuid(), Code = "STAGE_" + Guid.NewGuid().ToString("N")[..4] };
+            var stage = context.Set<StageModality>()
+                .FirstOrDefault(s => s.Code == StageModalityCodes.PaFaseInscripcion);
+            if (stage == null)
+            {
+                stage = new StageModality
+                {
+                    Code = StageModalityCodes.PaFaseInscripcion,
+                    Name = "PA Fase Inscripción",
+                    IdModality = modality.Id,
+                    StageOrder = 1,
+                    StatusRegister = true
+                };
+                context.Set<StageModality>().Add(stage);
+                context.SaveChanges();
+            }
+
+            var stateStage = new StateStage
+            {
+                Name = "Stage " + Guid.NewGuid(),
+                Code = "STAGE_" + Guid.NewGuid().ToString("N")[..4],
+                IdStageModality = stage.Id
+            };
             context.Set<StateStage>().Add(stateStage);
             context.SaveChanges();
 
@@ -45,7 +66,8 @@ namespace Tests.Integration.Evaluations
             {
                 IdModality = modality.Id,
                 IdStateInscription = stateInscription.Id,
-                IdAcademicPeriod = period.Id
+                IdAcademicPeriod = period.Id,
+                IdStageModality = stage.Id
             };
             context.Set<InscriptionModality>().Add(inscription);
             context.SaveChanges();
@@ -109,6 +131,7 @@ namespace Tests.Integration.Evaluations
         {
             // Arrange
             int practiceId;
+            int stateStageId;
             const string identicalObs = "Aprobado sin modificaciones para la siguiente fase.";
 
             using (var scope = _factory.Services.CreateScope())
@@ -116,12 +139,13 @@ namespace Tests.Integration.Evaluations
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var (ap, _) = SeedPractice(context);
                 practiceId = ap.Id;
+                stateStageId = ap.IdStateStage;
             }
 
             var dto = new UpdatePhaseApprovalDto
             {
                 Id = practiceId,
-                NewStateStageId = 1,
+                NewStateStageId = stateStageId,
                 Observations = identicalObs,
                 EvaluatorObservations = identicalObs
             };
@@ -147,18 +171,20 @@ namespace Tests.Integration.Evaluations
         {
             // Arrange
             int practiceId;
+            int stateStageId;
 
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var (ap, _) = SeedPractice(context);
                 practiceId = ap.Id;
+                stateStageId = ap.IdStateStage;
             }
 
             var dto = new UpdatePhaseApprovalDto
             {
                 Id = practiceId,
-                NewStateStageId = 1,
+                NewStateStageId = stateStageId,
                 Observations = "   ",
                 EvaluatorObservations = null
             };

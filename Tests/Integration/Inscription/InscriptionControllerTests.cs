@@ -62,6 +62,8 @@ namespace Tests.Integration.Inscription
             // Arrange
             var (modality, _, period, idType, program, role) = await SeedDependenciesAsync();
 
+            int creatorUserId;
+
             // Pre-seed a user to simulate an existing student
             using (var scope = _factory.Services.CreateScope())
             {
@@ -92,6 +94,7 @@ namespace Tests.Integration.Inscription
                 context.Set<UserRole>().Add(new UserRole { IdUser = user2.Id, IdRole = role.Id, StatusRegister = true });
 
                 await context.SaveChangesAsync();
+                creatorUserId = user1.Id;
             }
 
             var dto = new InscriptionWithStudentsCreateDto
@@ -110,7 +113,12 @@ namespace Tests.Integration.Inscription
             };
 
             // Act
-            var response = await _client.PostAsJsonAsync("/api/Inscription", dto);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/Inscription")
+            {
+                Content = JsonContent.Create(dto)
+            };
+            request.Headers.Add("X-Test-UserId", creatorUserId.ToString());
+            var response = await _client.SendAsync(request);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);

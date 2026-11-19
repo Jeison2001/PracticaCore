@@ -41,7 +41,7 @@ namespace Infrastructure.Extensions
 
             var users = await context.Set<UserInscriptionModality>()
                 .AsNoTracking()
-                .Where(uim => inscriptionIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => inscriptionIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .ToListAsync(cancellationToken);
 

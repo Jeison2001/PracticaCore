@@ -46,16 +46,16 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 && dto.NewStateStageId.Value > 0
                 && dto.NewStateStageId.Value != originalStateId;
 
-            if (request.CurrentUser?.Permissions is { Count: > 0 } perms &&
-                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PG) &&
-                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA) &&
-                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PR) &&
-                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF1PG) &&
-                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF1PR) &&
-                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF2PG) &&
-                !perms.Contains(PermissionCodes.PracticaAcademica.N4PAF2PR) &&
-                !perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR) &&
-                !perms.Contains(PermissionCodes.Configuraciones.N3CFSU))
+            if (request.CurrentUser?.UserId is not > 0 ||
+                request.CurrentUser.Permissions is not { Count: > 0 } perms)
+            {
+                throw new ForbiddenAccessException("No tiene permisos vigentes para actualizar la información de la institución.");
+            }
+
+            var isInstitutionManager = perms.Any(ModalityPermissionCatalog.PracticaAcademicaInstitutionManagers.Contains);
+            var isStudentActor = !isInstitutionManager;
+
+            if (isStudentActor)
             {
                 await ModalityAccessAuthorizationHelper.EnsureStudentAuthorizedForInscriptionAsync(
                     _unitOfWork,
@@ -67,6 +67,13 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                     cancellationToken);
             }
 
+            await ValidatePracticeOpenAndEditableAsync(
+                academicPractice.Id,
+                originalStateId,
+                hasStateChange,
+                isStudentActor,
+                cancellationToken);
+
             if (hasStateChange)
             {
                 await ModalityStateHelper.ValidateStateTransitionAndCheckRejectionAsync(
@@ -74,7 +81,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                     academicPractice.Id,
                     originalStateId,
                     dto.NewStateStageId!.Value,
-                    allowCrossStageWithinSameModality: true,
+                    allowCrossStageWithinSameModality: !isStudentActor,
                     cancellationToken);
             }
 
@@ -147,6 +154,88 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             if (!string.IsNullOrEmpty(dto.Observations))
                 academicPractice.Observations = dto.Observations;
         }
+
+        private async Task ValidatePracticeOpenAndEditableAsync(
+            int inscriptionId,
+            int originalStateId,
+            bool hasStateChange,
+            bool isStudentActor,
+            CancellationToken cancellationToken)
+        {
+            var inscription = await _unitOfWork.GetRepository<InscriptionModality, int>().GetByIdAsync(inscriptionId);
+            if (inscription != null)
+            {
+                if (inscription.IsFinalRejection)
+                {
+                    throw new InvalidOperationException(
+                        "No se puede actualizar la información de institución porque la modalidad tiene un rechazo definitivo.");
+                }
+
+                if (inscription.IdStateInscription > 0)
+                {
+                    var stateInscription = await _unitOfWork.GetRepository<StateInscription, int>()
+                        .GetByIdAsync(inscription.IdStateInscription);
+                    if (stateInscription != null &&
+                        (stateInscription.IsRejectionState ||
+                         string.Equals(stateInscription.Code, StateInscriptionCodes.Rechazado, StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(stateInscription.Code, StateInscriptionCodes.NoAplica, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        throw new InvalidOperationException(
+                            $"No se puede actualizar la información de institución porque la inscripción se encuentra en estado '{stateInscription.Name}'.");
+                    }
+                }
+            }
+
+            var currentState = await _unitOfWork.GetRepository<StateStage, int>().GetByIdAsync(originalStateId);
+
+            if (!hasStateChange && currentState != null &&
+                (currentState.IsFinalStateForStage ||
+                 currentState.IsFinalStateForModalityOverall ||
+                 currentState.IsRejectionState))
+            {
+                throw new InvalidOperationException(
+                    $"No se puede actualizar la información de institución porque la práctica ya se encuentra en estado '{currentState.Name}'.");
+            }
+
+            if (!isStudentActor)
+                return;
+
+            if (currentState == null)
+            {
+                throw new InvalidOperationException(
+                    "No se puede actualizar la información de institución porque el estado actual de la práctica no es válido.");
+            }
+
+            if (currentState.IsFinalStateForStage ||
+                currentState.IsFinalStateForModalityOverall ||
+                currentState.IsRejectionState)
+            {
+                throw new InvalidOperationException(
+                    $"No se puede actualizar la información de institución porque la práctica ya se encuentra en estado '{currentState.Name}'.");
+            }
+
+            if (currentState.IdStageModality > 0)
+            {
+                var currentStage = await _unitOfWork.GetRepository<StageModality, int>()
+                    .GetByIdAsync(currentState.IdStageModality);
+                if (currentStage != null &&
+                    !string.Equals(currentStage.Code, StageModalityCodes.PaFaseInscripcion, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        "El estudiante solo puede actualizar la información de institución durante la Fase 0 (Inscripción).");
+                }
+            }
+
+            if (!IsStudentEditablePhase0State(currentState.Code))
+            {
+                throw new InvalidOperationException(
+                    $"El estudiante no puede actualizar la información de institución mientras la práctica está en estado '{currentState.Name}'.");
+            }
+        }
+
+        private static bool IsStudentEditablePhase0State(string? stateCode) =>
+            string.Equals(stateCode, StateStageCodes.PaInscripcionPendDoc, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(stateCode, StateStageCodes.PaInscripcionObservaciones, StringComparison.OrdinalIgnoreCase);
 
         private static void UpdateTrackingFields(AcademicPractice academicPractice, UpdateInstitutionInfoDto dto, int? userId)
         {

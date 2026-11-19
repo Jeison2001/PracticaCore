@@ -12,5 +12,6 @@
         public double? CumulativeAverage { get; set; }
         public int? ApprovedCredits { get; set; }
         public int? TotalAcademicCredits { get; set; }
+        public bool IsConfirmed { get; set; } = true;
     }
 }

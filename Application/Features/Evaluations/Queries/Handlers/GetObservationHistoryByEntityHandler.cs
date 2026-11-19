@@ -27,33 +27,30 @@ namespace Application.Features.Evaluations.Queries.Handlers
             GetObservationHistoryByEntityQuery request,
             CancellationToken cancellationToken)
         {
-            if (request.CurrentUser != null)
+            if (request.CurrentUser?.UserId is not int userId ||
+                userId <= 0 ||
+                request.CurrentUser.Permissions is not { Count: > 0 } perms)
             {
-                var perms = request.CurrentUser.Permissions;
-                if (perms == null || perms.Count == 0)
+                throw new ForbiddenAccessException(
+                    "No está autorizado para consultar el historial de observaciones de esta inscripción.");
+            }
+
+            if (!HasManagementPermission(perms, request.EntityType))
+            {
+                var inscriptionId = await ResolveInscriptionIdAsync(
+                    request.EntityType,
+                    request.EntityId,
+                    cancellationToken);
+                var isAuthorized = inscriptionId > 0 && (
+                    await ModalityAccessAuthorizationHelper.IsUserInInscriptionAsync(
+                        _unitOfWork, inscriptionId, userId, cancellationToken) ||
+                    await ModalityAccessAuthorizationHelper.IsConfirmedTeacherInInscriptionAsync(
+                        _unitOfWork, inscriptionId, userId, cancellationToken));
+
+                if (!isAuthorized)
                 {
                     throw new ForbiddenAccessException(
                         "No está autorizado para consultar el historial de observaciones de esta inscripción.");
-                }
-
-                if (!HasManagementPermission(perms, request.EntityType))
-                {
-                    var inscriptionId = await ResolveInscriptionIdAsync(
-                        request.EntityType,
-                        request.EntityId,
-                        cancellationToken);
-                    var userId = request.CurrentUser.UserId ?? 0;
-                    var isAuthorized = userId > 0 && inscriptionId > 0 && (
-                        await ModalityAccessAuthorizationHelper.IsUserInInscriptionAsync(
-                            _unitOfWork, inscriptionId, userId, cancellationToken) ||
-                        await ModalityAccessAuthorizationHelper.IsConfirmedTeacherInInscriptionAsync(
-                            _unitOfWork, inscriptionId, userId, cancellationToken));
-
-                    if (!isAuthorized)
-                    {
-                        throw new ForbiddenAccessException(
-                            "No está autorizado para consultar el historial de observaciones de esta inscripción.");
-                    }
                 }
             }
 
@@ -109,7 +106,7 @@ namespace Application.Features.Evaluations.Queries.Handlers
             {
                 var presentation = await _unitOfWork.GetRepository<ProjectPresentation, int>()
                     .GetFirstOrDefaultAsync(x => x.Id == entityId && x.StatusRegister, cancellationToken);
-                return presentation?.IdInscriptionModality ?? 0;
+                return presentation != null ? entityId : 0;
             }
 
             return entityId;
@@ -117,34 +114,11 @@ namespace Application.Features.Evaluations.Queries.Handlers
 
         private static bool HasManagementPermission(IReadOnlyCollection<string> perms, string? entityType)
         {
-            if (perms.Contains(PermissionCodes.Configuraciones.N3CFSU) ||
-                perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPR) ||
-                perms.Contains(PermissionCodes.ModalidadesGrado.N3MGPG))
-            {
-                return true;
-            }
-
-            if (string.Equals(entityType, nameof(Proposal), StringComparison.OrdinalIgnoreCase) &&
-                perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPR))
-            {
-                return true;
-            }
-
-            return perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPG) ||
-                   perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) ||
-                   perms.Contains(PermissionCodes.ProyectoGrado.N4PGPAG) ||
-                   perms.Contains(PermissionCodes.ProyectoGrado.N4PGPAA) ||
-                   perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPRG) ||
-                   perms.Contains(PermissionCodes.ProyectoGrado.N4PGPSG) ||
-                   perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PG) ||
-                   perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA) ||
-                   perms.Contains(PermissionCodes.PracticaAcademica.N4PAF1PG) ||
-                   perms.Contains(PermissionCodes.PracticaAcademica.N4PAF2PG) ||
-                   perms.Contains(PermissionCodes.CoTerminal.N3CTSGG) ||
-                   perms.Contains(PermissionCodes.Seminario.N3SASGG) ||
-                   perms.Contains(PermissionCodes.PublicacionArticulo.N3PCSGG) ||
-                   perms.Contains(PermissionCodes.GradoPromedio.N3GPSGG) ||
-                   perms.Contains(PermissionCodes.SaberPro.N3SPSGG);
+            return !string.IsNullOrWhiteSpace(entityType) &&
+                   ModalityPermissionCatalog.ObservationHistoryManagementByEntityType.TryGetValue(
+                       entityType.Trim(),
+                       out var allowed) &&
+                   perms.Any(allowed.Contains);
         }
     }
 }

@@ -76,11 +76,23 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
                     throw new InvalidOperationException($"No se puede modificar el estado de una inscripción que ya se encuentra en estado '{currentState.Name}'.");
                 }
 
-                entity.IdStateInscription = request.Dto.IdStateInscription.Value;
-                updatedProperties.Add(x => x.IdStateInscription);
-
                 var newState = await stateRepo.GetByIdAsync(request.Dto.IdStateInscription.Value);
                 isApprovalTransition = newState?.Code == Domain.Constants.StateInscriptionCodes.Aprobado;
+
+                if (isApprovalTransition)
+                {
+                    var activeStudents = (await _unitOfWork.GetRepository<UserInscriptionModality, int>()
+                        .GetAllAsync(x => x.IdInscriptionModality == entity.Id && x.StatusRegister)).ToList();
+
+                    if (!activeStudents.Any(x => x.IsConfirmed))
+                        throw new InvalidOperationException("La inscripción no tiene estudiantes confirmados activos.");
+
+                    if (activeStudents.Any(x => !x.IsConfirmed))
+                        throw new InvalidOperationException("No se puede aprobar la inscripción mientras existan co-estudiantes pendientes de confirmar su participación.");
+                }
+
+                entity.IdStateInscription = request.Dto.IdStateInscription.Value;
+                updatedProperties.Add(x => x.IdStateInscription);
 
                 if (newState != null && newState.IsRejectionState)
                 {

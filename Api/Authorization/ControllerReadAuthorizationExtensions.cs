@@ -22,7 +22,7 @@ namespace Api.Authorization
         {
             var user = controller.User;
             if (user?.Identity?.IsAuthenticated != true)
-                return false;
+                return true;
 
             var currentUserId = user.GetUserId();
             if (!currentUserId.HasValue || currentUserId.Value <= 0)
@@ -32,30 +32,37 @@ namespace Api.Authorization
                 return false;
 
             var permissions = PermissionClaimHelper.ExtractPermissionCodes(user);
-            if (permissions.Contains(PermissionCodes.Configuraciones.N3CFSU))
-                return false;
-
             return !overridePermissions.Any(permissions.Contains);
         }
+
+        internal static Task<bool> IsInscriptionReadAccessDeniedAsync(
+            this ControllerBase controller,
+            int inscriptionId,
+            CancellationToken cancellationToken = default,
+            params string[] managementPermissions) =>
+            controller.IsInscriptionReadAccessDeniedAsync(
+                inscriptionId,
+                allowUnconfirmedStudent: false,
+                cancellationToken,
+                managementPermissions);
 
         internal static async Task<bool> IsInscriptionReadAccessDeniedAsync(
             this ControllerBase controller,
             int inscriptionId,
+            bool allowUnconfirmedStudent,
             CancellationToken cancellationToken = default,
             params string[] managementPermissions)
         {
             var user = controller.User;
             if (user?.Identity?.IsAuthenticated != true)
-                return false;
+                return true;
 
             var currentUser = user.GetCurrentUserInfo();
             if (currentUser.UserId is null or <= 0)
                 return true;
 
             var permissions = currentUser.Permissions;
-            if (permissions != null &&
-                (permissions.Contains(PermissionCodes.Configuraciones.N3CFSU) ||
-                 managementPermissions.Any(permissions.Contains)))
+            if (permissions != null && managementPermissions.Any(permissions.Contains))
             {
                 return false;
             }
@@ -68,7 +75,11 @@ namespace Api.Authorization
                 return true;
 
             if (await ModalityAccessAuthorizationHelper.IsUserInInscriptionAsync(
-                    unitOfWork, inscriptionId, currentUser.UserId.Value, cancellationToken))
+                    unitOfWork,
+                    inscriptionId,
+                    currentUser.UserId.Value,
+                    cancellationToken,
+                    requireConfirmed: !allowUnconfirmedStudent))
             {
                 return false;
             }

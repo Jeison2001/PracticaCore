@@ -25,14 +25,14 @@ namespace Api.Controllers
         [HttpGet("ByUser/{id}")]
         public async Task<ActionResult<ApiResponse<List<UserPermissionInfoDto>>>> GetUserPermissionsByUserId(int id)
         {
-            if (User?.Identity?.IsAuthenticated == true)
-            {
-                var userPermissions = PermissionClaimHelper.ExtractPermissionCodes(User);
-                var isAdmin = userPermissions.Contains(PermissionCodes.Configuraciones.N3CFSU)
-                    || userPermissions.Contains(PermissionCodes.Configuraciones.N3CFSRL);
-                if (!isAdmin && User.GetUserId() != id)
-                    return Forbid();
-            }
+            if (User?.Identity?.IsAuthenticated != true)
+                return Forbid();
+
+            var userPermissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+            var isAdmin = userPermissions.Contains(PermissionCodes.Configuraciones.N3CFSU)
+                || userPermissions.Contains(PermissionCodes.Configuraciones.N3CFSRL);
+            if (!isAdmin && User.GetUserId() != id)
+                return Forbid();
 
             if (id <= 0)
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El ID de usuario debe ser válido." } });

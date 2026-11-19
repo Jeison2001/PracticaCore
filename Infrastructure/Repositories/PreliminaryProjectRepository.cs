@@ -30,26 +30,7 @@ namespace Infrastructure.Repositories
             var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
             var pf = ProposalFilterLoader.ExtractProjectFilters(tf.Remaining);
             var remainingFilters = pf.Remaining;
-            if (tf.HasAny)
-            {
-                var namePattern = tf.Name != null ? TeacherAssignmentLoader.LikePattern(tf.Name) : null;
-                var emailPattern = tf.Email != null ? TeacherAssignmentLoader.LikePattern(tf.Email) : null;
-                var teacherId = tf.Id;
-                var cargoId = tf.CargoId;
-                var cargoCode = tf.CargoCode;
-                var cargoName = tf.CargoName;
-                preliminaryProjectsQuery = preliminaryProjectsQuery.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
-                    ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
-                    (namePattern == null || (ta.Teacher != null &&
-                        (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
-                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
-                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
-                    (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
-                    (teacherId == null || ta.IdTeacher == teacherId) &&
-                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
-                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
-                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
-            }
+            preliminaryProjectsQuery = preliminaryProjectsQuery.ApplyTeacherFilterById(_context, tf, confirmedOnly: true);
 
             // Filtros sobre Proposal (comparte Id con la entidad raíz) -> EXISTS por propuesta:
             // title@like y researchline@like no son propiedades de PreliminaryProject y
@@ -111,7 +92,7 @@ namespace Infrastructure.Repositories
 
             // 3. Traer los estudiantes asociados
             var students = await _context.Set<UserInscriptionModality>()
-                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync();
@@ -141,7 +122,9 @@ namespace Infrastructure.Repositories
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
                 PageSize = paginatedResult.PageSize,
-                HasMoreRows = paginatedResult.HasMoreRows
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
         }
 
@@ -150,7 +133,7 @@ namespace Infrastructure.Repositories
             // 1. Obtener los IDs de modalidades donde participa el usuario
             var inscriptionModalityIds = await _context.Set<UserInscriptionModality>()
                 .AsNoTracking()
-                .Where(uim => uim.IdUser == userId && uim.StatusRegister)
+                .Where(uim => uim.IdUser == userId && uim.StatusRegister && uim.IsConfirmed)
                 .Select(uim => uim.IdInscriptionModality)
                 .Distinct()
                 .ToListAsync();
@@ -184,7 +167,7 @@ namespace Infrastructure.Repositories
 
             // 4. Traer los estudiantes y docentes asignados activos
             var students = await _context.Set<UserInscriptionModality>()
-                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync();
@@ -235,7 +218,7 @@ namespace Infrastructure.Repositories
 
             var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
             var pf = ProposalFilterLoader.ExtractProjectFilters(tf.Remaining);
-            preliminaryProjectsQuery = preliminaryProjectsQuery.ApplyTeacherFilterById(_context, tf);
+            preliminaryProjectsQuery = preliminaryProjectsQuery.ApplyTeacherFilterById(_context, tf, confirmedOnly: true);
             if (!string.IsNullOrWhiteSpace(pf.Title))
             {
                 var titlePattern = TeacherAssignmentLoader.LikePattern(pf.Title);
@@ -288,7 +271,7 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             var students = await _context.Set<UserInscriptionModality>()
-                .Where(uim => resultProposalIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => resultProposalIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync();
@@ -314,7 +297,9 @@ namespace Infrastructure.Repositories
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
                 PageSize = paginatedResult.PageSize,
-                HasMoreRows = paginatedResult.HasMoreRows
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
         }
     }

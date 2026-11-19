@@ -47,7 +47,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
             {
                 // 1. Obtener todos los UserInscriptionModality del usuario específico
                 var studentRegistrations = await _userInscriptionModalityRepository.GetAllAsync(
-                    filter: rms => rms.IdUser == request.IdUser);
+                    filter: rms => rms.IdUser == request.IdUser && rms.StatusRegister);
 
                 if (!studentRegistrations.Any())
                 {
@@ -64,7 +64,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
 
                 // 4. Obtener todos los estudiantes asociados a estos registros de modalidad
                 var allStudentRegistrations = await _userInscriptionModalityRepository.GetAllAsync(
-                    filter: rms => inscriptionModalityIds.Contains(rms.IdInscriptionModality));
+                    filter: rms => inscriptionModalityIds.Contains(rms.IdInscriptionModality) && rms.StatusRegister);
 
                 // 5. Agrupar estudiantes por IdInscriptionModality
                 var studentsByModality = allStudentRegistrations
@@ -151,6 +151,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                                 Id = student.Id,
                                 IdInscriptionModality = student.IdInscriptionModality,
                                 IdUser = student.IdUser,
+                                IsConfirmed = student.IsConfirmed,
                                 UserName = "Usuario no encontrado",
                                 UpdatedAt = student.UpdatedAt,
                                 StatusRegister = student.StatusRegister

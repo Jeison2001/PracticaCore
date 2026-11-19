@@ -60,9 +60,7 @@ namespace Api.Controllers
             if (await this.IsInscriptionReadAccessDeniedAsync(
                     id,
                     ct,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.CoTerminal.N3CTSGG))
+                    ModalityPermissionCatalog.CoTerminalManagementAndReview))
             {
                 return Forbid();
             }
@@ -77,9 +75,7 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.CoTerminal.N3CTSGG))
+                    ModalityPermissionCatalog.CoTerminalManagementAndReview))
             {
                 return Forbid();
             }
@@ -97,8 +93,6 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
                     PermissionCodes.CoTerminal.N3CTSGG))
             {
                 return Forbid();

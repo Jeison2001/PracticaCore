@@ -24,9 +24,9 @@ namespace Application.Features.Shared.Services
             var permissionRepo = unitOfWork.GetRepository<Permission, int>();
             var userPermissionRepo = unitOfWork.GetRepository<UserPermission, int>();
 
-            // 1. Obtener los usuarios vinculados a la inscripción
+            // 1. Obtener los usuarios vinculados y confirmados en la inscripción
             var userIds = (await userInscriptionModalityRepo.GetAllAsync(
-                    x => x.IdInscriptionModality == inscriptionModalityId && x.StatusRegister))
+                    x => x.IdInscriptionModality == inscriptionModalityId && x.StatusRegister && x.IsConfirmed))
                 .Select(x => x.IdUser)
                 .Distinct()
                 .ToList();

@@ -631,6 +631,74 @@ namespace Tests.Integration.AcademicPractices
         }
 
         [Fact]
+        public async Task Challenge8b_TeacherFilter_UnconfirmedAssignment_StrictlyExcludedInGetAll()
+        {
+            // Arrange
+            int confirmedTeacherId = 860;
+            int unconfirmedTeacherId = 861;
+            int apConfirmedId;
+            int apUnconfirmedId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var confirmedTeacher = SeedUser(context, confirmedTeacherId, "RatificadoF3", "DocenteF3", "ratificado.f3@ufps.edu.co");
+                var unconfirmedTeacher = SeedUser(context, unconfirmedTeacherId, "PendienteF3", "DocenteF3", "pendiente.f3@ufps.edu.co");
+                var cargo = SeedCargo(context, "CARGO_F3", "Cargo F3");
+
+                var (apConfirmed, _) = SeedPractice(context, "Practice Confirmed Teacher F3");
+                apConfirmedId = apConfirmed.Id;
+                context.Set<TeachingAssignment>().Add(new TeachingAssignment
+                {
+                    IdTeacher = confirmedTeacher.Id,
+                    IdInscriptionModality = apConfirmed.Id,
+                    IdTypeTeachingAssignment = cargo.Id,
+                    StatusRegister = true,
+                    RevocationDate = null,
+                    IsConfirmed = true
+                });
+
+                var (apUnconfirmed, _) = SeedPractice(context, "Practice Unconfirmed Teacher F3");
+                apUnconfirmedId = apUnconfirmed.Id;
+                context.Set<TeachingAssignment>().Add(new TeachingAssignment
+                {
+                    IdTeacher = unconfirmedTeacher.Id,
+                    IdInscriptionModality = apUnconfirmed.Id,
+                    IdTypeTeachingAssignment = cargo.Id,
+                    StatusRegister = true,
+                    RevocationDate = null,
+                    IsConfirmed = false
+                });
+
+                await context.SaveChangesAsync();
+            }
+
+            // Act 1: Filter by shared surname "DocenteF3" -> only confirmed practice is returned
+            var respShared = await _client.GetAsync($"{BaseUrl}/GetAll?PageNumber=1&PageSize=10&filters[TeacherName@like]=DocenteF3");
+            respShared.StatusCode.Should().Be(HttpStatusCode.OK);
+            var resShared = await respShared.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<AcademicPracticeWithDetailsResponseDto>>>();
+            resShared!.Data!.Items.Should().Contain(i => i.AcademicPractice!.Id == apConfirmedId);
+            resShared.Data!.Items.Should().NotContain(i => i.AcademicPractice!.Id == apUnconfirmedId);
+
+            // Act 2: Filter specifically by unconfirmed teacher name / id -> strictly excluded
+            var respUnconfirmedName = await _client.GetAsync($"{BaseUrl}/GetAll?PageNumber=1&PageSize=10&filters[TeacherName@like]=PendienteF3");
+            respUnconfirmedName.StatusCode.Should().Be(HttpStatusCode.OK);
+            var resUnconfirmedName = await respUnconfirmedName.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<AcademicPracticeWithDetailsResponseDto>>>();
+            resUnconfirmedName!.Data!.Items.Should().NotContain(i => i.AcademicPractice!.Id == apUnconfirmedId);
+
+            var respUnconfirmedId = await _client.GetAsync($"{BaseUrl}/GetAll?PageNumber=1&PageSize=10&filters[TeacherId@eq]={unconfirmedTeacherId}");
+            respUnconfirmedId.StatusCode.Should().Be(HttpStatusCode.OK);
+            var resUnconfirmedId = await respUnconfirmedId.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<AcademicPracticeWithDetailsResponseDto>>>();
+            resUnconfirmedId!.Data!.Items.Should().NotContain(i => i.AcademicPractice!.Id == apUnconfirmedId);
+
+            // Act 3: WithDetails still exposes the active unconfirmed teacher with IsConfirmed = false
+            var respDetails = await _client.GetAsync($"{BaseUrl}/WithDetails/{apUnconfirmedId}");
+            respDetails.StatusCode.Should().Be(HttpStatusCode.OK);
+            var resDetails = await respDetails.Content.ReadFromJsonAsync<ApiResponse<AcademicPracticeWithDetailsResponseDto>>();
+            resDetails!.Data!.Teachers.Should().ContainSingle(t => t.IdTeacher == unconfirmedTeacherId && !t.IsConfirmed);
+        }
+
+        [Fact]
         public async Task Challenge9_WithDetails_EmptyTeachers_ReturnsEmptyListNotThrowing()
         {
             // Arrange

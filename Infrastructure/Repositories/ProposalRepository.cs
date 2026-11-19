@@ -65,7 +65,7 @@ namespace Infrastructure.Repositories
             // Filtros por docente/cargo + navegaciones de Proposal
             var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
             var pf = ProposalFilterLoader.ExtractProposalDetailFilters(tf.Remaining);
-            proposalsQuery = proposalsQuery.ApplyTeacherFilterById(_dbContext, tf);
+            proposalsQuery = proposalsQuery.ApplyTeacherFilterById(_dbContext, tf, confirmedOnly: false);
 
             if (!string.IsNullOrWhiteSpace(pf.ResearchLineName))
             {
@@ -109,14 +109,16 @@ namespace Infrastructure.Repositories
                     TotalRecords = paginatedResult.TotalRecords,
                     PageNumber = pageNumber,
                     PageSize = pageSize,
-                    HasMoreRows = paginatedResult.HasMoreRows
+                    HasMoreRows = paginatedResult.HasMoreRows,
+                    CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                    CursorId = paginatedResult.CursorId
                 };
             }
             
             // Cargar todos los usuarios relacionados en una sola consulta
             var proposalIds = proposals.Select(p => p.Id).ToList();
             var userInscriptionModalities = await _dbContext.Set<UserInscriptionModality>()
-                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
@@ -149,7 +151,9 @@ namespace Infrastructure.Repositories
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
-                HasMoreRows = paginatedResult.HasMoreRows
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
         }
 
@@ -161,7 +165,7 @@ namespace Infrastructure.Repositories
             // 1. Obtener IDs de modalidades donde participa el usuario
             var inscriptionModalityIds = await _dbContext.Set<UserInscriptionModality>()
                 .AsNoTracking()
-                .Where(uim => uim.IdUser == userId && uim.StatusRegister)
+                .Where(uim => uim.IdUser == userId && uim.StatusRegister && uim.IsConfirmed)
                 .Select(uim => uim.IdInscriptionModality)
                 .Distinct()
                 .ToListAsync(cancellationToken);
@@ -188,7 +192,7 @@ namespace Infrastructure.Repositories
             // 3. Cargar todos los UserInscriptionModalities y usuarios en una sola consulta
             var proposalIds = proposals.Select(p => p.Id).ToList();
             var userInscriptionModalities = await _dbContext.Set<UserInscriptionModality>()
-                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
@@ -231,7 +235,7 @@ namespace Infrastructure.Repositories
 
             // 2. Cargar todos los UserInscriptionModalities y usuarios en una sola consulta
             var userInscriptionModalities = await _dbContext.Set<UserInscriptionModality>()
-                .Where(uim => uim.IdInscriptionModality == id)
+                .Where(uim => uim.IdInscriptionModality == id && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
@@ -272,26 +276,7 @@ namespace Infrastructure.Repositories
             var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
             var pf = ProposalFilterLoader.ExtractProposalDetailFilters(tf.Remaining);
             var remainingFilters = pf.Remaining;
-            if (tf.HasAny)
-            {
-                var namePattern = tf.Name != null ? TeacherAssignmentLoader.LikePattern(tf.Name) : null;
-                var emailPattern = tf.Email != null ? TeacherAssignmentLoader.LikePattern(tf.Email) : null;
-                var teacherId = tf.Id;
-                var cargoId = tf.CargoId;
-                var cargoCode = tf.CargoCode;
-                var cargoName = tf.CargoName;
-                proposalsQuery = proposalsQuery.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
-                    ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
-                    (namePattern == null || (ta.Teacher != null &&
-                        (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
-                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
-                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
-                    (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
-                    (teacherId == null || ta.IdTeacher == teacherId) &&
-                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
-                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
-                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
-            }
+            proposalsQuery = proposalsQuery.ApplyTeacherFilterById(_dbContext, tf, confirmedOnly: false);
 
             // Filtros sobre navegaciones de Proposal (FilterBuilder solo resuelve
             // propiedades directas de la entidad): researchlinename@like y statestagename@eq.
@@ -348,14 +333,16 @@ namespace Infrastructure.Repositories
                     TotalRecords = paginatedResult.TotalRecords,
                     PageNumber = pageNumber,
                     PageSize = pageSize,
-                    HasMoreRows = paginatedResult.HasMoreRows
+                    HasMoreRows = paginatedResult.HasMoreRows,
+                    CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                    CursorId = paginatedResult.CursorId
                 };
             }
             
             // Cargar todos los usuarios relacionados en una sola consulta
             var proposalIds = proposals.Select(p => p.Id).ToList();
             var userInscriptionModalities = await _dbContext.Set<UserInscriptionModality>()
-                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => proposalIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
@@ -387,7 +374,9 @@ namespace Infrastructure.Repositories
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
-                HasMoreRows = paginatedResult.HasMoreRows
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
         }
     }

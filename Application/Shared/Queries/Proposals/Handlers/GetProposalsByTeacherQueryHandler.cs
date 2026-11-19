@@ -52,7 +52,9 @@ namespace Application.Shared.Queries.Proposals.Handlers
                         TotalRecords = proposalsWithDetailsPaginated.TotalRecords,
                         PageNumber = request.PageNumber,
                         PageSize = request.PageSize,
-                        HasMoreRows = proposalsWithDetailsPaginated.HasMoreRows
+                        HasMoreRows = proposalsWithDetailsPaginated.HasMoreRows,
+                        CursorCreatedAt = proposalsWithDetailsPaginated.CursorCreatedAt,
+                        CursorId = proposalsWithDetailsPaginated.CursorId
                     };
                 }
 
@@ -94,7 +96,9 @@ namespace Application.Shared.Queries.Proposals.Handlers
                     TotalRecords = proposalsWithDetailsPaginated.TotalRecords,
                     PageNumber = request.PageNumber,
                     PageSize = request.PageSize,
-                    HasMoreRows = proposalsWithDetailsPaginated.HasMoreRows
+                    HasMoreRows = proposalsWithDetailsPaginated.HasMoreRows,
+                    CursorCreatedAt = proposalsWithDetailsPaginated.CursorCreatedAt,
+                    CursorId = proposalsWithDetailsPaginated.CursorId
                 };
             }
             catch (Exception ex)

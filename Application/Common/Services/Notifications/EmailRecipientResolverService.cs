@@ -252,6 +252,7 @@ namespace Application.Common.Services.Notifications
                         "COORDINATOR" => "CoordinatorEmail",
                         "USER" => "UserEmail",
                         "NEW_USER" => "UserEmail",
+                        "INVITED_STUDENT" => "InvitedStudentEmail",
                         _ => rule.RuleValue
                     };
 

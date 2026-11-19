@@ -4,8 +4,6 @@ namespace Domain.Entities
     {
         private int _idStateStage;
 
-        public int IdInscriptionModality { get; set; }
-
         public int IdStateStage
         {
             get => _idStateStage;

@@ -83,6 +83,8 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 PageNumber = page.PageNumber,
                 PageSize = page.PageSize,
                 HasMoreRows = page.HasMoreRows,
+                CursorCreatedAt = page.CursorCreatedAt,
+                CursorId = page.CursorId,
             };
         }
 
@@ -123,6 +125,7 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 Id = student.Id,
                 IdInscriptionModality = student.IdInscriptionModality,
                 IdUser = student.IdUser,
+                IsConfirmed = student.IsConfirmed,
                 CreatedAt = student.CreatedAt,
                 UpdatedAt = student.UpdatedAt,
                 StatusRegister = student.StatusRegister,

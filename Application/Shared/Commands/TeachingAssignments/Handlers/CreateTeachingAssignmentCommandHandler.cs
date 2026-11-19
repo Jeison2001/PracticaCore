@@ -4,6 +4,7 @@ using Application.Shared.DTOs.TeachingAssignments;
 using AutoMapper;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Exceptions;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
@@ -61,24 +62,37 @@ namespace Application.Shared.Commands.TeachingAssignments.Handlers
                 type,
                 cancellationToken);
 
+            if (request.CurrentUser?.UserId is not int currentUserId ||
+                currentUserId <= 0 ||
+                request.CurrentUser.Permissions is not { Count: > 0 } perms)
+            {
+                throw new ForbiddenAccessException("No tiene permisos vigentes para crear asignaciones docentes.");
+            }
+
+            var hasOfficialPermission =
+                perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) ||
+                perms.Contains(PermissionCodes.ProyectoGrado.N4PGPAA) ||
+                perms.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA);
+
+            if (dto.IsConfirmed && !hasOfficialPermission)
+            {
+                throw new ForbiddenAccessException("No tiene permisos vigentes para crear asignaciones docentes confirmadas.");
+            }
+
             if (!dto.IsConfirmed)
             {
-                var hasOfficialPermission =
-                    request.CurrentUser.Permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPA) ||
-                    request.CurrentUser.Permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPAA) ||
-                    request.CurrentUser.Permissions.Contains(PermissionCodes.PracticaAcademica.N4PAF0PA);
-
-                if (request.CurrentUser.UserId.HasValue && !hasOfficialPermission)
+                if (!hasOfficialPermission)
                 {
                     var uimRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
                     var isActiveMember = await uimRepo.AnyAsync(
                         x => x.IdInscriptionModality == dto.IdInscriptionModality &&
-                             x.IdUser == request.CurrentUser.UserId.Value &&
-                             x.StatusRegister,
+                             x.IdUser == currentUserId &&
+                             x.StatusRegister &&
+                             x.IsConfirmed,
                         cancellationToken);
 
                     if (!isActiveMember)
-                        throw new UnauthorizedAccessException("Solo los estudiantes activos de la inscripción pueden sugerir docentes.");
+                        throw new ForbiddenAccessException("Solo los estudiantes activos de la inscripción pueden sugerir docentes.");
                 }
 
                 if (string.Equals(type.Code, TeachingAssignmentEvaluationHelper.JuradoEvaluadorCode, StringComparison.OrdinalIgnoreCase))

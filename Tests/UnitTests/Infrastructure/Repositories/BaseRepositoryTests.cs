@@ -73,5 +73,74 @@ namespace Tests.UnitTests.Infrastructure.Repositories
             result.PageSize.Should().Be(2);
             result.HasMoreRows.Should().BeNull();
         }
+
+        [Fact]
+        public async Task UpdatePartialAsync_TrackedEntity_MarksOnlySpecifiedPropertiesAsModified()
+        {
+            using var context = CreateInMemoryContext();
+            var originalCreatedAt = new DateTimeOffset(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
+            context.Set<Permission>().Add(new Permission
+            {
+                Id = 10,
+                Code = "ORIG_CODE",
+                Description = "Original",
+                CreatedAt = originalCreatedAt,
+                StatusRegister = true
+            });
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            var repo = new BaseRepository<Permission, int>(context);
+            var tracked = await repo.GetByIdAsync(10);
+            tracked.Should().NotBeNull();
+
+            tracked!.Description = "Updated";
+            await repo.UpdatePartialAsync(tracked, [x => x.Description]);
+
+            var entry = context.Entry(tracked);
+            entry.State.Should().Be(EntityState.Modified);
+            entry.Property(x => x.Description).IsModified.Should().BeTrue();
+            entry.Property(x => x.Code).IsModified.Should().BeFalse();
+            entry.Property(x => x.CreatedAt).IsModified.Should().BeFalse();
+            entry.Property(x => x.StatusRegister).IsModified.Should().BeFalse();
+            entry.Property(x => x.OperationRegister).IsModified.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task UpdatePartialAsync_DetachedEntity_MarksOnlySpecifiedPropertiesAsModified()
+        {
+            using var context = CreateInMemoryContext();
+            var originalCreatedAt = new DateTimeOffset(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);
+            context.Set<Permission>().Add(new Permission
+            {
+                Id = 11,
+                Code = "ORIG_CODE_11",
+                Description = "Original 11",
+                CreatedAt = originalCreatedAt,
+                StatusRegister = true
+            });
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            var repo = new BaseRepository<Permission, int>(context);
+            var detached = new Permission { Id = 11, Description = "Patched 11" };
+
+            await repo.UpdatePartialAsync(detached, [x => x.Description]);
+
+            var entry = context.Entry(detached);
+            entry.State.Should().Be(EntityState.Modified);
+            entry.Property(x => x.Description).IsModified.Should().BeTrue();
+            entry.Property(x => x.Code).IsModified.Should().BeFalse();
+            entry.Property(x => x.CreatedAt).IsModified.Should().BeFalse();
+            entry.Property(x => x.StatusRegister).IsModified.Should().BeFalse();
+
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            var persisted = await context.Set<Permission>().FindAsync(11);
+            persisted.Should().NotBeNull();
+            persisted!.Description.Should().Be("Patched 11");
+            persisted.Code.Should().Be("ORIG_CODE_11");
+        }
     }
 }

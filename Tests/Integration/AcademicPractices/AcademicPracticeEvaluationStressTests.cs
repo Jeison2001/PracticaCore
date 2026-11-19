@@ -7,6 +7,7 @@ using Application.Shared.DTOs.Evaluations;
 using Domain.Common.Users;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Exceptions;
 using FluentAssertions;
 using Infrastructure.Data;
 using MediatR;
@@ -47,16 +48,37 @@ namespace Tests.Integration.AcademicPractices
             context.Set<AcademicPeriod>().Add(academicPeriod);
             context.SaveChanges();
 
+            var stage = context.Set<StageModality>()
+                .FirstOrDefault(s => s.Code == StageModalityCodes.PaFaseInscripcion);
+            if (stage == null)
+            {
+                stage = new StageModality
+                {
+                    Code = StageModalityCodes.PaFaseInscripcion,
+                    Name = "PA Fase Inscripción",
+                    IdModality = modality.Id,
+                    StageOrder = 1,
+                    StatusRegister = true
+                };
+                context.Set<StageModality>().Add(stage);
+                context.SaveChanges();
+            }
+
             var inscription = new InscriptionModality
             {
                 IdModality = modality.Id,
                 IdStateInscription = stateInscription.Id,
-                IdAcademicPeriod = academicPeriod.Id
+                IdAcademicPeriod = academicPeriod.Id,
+                IdStageModality = stage.Id
             };
             context.Set<InscriptionModality>().Add(inscription);
             context.SaveChanges();
 
-            var stateStage = new StateStage { Name = "Stage " + Guid.NewGuid() };
+            var stateStage = new StateStage
+            {
+                Name = "Stage " + Guid.NewGuid(),
+                IdStageModality = stage.Id
+            };
             context.Set<StateStage>().Add(stateStage);
             context.SaveChanges();
 
@@ -347,12 +369,12 @@ namespace Tests.Integration.AcademicPractices
 
         #endregion
 
-        #region Criterion 4: Missing or Null CurrentUser.UserId Fallback Hierarchy
+        #region Criterion 4: Fail-Closed Actor Validation & Authenticated Evaluator Tracking
 
         [Fact]
-        public async Task StressTest_NullUserId_CascadesToEntityIdUserUpdatedAt()
+        public async Task StressTest_PhaseCommand_NullUserId_ThrowsForbiddenAccessExceptionAndCreatesNoEvaluations()
         {
-            // Arrange: CurrentUser.UserId is null, entity has IdUserUpdatedAt = 42
+            // Arrange: CurrentUser.UserId is null even when permission code is present
             const int updatedByUserId = 42;
             using (var scope = _factory.Services.CreateScope())
             {
@@ -368,36 +390,36 @@ namespace Tests.Integration.AcademicPractices
                 {
                     Id = entity.Id,
                     NewStateStageId = entity.IdStateStage,
-                    Observations = "Prueba fallback IdUserUpdatedAt",
-                    EvaluatorObservations = "Prueba fallback IdUserUpdatedAt"
+                    Observations = "Debe rechazarse sin UserId",
+                    EvaluatorObservations = "Debe rechazarse sin UserId"
                 },
-                new CurrentUserInfo { UserId = null }); // Missing CurrentUser.UserId
+                new CurrentUserInfo
+                {
+                    UserId = null,
+                    Permissions = new HashSet<string> { PermissionCodes.PracticaAcademica.N4PAF0PG }
+                });
 
-            // Act: Execute via MediatR handler directly
+            // Act & Assert
             using (var scope = _factory.Services.CreateScope())
             {
                 var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-                var result = await mediator.Send(command);
-                result.Should().BeTrue();
+                Func<Task> act = () => mediator.Send(command);
+                await act.Should().ThrowAsync<ForbiddenAccessException>();
             }
 
-            // Assert: Query DB for evaluation record
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var eval = context.Set<Evaluation>()
                     .FirstOrDefault(e => e.EntityType == nameof(AcademicPractice) && e.EntityId == entity.Id);
-
-                eval.Should().NotBeNull();
-                eval!.IdEvaluator.Should().Be(updatedByUserId, "evaluatorId should fall back to entity.IdUserUpdatedAt when CurrentUser.UserId is null");
-                eval.Observations.Should().Be("Prueba fallback IdUserUpdatedAt");
+                eval.Should().BeNull();
             }
         }
 
         [Fact]
-        public async Task StressTest_NullUserId_AndNullUpdatedAt_CascadesToEntityIdUserCreatedAt()
+        public async Task StressTest_PhaseCommand_EmptyPermissions_ThrowsForbiddenAccessExceptionAndCreatesNoEvaluations()
         {
-            // Arrange: CurrentUser.UserId is null, IdUserUpdatedAt is null, entity has IdUserCreatedAt = 77
+            // Arrange: CurrentUser has valid UserId = 77 but empty Permissions
             const int createdByUserId = 77;
             using (var scope = _factory.Services.CreateScope())
             {
@@ -413,35 +435,44 @@ namespace Tests.Integration.AcademicPractices
                 {
                     Id = entity.Id,
                     NewStateStageId = entity.IdStateStage,
-                    Observations = "Prueba fallback IdUserCreatedAt",
-                    EvaluatorObservations = "Prueba fallback IdUserCreatedAt"
+                    Observations = "Debe rechazarse sin permisos",
+                    EvaluatorObservations = "Debe rechazarse sin permisos"
                 },
-                new CurrentUserInfo { UserId = null });
+                new CurrentUserInfo
+                {
+                    UserId = createdByUserId,
+                    Permissions = new HashSet<string>()
+                });
 
-            // Act
+            // Act & Assert
             using (var scope = _factory.Services.CreateScope())
             {
                 var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-                var result = await mediator.Send(command);
-                result.Should().BeTrue();
+                Func<Task> act = () => mediator.Send(command);
+                await act.Should().ThrowAsync<ForbiddenAccessException>();
             }
 
-            // Assert
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var eval = context.Set<Evaluation>()
                     .FirstOrDefault(e => e.EntityType == nameof(AcademicPractice) && e.EntityId == entity.Id);
-
-                eval.Should().NotBeNull();
-                eval!.IdEvaluator.Should().Be(createdByUserId, "evaluatorId should fall back to entity.IdUserCreatedAt when CurrentUser.UserId and IdUserUpdatedAt are null");
+                eval.Should().BeNull();
             }
         }
 
         [Fact]
-        public async Task StressTest_NullUserId_AndAllEntityUserIdsNull_CascadesToDefaultSystemUser1()
+        public async Task StressTest_PhaseCommand_AuthenticatedActor_RecordsCurrentUserAsEvaluator()
         {
-            // Arrange: CurrentUser.UserId is null, IdUserUpdatedAt is null, IdUserCreatedAt is null
+            // Arrange: Valid authenticated manager actor records exact UserId as IdEvaluator
+            const int evaluatorUserId = 43;
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                EnsureUser(context, evaluatorUserId, "Gestor", "Fase0");
+                context.SaveChanges();
+            }
+
             var entity = CreateAndSeedAcademicPractice(userCreatedAt: null, userUpdatedAt: null);
 
             var command = new UpdateAcademicPracticePhaseCommand(
@@ -449,10 +480,14 @@ namespace Tests.Integration.AcademicPractices
                 {
                     Id = entity.Id,
                     NewStateStageId = entity.IdStateStage,
-                    Observations = "Prueba fallback usuario sistema 1",
-                    EvaluatorObservations = "Prueba fallback usuario sistema 1"
+                    Observations = "Observación válida con actor autenticado",
+                    EvaluatorObservations = "Observación válida con actor autenticado"
                 },
-                new CurrentUserInfo { UserId = null });
+                new CurrentUserInfo
+                {
+                    UserId = evaluatorUserId,
+                    Permissions = new HashSet<string> { PermissionCodes.PracticaAcademica.N4PAF0PG }
+                });
 
             // Act
             using (var scope = _factory.Services.CreateScope())
@@ -470,48 +505,59 @@ namespace Tests.Integration.AcademicPractices
                     .FirstOrDefault(e => e.EntityType == nameof(AcademicPractice) && e.EntityId == entity.Id);
 
                 eval.Should().NotBeNull();
-                eval!.IdEvaluator.Should().Be(1, "evaluatorId should fall back to 1 (system admin) when all other user IDs are null");
+                eval!.IdEvaluator.Should().Be(evaluatorUserId);
+                eval.Observations.Should().Be("Observación válida con actor autenticado");
             }
         }
 
         [Fact]
-        public async Task StressTest_InstitutionUpdateCommand_NullUserId_CascadesToSystemUser1()
+        public async Task StressTest_InstitutionUpdateCommand_WithoutValidActorOrPermissions_ThrowsForbiddenAccessException()
         {
-            // Arrange: Test UpdateAcademicPracticeInstitutionCommand with null CurrentUser.UserId
+            // Arrange: Test UpdateAcademicPracticeInstitutionCommand with null UserId and with empty Permissions
             var entity = CreateAndSeedAcademicPractice(userCreatedAt: null, userUpdatedAt: null);
 
-            var command = new UpdateAcademicPracticeInstitutionCommand(
-                new UpdateInstitutionInfoDto
-                {
-                    Id = entity.Id,
-                    Title = "Updated Institution Title",
-                    InstitutionName = "Hospital San Jose",
-                    InstitutionContact = "contacto@hospital.org",
-                    PracticeStartDate = DateTimeOffset.UtcNow,
-                    PracticeEndDate = DateTimeOffset.UtcNow.AddMonths(3),
-                    PracticeHours = 160,
-                    Observations = "Observaciones de actualización institucional"
-                },
-                new CurrentUserInfo { UserId = null });
+            var dto = new UpdateInstitutionInfoDto
+            {
+                Id = entity.Id,
+                Title = "Updated Institution Title",
+                InstitutionName = "Hospital San Jose",
+                InstitutionContact = "contacto@hospital.org",
+                PracticeStartDate = DateTimeOffset.UtcNow,
+                PracticeEndDate = DateTimeOffset.UtcNow.AddMonths(3),
+                PracticeHours = 160,
+                Observations = "Observaciones de actualización institucional"
+            };
 
-            // Act
+            // Act & Assert
             using (var scope = _factory.Services.CreateScope())
             {
                 var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-                var result = await mediator.Send(command);
-                result.Should().BeTrue();
+
+                Func<Task> nullUserAct = () => mediator.Send(new UpdateAcademicPracticeInstitutionCommand(
+                    dto,
+                    new CurrentUserInfo
+                    {
+                        UserId = null,
+                        Permissions = new HashSet<string> { PermissionCodes.PracticaAcademica.N4PAF0PG }
+                    }));
+                await nullUserAct.Should().ThrowAsync<ForbiddenAccessException>();
+
+                Func<Task> emptyPermsAct = () => mediator.Send(new UpdateAcademicPracticeInstitutionCommand(
+                    dto,
+                    new CurrentUserInfo
+                    {
+                        UserId = 1,
+                        Permissions = new HashSet<string>()
+                    }));
+                await emptyPermsAct.Should().ThrowAsync<ForbiddenAccessException>();
             }
 
-            // Assert
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var eval = context.Set<Evaluation>()
                     .FirstOrDefault(e => e.EntityType == nameof(AcademicPractice) && e.EntityId == entity.Id);
-
-                eval.Should().NotBeNull();
-                eval!.IdEvaluator.Should().Be(1, "Institution command evaluatorId should also fall back safely to 1");
-                eval.Observations.Should().Be("Observaciones de actualización institucional");
+                eval.Should().BeNull();
             }
         }
 

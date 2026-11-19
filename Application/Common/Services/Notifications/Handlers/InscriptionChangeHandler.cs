@@ -55,7 +55,7 @@ namespace Application.Common.Services.Notifications.Handlers
             {
                 // Obtener estudiantes vinculados a la nueva inscripción
                 var userInscriptionRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
-                var userInscriptions = await userInscriptionRepo.GetAllAsync(ui => ui.IdInscriptionModality == entity.Id && ui.StatusRegister);
+                var userInscriptions = (await userInscriptionRepo.GetAllAsync(ui => ui.IdInscriptionModality == entity.Id && ui.StatusRegister)).ToList();
                 var studentIds = userInscriptions.Select(ui => ui.IdUser).ToList();
 
                 var eventData = await _eventDataBuilder.BuildBasicInscriptionDataAsync(
@@ -67,6 +67,71 @@ namespace Application.Common.Services.Notifications.Handlers
                 var jobId = _queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
 
                 _logger.LogInformation("Inscription creation notification enqueued - Inscription ID: {InscriptionId}, JobId: {JobId}", entity.Id, jobId);
+
+                var pendingCoStudents = userInscriptions
+                    .Where(ui => ui.StatusRegister && !ui.IsConfirmed)
+                    .ToList();
+
+                if (pendingCoStudents.Count > 0)
+                {
+                    var firstConfirmedId = userInscriptions.FirstOrDefault(ui => ui.IsConfirmed)?.IdUser;
+                    var creatorUserId = entity.IdUserCreatedAt is > 0 ? entity.IdUserCreatedAt.Value : firstConfirmedId;
+
+                    var userIdsToLoad = pendingCoStudents.Select(ui => ui.IdUser).ToList();
+                    if (creatorUserId.HasValue)
+                        userIdsToLoad.Add(creatorUserId.Value);
+                    if (firstConfirmedId.HasValue)
+                        userIdsToLoad.Add(firstConfirmedId.Value);
+
+                    var distinctUserIds = userIdsToLoad.Distinct().ToList();
+                    var usersById = (await _unitOfWork.GetRepository<User, int>()
+                            .GetAllAsync(u => distinctUserIds.Contains(u.Id)))
+                        .ToDictionary(u => u.Id);
+
+                    User? creator = null;
+                    if (creatorUserId.HasValue)
+                        usersById.TryGetValue(creatorUserId.Value, out creator);
+                    if (creator == null && firstConfirmedId.HasValue)
+                        usersById.TryGetValue(firstConfirmedId.Value, out creator);
+
+                    var modality = await _unitOfWork.GetRepository<Modality, int>().GetByIdAsync(entity.IdModality);
+                    var academicPeriod = await _unitOfWork.GetRepository<AcademicPeriod, int>().GetByIdAsync(entity.IdAcademicPeriod);
+
+                    var creatorName = creator != null ? $"{creator.FirstName} {creator.LastName}".Trim() : string.Empty;
+                    var creatorEmail = creator?.Email ?? string.Empty;
+                    var modalityName = modality?.Name ?? string.Empty;
+                    var periodCode = academicPeriod?.Code ?? string.Empty;
+                    var inscriptionDate = entity.CreatedAt.ToString("dd/MM/yyyy");
+
+                    foreach (var pending in pendingCoStudents)
+                    {
+                        if (!usersById.TryGetValue(pending.IdUser, out var invitedUser) || string.IsNullOrWhiteSpace(invitedUser.Email))
+                        {
+                            _logger.LogWarning(
+                                "No se encontró usuario/correo para co-estudiante invitado UserId={UserId} en InscriptionId={InscriptionId}",
+                                pending.IdUser, entity.Id);
+                            continue;
+                        }
+
+                        var invitedEventData = new Dictionary<string, object>
+                        {
+                            ["InscriptionId"] = entity.Id,
+                            ["ModalityName"] = modalityName,
+                            ["AcademicPeriod"] = periodCode,
+                            ["AcademicPeriodCode"] = periodCode,
+                            ["InscriptionDate"] = inscriptionDate,
+                            ["CreatorName"] = creatorName,
+                            ["CreatorEmail"] = creatorEmail,
+                            ["InvitedStudentName"] = $"{invitedUser.FirstName} {invitedUser.LastName}".Trim(),
+                            ["InvitedStudentEmail"] = invitedUser.Email
+                        };
+
+                        var inviteJobId = _queueService.EnqueueEventNotification("INSCRIPTION_COSTUDENT_INVITED", invitedEventData);
+                        _logger.LogInformation(
+                            "Notificación INSCRIPTION_COSTUDENT_INVITED encolada - Inscription ID: {InscriptionId}, UserId: {UserId}, JobId: {JobId}",
+                            entity.Id, invitedUser.Id, inviteJobId);
+                    }
+                }
             }
             catch (Exception ex)
             {

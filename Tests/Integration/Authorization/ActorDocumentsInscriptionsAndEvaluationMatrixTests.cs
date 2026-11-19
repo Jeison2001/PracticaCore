@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Api.Responses;
 using Application.Shared.DTOs.Documents;
+using Application.Shared.DTOs.DocumentTypes;
 using Application.Shared.DTOs.Evaluations;
 using Application.Shared.DTOs.InscriptionModalities;
 using Application.Shared.DTOs.InscriptionWithStudents;
@@ -176,7 +177,7 @@ namespace Tests.Integration.Authorization
         [InlineData(PermissionCodes.Configuraciones.N3CFDOT)]
         [InlineData(PermissionCodes.Configuraciones.N2CFDO)]
         [InlineData(PermissionCodes.Configuraciones.N3CFSU)]
-        public async Task DocumentController_GlobalAdminPermissions_ReadAllDocumentsAcrossModalitiesAndPhases(string adminPermission)
+        public async Task DocumentController_SecurityAndDocumentCatalogPermissions_DoNotGrantCrossModalityReadAccess(string adminPermission)
         {
             var storageMock = new Mock<IFileStorageService>();
             using var factory = CreateFactoryWithMockStorage(storageMock);
@@ -193,14 +194,62 @@ namespace Tests.Integration.Authorization
             var doc2Res = await client.SendAsync(doc2Req);
             var doc3Res = await client.SendAsync(doc3Req);
 
-            doc1Res.StatusCode.Should().Be(HttpStatusCode.OK);
-            (await doc1Res.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>())!.Data!.Id.Should().Be(seed.Doc1PropuestaId);
+            doc1Res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            doc2Res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            doc3Res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
 
-            doc2Res.StatusCode.Should().Be(HttpStatusCode.OK);
-            (await doc2Res.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>())!.Data!.Id.Should().Be(seed.Doc2InformeId);
+        [Fact]
+        public async Task DocumentTypeController_CatalogPermission_ManagesDocumentTypes_WithoutDocumentAccess()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var factory = CreateFactoryWithMockStorage(storageMock);
+            using var client = factory.CreateClient();
+            var seed = await SeedDocumentAndInscriptionMatrixAsync(factory.Services, storageMock);
 
-            doc3Res.StatusCode.Should().Be(HttpStatusCode.OK);
-            (await doc3Res.Content.ReadFromJsonAsync<ApiResponse<DocumentDto>>())!.Data!.Id.Should().Be(seed.Doc3PaId);
+            const int catalogAdminId = 302;
+
+            using var getTypesReq = CreateRequest(
+                HttpMethod.Get,
+                "/api/DocumentType?PageNumber=1&PageSize=10",
+                catalogAdminId,
+                PermissionCodes.Configuraciones.N3CFDOT);
+
+            var getTypesRes = await client.SendAsync(getTypesReq);
+            getTypesRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var listPayload = await getTypesRes.Content.ReadFromJsonAsync<ApiResponse<PaginatedResult<DocumentTypeDto>>>();
+            listPayload.Should().NotBeNull();
+            listPayload!.Success.Should().BeTrue();
+            listPayload.Data!.Items.Should().NotBeEmpty();
+
+            var docClassId = listPayload.Data.Items.First().IdDocumentClass;
+            var newDocType = new DocumentTypeDto
+            {
+                IdDocumentClass = docClassId,
+                IdStageModality = seed.PropuestaStageId,
+                Code = $"DTCAT_{Guid.NewGuid():N}"[..16],
+                Name = "Tipo Catalogo Autorizado",
+                Description = "Creado por N3CFDOT"
+            };
+
+            using var createTypeReq = CreateRequest(
+                HttpMethod.Post,
+                "/api/DocumentType",
+                catalogAdminId,
+                PermissionCodes.Configuraciones.N3CFDOT,
+                newDocType);
+
+            var createTypeRes = await client.SendAsync(createTypeReq);
+            createTypeRes.StatusCode.Should().Be(HttpStatusCode.Created);
+
+            using var doc1Req = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Document/{seed.Doc1PropuestaId}",
+                catalogAdminId,
+                PermissionCodes.Configuraciones.N3CFDOT);
+
+            var doc1Res = await client.SendAsync(doc1Req);
+            doc1Res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         }
 
         [Fact]
@@ -368,25 +417,41 @@ namespace Tests.Integration.Authorization
                 HttpMethod.Get,
                 $"/api/Evaluation/history/{nameof(InscriptionModality)}/{seed.PgInscriptionId}",
                 evaluatorId,
-                PermissionCodes.ProyectoGrado.N4PGPSG);
+                PermissionCodes.ModalidadesGrado.N3MGPR);
 
             using var otherUserPatchReq = CreateRequest(
                 HttpMethod.Patch,
                 $"/api/Evaluation/{evaluationId}/observations",
                 999,
-                PermissionCodes.ProyectoGrado.N4PGPSG,
+                PermissionCodes.ModalidadesGrado.N3MGPR,
                 new UpdateEvaluationObservationDto { Observations = "Edicion ajena" });
+
+            using var authorNoPermPatchReq = CreateRequest(
+                HttpMethod.Patch,
+                $"/api/Evaluation/{evaluationId}/observations",
+                evaluatorId,
+                "NONE",
+                new UpdateEvaluationObservationDto { Observations = "Sin permisos" });
+
+            using var authorWrongScopePatchReq = CreateRequest(
+                HttpMethod.Patch,
+                $"/api/Evaluation/{evaluationId}/observations",
+                evaluatorId,
+                PermissionCodes.ProyectoGrado.N4PGPSG,
+                new UpdateEvaluationObservationDto { Observations = "Permiso de otra fase" });
 
             using var authorPatchReq = CreateRequest(
                 HttpMethod.Patch,
                 $"/api/Evaluation/{evaluationId}/observations",
                 evaluatorId,
-                PermissionCodes.ProyectoGrado.N4PGPSG,
+                PermissionCodes.ModalidadesGrado.N3MGPR,
                 new UpdateEvaluationObservationDto { Observations = "Observacion corregida por autor" });
 
             var anonHistoryRes = await client.SendAsync(anonHistoryReq);
             var authHistoryRes = await client.SendAsync(authHistoryReq);
             var otherUserPatchRes = await client.SendAsync(otherUserPatchReq);
+            var authorNoPermPatchRes = await client.SendAsync(authorNoPermPatchReq);
+            var authorWrongScopePatchRes = await client.SendAsync(authorWrongScopePatchReq);
             var authorPatchRes = await client.SendAsync(authorPatchReq);
 
             anonHistoryRes.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -396,12 +461,174 @@ namespace Tests.Integration.Authorization
             historyPayload!.Data.Should().ContainSingle(e => e.Id == evaluationId && e.Observations == "Observacion inicial");
 
             otherUserPatchRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            authorNoPermPatchRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            authorWrongScopePatchRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
             authorPatchRes.StatusCode.Should().Be(HttpStatusCode.OK);
             var updatedPayload = await authorPatchRes.Content.ReadFromJsonAsync<ApiResponse<ObservationHistoryItemDto>>();
             updatedPayload!.Data!.Id.Should().Be(evaluationId);
             updatedPayload.Data.Observations.Should().Be("Observacion corregida por autor");
             updatedPayload.Data.EvaluatorName.Should().Be("Jurado Principal");
+        }
+
+        [Fact]
+        public async Task EvaluationController_UpdateObservation_ForbidsTeacherAuthorWhenAssignmentIsRevokedOrUnconfirmed()
+        {
+            var storageMock = new Mock<IFileStorageService>();
+            using var factory = CreateFactoryWithMockStorage(storageMock);
+            using var client = factory.CreateClient();
+            var seed = await SeedDocumentAndInscriptionMatrixAsync(factory.Services, storageMock);
+
+            int teacherId;
+            int assignmentId;
+            int evaluationId;
+
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var idType = context.Set<IdentificationType>().First();
+                var program = context.Set<AcademicProgram>().First();
+                var pgModalityId = context.Set<StageModality>().First(s => s.Id == seed.PropuestaStageId).IdModality;
+
+                var anteproyectoStage = new StageModality
+                {
+                    IdModality = pgModalityId,
+                    Code = StageModalityCodes.PgFaseAnteproyecto,
+                    Name = "Anteproyecto",
+                    StageOrder = 2,
+                    StatusRegister = true
+                };
+                context.Set<StageModality>().Add(anteproyectoStage);
+                await context.SaveChangesAsync();
+
+                var apOpenState = new StateStage
+                {
+                    Code = StateStageCodes.ApEnEvaluacion,
+                    Name = "En Evaluacion",
+                    IdStageModality = anteproyectoStage.Id,
+                    StatusRegister = true
+                };
+                context.Set<StateStage>().Add(apOpenState);
+
+                var teacher = new User
+                {
+                    FirstName = "Docente",
+                    LastName = "Evaluador",
+                    Email = $"doc_eval_{Guid.NewGuid():N}@test.edu",
+                    Identification = $"9988{Random.Shared.Next(1000, 9999)}",
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(teacher);
+
+                var cargo = new TypeTeachingAssignment
+                {
+                    Code = $"JUR_{Guid.NewGuid():N}"[..10],
+                    Name = "Jurado",
+                    StatusRegister = true
+                };
+                context.Set<TypeTeachingAssignment>().Add(cargo);
+
+                var evalType = new EvaluationType
+                {
+                    Name = "Anteproyecto",
+                    Code = $"EV_AP_{Guid.NewGuid():N}"[..16],
+                    StatusRegister = true
+                };
+                context.Set<EvaluationType>().Add(evalType);
+                await context.SaveChangesAsync();
+
+                context.Set<PreliminaryProject>().Add(new PreliminaryProject
+                {
+                    Id = seed.PgInscriptionId,
+                    IdStateStage = apOpenState.Id,
+                    Observations = "Observacion inicial AP",
+                    StatusRegister = true
+                });
+
+                var assignment = new TeachingAssignment
+                {
+                    IdInscriptionModality = seed.PgInscriptionId,
+                    IdTeacher = teacher.Id,
+                    IdTypeTeachingAssignment = cargo.Id,
+                    IsConfirmed = true,
+                    RevocationDate = null,
+                    StatusRegister = true
+                };
+                context.Set<TeachingAssignment>().Add(assignment);
+
+                var evaluation = new Evaluation
+                {
+                    EntityType = nameof(PreliminaryProject),
+                    EntityId = seed.PgInscriptionId,
+                    IdEvaluationType = evalType.Id,
+                    IdEvaluator = teacher.Id,
+                    Result = "Observations",
+                    Observations = "Observacion inicial AP",
+                    StatusRegister = true,
+                    CreatedAt = DateTimeOffset.UtcNow
+                };
+                context.Set<Evaluation>().Add(evaluation);
+                await context.SaveChangesAsync();
+
+                teacherId = teacher.Id;
+                assignmentId = assignment.Id;
+                evaluationId = evaluation.Id;
+            }
+
+            // 1. Docente confirmado y activo con N4PGPAR -> 200 OK
+            using (var activeReq = CreateRequest(
+                HttpMethod.Patch,
+                $"/api/Evaluation/{evaluationId}/observations",
+                teacherId,
+                PermissionCodes.ProyectoGrado.N4PGPAR,
+                new UpdateEvaluationObservationDto { Observations = "Ajuste con asignacion activa" }))
+            {
+                var res = await client.SendAsync(activeReq);
+                res.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            // 2. Revocar asignacion -> 403 Forbidden
+            using (var revokeScope = factory.Services.CreateScope())
+            {
+                var context = revokeScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var assignment = await context.Set<TeachingAssignment>().FindAsync(assignmentId);
+                assignment!.RevocationDate = DateTimeOffset.UtcNow;
+                await context.SaveChangesAsync();
+            }
+
+            using (var revokedReq = CreateRequest(
+                HttpMethod.Patch,
+                $"/api/Evaluation/{evaluationId}/observations",
+                teacherId,
+                PermissionCodes.ProyectoGrado.N4PGPAR,
+                new UpdateEvaluationObservationDto { Observations = "Intento tras revocacion" }))
+            {
+                var res = await client.SendAsync(revokedReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 3. Restaurar RevocationDate pero marcar IsConfirmed = false -> 403 Forbidden
+            using (var unconfirmScope = factory.Services.CreateScope())
+            {
+                var context = unconfirmScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var assignment = await context.Set<TeachingAssignment>().FindAsync(assignmentId);
+                assignment!.RevocationDate = null;
+                assignment.IsConfirmed = false;
+                await context.SaveChangesAsync();
+            }
+
+            using (var unconfirmedReq = CreateRequest(
+                HttpMethod.Patch,
+                $"/api/Evaluation/{evaluationId}/observations",
+                teacherId,
+                PermissionCodes.ProyectoGrado.N4PGPAR,
+                new UpdateEvaluationObservationDto { Observations = "Intento sin confirmacion" }))
+            {
+                var res = await client.SendAsync(unconfirmedReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
         }
 
         private WebApplicationFactory<Program> CreateFactoryWithMockStorage(Mock<IFileStorageService> storageMock)
@@ -967,15 +1194,93 @@ namespace Tests.Integration.Authorization
                 ownerRes.StatusCode.Should().Be(HttpStatusCode.OK);
             }
 
-            // 3. Comité de Proyecto de Grado (501 con N4PGPPA) -> 200 OK
-            using (var committeeReq = CreateRequest(
+            // 3. Gestión de Modalidades (501 con N3MGPR) leyendo InscriptionModality -> 200 OK
+            using (var modalityMgrReq = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(InscriptionModality)}/{seed.PgInscriptionId}",
+                501,
+                PermissionCodes.ModalidadesGrado.N3MGPR))
+            {
+                var modalityMgrRes = await client.SendAsync(modalityMgrReq);
+                modalityMgrRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            // 4. Actor no vinculado de otra fase/ámbito (501 con N4PGPPA o N3CFSU) leyendo InscriptionModality -> 403 Forbidden
+            using (var proposalCommitteeOnInscriptionReq = CreateRequest(
                 HttpMethod.Get,
                 $"/api/Evaluation/history/{nameof(InscriptionModality)}/{seed.PgInscriptionId}",
                 501,
                 PermissionCodes.ProyectoGrado.N4PGPPA))
             {
-                var committeeRes = await client.SendAsync(committeeReq);
-                committeeRes.StatusCode.Should().Be(HttpStatusCode.OK);
+                var res = await client.SendAsync(proposalCommitteeOnInscriptionReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            using (var securityAdminOnInscriptionReq = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(InscriptionModality)}/{seed.PgInscriptionId}",
+                501,
+                PermissionCodes.Configuraciones.N3CFSU))
+            {
+                var res = await client.SendAsync(securityAdminOnInscriptionReq);
+                res.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+
+            // 5. Sembrar Proposal asociada a seed.PgInscriptionId si no existe y verificar que N4PGPPA SÍ lee history/Proposal/{seed.PgInscriptionId} -> 200 OK
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                if (await context.Set<Proposal>().FindAsync(seed.PgInscriptionId) == null)
+                {
+                    var researchLine = new ResearchLine
+                    {
+                        Code = $"RL_{Guid.NewGuid():N}"[..16],
+                        Name = "Linea Matrix",
+                        StatusRegister = true
+                    };
+                    context.Set<ResearchLine>().Add(researchLine);
+                    await context.SaveChangesAsync();
+
+                    var researchSubLine = new ResearchSubLine
+                    {
+                        Code = $"RSL_{Guid.NewGuid():N}"[..16],
+                        Name = "Sublinea Matrix",
+                        IdResearchLine = researchLine.Id,
+                        StatusRegister = true
+                    };
+                    context.Set<ResearchSubLine>().Add(researchSubLine);
+
+                    var proposalState = new StateStage
+                    {
+                        Code = $"PROP_{Guid.NewGuid():N}"[..16],
+                        Name = "En Revision",
+                        IdStageModality = seed.PropuestaStageId,
+                        StatusRegister = true
+                    };
+                    context.Set<StateStage>().Add(proposalState);
+                    await context.SaveChangesAsync();
+
+                    context.Set<Proposal>().Add(new Proposal
+                    {
+                        Id = seed.PgInscriptionId,
+                        Title = "Propuesta Matrix Evaluation History",
+                        IdResearchLine = researchLine.Id,
+                        IdResearchSubLine = researchSubLine.Id,
+                        IdStateStage = proposalState.Id,
+                        StatusRegister = true
+                    });
+                    await context.SaveChangesAsync();
+                }
+            }
+
+            using (var proposalCommitteeOnProposalReq = CreateRequest(
+                HttpMethod.Get,
+                $"/api/Evaluation/history/{nameof(Proposal)}/{seed.PgInscriptionId}",
+                501,
+                PermissionCodes.ProyectoGrado.N4PGPPA))
+            {
+                var res = await client.SendAsync(proposalCommitteeOnProposalReq);
+                res.StatusCode.Should().Be(HttpStatusCode.OK);
             }
         }
 
@@ -1091,8 +1396,7 @@ namespace Tests.Integration.Authorization
 
                 var pres = new ProjectPresentation
                 {
-                    Id = seed.PgInscriptionId + 50000,
-                    IdInscriptionModality = seed.PgInscriptionId,
+                    Id = seed.PgInscriptionId,
                     IdStateStage = stageState.Id,
                     AttemptNumber = 1,
                     StatusRegister = true
@@ -1114,7 +1418,7 @@ namespace Tests.Integration.Authorization
                 smuggleRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             }
 
-            // 2. Evaluation/history para ProjectPresentation cuyo Id != IdInscriptionModality:
+            // 2. Evaluation/history para ProjectPresentation (PK=FK = IdInscriptionModality):
             // Estudiante no miembro -> 403, usuario sin permisos -> 403, estudiante dueno -> 200 OK.
             using (var alienPresHist = CreateRequest(
                 HttpMethod.Get,

@@ -16,9 +16,11 @@ namespace Infrastructure.Services.Auth
     public class AzureAdTokenValidator : ITokenValidator
     {
         private readonly AzureAdAuthOptions _options;
-        private readonly ConfigurationManager<OpenIdConnectConfiguration> _configManager;
+        private readonly IConfigurationManager<OpenIdConnectConfiguration> _configManager;
 
-        public AzureAdTokenValidator(IOptions<AzureAdAuthOptions> options)
+        public AzureAdTokenValidator(
+            IOptions<AzureAdAuthOptions> options,
+            IConfigurationManager<OpenIdConnectConfiguration>? configManager = null)
         {
             _options = options.Value;
 
@@ -26,6 +28,12 @@ namespace Infrastructure.Services.Auth
                 throw new InvalidOperationException("Authentication:AzureAd:TenantId no está configurado.");
             if (string.IsNullOrEmpty(_options.ClientId))
                 throw new InvalidOperationException("Authentication:AzureAd:ClientId no está configurado.");
+
+            if (configManager != null)
+            {
+                _configManager = configManager;
+                return;
+            }
 
             var instance = _options.Instance.TrimEnd('/');
             var metadataAddress = $"{instance}/{_options.TenantId}/v2.0/.well-known/openid-configuration";
@@ -100,9 +108,24 @@ namespace Infrastructure.Services.Auth
                 return string.Empty;
             }
 
+            if (multiTenant && _options.AllowedTenantIds is { Length: > 0 })
+            {
+                var tid = GetClaim("tid");
+                if (string.IsNullOrWhiteSpace(tid) ||
+                    !_options.AllowedTenantIds.Any(allowed =>
+                        !string.IsNullOrWhiteSpace(allowed) &&
+                        string.Equals(allowed.Trim(), tid.Trim(), StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new UnauthorizedAccessException("Tenant de Azure AD no autorizado.");
+                }
+            }
+
+            var email = GetClaim("email", "preferred_username", "upn");
+            AuthValidationHelper.EnsureEmailDomainAllowed(email, _options.AllowedDomains);
+
             return new TokenPayload
             {
-                Email = GetClaim("email", "preferred_username", "upn"),
+                Email = email,
                 GivenName = GetClaim("given_name"),
                 FamilyName = GetClaim("family_name")
             };

@@ -7,7 +7,6 @@ namespace Infrastructure.Services.Auth
 {
     /// <summary>
     /// Servicio de autenticación manual para testing E2E.
-    /// Usa un secret compartido para validar credenciales de test.
     /// NO usar en producción.
     /// </summary>
     public class ManualAuthService : IManualAuthService
@@ -15,9 +14,6 @@ namespace Infrastructure.Services.Auth
         private readonly IJwtService _jwtService;
         private readonly IUserInfoRepository _userInfoRepository;
         private readonly ILogger<ManualAuthService> _logger;
-
-        // Secret compartido para testing - en producción esto no debería existir
-        private const string TEST_AUTH_SECRET = "E2E_TEST_SECRET_2026";
 
         public ManualAuthService(
             IJwtService jwtService,
@@ -31,21 +27,23 @@ namespace Infrastructure.Services.Auth
 
         public async Task<AuthenticationResult> AuthenticateManualAsync(string email, string? password)
         {
+            var normalizedEmail = email?.Trim().ToLowerInvariant() ?? string.Empty;
+
             try
             {
                 // Buscar usuario por email
-                var user = await _userInfoRepository.FindUserByEmailAsync(email);
+                var user = await _userInfoRepository.FindUserByEmailAsync(normalizedEmail);
 
                 if (user == null)
                 {
                     // No auto-crear usuarios - solo usuarios pre-registrados pueden hacer login
-                    _logger.LogWarning("Intento de login para usuario no registrado: {Email}", email);
+                    _logger.LogWarning("Intento de login para usuario no registrado: {Email}", normalizedEmail);
                     throw new UnauthorizedAccessException("Usuario no registrado");
                 }
 
                 if (!user.StatusRegister)
                 {
-                    _logger.LogWarning("Intento de login manual para usuario inactivo: {Email}", email);
+                    _logger.LogWarning("Intento de login manual para usuario inactivo: {Email}", normalizedEmail);
                     throw new UnauthorizedAccessException("Usuario inválido o inactivo.");
                 }
 
@@ -66,7 +64,7 @@ namespace Infrastructure.Services.Auth
                     user.Identification
                 );
 
-                _logger.LogInformation("Login manual exitoso para: {Email}", email);
+                _logger.LogInformation("Login manual exitoso para: {Email}", normalizedEmail);
 
                 return new AuthenticationResult
                 {
@@ -90,8 +88,8 @@ namespace Infrastructure.Services.Auth
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error en login manual para: {Email}", email);
-                throw new UnauthorizedAccessException("Error al autenticar: " + ex.Message);
+                _logger.LogError(ex, "Error en login manual para: {Email}", normalizedEmail);
+                throw new UnauthorizedAccessException("Error al autenticar el usuario.");
             }
         }
 

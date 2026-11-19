@@ -34,7 +34,16 @@ namespace Application.Shared.Mappings
 
                 if (dtoType != null)
                 {
-                    CreateMap(entityType, dtoType).ReverseMap();
+                    if (entityType == typeof(ProjectPresentation))
+                    {
+                        CreateMap<ProjectPresentation, Application.Shared.DTOs.ProjectPresentations.ProjectPresentationDto>()
+                            .ForMember(dest => dest.IdInscriptionModality, opt => opt.MapFrom(src => src.Id));
+                        CreateMap<Application.Shared.DTOs.ProjectPresentations.ProjectPresentationDto, ProjectPresentation>();
+                    }
+                    else
+                    {
+                        CreateMap(entityType, dtoType).ReverseMap();
+                    }
                 }
             }
         }

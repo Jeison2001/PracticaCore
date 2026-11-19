@@ -81,7 +81,6 @@ namespace Tests.Integration.ProjectPresentations
                 context.Set<ProjectPresentation>().Add(new ProjectPresentation
                 {
                     Id = inscription.Id,
-                    IdInscriptionModality = inscription.Id,
                     IdStateStage = sustProgramada.Id,
                     AttemptNumber = 1,
                     // 20:00 UTC -> 15:00 UTC-5 (Colombia)

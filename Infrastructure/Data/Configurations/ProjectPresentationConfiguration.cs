@@ -11,7 +11,6 @@ namespace Infrastructure.Data.Configurations
             base.Configure(builder);
             builder.ToTable("ProjectPresentation");
 
-            builder.Property(e => e.IdInscriptionModality).HasColumnName("IdInscriptionModality").IsRequired();
             builder.Property(e => e.IdStateStage).HasColumnName("IdStateStage").IsRequired();
             builder.Property(e => e.ScheduledDateTime).HasColumnName("ScheduledDateTime");
             builder.Property(e => e.ActualDateTime).HasColumnName("ActualDateTime");

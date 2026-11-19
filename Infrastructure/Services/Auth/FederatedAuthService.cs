@@ -1,6 +1,8 @@
 using Domain.Common.Auth;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Auth;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services.Auth
 {
@@ -14,11 +16,20 @@ namespace Infrastructure.Services.Auth
         private readonly IJwtService _jwtService;
         private readonly IUserInfoRepository _userInfoRepository;
         private readonly IReadOnlyDictionary<string, ITokenValidator> _validators;
+        private readonly IConfiguration? _configuration;
+        private readonly ILogger<FederatedAuthService>? _logger;
 
-        public FederatedAuthService(IJwtService jwtService, IUserInfoRepository userInfoRepository, IEnumerable<ITokenValidator> tokenValidators)
+        public FederatedAuthService(
+            IJwtService jwtService,
+            IUserInfoRepository userInfoRepository,
+            IEnumerable<ITokenValidator> tokenValidators,
+            IConfiguration? configuration = null,
+            ILogger<FederatedAuthService>? logger = null)
         {
             _jwtService = jwtService;
             _userInfoRepository = userInfoRepository;
+            _configuration = configuration;
+            _logger = logger;
 
             // Indexa por proveedor; ante claves duplicadas, prevalece el último registrado.
             var map = new Dictionary<string, ITokenValidator>(StringComparer.OrdinalIgnoreCase);
@@ -40,13 +51,21 @@ namespace Infrastructure.Services.Auth
             try
             {
                 var payload = await tokenValidator.ValidateAsync(idToken);
+                if (string.IsNullOrWhiteSpace(payload.Email))
+                {
+                    throw new UnauthorizedAccessException("El proveedor de identidad no proporcionó un correo electrónico válido.");
+                }
 
-                var user = await _userInfoRepository.FindUserByEmailAsync(payload.Email);
+                var normalizedEmail = payload.Email.Trim().ToLowerInvariant();
+                var allowedDomains = AuthValidationHelper.GetAllowedDomains(_configuration);
+                AuthValidationHelper.EnsureEmailDomainAllowed(normalizedEmail, allowedDomains);
+
+                var user = await _userInfoRepository.FindUserByEmailAsync(normalizedEmail);
 
                 if (user == null)
                 {
                     user = await _userInfoRepository.CreateUserIfNotExistsAsync(
-                        payload.Email,
+                        normalizedEmail,
                         payload.GivenName,
                         payload.FamilyName);
                 }
@@ -91,7 +110,8 @@ namespace Infrastructure.Services.Auth
             }
             catch (Exception ex)
             {
-                throw new UnauthorizedAccessException("Error al autenticar con el proveedor de identidad: " + ex.Message);
+                _logger?.LogError(ex, "Error al autenticar con el proveedor de identidad {Provider}", provider);
+                throw new UnauthorizedAccessException("Error al autenticar con el proveedor de identidad.");
             }
         }
 

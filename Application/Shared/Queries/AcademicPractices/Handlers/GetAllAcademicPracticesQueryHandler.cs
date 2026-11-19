@@ -96,7 +96,9 @@ namespace Application.Shared.Queries.AcademicPractices.Handlers
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
                 PageSize = paginatedResult.PageSize,
-                HasMoreRows = paginatedResult.HasMoreRows
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
 
             return result;

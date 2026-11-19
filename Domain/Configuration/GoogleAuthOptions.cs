@@ -14,5 +14,10 @@ namespace Domain.Configuration
         /// Dominio hospedado opcional (Google Workspace) al que debe pertenecer el usuario.
         /// </summary>
         public string? HostedDomain { get; set; }
+
+        /// <summary>
+        /// Lista opcional de dominios de correo electrónico permitidos.
+        /// </summary>
+        public string[]? AllowedDomains { get; set; }
     }
 }

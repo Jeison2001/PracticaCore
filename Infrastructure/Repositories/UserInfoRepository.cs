@@ -108,8 +108,12 @@ namespace Infrastructure.Repositories
 
         public async Task<User?> FindUserByEmailAsync(string email)
         {
+            if (string.IsNullOrWhiteSpace(email))
+                return null;
+
+            var normalizedEmail = email.Trim().ToLowerInvariant();
             var userRepo = _unitOfWork.GetRepository<User, int>();
-            var users = await userRepo.GetAllAsync(u => u.Email == email);
+            var users = await userRepo.GetAllAsync(u => u.Email.ToLower() == normalizedEmail);
 
             return users?.FirstOrDefault();
         }
@@ -124,7 +128,8 @@ namespace Infrastructure.Repositories
 
         public async Task<User> CreateUserIfNotExistsAsync(string email, string firstName, string lastName)
         {
-            var user = await FindUserByEmailAsync(email);
+            var normalizedEmail = email.Trim().ToLowerInvariant();
+            var user = await FindUserByEmailAsync(normalizedEmail);
 
             if (user != null)
                 return user;
@@ -134,7 +139,7 @@ namespace Infrastructure.Repositories
 
             user = new User
             {
-                Email = email,
+                Email = normalizedEmail,
                 FirstName = firstName,
                 LastName = lastName,
                 IdIdentificationType = 1,

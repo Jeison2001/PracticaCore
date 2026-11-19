@@ -28,6 +28,7 @@ namespace Api.Controllers
         private readonly IMapper _mapper;
         private readonly IConfiguration _configuration;
         private readonly IHostEnvironment? _environment;
+        private readonly ILogger<AuthController>? _logger;
         private readonly int _refreshTokenExpirationDays;
 
         public AuthController(
@@ -39,7 +40,8 @@ namespace Api.Controllers
             IUnitOfWork unitOfWork,
             IMapper mapper,
             IConfiguration configuration,
-            IHostEnvironment? environment = null)
+            IHostEnvironment? environment = null,
+            ILogger<AuthController>? logger = null)
         {
             _authService = authService;
             _manualAuthService = manualAuthService;
@@ -50,6 +52,7 @@ namespace Api.Controllers
             _mapper = mapper;
             _configuration = configuration;
             _environment = environment;
+            _logger = logger;
 
             var rtExpireRaw = _configuration["Jwt:RefreshTokenExpirationDays"];
             _refreshTokenExpirationDays = int.TryParse(rtExpireRaw, out var days) && days > 0
@@ -77,7 +80,9 @@ namespace Api.Controllers
                 await _refreshTokenService.PurgeExpiredAsync(response.User.Id);
                 var refreshToken = await _refreshTokenService.GenerateAsync(response.User.Id);
                 SetRefreshTokenCookie(refreshToken.Token);
-                SetAccessTokenCookie(response.Token);
+                SetAccessTokenCookie(response.Token!);
+                if (_environment != null && _environment.IsProduction())
+                    response.Token = null;
 
                 return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
             }
@@ -91,9 +96,8 @@ namespace Api.Controllers
         [HttpPost("manual")]
         public async Task<IActionResult> ManualLogin([FromBody] ManualAuthRequest request)
         {
-            if (_environment != null &&
-                !_environment.IsDevelopment() &&
-                !_environment.IsEnvironment("Testing"))
+            if (_environment == null ||
+                (!_environment.IsDevelopment() && !_environment.IsEnvironment("Testing")))
             {
                 return NotFound();
             }
@@ -109,7 +113,9 @@ namespace Api.Controllers
                 await _refreshTokenService.PurgeExpiredAsync(response.User.Id);
                 var refreshToken = await _refreshTokenService.GenerateAsync(response.User.Id);
                 SetRefreshTokenCookie(refreshToken.Token);
-                SetAccessTokenCookie(response.Token);
+                SetAccessTokenCookie(response.Token!);
+                if (_environment != null && _environment.IsProduction())
+                    response.Token = null;
 
                 return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
             }
@@ -129,7 +135,7 @@ namespace Api.Controllers
                 errors.Add("Tipo de identificación es requerido");
             if (string.IsNullOrEmpty(request.Identification))
                 errors.Add("Número de identificación es requerido");
-            if (string.IsNullOrEmpty(request.Email))
+            if (string.IsNullOrWhiteSpace(request.Email))
                 errors.Add("Email es requerido");
             if (string.IsNullOrEmpty(request.FirstName))
                 errors.Add("Primer nombre es requerido");
@@ -144,6 +150,8 @@ namespace Api.Controllers
 
             if (errors.Any())
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = errors });
+
+            request.Email = request.Email.Trim().ToLowerInvariant();
 
             try
             {
@@ -236,7 +244,11 @@ namespace Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<object> { Success = false, Errors = new List<string> { "Error al registrar usuario: " + ex.Message } });
+                _logger?.LogError(ex, "Error al registrar usuario con email {Email}", request.Email);
+                var message = _environment != null && (_environment.IsDevelopment() || _environment.IsEnvironment("Testing"))
+                    ? "Error al registrar usuario: " + ex.Message
+                    : "Error interno al registrar usuario.";
+                return StatusCode(500, new ApiResponse<object> { Success = false, Errors = new List<string> { message } });
             }
         }
         [HttpPost("refresh")]
@@ -320,7 +332,9 @@ namespace Api.Controllers
             };
 
             var response = _mapper.Map<AuthResponse>(authResult);
-            SetAccessTokenCookie(response.Token);
+            SetAccessTokenCookie(response.Token!);
+            if (_environment != null && _environment.IsProduction())
+                response.Token = null;
             return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
         }
 
@@ -331,8 +345,9 @@ namespace Api.Controllers
             if (!string.IsNullOrEmpty(refreshTokenString))
             {
                 await _refreshTokenService.RevokeAsync(refreshTokenString);
-                ClearAuthCookies();
             }
+
+            ClearAuthCookies();
 
             return Ok(new ApiResponse<object> { Success = true, Data = "Sesión cerrada correctamente." });
         }

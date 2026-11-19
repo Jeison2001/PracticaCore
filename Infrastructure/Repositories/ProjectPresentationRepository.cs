@@ -32,27 +32,7 @@ namespace Infrastructure.Repositories
             var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
             var pf = ProposalFilterLoader.ExtractProjectFilters(tf.Remaining);
             var remainingFilters = new Dictionary<string, string>(pf.Remaining);
-
-            if (tf.HasAny)
-            {
-                var namePattern = tf.Name != null ? TeacherAssignmentLoader.LikePattern(tf.Name) : null;
-                var emailPattern = tf.Email != null ? TeacherAssignmentLoader.LikePattern(tf.Email) : null;
-                var teacherId = tf.Id;
-                var cargoId = tf.CargoId;
-                var cargoCode = tf.CargoCode;
-                var cargoName = tf.CargoName;
-                presentationsQuery = presentationsQuery.Where(x => _context.Set<TeachingAssignment>().Any(ta =>
-                    ta.IdInscriptionModality == x.Id && ta.StatusRegister && ta.RevocationDate == null &&
-                    (namePattern == null || (ta.Teacher != null &&
-                        (EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), namePattern) ||
-                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName), namePattern) ||
-                         EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.LastName), namePattern)))) &&
-                    (emailPattern == null || (ta.Teacher != null && EF.Functions.ILike(ta.Teacher.Email, emailPattern))) &&
-                    (teacherId == null || ta.IdTeacher == teacherId) &&
-                    (cargoId == null || ta.IdTypeTeachingAssignment == cargoId) &&
-                    (cargoCode == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Code == cargoCode)) &&
-                    (cargoName == null || (ta.TypeTeachingAssignment != null && ta.TypeTeachingAssignment.Name == cargoName))));
-            }
+            presentationsQuery = presentationsQuery.ApplyTeacherFilterById(_context, tf, confirmedOnly: true);
 
             // 2. Filtros sobre Proposal (title, researchline)
             if (!string.IsNullOrWhiteSpace(pf.Title))
@@ -83,6 +63,7 @@ namespace Infrastructure.Repositories
                     presentationsQuery = presentationsQuery.Where(x => _context.Set<UserInscriptionModality>().Any(uim =>
                         uim.IdInscriptionModality == x.Id &&
                         uim.StatusRegister &&
+                        uim.IsConfirmed &&
                         uim.User != null &&
                         (EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName + " " + uim.User.LastName), pattern) ||
                          EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName), pattern) ||
@@ -137,7 +118,7 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             var students = await _context.Set<UserInscriptionModality>()
-                .Where(uim => presentationIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => presentationIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync();
@@ -168,7 +149,9 @@ namespace Infrastructure.Repositories
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
                 PageSize = paginatedResult.PageSize,
-                HasMoreRows = paginatedResult.HasMoreRows
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
         }
 
@@ -176,7 +159,7 @@ namespace Infrastructure.Repositories
         {
             var inscriptionModalityIds = await _context.Set<UserInscriptionModality>()
                 .AsNoTracking()
-                .Where(uim => uim.IdUser == userId && uim.StatusRegister)
+                .Where(uim => uim.IdUser == userId && uim.StatusRegister && uim.IsConfirmed)
                 .Select(uim => uim.IdInscriptionModality)
                 .Distinct()
                 .ToListAsync();
@@ -214,7 +197,7 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             var students = await _context.Set<UserInscriptionModality>()
-                .Where(uim => presentationIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => presentationIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync();
@@ -268,7 +251,7 @@ namespace Infrastructure.Repositories
 
             var tf = TeacherAssignmentLoader.ExtractTeacherFilters(filters);
             var pf = ProposalFilterLoader.ExtractProjectFilters(tf.Remaining);
-            presentationsQuery = presentationsQuery.ApplyTeacherFilterById(_context, tf);
+            presentationsQuery = presentationsQuery.ApplyTeacherFilterById(_context, tf, confirmedOnly: true);
             var remainingFilters = new Dictionary<string, string>(pf.Remaining);
 
             if (!string.IsNullOrWhiteSpace(pf.Title))
@@ -298,6 +281,7 @@ namespace Infrastructure.Repositories
                     presentationsQuery = presentationsQuery.Where(x => _context.Set<UserInscriptionModality>().Any(uim =>
                         uim.IdInscriptionModality == x.Id &&
                         uim.StatusRegister &&
+                        uim.IsConfirmed &&
                         uim.User != null &&
                         (EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName + " " + uim.User.LastName), pattern) ||
                          EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName), pattern) ||
@@ -350,7 +334,7 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             var students = await _context.Set<UserInscriptionModality>()
-                .Where(uim => resultIds.Contains(uim.IdInscriptionModality))
+                .Where(uim => resultIds.Contains(uim.IdInscriptionModality) && uim.StatusRegister && uim.IsConfirmed)
                 .Include(uim => uim.User)
                 .AsNoTracking()
                 .ToListAsync();
@@ -378,7 +362,9 @@ namespace Infrastructure.Repositories
                 TotalRecords = paginatedResult.TotalRecords,
                 PageNumber = paginatedResult.PageNumber,
                 PageSize = paginatedResult.PageSize,
-                HasMoreRows = paginatedResult.HasMoreRows
+                HasMoreRows = paginatedResult.HasMoreRows,
+                CursorCreatedAt = paginatedResult.CursorCreatedAt,
+                CursorId = paginatedResult.CursorId
             };
         }
     }

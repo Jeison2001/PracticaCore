@@ -158,10 +158,13 @@ namespace Tests.Integration.TeachingAssignments
             // Arrange
             var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
             
-            // Create existing assignment
+            // Create existing assignment and ensure modality carries a valid catalog code
             using (var scope = _factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var modality = await context.Set<Modality>().FindAsync(inscriptionModality.IdModality);
+                modality!.Code = ModalityCodes.PracticaAcademica;
+
                 var assignment = new TeachingAssignment
                 {
                     IdInscriptionModality = inscriptionModality.Id,
@@ -595,7 +598,7 @@ namespace Tests.Integration.TeachingAssignments
         }
 
         [Fact]
-        public async Task Create_AsNonMemberStudent_ReturnsUnauthorized()
+        public async Task Create_AsNonMemberStudent_ReturnsForbidden()
         {
             var (teacher, inscriptionModality, typeTeaching) = await SeedDataAsync();
             int nonMemberStudentId;
@@ -635,7 +638,7 @@ namespace Tests.Integration.TeachingAssignments
 
             var response = await _client.SendAsync(request);
 
-            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         }
 
         [Fact]

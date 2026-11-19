@@ -5,6 +5,7 @@ using Application.Common.Services.Jobs;
 using AutoMapper;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Exceptions;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
@@ -45,6 +46,14 @@ namespace Application.Shared.Commands.Proposals.Handlers
             var entity = await _repository.GetByIdAsync(request.Id);
             if (entity == null)
                 throw new KeyNotFoundException($"Proposal with ID {request.Id} not found.");
+
+            if (request.CurrentUser?.UserId is not > 0 ||
+                request.CurrentUser.Permissions is not { Count: > 0 } perms ||
+                !perms.Contains(PermissionCodes.ProyectoGrado.N4PGPPR))
+            {
+                throw new ForbiddenAccessException(
+                    "No tiene permisos vigentes para evaluar o modificar una propuesta.");
+            }
 
             var originalStateId = entity.IdStateStage;
             var originalObservation = entity.Observation;

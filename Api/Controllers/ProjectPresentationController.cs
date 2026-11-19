@@ -61,9 +61,7 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.ProyectoGrado.N4PGPSG))
+                    ModalityPermissionCatalog.PgSustentacionManagement))
             {
                 return Forbid();
             }
@@ -79,9 +77,7 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.ProyectoGrado.N4PGPSG))
+                    ModalityPermissionCatalog.PgSustentacionManagement))
             {
                 return Forbid();
             }

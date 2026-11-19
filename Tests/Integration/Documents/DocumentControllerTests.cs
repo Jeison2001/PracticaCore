@@ -1314,8 +1314,8 @@ namespace Tests.Integration.Documents
                 rejectedInscId = inscRejected.Id;
 
                 context.Set<ProjectPresentation>().AddRange(
-                    new ProjectPresentation { Id = closedNonRejectedInscId, IdInscriptionModality = closedNonRejectedInscId, IdStateStage = closedApprovedState.Id, AttemptNumber = 1, StatusRegister = true },
-                    new ProjectPresentation { Id = rejectedInscId, IdInscriptionModality = rejectedInscId, IdStateStage = rejectedState.Id, AttemptNumber = 1, StatusRegister = true });
+                    new ProjectPresentation { Id = closedNonRejectedInscId, IdStateStage = closedApprovedState.Id, AttemptNumber = 1, StatusRegister = true },
+                    new ProjectPresentation { Id = rejectedInscId, IdStateStage = rejectedState.Id, AttemptNumber = 1, StatusRegister = true });
 
                 context.Set<UserInscriptionModality>().AddRange(
                     new UserInscriptionModality { IdInscriptionModality = closedNonRejectedInscId, IdUser = studentId, StatusRegister = true },

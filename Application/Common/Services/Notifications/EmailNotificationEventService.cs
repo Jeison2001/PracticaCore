@@ -57,6 +57,7 @@ namespace Application.Common.Services.Notifications
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error procesando evento de notificación: {EventName}", eventName);
+                throw;
             }
         }
 
@@ -129,12 +130,15 @@ namespace Application.Common.Services.Notifications
                 {
                     _logger.LogWarning("Error al enviar email para evento {EventName} - Config {ConfigId}", 
                         config.EventName, config.Id);
+                    throw new InvalidOperationException(
+                        $"No se pudo enviar el email para el evento '{config.EventName}' (ConfigId={config.Id}).");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error procesando configuración {ConfigId} para evento {EventName}", 
                     config.Id, config.EventName);
+                throw;
             }
         }
 

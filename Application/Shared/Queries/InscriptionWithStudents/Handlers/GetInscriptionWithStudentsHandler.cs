@@ -73,7 +73,8 @@ namespace Application.Shared.Queries.InscriptionWithStudents.Handlers
                 {
                     Filters = new Dictionary<string, string>
                     {
-                        { "IdInscriptionModality", request.Id.ToString() }
+                        { "IdInscriptionModality", request.Id.ToString() },
+                        { "StatusRegister", "true" }
                     },
                     PageNumber = 1,
                     PageSize = 0 // Contrato: PageSize <= 0 = sin paginación (los de esta inscripción)

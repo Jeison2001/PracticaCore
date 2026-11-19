@@ -36,7 +36,7 @@ namespace Api.Controllers
         [HttpGet("{id}")]
         public override async Task<IActionResult> GetById(int id)
         {
-            if (this.IsCrossActorAccessDenied(id))
+            if (this.IsCrossActorAccessDenied(id, PermissionCodes.Configuraciones.N3CFSU))
                 return Forbid();
 
             return await base.GetById(id);
@@ -45,7 +45,7 @@ namespace Api.Controllers
         /// <summary>
         /// Obtiene usuarios paginados incluyendo sus roles activos asignados (batch fetch, zero N+1).
         /// </summary>
-        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU, PermissionCodes.ModalidadesGrado.N2MGR)]
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFSU)]
         [HttpGet]
         public override async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
         {
@@ -57,12 +57,44 @@ namespace Api.Controllers
                 IsDescending = request.IsDescending,
                 Filters = request.Filters,
                 CursorCreatedAt = request.CursorCreatedAt,
-                CursorId = request.CursorId.HasValue ? (int)request.CursorId.Value : null,
+                CursorId = request.CursorId,
                 SkipTotalCount = request.SkipTotalCount
             };
 
             var result = await _mediator.Send(query);
             return Ok(new ApiResponse<PaginatedResult<UserDto>> { Success = true, Data = result });
+        }
+
+        /// <summary>
+        /// Busca un estudiante activo por identificación exponiendo únicamente datos mínimos de contacto.
+        /// </summary>
+        [RequirePermission(PermissionCodes.ModalidadesGrado.N2MGR)]
+        [HttpGet("student-lookup")]
+        public async Task<IActionResult> StudentLookup([FromQuery] string? identification)
+        {
+            if (string.IsNullOrWhiteSpace(identification))
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Errors = new List<string> { "El número de identificación es requerido." }
+                });
+            }
+
+            var result = await _mediator.Send(
+                new GetStudentLookupByIdentificationQuery(identification),
+                HttpContext?.RequestAborted ?? CancellationToken.None);
+
+            if (result == null)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Errors = new List<string> { "No se encontró ningún estudiante activo con esta identificación." }
+                });
+            }
+
+            return Ok(new ApiResponse<StudentLookupDto> { Success = true, Data = result });
         }
 
         /// <summary>
@@ -90,37 +122,37 @@ namespace Api.Controllers
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] UserDto dto)
         {
-            if (this.IsCrossActorAccessDenied(id))
+            if (User?.Identity?.IsAuthenticated != true)
                 return Forbid();
 
-            if (User?.Identity?.IsAuthenticated == true)
-            {
-                var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
-                if (!permissions.Contains(PermissionCodes.Configuraciones.N3CFSU))
-                {
-                    var existingUser = await _mediator.Send(new GetEntityByIdQuery<User, int, UserDto>(id));
-                    if (!existingUser.StatusRegister)
-                        return Forbid();
+            if (this.IsCrossActorAccessDenied(id, PermissionCodes.Configuraciones.N3CFSU))
+                return Forbid();
 
-                    // Usuario no administrador (N2CFP) solo puede actualizar campos de perfil propios (nombre/teléfono);
-                    // preservar campos académicos, de identificación y estado.
-                    dto = dto with
-                    {
-                        Id = existingUser.Id,
-                        StatusRegister = existingUser.StatusRegister,
-                        Email = existingUser.Email,
-                        Identification = existingUser.Identification,
-                        IdIdentificationType = existingUser.IdIdentificationType,
-                        IdAcademicProgram = existingUser.IdAcademicProgram,
-                        IdStudyPlan = existingUser.IdStudyPlan,
-                        CurrentAcademicPeriod = existingUser.CurrentAcademicPeriod,
-                        CumulativeAverage = existingUser.CumulativeAverage,
-                        ApprovedCredits = existingUser.ApprovedCredits,
-                        TotalAcademicCredits = existingUser.TotalAcademicCredits,
-                        Observation = existingUser.Observation,
-                        Roles = null
-                    };
-                }
+            var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
+            if (!permissions.Contains(PermissionCodes.Configuraciones.N3CFSU))
+            {
+                var existingUser = await _mediator.Send(new GetEntityByIdQuery<User, int, UserDto>(id));
+                if (!existingUser.StatusRegister)
+                    return Forbid();
+
+                // Usuario no administrador (N2CFP) solo puede actualizar campos de perfil propios (nombre/teléfono);
+                // preservar campos académicos, de identificación y estado.
+                dto = dto with
+                {
+                    Id = existingUser.Id,
+                    StatusRegister = existingUser.StatusRegister,
+                    Email = existingUser.Email,
+                    Identification = existingUser.Identification,
+                    IdIdentificationType = existingUser.IdIdentificationType,
+                    IdAcademicProgram = existingUser.IdAcademicProgram,
+                    IdStudyPlan = existingUser.IdStudyPlan,
+                    CurrentAcademicPeriod = existingUser.CurrentAcademicPeriod,
+                    CumulativeAverage = existingUser.CumulativeAverage,
+                    ApprovedCredits = existingUser.ApprovedCredits,
+                    TotalAcademicCredits = existingUser.TotalAcademicCredits,
+                    Observation = existingUser.Observation,
+                    Roles = null
+                };
             }
 
             return await base.Update(id, dto);

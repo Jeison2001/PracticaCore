@@ -53,13 +53,7 @@ namespace Application.Shared.Commands.PreliminaryProjects.Handlers
                 entity.Id,
                 request.Dto.IdStateStage,
                 request.CurrentUser,
-                [
-                    PermissionCodes.ProyectoGrado.N4PGPAG,
-                    PermissionCodes.ProyectoGrado.N4PGPAA,
-                    PermissionCodes.ProyectoGrado.N4PGPPG,
-                    PermissionCodes.Configuraciones.N3CFSU,
-                    PermissionCodes.ModalidadesGrado.N3MGPR
-                ],
+                [],
                 PermissionCodes.ProyectoGrado.N4PGPAR,
                 "El docente no tiene una asignación confirmada activa en este anteproyecto.",
                 "No está autorizado para modificar un anteproyecto al cual no pertenece.",

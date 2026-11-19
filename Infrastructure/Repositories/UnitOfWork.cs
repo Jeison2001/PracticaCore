@@ -14,6 +14,8 @@ namespace Infrastructure.Repositories
         private readonly IMediator _mediator;
         private readonly Microsoft.Extensions.Logging.ILogger<UnitOfWork> _logger;
         private readonly Dictionary<Type, object> _repositories = [];
+        private readonly List<Func<CancellationToken, Task>> _postCommitActions = [];
+        private bool _isCommitting;
 
         public UnitOfWork(AppDbContext context, IMediator mediator, Microsoft.Extensions.Logging.ILogger<UnitOfWork> logger)
         {
@@ -36,62 +38,110 @@ namespace Infrastructure.Repositories
 
         public async Task<int> CommitAsync(CancellationToken ct = default)
         {
-            await DispatchDomainEventsAsync();
-            return await _context.SaveChangesAsync(ct);
+            if (_isCommitting)
+                return await _context.SaveChangesAsync(ct);
+
+            _isCommitting = true;
+            IDatabaseTransaction? ownedTransaction = null;
+            int totalSaved;
+            List<Func<CancellationToken, Task>> actionsToRun;
+
+            try
+            {
+                if (_context.Database.IsRelational() && _context.Database.CurrentTransaction == null)
+                {
+                    var dbTransaction = await _context.Database.BeginTransactionAsync(ct);
+                    ownedTransaction = new EfDatabaseTransaction(dbTransaction);
+                }
+
+                totalSaved = await _context.SaveChangesAsync(ct);
+
+                const int maxRounds = 10;
+                var round = 0;
+                while (round < maxRounds)
+                {
+                    var domainEntities = _context.ChangeTracker
+                        .Entries()
+                        .Select(x => x.Entity)
+                        .OfType<IHasDomainEvents>()
+                        .Where(e => e.DomainEvents.Count > 0)
+                        .ToList();
+
+                    if (domainEntities.Count == 0)
+                        break;
+
+                    round++;
+                    _logger.LogDebug("[DEBUG] DispatchDomainEventsAsync (round {Round}): Found {Count} entities with events", round, domainEntities.Count);
+
+                    var domainEvents = new List<IDomainEvent>();
+                    foreach (var entity in domainEntities)
+                    {
+                        domainEvents.AddRange(entity.DomainEvents);
+                        entity.ClearDomainEvents();
+                    }
+
+                    _logger.LogDebug("[DEBUG] Publishing {Count} domain events", domainEvents.Count);
+                    foreach (var domainEvent in domainEvents)
+                    {
+                        await _mediator.Publish((object)domainEvent, ct);
+                    }
+
+                    if (_context.ChangeTracker.HasChanges())
+                    {
+                        totalSaved += await _context.SaveChangesAsync(ct);
+                    }
+                }
+
+                if (round == maxRounds && _context.ChangeTracker.Entries().Select(x => x.Entity).OfType<IHasDomainEvents>().Any(e => e.DomainEvents.Count > 0))
+                {
+                    _logger.LogWarning("UnitOfWork.CommitAsync alcanzó el límite de {MaxRounds} rondas de despacho de DomainEvents.", maxRounds);
+                }
+
+                if (ownedTransaction != null)
+                {
+                    await ownedTransaction.CommitAsync(ct);
+                }
+
+                actionsToRun = [.. _postCommitActions];
+                _postCommitActions.Clear();
+            }
+            catch
+            {
+                _postCommitActions.Clear();
+                if (ownedTransaction != null)
+                {
+                    await ownedTransaction.RollbackAsync(CancellationToken.None);
+                }
+                throw;
+            }
+            finally
+            {
+                if (ownedTransaction != null)
+                {
+                    await ownedTransaction.DisposeAsync();
+                }
+                _isCommitting = false;
+            }
+
+            foreach (var action in actionsToRun)
+            {
+                await action(ct);
+            }
+
+            return totalSaved;
         }
 
-        private async Task DispatchDomainEventsAsync()
+        public async Task ExecuteAfterCommitAsync(Func<CancellationToken, Task> action, CancellationToken ct = default)
         {
-            var domainEntities = _context.ChangeTracker
-                .Entries()
-                .Select(x => x.Entity)
-                .Where(e =>
-                {
-                    var type = e.GetType();
-                    if (type.FullName != null && type.FullName.StartsWith("Castle.Proxies"))
-                    {
-                        type = type.BaseType!;
-                    }
-                    var prop = type.GetProperty("DomainEvents");
-                    if (prop == null) return false;
+            ArgumentNullException.ThrowIfNull(action);
 
-                    var events = prop.GetValue(e) as IEnumerable<IDomainEvent>;
-                    return events != null && events.Any();
-                })
-                .ToList();
-
-            _logger.LogDebug("[DEBUG] DispatchDomainEventsAsync: Found {Count} entities with events", domainEntities.Count);
-
-            var domainEvents = new List<IDomainEvent>();
-
-            foreach (var entity in domainEntities)
+            if (_isCommitting)
             {
-                var type = entity.GetType();
-                if (type.FullName != null && type.FullName.StartsWith("Castle.Proxies"))
-                {
-                    type = type.BaseType!;
-                }
-
-                var prop = type.GetProperty("DomainEvents");
-                var method = type.GetMethod("ClearDomainEvents");
-
-                if (prop != null && method != null)
-                {
-                    var events = (prop.GetValue(entity) as IEnumerable<IDomainEvent>)?.ToList();
-                    if (events != null && events.Any())
-                    {
-                        domainEvents.AddRange(events);
-                    }
-                    method.Invoke(entity, null); // ClearDomainEvents()
-                }
+                _postCommitActions.Add(action);
+                return;
             }
 
-            _logger.LogDebug("[DEBUG] Publishing {Count} domain events", domainEvents.Count);
-
-            foreach (var domainEvent in domainEvents)
-            {
-                await _mediator.Publish((object)domainEvent);
-            }
+            await action(ct);
         }
 
         public async Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken ct = default)

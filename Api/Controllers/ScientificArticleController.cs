@@ -60,9 +60,7 @@ namespace Api.Controllers
             if (await this.IsInscriptionReadAccessDeniedAsync(
                     id,
                     ct,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.PublicacionArticulo.N3PCSGG))
+                    ModalityPermissionCatalog.PublicacionArticuloManagementAndReview))
             {
                 return Forbid();
             }
@@ -77,9 +75,7 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
-                    PermissionCodes.PublicacionArticulo.N3PCSGG))
+                    ModalityPermissionCatalog.PublicacionArticuloManagementAndReview))
             {
                 return Forbid();
             }
@@ -95,8 +91,6 @@ namespace Api.Controllers
         {
             if (this.IsCrossActorAccessDenied(
                     id,
-                    PermissionCodes.ModalidadesGrado.N3MGPR,
-                    PermissionCodes.ModalidadesGrado.N3MGPG,
                     PermissionCodes.PublicacionArticulo.N3PCSGG))
             {
                 return Forbid();

@@ -77,7 +77,9 @@ namespace Application.Shared.Queries.ProjectFinals.Handlers
                 TotalRecords = pagedResult.TotalRecords,
                 PageNumber = pagedResult.PageNumber,
                 PageSize = pagedResult.PageSize,
-                HasMoreRows = pagedResult.HasMoreRows
+                HasMoreRows = pagedResult.HasMoreRows,
+                CursorCreatedAt = pagedResult.CursorCreatedAt,
+                CursorId = pagedResult.CursorId
             };
         }
     }

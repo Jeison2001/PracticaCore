@@ -45,10 +45,10 @@ namespace Application.Common.Services.Notifications
                     return (string.Empty, string.Empty, 0);
                 }
 
-                // Obtener usuarios asociados a la inscripción
+                // Obtener usuarios asociados a la inscripción (activos y confirmados)
                 var userInscriptionModalityRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
                 var userInscriptions = await userInscriptionModalityRepo
-                    .GetAllAsync(uim => uim.IdInscriptionModality == inscriptionModality.Id);
+                    .GetAllAsync(uim => uim.IdInscriptionModality == inscriptionModality.Id && uim.StatusRegister && uim.IsConfirmed);
 
                 if (!userInscriptions.Any())
                 {
@@ -70,10 +70,10 @@ namespace Application.Common.Services.Notifications
         {
             try
             {
-                // Obtener usuarios asociados a la InscriptionModality (solo activos)
+                // Obtener usuarios asociados a la InscriptionModality (activos y confirmados)
                 var userInscriptionModalityRepo = _unitOfWork.GetRepository<UserInscriptionModality, int>();
                 var userInscriptions = await userInscriptionModalityRepo
-                    .GetAllAsync(uim => uim.IdInscriptionModality == inscriptionId && uim.StatusRegister);
+                    .GetAllAsync(uim => uim.IdInscriptionModality == inscriptionId && uim.StatusRegister && uim.IsConfirmed);
 
                 if (!userInscriptions.Any())
                 {

@@ -54,13 +54,7 @@ namespace Application.Shared.Commands.ProjectFinals.Handlers
                 entity.Id,
                 request.Dto.IdStateStage,
                 request.CurrentUser,
-                [
-                    PermissionCodes.ProyectoGrado.N4PGPPRG,
-                    PermissionCodes.ProyectoGrado.N4PGPAA,
-                    PermissionCodes.ProyectoGrado.N4PGPPG,
-                    PermissionCodes.Configuraciones.N3CFSU,
-                    PermissionCodes.ModalidadesGrado.N3MGPR
-                ],
+                Array.Empty<string>(),
                 PermissionCodes.ProyectoGrado.N4PGPPRR,
                 "El docente no tiene una asignación confirmada activa en este proyecto.",
                 "No está autorizado para modificar un proyecto al cual no pertenece.",
