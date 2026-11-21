@@ -131,11 +131,14 @@ namespace Api.Controllers
             var cancellationToken = HttpContext?.RequestAborted ?? CancellationToken.None;
             var errors = new List<string>();
 
+            var normalizedEmail = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+            request.Email = normalizedEmail;
+
             if (request.IdIdentificationType <= 0)
                 errors.Add("Tipo de identificación es requerido");
             if (string.IsNullOrEmpty(request.Identification))
                 errors.Add("Número de identificación es requerido");
-            if (string.IsNullOrWhiteSpace(request.Email))
+            if (string.IsNullOrWhiteSpace(normalizedEmail))
                 errors.Add("Email es requerido");
             if (string.IsNullOrEmpty(request.FirstName))
                 errors.Add("Primer nombre es requerido");
@@ -144,14 +147,37 @@ namespace Api.Controllers
             if (request.IdAcademicProgram <= 0)
                 errors.Add("Programa académico es requerido");
 
-            // TODO: Cuando se habilite el registro restringido al correo institucional
-            // (p. ej. dominio @unicesar.edu.co), validar aquí el dominio permitido del email
-            // antes de consultar o persistir el usuario.
-
             if (errors.Any())
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = errors });
 
-            request.Email = request.Email.Trim().ToLowerInvariant();
+            var atIndex = normalizedEmail.LastIndexOf('@');
+            if (atIndex <= 0
+                || atIndex != normalizedEmail.IndexOf('@')
+                || atIndex == normalizedEmail.Length - 1
+                || normalizedEmail.Any(char.IsWhiteSpace))
+            {
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El formato del email no es válido." } });
+            }
+
+            var emailDomain = normalizedEmail[(atIndex + 1)..];
+            if (emailDomain.StartsWith('.') || emailDomain.EndsWith('.') || !emailDomain.Contains('.'))
+            {
+                return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El formato del email no es válido." } });
+            }
+
+            var allowedDomains = GetAllowedRegisterDomains();
+            if (allowedDomains.Count > 0
+                && !allowedDomains.Any(d => string.Equals(emailDomain, d, StringComparison.OrdinalIgnoreCase)))
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Errors = new List<string>
+                    {
+                        $"Solo se permite el registro con correos institucionales autorizados ({string.Join(", ", allowedDomains.Select(d => "@" + d))})."
+                    }
+                });
+            }
 
             try
             {
@@ -350,6 +376,30 @@ namespace Api.Controllers
             ClearAuthCookies();
 
             return Ok(new ApiResponse<object> { Success = true, Data = "Sesión cerrada correctamente." });
+        }
+
+        private List<string> GetAllowedRegisterDomains()
+        {
+            const string configKey = "Authentication:Register:AllowedDomains";
+            var rawValue = _configuration[configKey];
+
+            IEnumerable<string> rawEntries;
+            if (rawValue != null)
+            {
+                rawEntries = rawValue.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            }
+            else
+            {
+                var configuredArray = _configuration.GetSection(configKey).Get<string[]>() ?? Array.Empty<string>();
+                rawEntries = configuredArray
+                    .SelectMany(entry => (entry ?? string.Empty).Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries));
+            }
+
+            return rawEntries
+                .Select(d => d.Trim().TrimStart('@').ToLowerInvariant())
+                .Where(d => !string.IsNullOrWhiteSpace(d))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private static CookieOptions BuildBaseAuthCookieOptions() => new()

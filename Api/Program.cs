@@ -123,8 +123,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configurar el pipeline de solicitudes HTTP.
-//if (app.Environment.IsDevelopment())
-//{
+if (app.Environment.IsDevelopment())
+{
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
@@ -132,7 +132,7 @@ var app = builder.Build();
         // Habilitar el botón de autorización en la UI de Swagger
         c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
     });
-//}
+}
 
 app.UseCors("AllowedOrigins");
 
@@ -147,6 +147,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 if (useHangfire)
 {

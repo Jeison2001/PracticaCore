@@ -88,7 +88,11 @@ namespace Infrastructure.Services.Notifications
                     Bcc = bcc?.ToList() ?? new List<string>()
                 };
 
-                await _notificationService.SendEmailAsync(notification);
+                var success = await _notificationService.SendEmailAsync(notification);
+                if (!success)
+                {
+                    throw new InvalidOperationException($"No se pudo enviar el email directo a '{to}'.");
+                }
                 
                 _logger.LogInformation("Email directo enviado exitosamente en background para {To}", to);
             }

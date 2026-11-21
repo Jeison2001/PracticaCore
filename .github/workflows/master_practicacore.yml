@@ -45,14 +45,14 @@ jobs:
 
       - name: Health check
         run: |
-          $uri = "https://practicacore-dzetdmgmhwc3cbdd.canadacentral-01.azurewebsites.net/swagger/index.html"
+          $uri = "https://practicacore-dzetdmgmhwc3cbdd.canadacentral-01.azurewebsites.net/health"
           $maxRetries = 10
           $wait = 5
           for ($i = 0; $i -lt $maxRetries; $i++) {
             try {
               $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 10 -MaximumRedirection 0 -ErrorAction SilentlyContinue
               if ($resp.StatusCode -eq 200) {
-                Write-Host "Health check passed: Swagger responding (Status $($resp.StatusCode))"
+                Write-Host "Health check passed (Status $($resp.StatusCode))"
                 exit 0
               }
             } catch {}

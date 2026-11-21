@@ -11,6 +11,7 @@ using Infrastructure.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
@@ -388,6 +389,157 @@ namespace Tests.Integration.Auth
             });
 
             duplicateResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task SwaggerJson_InProduction_ReturnsNotFound()
+        {
+            using var prodFactory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Production");
+            });
+            using var client = prodFactory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                HandleCookies = false
+            });
+
+            var prodResponse = await client.GetAsync("/swagger/v1/swagger.json");
+            prodResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+            // También deshabilitado en Testing
+            var testingResponse = await _client.GetAsync("/swagger/v1/swagger.json");
+            testingResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public async Task HealthEndpoint_InProduction_ReturnsOkAnonymous()
+        {
+            using var prodFactory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Production");
+            });
+            using var client = prodFactory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                HandleCookies = false
+            });
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/health");
+            request.Headers.Add("X-Test-Anonymous", "true");
+
+            var response = await client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            doc.RootElement.GetProperty("status").GetString().Should().Be("ok");
+        }
+
+        [Fact]
+        public async Task SwaggerJson_InDevelopment_ReturnsOk()
+        {
+            using var devFactory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Development");
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddSingleton(Mock.Of<Hangfire.IBackgroundJobClient>());
+                });
+            });
+            using var client = devFactory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                HandleCookies = false
+            });
+
+            var response = await client.GetAsync("/swagger/v1/swagger.json");
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+        }
+
+        [Theory]
+        [InlineData("user@gmail.com")]
+        [InlineData("user@fakeunicesar.edu.co")]
+        public async Task Register_WithDisallowedEmailDomain_ReturnsBadRequest(string disallowedEmail)
+        {
+            var (idTypeId, programId) = await SeedRegistrationCatalogAsync(_factory.Services);
+
+            var response = await _client.PostAsJsonAsync("/api/Auth/register", new RegisterRequest
+            {
+                IdIdentificationType = idTypeId,
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                Email = disallowedEmail,
+                FirstName = "Student",
+                LastName = "External",
+                IdAcademicProgram = programId,
+                RoleId = 0
+            });
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            var payload = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            payload.Should().NotBeNull();
+            payload!.Success.Should().BeFalse();
+            payload.Errors.Should().Contain("Solo se permite el registro con correos institucionales autorizados (@unicesar.edu.co).");
+        }
+
+        [Fact]
+        public async Task Register_WithAllowedDomainAndFlatConfigOverride_RespectsConfiguredDomains()
+        {
+            using var customFactory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Authentication:Register:AllowedDomains"] = "otro.edu.co,unicesar.edu.co"
+                    });
+                });
+            });
+            using var client = customFactory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                HandleCookies = false
+            });
+
+            var (idTypeId, programId) = await SeedRegistrationCatalogAsync(customFactory.Services);
+
+            var otroResponse = await client.PostAsJsonAsync("/api/Auth/register", new RegisterRequest
+            {
+                IdIdentificationType = idTypeId,
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                Email = $"est_{Guid.NewGuid():N}@otro.edu.co",
+                FirstName = "Student",
+                LastName = "Otro",
+                IdAcademicProgram = programId,
+                RoleId = 0
+            });
+            otroResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var unicesarResponse = await client.PostAsJsonAsync("/api/Auth/register", new RegisterRequest
+            {
+                IdIdentificationType = idTypeId,
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                Email = $"est_{Guid.NewGuid():N}@unicesar.edu.co",
+                FirstName = "Student",
+                LastName = "Unicesar",
+                IdAcademicProgram = programId,
+                RoleId = 0
+            });
+            unicesarResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var rejectedResponse = await client.PostAsJsonAsync("/api/Auth/register", new RegisterRequest
+            {
+                IdIdentificationType = idTypeId,
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                Email = $"est_{Guid.NewGuid():N}@gmail.com",
+                FirstName = "Student",
+                LastName = "Rejected",
+                IdAcademicProgram = programId,
+                RoleId = 0
+            });
+            rejectedResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            var rejectedPayload = await rejectedResponse.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            rejectedPayload.Should().NotBeNull();
+            rejectedPayload!.Success.Should().BeFalse();
+            rejectedPayload.Errors.Should().Contain("Solo se permite el registro con correos institucionales autorizados (@otro.edu.co, @unicesar.edu.co).");
         }
 
         private static async Task<(int idTypeId, int programId)> SeedRegistrationCatalogAsync(IServiceProvider services)
