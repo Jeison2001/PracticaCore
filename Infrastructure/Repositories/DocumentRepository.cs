@@ -52,6 +52,9 @@ namespace Infrastructure.Repositories
                     : query.OrderBy(e => EF.Property<object>(e, sortBy));
             }
 
+            if (pageNumber < 1)
+                pageNumber = 1;
+
             var totalRecords = await query.CountAsync(cancellationToken);
                 // PageSize <= 0: sin paginación (entrega todo el resultado en una sola página)
                 if (pageSize <= 0) { pageNumber = 1; pageSize = Math.Max(totalRecords, 1); }

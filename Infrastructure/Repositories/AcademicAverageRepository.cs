@@ -45,6 +45,9 @@ namespace Infrastructure.Repositories
             DateTimeOffset? cursorCreatedAt = null,
             bool skipTotalCount = false)
         {
+            if (pageNumber < 1)
+                pageNumber = 1;
+
             filters ??= new Dictionary<string, string>();
             var query = _context.AcademicAverages
                 .AsNoTracking()
@@ -205,6 +208,9 @@ namespace Infrastructure.Repositories
             DateTimeOffset? cursorCreatedAt = null,
             bool skipTotalCount = false)
         {
+            if (pageNumber < 1)
+                pageNumber = 1;
+
             filters ??= new Dictionary<string, string>();
             var query = _context.AcademicAverages
                 .AsNoTracking()

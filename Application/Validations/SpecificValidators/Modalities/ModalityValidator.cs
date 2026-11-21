@@ -11,6 +11,10 @@ namespace Application.Validations.SpecificValidators.Modalities
                 .NotEmpty().WithMessage("El código es requerido.")
                 .MaximumLength(150).WithMessage("El código no puede exceder los 150 caracteres.");
 
+            RuleFor(x => x.Name)
+                .NotEmpty().WithMessage("El nombre es requerido.")
+                .MaximumLength(150).WithMessage("El nombre no puede exceder los 150 caracteres.");
+
             RuleFor(x => x.MaximumTermPeriods)
                 .GreaterThanOrEqualTo(0).When(x => x.MaximumTermPeriods.HasValue)
                 .WithMessage("El número máximo de periodos debe ser un valor positivo.");

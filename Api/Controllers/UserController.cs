@@ -155,7 +155,16 @@ namespace Api.Controllers
                 };
             }
 
-            return await base.Update(id, dto);
+            var result = await base.Update(id, dto);
+
+            if (permissions.Contains(PermissionCodes.Configuraciones.N3CFSU) &&
+                !dto.StatusRegister &&
+                IsSuccessStatusResult(result))
+            {
+                await _refreshTokenService.RevokeAllTokensForUserAsync(id, HttpContext?.RequestAborted ?? CancellationToken.None);
+            }
+
+            return result;
         }
 
         [RequirePermission(PermissionCodes.Configuraciones.N3CFSU)]

@@ -13,8 +13,8 @@ namespace Infrastructure.Data.Configurations
         {
             // Tabla
             builder.ToTable("EmailRecipientRule", t => {
-                t.HasCheckConstraint("CK_EmailRecipientRule_RecipientType", "recipienttype IN ('TO', 'CC', 'BCC')");
-                t.HasCheckConstraint("CK_EmailRecipientRule_RuleType", "ruletype IN ('BY_ROLE', 'BY_ENTITY_RELATION', 'FIXED_EMAIL', 'EVENT_PARTICIPANT')");
+                t.HasCheckConstraint("CK_EmailRecipientRule_RecipientType", "\"RecipientType\" IN ('TO', 'CC', 'BCC')");
+                t.HasCheckConstraint("CK_EmailRecipientRule_RuleType", "\"RuleType\" IN ('BY_ROLE', 'BY_PERMISSION', 'BY_ENTITY_RELATION', 'FIXED_EMAIL', 'EVENT_PARTICIPANT')");
             });
             
             // Clave primaria
@@ -36,7 +36,7 @@ namespace Infrastructure.Data.Configurations
                 
             builder.Property(e => e.RuleType)
                 .HasColumnName("RuleType")
-                .HasMaxLength(20)
+                .HasMaxLength(50)
                 .IsRequired();
                 
             builder.Property(e => e.RuleValue)

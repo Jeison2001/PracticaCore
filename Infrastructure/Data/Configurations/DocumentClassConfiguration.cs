@@ -11,7 +11,7 @@ namespace Infrastructure.Data.Configurations
             base.Configure(builder);
             builder.ToTable("DocumentClass");
             
-            builder.Property(e => e.Code).IsRequired().HasMaxLength(100).HasColumnName("Code");
+            builder.Property(e => e.Code).IsRequired().HasMaxLength(50).HasColumnName("Code");
             builder.HasIndex(e => e.Code).IsUnique();
             builder.Property(e => e.Name).IsRequired().HasMaxLength(255).HasColumnName("Name");
             builder.Property(e => e.Description).HasColumnType("text").HasColumnName("Description").IsRequired(false);

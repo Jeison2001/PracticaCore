@@ -18,7 +18,8 @@ namespace Application.Validations.SpecificValidators.TeacherResearchProfiles
                 .WithMessage("El ID de la sublínea de investigación debe ser mayor a 0.");
 
             RuleFor(x => x.ProfileDescription)
-                .MaximumLength(2000).WithMessage("La descripción del perfil no puede exceder los 2000 caracteres.");
+                .MaximumLength(255).WithMessage("La descripción del perfil no puede exceder los 255 caracteres.")
+                .When(x => !string.IsNullOrEmpty(x.ProfileDescription));
         }
     }
 }

@@ -80,10 +80,12 @@ namespace Api.Controllers
             return File(bytes, "text/csv", fileName);
         }
 
-        /// <summary>Escapa un valor para CSV (comillas y separadores).</summary>
+        /// <summary>Escapa un valor para CSV neutralizando inyección de fórmulas.</summary>
         private static string Csv(string? value)
         {
             value ??= string.Empty;
+            if (value.Length > 0 && (value[0] is '=' or '+' or '-' or '@' or '\t' or '\r'))
+                value = "'" + value;
             if (value.Contains('"') || value.Contains(',') || value.Contains('\n') || value.Contains('\r'))
                 return "\"" + value.Replace("\"", "\"\"") + "\"";
             return value;

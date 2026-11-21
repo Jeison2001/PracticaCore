@@ -16,7 +16,7 @@ namespace Tests.Integration.IdentificationTypes
             return new IdentificationTypeDto
             {
                 Name = "Citizenship Card",
-                Code = $"CC_{Guid.NewGuid().ToString().Substring(0, 8)}",
+                Code = $"C{Guid.NewGuid().ToString("N")[..3]}",
                 Description = "Colombian Citizenship Card",
                 StatusRegister = true
             };
@@ -27,7 +27,7 @@ namespace Tests.Integration.IdentificationTypes
             return new IdentificationType
             {
                 Name = "Citizenship Card",
-                Code = $"CC_{Guid.NewGuid().ToString().Substring(0, 8)}",
+                Code = $"C{Guid.NewGuid().ToString("N")[..3]}",
                 Description = "Colombian Citizenship Card",
                 StatusRegister = true
             };

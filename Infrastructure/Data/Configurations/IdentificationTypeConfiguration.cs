@@ -10,7 +10,7 @@ namespace Infrastructure.Data.Configurations
         {
             base.Configure(builder);
             builder.ToTable("IdentificationType");
-            builder.Property(e => e.Code).IsRequired().HasMaxLength(20).HasColumnName("Code");
+            builder.Property(e => e.Code).IsRequired().HasMaxLength(4).HasColumnName("Code");
             builder.Property(e => e.Name).IsRequired().HasMaxLength(100).HasColumnName("Name");
             builder.Property(e => e.Description).HasColumnName("Description").IsRequired(false);
             builder.Property(e => e.IdUserCreatedAt).HasColumnName("IdUserCreatedAt").IsRequired(false);

@@ -11,10 +11,10 @@ namespace Infrastructure.Data.Configurations
             base.Configure(builder);
             builder.ToTable("User");
             builder.Property(e => e.IdIdentificationType).HasColumnName("IdIdentificationType");
-            builder.Property(e => e.Identification).IsRequired().HasMaxLength(50).HasColumnName("Identification");
-            builder.Property(e => e.Email).IsRequired().HasMaxLength(100).HasColumnName("Email");
-            builder.Property(e => e.FirstName).IsRequired().HasMaxLength(100).HasColumnName("FirstName");
-            builder.Property(e => e.LastName).IsRequired().HasMaxLength(100).HasColumnName("LastName");
+            builder.Property(e => e.Identification).IsRequired().HasMaxLength(20).HasColumnName("Identification");
+            builder.Property(e => e.Email).IsRequired().HasMaxLength(255).HasColumnName("Email");
+            builder.Property(e => e.FirstName).IsRequired().HasMaxLength(200).HasColumnName("FirstName");
+            builder.Property(e => e.LastName).IsRequired().HasMaxLength(200).HasColumnName("LastName");
             builder.Property(e => e.IdAcademicProgram).HasColumnName("IdAcademicProgram");
             builder.Property(e => e.PhoneNumber).HasMaxLength(20).HasColumnName("PhoneNumber").IsRequired(false);
             builder.Property(e => e.CurrentAcademicPeriod).HasMaxLength(20).HasColumnName("CurrentAcademicPeriod").IsRequired(false);

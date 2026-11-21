@@ -9,7 +9,7 @@ namespace Application.Validations.SpecificValidators.IdentificationTypes
         {
             RuleFor(x => x.Code)
                 .NotEmpty().WithMessage("El código es obligatorio.")
-                .MaximumLength(20).WithMessage("El código no puede exceder los 20 caracteres.");
+                .MaximumLength(4).WithMessage("El código no puede exceder los 4 caracteres.");
 
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("El nombre es obligatorio.")

@@ -9,7 +9,7 @@ namespace Application.Validations.SpecificValidators.DocumentClasses
         {
             RuleFor(x => x.Code)
                 .NotEmpty().WithMessage("El código de la clase de documento es requerido.")
-                .MaximumLength(100).WithMessage("El código no puede tener más de 100 caracteres.");
+                .MaximumLength(50).WithMessage("El código no puede tener más de 50 caracteres.");
                 
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("El nombre de la clase de documento es requerido.")

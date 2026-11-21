@@ -6,7 +6,6 @@ using Application.Shared.Mappings;
 using Application.Shared.Queries;
 using Application.Shared.Queries.Handlers;
 using Application.Validations.BaseValidators;
-using Application.Validations.SpecificValidators.InscriptionModalities;
 using Domain.Configuration;
 using Domain.Entities;
 using Domain.Interfaces.Common;
@@ -68,11 +67,11 @@ namespace Api.Extensions
             services.AddAutoMapper(cfg => cfg.AddMaps(typeof(GenericProfile).Assembly));
 
             // Auto-registro de validadores
-            services.AddValidatorsFromAssembly(typeof(InscriptionModalityValidator).Assembly);
+            services.AddValidatorsFromAssembly(typeof(BaseCreateCommandValidator<,,>).Assembly);
 
             // Auto-registro basado en interfaces marcadoras para servicios de aplicación
             // Esto registra automáticamente IEmailNotificationEventService y los Builders
-            RegisterByLifetime(services, typeof(InscriptionModalityValidator).Assembly);
+            RegisterByLifetime(services, typeof(BaseCreateCommandValidator<,,>).Assembly);
 
             // Luego registrar los validadores genéricos solo donde no existan específicos
             RegisterGenericValidators(services);
@@ -163,6 +162,9 @@ namespace Api.Extensions
                 // Registrar validadores genéricos solo si no existe un validador específico
                 var createCommandType = typeof(CreateEntityCommand<,,>).MakeGenericType(entityType, idType, dtoType);
                 RegisterGenericValidatorIfNeeded(services, createCommandType, typeof(BaseCreateCommandValidator<,,>), entityType, idType, dtoType);
+
+                var createEntitiesCommandType = typeof(CreateEntitiesCommand<,,>).MakeGenericType(entityType, idType, dtoType);
+                RegisterGenericValidatorIfNeeded(services, createEntitiesCommandType, typeof(BaseCreateEntitiesCommandValidator<,,>), entityType, idType, dtoType);
 
                 var updateCommandType = typeof(UpdateEntityCommand<,,>).MakeGenericType(entityType, idType, dtoType);
                 RegisterGenericValidatorIfNeeded(services, updateCommandType, typeof(BaseUpdateCommandValidator<,,>), entityType, idType, dtoType);

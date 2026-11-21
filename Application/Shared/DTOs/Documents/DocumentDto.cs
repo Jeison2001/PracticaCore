@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Application.Shared.DTOs.DocumentTypes;
 
 namespace Application.Shared.DTOs.Documents
@@ -7,7 +8,9 @@ namespace Application.Shared.DTOs.Documents
         public int IdDocumentType { get; set; }
         public string? Name { get; set; } // Nombre simbólico asignado (ej: Carta Director)
         public string OriginalFileName { get; set; } = string.Empty;
+        [JsonIgnore]
         public string StoredFileName { get; set; } = string.Empty;
+        [JsonIgnore]
         public string StoragePath { get; set; } = string.Empty;
         public string MimeType { get; set; } = string.Empty;
         public long FileSize { get; set; }

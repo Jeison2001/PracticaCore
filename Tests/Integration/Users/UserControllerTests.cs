@@ -638,5 +638,107 @@ namespace Tests.Integration.Users
                 persisted.StatusRegister.Should().BeTrue();
             }
         }
+
+        [Fact]
+        public async Task Update_WithN3CFSU_WhenDeactivatingUser_RevokesAllRefreshTokens()
+        {
+            var (idType, program) = await SeedDependenciesAsync();
+            var refreshToken = $"rt_put_{Guid.NewGuid():N}";
+            var email = $"put_deact_{Guid.NewGuid():N}@test.com";
+            var identification = Guid.NewGuid().ToString("N")[..10];
+            int userId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = new User
+                {
+                    FirstName = "PutDeact",
+                    LastName = "Target",
+                    Email = email,
+                    Identification = identification,
+                    IdIdentificationType = idType.Id,
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = true
+                };
+                context.Set<User>().Add(user);
+                await context.SaveChangesAsync();
+                userId = user.Id;
+
+                context.RefreshTokens.Add(new RefreshToken
+                {
+                    IdUser = userId,
+                    Token = refreshToken,
+                    ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+                    StatusRegister = true,
+                    OperationRegister = "SEED"
+                });
+                await context.SaveChangesAsync();
+            }
+
+            var updateDto = new UserDto
+            {
+                Id = userId,
+                FirstName = "PutDeact",
+                LastName = "Target",
+                Email = email,
+                Identification = identification,
+                IdIdentificationType = idType.Id,
+                IdAcademicProgram = program.Id,
+                StatusRegister = false
+            };
+
+            var response = await _client.PutAsJsonAsync($"{BaseUrl}/{userId}", updateDto);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using (var verifyScope = _factory.Services.CreateScope())
+            {
+                var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var persistedUser = await verifyContext.Users.AsNoTracking().FirstAsync(u => u.Id == userId);
+                persistedUser.StatusRegister.Should().BeFalse();
+
+                var remainingTokens = await verifyContext.RefreshTokens
+                    .AsNoTracking()
+                    .Where(rt => rt.IdUser == userId)
+                    .ToListAsync();
+                remainingTokens.Should().BeEmpty();
+            }
+
+            using var refreshRequest = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            refreshRequest.Headers.Add("X-Test-Anonymous", "true");
+            refreshRequest.Headers.Add("Cookie", $"refreshToken={refreshToken}");
+            refreshRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var refreshResponse = await _client.SendAsync(refreshRequest);
+            refreshResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
+
+        [Fact]
+        public async Task Create_WithInvalidUserDto_ReturnsBadRequestWithCamelCaseErrors()
+        {
+            var (idType, program) = await SeedDependenciesAsync();
+
+            var invalidDto = new UserDto
+            {
+                FirstName = "Invalid",
+                LastName = "User",
+                Email = "not-an-email",
+                Identification = new string('9', 25), // Excede VARCHAR(20)
+                IdIdentificationType = idType.Id,
+                IdAcademicProgram = program.Id,
+                StatusRegister = true
+            };
+
+            var response = await _client.PostAsJsonAsync(BaseUrl, invalidDto);
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+            var content = await response.Content.ReadAsStringAsync();
+            using var jsonDoc = System.Text.Json.JsonDocument.Parse(content);
+            jsonDoc.RootElement.TryGetProperty("errors", out var errorsElement).Should().BeTrue();
+            jsonDoc.RootElement.TryGetProperty("Errors", out _).Should().BeFalse();
+
+            var errorMessages = errorsElement.EnumerateArray().Select(e => e.GetString()).ToList();
+            errorMessages.Should().Contain(m => m != null && m.Contains("20 caracteres"));
+        }
     }
 }

@@ -64,6 +64,9 @@ namespace Infrastructure.Repositories
             DateTimeOffset? cursorCreatedAt = null,
             bool skipTotalCount = false)
         {
+            if (pageNumber < 1)
+                pageNumber = 1;
+
             IQueryable<T> query = _context.Set<T>().AsNoTracking();
 
             if (filter != null)

@@ -264,7 +264,7 @@ namespace Tests.Integration.Inscription
             var content = await response.Content.ReadAsStringAsync();
             
             var jsonDoc = JsonDocument.Parse(content);
-            var errors = jsonDoc.RootElement.GetProperty("Errors").EnumerateArray()
+            var errors = jsonDoc.RootElement.GetProperty("errors").EnumerateArray()
                 .Select(e => e.GetString()).ToList();
             
             errors.Should().Contain(e => e.Contains("estudiante"));
@@ -295,7 +295,7 @@ namespace Tests.Integration.Inscription
             var content = await response.Content.ReadAsStringAsync();
             
             var jsonDoc = JsonDocument.Parse(content);
-            var errors = jsonDoc.RootElement.GetProperty("Errors").EnumerateArray()
+            var errors = jsonDoc.RootElement.GetProperty("errors").EnumerateArray()
                 .Select(e => e.GetString()).ToList();
             
             errors.Should().Contain(e => e.Contains("identificación"));

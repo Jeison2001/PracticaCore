@@ -7,6 +7,11 @@ namespace Api.Middlewares
 {
     public class GlobalExceptionMiddleware
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
         private readonly RequestDelegate _next;
         private readonly ILogger<GlobalExceptionMiddleware> _logger;
         private readonly IHostEnvironment _environment;
@@ -80,7 +85,7 @@ namespace Api.Middlewares
             }
         
             context.Response.ContentType = "application/json";
-            return context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            return context.Response.WriteAsync(JsonSerializer.Serialize(response, JsonOptions));
         }
     }
 }

@@ -41,8 +41,8 @@ namespace Application.Validations.SpecificValidators.ProjectPresentations
                 When(x => x.Dto.LocationOrLink != null, () =>
                 {
                     RuleFor(x => x.Dto.LocationOrLink!)
-                        .MaximumLength(500)
-                        .WithMessage("El lugar o enlace no puede exceder los 500 caracteres.");
+                        .MaximumLength(255)
+                        .WithMessage("El lugar o enlace no puede exceder los 255 caracteres.");
                 });
             });
         }
