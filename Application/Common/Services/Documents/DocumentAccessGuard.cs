@@ -476,15 +476,24 @@ namespace Application.Common.Services.Documents
             if (modality == null || string.IsNullOrWhiteSpace(modality.Code))
                 return;
 
+            var effectiveTargetStage = docTypeStage ?? currentInscriptionStage;
+
             var targetStateStage = await ResolveTargetStateStageAsync(
                 inscription,
                 modality.Code,
-                docTypeStage ?? currentInscriptionStage,
+                effectiveTargetStage,
                 cancellationToken);
 
             if (targetStateStage != null && targetStateStage.IsRejectionState)
             {
                 throw new InvalidOperationException($"La etapa se encuentra en estado de rechazo ('{targetStateStage.Name}'); no se permiten cargas ni modificaciones de documentos.");
+            }
+
+            if (targetStateStage != null &&
+                targetStateStage.IsFinalStateForModalityOverall &&
+                !allowOfficialRecordUploadOnNonRejectedClosedStage)
+            {
+                throw new InvalidOperationException($"La etapa actual ya se encuentra cerrada ('{targetStateStage.Name}'); no se permiten cargas, modificaciones ni eliminaciones de documentos.");
             }
 
             var isSupersededStage =
@@ -514,11 +523,47 @@ namespace Application.Common.Services.Documents
                 return;
             }
 
-            if (targetStateStage != null &&
-                (targetStateStage.IsFinalStateForStage || targetStateStage.IsFinalStateForModalityOverall) &&
-                !allowOfficialRecordUploadOnNonRejectedClosedStage)
+            if (docTypeStage != null &&
+                currentInscriptionStage != null &&
+                docTypeStage.Id != currentInscriptionStage.Id &&
+                docTypeStage.StageOrder > currentInscriptionStage.StageOrder)
             {
-                throw new InvalidOperationException($"La etapa actual ya se encuentra cerrada ('{targetStateStage.Name}'); no se permiten cargas, modificaciones ni eliminaciones de documentos.");
+                throw new InvalidOperationException("La fase del tipo de documento aún no se encuentra habilitada para esta inscripción.");
+            }
+
+            if (targetStateStage != null)
+            {
+                if (effectiveTargetStage != null &&
+                    targetStateStage.IdStageModality > 0 &&
+                    targetStateStage.IdStageModality != effectiveTargetStage.Id)
+                {
+                    var stateStageOwner = await _unitOfWork.GetRepository<StageModality, int>()
+                        .GetFirstOrDefaultAsync(x => x.Id == targetStateStage.IdStageModality && x.StatusRegister, cancellationToken);
+
+                    if (stateStageOwner != null)
+                    {
+                        if (stateStageOwner.StageOrder > effectiveTargetStage.StageOrder &&
+                            !allowOfficialRecordUploadOnNonRejectedClosedStage)
+                        {
+                            throw new InvalidOperationException("La fase del tipo de documento ya fue superada y cerrada; no se permiten cargas, modificaciones ni eliminaciones.");
+                        }
+
+                        if (stateStageOwner.StageOrder < effectiveTargetStage.StageOrder &&
+                            !targetStateStage.IsFinalStateForStage &&
+                            !allowOfficialRecordUploadOnNonRejectedClosedStage)
+                        {
+                            throw new InvalidOperationException("La fase anterior aún no ha sido aprobada para habilitar esta etapa.");
+                        }
+                    }
+                    else if (targetStateStage.IsFinalStateForStage && !allowOfficialRecordUploadOnNonRejectedClosedStage)
+                    {
+                        throw new InvalidOperationException($"La etapa actual ya se encuentra cerrada ('{targetStateStage.Name}'); no se permiten cargas, modificaciones ni eliminaciones de documentos.");
+                    }
+                }
+                else if (targetStateStage.IsFinalStateForStage && !allowOfficialRecordUploadOnNonRejectedClosedStage)
+                {
+                    throw new InvalidOperationException($"La etapa actual ya se encuentra cerrada ('{targetStateStage.Name}'); no se permiten cargas, modificaciones ni eliminaciones de documentos.");
+                }
             }
         }
 

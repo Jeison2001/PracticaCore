@@ -1,5 +1,6 @@
 using Application.Common.Helpers;
 using Application.Common.Services;
+using Application.Common.Services.Documents;
 using Application.Common.Services.Notifications;
 using Application.Common.Services.Notifications.Builders;
 using Application.Common.Services.Notifications.Handlers;
@@ -864,6 +865,215 @@ namespace Tests.UnitTests.Application.Services
             System.Net.WebUtility.HtmlDecode(apData["ObservationsBlock"].ToString()!).Should().Contain("Observación comité");
             System.Net.WebUtility.HtmlDecode(apData["ObservationsBlock"].ToString()!).Should().Contain("Observación evaluador");
             apData["PossibleCauses"].ToString().Should().Contain("<li>");
+        }
+
+        [Fact]
+        public async Task DocumentAccessGuard_SingleTableModality_AllowsNewlyUnlockedStageUpload_BlocksFutureStages_AndBlocksOverallFinalOrRejected()
+        {
+            using var context = CreateInMemoryContext();
+            var uow = new UnitOfWork(context, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
+
+            context.Set<Modality>().Add(new Modality
+            {
+                Id = 2,
+                Code = ModalityCodes.PracticaAcademica,
+                Name = "Práctica Académica",
+                RequiresApproval = true,
+                StatusRegister = true
+            });
+
+            context.Set<StateInscription>().Add(new StateInscription
+            {
+                Id = 2,
+                Code = StateInscriptionCodes.Aprobado,
+                Name = "Aprobado",
+                IsFinalStateForStage = true,
+                StatusRegister = true
+            });
+
+            context.Set<StageModality>().AddRange(
+                new StageModality { Id = 5, IdModality = 2, Code = StageModalityCodes.PaFaseInscripcion, Name = "Fase 0 Inscripción", StageOrder = 1, StatusRegister = true },
+                new StageModality { Id = 6, IdModality = 2, Code = StageModalityCodes.PaFaseDesarrollo, Name = "Fase 1 Desarrollo", StageOrder = 2, StatusRegister = true },
+                new StageModality { Id = 7, IdModality = 2, Code = StageModalityCodes.PaFaseEvaluacion, Name = "Fase 2 Evaluación", StageOrder = 3, StatusRegister = true });
+
+            context.Set<StateStage>().AddRange(
+                new StateStage
+                {
+                    Id = 20,
+                    IdStageModality = 5,
+                    Code = StateStageCodes.PaInscripcionEnRevision,
+                    Name = "Inscripción en Revisión",
+                    IsFinalStateForStage = false,
+                    IsFinalStateForModalityOverall = false,
+                    IsRejectionState = false,
+                    StatusRegister = true
+                },
+                new StateStage
+                {
+                    Id = 21,
+                    IdStageModality = 5,
+                    Code = StateStageCodes.PaInscripcionAprobada,
+                    Name = "Inscripción Aprobada - Puede Iniciar Desarrollo",
+                    IsFinalStateForStage = true,
+                    IsFinalStateForModalityOverall = false,
+                    IsRejectionState = false,
+                    StatusRegister = true
+                },
+                new StateStage
+                {
+                    Id = 22,
+                    IdStageModality = 5,
+                    Code = StateStageCodes.PaInscripcionRechazada,
+                    Name = "Inscripción Rechazada",
+                    IsFinalStateForStage = true,
+                    IsFinalStateForModalityOverall = true,
+                    IsRejectionState = true,
+                    StatusRegister = true
+                },
+                new StateStage
+                {
+                    Id = 23,
+                    IdStageModality = 6,
+                    Code = StateStageCodes.PaDesarrolloAprobada,
+                    Name = "Desarrollo Aprobado",
+                    IsFinalStateForStage = true,
+                    IsFinalStateForModalityOverall = false,
+                    IsRejectionState = false,
+                    StatusRegister = true
+                },
+                new StateStage
+                {
+                    Id = 24,
+                    IdStageModality = 7,
+                    Code = StateStageCodes.PaAprobado,
+                    Name = "Práctica Aprobada",
+                    IsFinalStateForStage = true,
+                    IsFinalStateForModalityOverall = true,
+                    IsRejectionState = false,
+                    StatusRegister = true
+                });
+
+            context.Set<DocumentClass>().Add(new DocumentClass
+            {
+                Id = 1,
+                Code = DocumentClassCodes.DocEntregableEst,
+                Name = "Entregable Estudiante",
+                StatusRegister = true
+            });
+
+            context.Set<DocumentType>().AddRange(
+                new DocumentType { Id = 100, IdDocumentClass = 1, IdStageModality = 5, Code = "PA_DOC_F0", Name = "Aval Fase 0", StatusRegister = true },
+                new DocumentType { Id = 101, IdDocumentClass = 1, IdStageModality = 6, Code = "PA_DOC_F1", Name = "Plan/Seguimiento Fase 1", StatusRegister = true },
+                new DocumentType { Id = 102, IdDocumentClass = 1, IdStageModality = 7, Code = "PA_DOC_F2", Name = "Informe Final Fase 2", StatusRegister = true });
+
+            context.Set<InscriptionModality>().Add(new InscriptionModality
+            {
+                Id = 950,
+                IdModality = 2,
+                IdStateInscription = 2,
+                IdStageModality = 6, // Fase 1 (Desarrollo, StageOrder = 2)
+                StatusRegister = true
+            });
+
+            context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+            {
+                Id = 1,
+                IdInscriptionModality = 950,
+                IdUser = 301,
+                IsConfirmed = true,
+                StatusRegister = true
+            });
+
+            context.Set<AcademicPractice>().Add(new AcademicPractice
+            {
+                Id = 950,
+                Title = "Práctica E2E",
+                IdStateStage = 21, // PA_INSCRIPCION_APROBADA (pertenece a Stage 5, StageOrder = 1)
+                StatusRegister = true
+            });
+
+            await context.SaveChangesAsync();
+
+            var guard = new DocumentAccessGuard(uow);
+
+            // Caso 1: PA_INSCRIPCION_APROBADA + InscriptionModality en PA_FASE_DESARROLLO (StageOrder = 2)
+            // -> SÍ permite subir entregable de Fase 1 (StageOrder = 2)
+            await FluentActions.Awaiting(() => guard.EnsureUserCanModifyAsync(
+                    new Document { IdInscriptionModality = 950, IdDocumentType = 101 },
+                    currentUserId: 301))
+                .Should().NotThrowAsync();
+
+            // -> NO permite subir entregable de Fase 0 ya superada (StageOrder = 1) ni Fase 2 futura (StageOrder = 3)
+            await FluentActions.Awaiting(() => guard.EnsureUserCanModifyAsync(
+                    new Document { IdInscriptionModality = 950, IdDocumentType = 100 },
+                    currentUserId: 301))
+                .Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*ya fue superada y cerrada*");
+
+            await FluentActions.Awaiting(() => guard.EnsureUserCanModifyAsync(
+                    new Document { IdInscriptionModality = 950, IdDocumentType = 102 },
+                    currentUserId: 301))
+                .Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*aún no se encuentra habilitada*");
+
+            // Caso 1b: PA_DESARROLLO_APROBADA + InscriptionModality en PA_FASE_EVALUACION (StageOrder = 3)
+            // -> SÍ permite subir entregable de Fase 2 (StageOrder = 3)
+            var inscription = (await context.Set<InscriptionModality>().FindAsync(950))!;
+            var practice = (await context.Set<AcademicPractice>().FindAsync(950))!;
+            inscription.IdStageModality = 7;
+            practice.IdStateStage = 23;
+            await context.SaveChangesAsync();
+
+            await FluentActions.Awaiting(() => guard.EnsureUserCanModifyAsync(
+                    new Document { IdInscriptionModality = 950, IdDocumentType = 102 },
+                    currentUserId: 301))
+                .Should().NotThrowAsync();
+
+            // Caso 2: PA_INSCRIPCION_EN_REVISION + InscriptionModality en PA_FASE_INSCRIPCION (StageOrder = 1)
+            // -> NO permite subir documentos de Fase 1 (StageOrder = 2) ni Fase 2 (StageOrder = 3)
+            inscription.IdStageModality = 5;
+            practice.IdStateStage = 20;
+            await context.SaveChangesAsync();
+
+            await FluentActions.Awaiting(() => guard.EnsureUserCanModifyAsync(
+                    new Document { IdInscriptionModality = 950, IdDocumentType = 101 },
+                    currentUserId: 301))
+                .Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*aún no se encuentra habilitada*");
+
+            await FluentActions.Awaiting(() => guard.EnsureUserCanModifyAsync(
+                    new Document { IdInscriptionModality = 950, IdDocumentType = 102 },
+                    currentUserId: 301))
+                .Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*aún no se encuentra habilitada*");
+
+            // Caso 3a: PA_APROBADO (IsFinalStateForModalityOverall = true) -> NO permite subir ningún documento
+            inscription.IdStageModality = 7;
+            practice.IdStateStage = 24;
+            await context.SaveChangesAsync();
+
+            foreach (var docTypeId in new[] { 100, 101, 102 })
+            {
+                await FluentActions.Awaiting(() => guard.EnsureUserCanModifyAsync(
+                        new Document { IdInscriptionModality = 950, IdDocumentType = docTypeId },
+                        currentUserId: 301))
+                    .Should().ThrowAsync<InvalidOperationException>()
+                    .WithMessage("*cerrada*");
+            }
+
+            // Caso 3b: PA_INSCRIPCION_RECHAZADA (IsRejectionState = true) -> NO permite subir ningún documento
+            inscription.IdStageModality = 5;
+            practice.IdStateStage = 22;
+            await context.SaveChangesAsync();
+
+            foreach (var docTypeId in new[] { 100, 101, 102 })
+            {
+                await FluentActions.Awaiting(() => guard.EnsureUserCanModifyAsync(
+                        new Document { IdInscriptionModality = 950, IdDocumentType = docTypeId },
+                        currentUserId: 301))
+                    .Should().ThrowAsync<InvalidOperationException>()
+                    .WithMessage("*rechazo*");
+            }
         }
     }
 }
