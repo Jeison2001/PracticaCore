@@ -1162,5 +1162,95 @@ namespace Tests.UnitTests.Application.Services
             spData["ApprovalDate"].Should().Be("27/11/2026");
             gpData["ApprovalDate"].Should().Be("27/11/2026");
         }
+
+        [Fact]
+        public async Task ScientificArticle_WhenAutoAdvancedFromPhase1ToArtPubPendiente_EnqueuesArtFase1ApprovedWithApprovedMetadata()
+        {
+            using var context = CreateInMemoryContext();
+            var uow = new UnitOfWork(context, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
+
+            var studentDataMock = new Mock<IStudentDataService>();
+            studentDataMock.Setup(s => s.GetStudentDataByInscriptionAsync(990))
+                .ReturnsAsync(("Camila Torres", "camila@unicesar.edu.co", 1));
+
+            context.Set<Modality>().Add(new Modality
+            {
+                Id = 5,
+                Code = ModalityCodes.PublicacionArticulo,
+                Name = "Publicación de Artículo",
+                RequiresApproval = true,
+                StatusRegister = true
+            });
+
+            context.Set<StateStage>().AddRange(
+                new StateStage { Id = 85, Code = nameof(StateStageCodeEnum.ART_INS_RADICADO), Name = "Inscripción Radicada", StatusRegister = true },
+                new StateStage { Id = 87, Code = nameof(StateStageCodeEnum.ART_INS_OBSERVACIONES), Name = "Inscripción con Observaciones", StatusRegister = true },
+                new StateStage { Id = 88, Code = nameof(StateStageCodeEnum.ART_INS_APROBADO), Name = "Inscripción Aprobada", IsFinalStateForStage = true, IsFinalStateForModalityOverall = false, StatusRegister = true },
+                new StateStage { Id = 92, Code = nameof(StateStageCodeEnum.ART_PUB_PENDIENTE), Name = "Publicación Pendiente", IsInitialState = true, StatusRegister = true });
+
+            var approvalInstantUtc = new DateTimeOffset(2026, 11, 28, 3, 0, 0, TimeSpan.Zero); // 27/11/2026 10:00 PM COT
+
+            context.Set<InscriptionModality>().Add(new InscriptionModality
+            {
+                Id = 990,
+                IdModality = 5,
+                ApprovalDate = approvalInstantUtc.AddDays(-10),
+                StatusRegister = true
+            });
+
+            context.Set<ScientificArticle>().Add(new ScientificArticle
+            {
+                Id = 990,
+                IdStateStage = 92, // Ya promovido automáticamente a ART_PUB_PENDIENTE por AdvanceScientificArticlePhaseHandler
+                ArticleTitle = "Modelos de IA en Educación Superior",
+                JournalName = "Revista Ingeniería UPC",
+                ISSN = "1234-5678",
+                JournalCategory = "A2",
+                CreatedAt = approvalInstantUtc.AddDays(-2),
+                UpdatedAt = approvalInstantUtc,
+                StatusRegister = true
+            });
+
+            await context.SaveChangesAsync();
+
+            var builder = new ScientificArticleEventDataBuilder(
+                uow,
+                studentDataMock.Object,
+                NullLogger<ScientificArticleEventDataBuilder>.Instance);
+
+            var enqueued = new List<(string EventName, Dictionary<string, object> Data)>();
+            var queueMock = new Mock<IEmailNotificationQueueService>();
+            queueMock.Setup(q => q.EnqueueEventNotification(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()))
+                .Callback<string, Dictionary<string, object>>((evt, data) => enqueued.Add((evt, data)))
+                .Returns("job-art-1");
+
+            var handler = new ScientificArticleChangeHandler(
+                queueMock.Object,
+                builder,
+                uow,
+                NullLogger<ScientificArticleChangeHandler>.Instance);
+
+            // a) Transición ART_INS_RADICADO -> ART_PUB_PENDIENTE (auto-avance tras aprobar Fase 1)
+            await handler.HandleChangeAsync(
+                new ScientificArticle { Id = 990, IdStateStage = 85 },
+                new ScientificArticle { Id = 990, IdStateStage = 92 });
+
+            // Y también desde ART_INS_OBSERVACIONES -> ART_PUB_PENDIENTE
+            await handler.HandleChangeAsync(
+                new ScientificArticle { Id = 990, IdStateStage = 87 },
+                new ScientificArticle { Id = 990, IdStateStage = 92 });
+
+            enqueued.Should().HaveCount(2);
+            enqueued.Select(e => e.EventName).Should().OnlyContain(name => name == "ART_FASE1_APPROVED");
+
+            // b) Metadatos construidos por ScientificArticleEventDataBuilder para ART_FASE1_APPROVED
+            var builtData = enqueued[0].Data;
+            builtData["Phase"].Should().Be("Artículo - Fase 1: Inscripción");
+            builtData["CurrentState"].Should().Be("Inscripción Aprobada");
+            builtData["CurrentStateCode"].Should().Be(nameof(StateStageCodeEnum.ART_INS_APROBADO));
+            builtData["EvaluationResult"].Should().Be("APROBADO");
+            builtData["TopAccentColor"].Should().Be(NotificationFormattingHelper.GetTopAccentColor("approved"));
+            builtData["ApprovalDate"].Should().Be("27/11/2026");
+        }
     }
 }
