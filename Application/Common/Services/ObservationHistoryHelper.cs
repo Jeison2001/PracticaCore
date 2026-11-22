@@ -19,6 +19,9 @@ namespace Application.Common.Services
             string? previousObservations,
             CancellationToken cancellationToken = default)
         {
+            if (evaluatorId <= 0)
+                return false;
+
             var trimmedNew = newObservations?.Trim();
             if (string.IsNullOrWhiteSpace(trimmedNew))
                 return false;
@@ -47,6 +50,8 @@ namespace Application.Common.Services
             string observations,
             CancellationToken cancellationToken = default)
         {
+            if (evaluatorId <= 0)
+                return;
             var evalTypeRepo = unitOfWork.GetRepository<EvaluationType, int>();
             var evalType = await evalTypeRepo.GetFirstOrDefaultAsync(
                 et => et.Code == evaluationTypeCode, cancellationToken);

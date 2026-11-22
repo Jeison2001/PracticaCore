@@ -15,7 +15,12 @@ namespace Infrastructure.Repositories
         private readonly Microsoft.Extensions.Logging.ILogger<UnitOfWork> _logger;
         private readonly Dictionary<Type, object> _repositories = [];
         private readonly List<Func<CancellationToken, Task>> _postCommitActions = [];
+        private IDatabaseTransaction? _activeExplicitTransaction;
         private bool _isCommitting;
+
+        private bool HasActiveExplicitTransaction =>
+            _activeExplicitTransaction != null ||
+            (_context.Database.IsRelational() && _context.Database.CurrentTransaction != null);
 
         public UnitOfWork(AppDbContext context, IMediator mediator, Microsoft.Extensions.Logging.ILogger<UnitOfWork> logger)
         {
@@ -48,7 +53,8 @@ namespace Infrastructure.Repositories
 
             try
             {
-                if (_context.Database.IsRelational() && _context.Database.CurrentTransaction == null)
+                var hasExternalTransaction = HasActiveExplicitTransaction;
+                if (!hasExternalTransaction && _context.Database.IsRelational())
                 {
                     var dbTransaction = await _context.Database.BeginTransactionAsync(ct);
                     ownedTransaction = new EfDatabaseTransaction(dbTransaction);
@@ -102,8 +108,16 @@ namespace Infrastructure.Repositories
                     await ownedTransaction.CommitAsync(ct);
                 }
 
-                actionsToRun = [.. _postCommitActions];
-                _postCommitActions.Clear();
+                if (hasExternalTransaction)
+                {
+                    // Difiere _postCommitActions hasta que transaction.CommitAsync() real confirme en BD.
+                    actionsToRun = [];
+                }
+                else
+                {
+                    actionsToRun = [.. _postCommitActions];
+                    _postCommitActions.Clear();
+                }
             }
             catch
             {
@@ -135,7 +149,7 @@ namespace Infrastructure.Repositories
         {
             ArgumentNullException.ThrowIfNull(action);
 
-            if (_isCommitting)
+            if (_isCommitting || HasActiveExplicitTransaction)
             {
                 _postCommitActions.Add(action);
                 return;
@@ -146,11 +160,40 @@ namespace Infrastructure.Repositories
 
         public async Task<IDatabaseTransaction> BeginTransactionAsync(CancellationToken ct = default)
         {
-            if (!_context.Database.IsRelational())
-                return new EfDatabaseTransaction(null);
+            var dbTransaction = _context.Database.IsRelational()
+                ? await _context.Database.BeginTransactionAsync(ct)
+                : null;
 
-            var transaction = await _context.Database.BeginTransactionAsync(ct);
-            return new EfDatabaseTransaction(transaction);
+            IDatabaseTransaction? wrapper = null;
+            wrapper = new EfDatabaseTransaction(
+                dbTransaction,
+                onCommittedAsync: async commitCt =>
+                {
+                    if (ReferenceEquals(_activeExplicitTransaction, wrapper))
+                    {
+                        _activeExplicitTransaction = null;
+                    }
+
+                    var actionsToRun = _postCommitActions.ToList();
+                    _postCommitActions.Clear();
+
+                    foreach (var action in actionsToRun)
+                    {
+                        await action(commitCt);
+                    }
+                },
+                onAborted: () =>
+                {
+                    if (ReferenceEquals(_activeExplicitTransaction, wrapper))
+                    {
+                        _activeExplicitTransaction = null;
+                    }
+
+                    _postCommitActions.Clear();
+                });
+
+            _activeExplicitTransaction = wrapper;
+            return wrapper;
         }
     }
 }

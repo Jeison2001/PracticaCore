@@ -64,10 +64,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             if (!result) return false;
 
             // Registrar historial de observaciones (general y del evaluador) solo si hay cambio real
-            var evaluatorId = request.CurrentUser.UserId 
-                ?? entity.IdUserUpdatedAt 
-                ?? entity.IdUserCreatedAt 
-                ?? 1;
+            var evaluatorId = request.CurrentUser?.UserId ?? 0;
 
             await ObservationHistoryHelper.CreateIfChangedAsync(
                 _unitOfWork,

@@ -77,8 +77,10 @@ namespace Application.Features.MinorModalities.EventHandlers
                 return;
             }
 
+            var auditUserId = notification.TriggeredByUserId is > 0 ? notification.TriggeredByUserId : null;
+
             // Crear el registro de extensión correspondiente a la modalidad (idempotente)
-            await CreateExtensionRecordIfNotExistsAsync(modality.Code, notification, targetStateStage.Id, cancellationToken);
+            await CreateExtensionRecordIfNotExistsAsync(modality.Code, notification.InscriptionModalityId, auditUserId, targetStateStage.Id, cancellationToken);
 
             // Actualizar la inscripción con la fase recién iniciada
             var inscription = await inscriptionModalityRepo.GetByIdAsync(notification.InscriptionModalityId);
@@ -86,7 +88,7 @@ namespace Application.Features.MinorModalities.EventHandlers
 
             inscription.IdStageModality = targetStageModality.Id;
             inscription.UpdatedAt = DateTimeOffset.UtcNow;
-            inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
+            inscription.IdUserUpdatedAt = auditUserId;
             inscription.OperationRegister += $" | Inicio automático fase 1 ({modality.Code})";
 
             await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
@@ -101,19 +103,18 @@ namespace Application.Features.MinorModalities.EventHandlers
                 _unitOfWork,
                 notification.InscriptionModalityId,
                 _permissionsByModality[modality.Code],
-                notification.TriggeredByUserId,
+                auditUserId,
                 cancellationToken);
         }
 
         private async Task CreateExtensionRecordIfNotExistsAsync(
             string modalityCode,
-            InscriptionStateChangedEvent notification,
+            int id,
+            int? userId,
             int targetStateStageId,
             CancellationToken cancellationToken)
         {
             const string operationRegister = "Creado automáticamente por DomainEvent";
-            var id = notification.InscriptionModalityId;
-            var userId = notification.TriggeredByUserId;
 
             switch (modalityCode)
             {

@@ -57,17 +57,15 @@ namespace Infrastructure.Services.Auth
                 }
 
                 var normalizedEmail = payload.Email.Trim().ToLowerInvariant();
-                var allowedDomains = AuthValidationHelper.GetAllowedDomains(_configuration);
+                var allowedDomains = AuthValidationHelper.GetAllowedDomains(_configuration, provider);
                 AuthValidationHelper.EnsureEmailDomainAllowed(normalizedEmail, allowedDomains);
 
                 var user = await _userInfoRepository.FindUserByEmailAsync(normalizedEmail);
 
                 if (user == null)
                 {
-                    user = await _userInfoRepository.CreateUserIfNotExistsAsync(
-                        normalizedEmail,
-                        payload.GivenName,
-                        payload.FamilyName);
+                    throw new UnauthorizedAccessException(
+                        $"USUARIO_NO_REGISTRADO: El correo '{normalizedEmail}' no se encuentra registrado. Complete primero su registro institucional.");
                 }
 
                 if (!user.StatusRegister)

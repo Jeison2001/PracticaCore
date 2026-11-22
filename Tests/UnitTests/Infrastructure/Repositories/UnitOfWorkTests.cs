@@ -262,5 +262,114 @@ namespace Tests.UnitTests.Infrastructure.Repositories
             mediatorMock.Verify(m => m.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Exactly(10));
             proposal.DomainEvents.Should().HaveCount(1);
         }
+
+        [Fact]
+        public async Task BeginTransactionAsync_DefersPostCommitActionsAcrossIntermediateCommits_UntilTransactionCommitAsync()
+        {
+            using var context = CreateInMemoryContext();
+            context.Set<Proposal>().Add(new Proposal
+            {
+                Id = 500,
+                Title = "Prop Explicit Tx",
+                IdResearchLine = 1,
+                IdResearchSubLine = 1,
+                IdStateStage = 1,
+                StatusRegister = true
+            });
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+
+            var steps = new List<string>();
+            var mediatorMock = new Mock<IMediator>();
+            UnitOfWork? uow = null;
+
+            mediatorMock
+                .Setup(m => m.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()))
+                .Returns<object, CancellationToken>(async (evt, ct) =>
+                {
+                    if (evt is ProposalStateChangedEvent)
+                    {
+                        steps.Add("EventDispatched");
+                        await uow!.ExecuteAfterCommitAsync(_ =>
+                        {
+                            steps.Add("PostCommitFromEvent");
+                            return Task.CompletedTask;
+                        }, ct);
+                    }
+                });
+
+            uow = new UnitOfWork(context, mediatorMock.Object, NullLogger<UnitOfWork>.Instance);
+
+            await using (var tx = await uow.BeginTransactionAsync())
+            {
+                var proposal = await context.Set<Proposal>().FindAsync(500);
+                proposal!.IdStateStage = 2;
+
+                await uow.CommitAsync();
+                steps.Should().Equal("EventDispatched");
+
+                await uow.ExecuteAfterCommitAsync(_ =>
+                {
+                    steps.Add("PostCommitDirectDuringTx");
+                    return Task.CompletedTask;
+                });
+
+                context.Set<Role>().Add(new Role { Id = 70, Code = "TX_ROLE", Name = "Tx Role", StatusRegister = true });
+                await uow.CommitAsync();
+                steps.Should().Equal("EventDispatched");
+
+                steps.Add("BeforeTxCommit");
+                await tx.CommitAsync();
+                steps.Add("AfterTxCommit");
+            }
+
+            steps.Should().Equal(
+                "EventDispatched",
+                "BeforeTxCommit",
+                "PostCommitFromEvent",
+                "PostCommitDirectDuringTx",
+                "AfterTxCommit");
+        }
+
+        [Fact]
+        public async Task BeginTransactionAsync_WhenRolledBackOrDisposedWithoutCommit_ClearsPostCommitActions()
+        {
+            using var context = CreateInMemoryContext();
+            var mediatorMock = new Mock<IMediator>();
+            var uow = new UnitOfWork(context, mediatorMock.Object, NullLogger<UnitOfWork>.Instance);
+
+            var executed = false;
+
+            // Caso 1: Rollback explícito limpia _postCommitActions
+            await using (var tx = await uow.BeginTransactionAsync())
+            {
+                await uow.ExecuteAfterCommitAsync(_ =>
+                {
+                    executed = true;
+                    return Task.CompletedTask;
+                });
+                context.Set<Role>().Add(new Role { Id = 80, Code = "RB_ROLE", Name = "Rollback Role", StatusRegister = true });
+                await uow.CommitAsync();
+                executed.Should().BeFalse();
+
+                await tx.RollbackAsync();
+            }
+            executed.Should().BeFalse();
+
+            // Caso 2: Dispose sin CommitAsync limpia _postCommitActions y no contamina un CommitAsync posterior
+            await using (var tx2 = await uow.BeginTransactionAsync())
+            {
+                await uow.ExecuteAfterCommitAsync(_ =>
+                {
+                    executed = true;
+                    return Task.CompletedTask;
+                });
+            }
+            executed.Should().BeFalse();
+
+            context.Set<Role>().Add(new Role { Id = 81, Code = "AFTER_RB_ROLE", Name = "After Rollback", StatusRegister = true });
+            await uow.CommitAsync();
+            executed.Should().BeFalse();
+        }
     }
 }

@@ -103,5 +103,32 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
             payload.GivenName.Should().Be("Azure");
             payload.FamilyName.Should().Be("User");
         }
+
+        [Fact]
+        public async Task ValidateAsync_WhenAllowedDomainsConfigured_RejectsDisallowedDomain()
+        {
+            const string clientId = "azure-client-id";
+            var (token, oidcConfig) = CreateSignedAzureToken("allowed-tenant-guid", clientId, "external@outlook.com");
+
+            var configManagerMock = new Mock<IConfigurationManager<OpenIdConnectConfiguration>>();
+            configManagerMock
+                .Setup(m => m.GetConfigurationAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(oidcConfig);
+
+            var validator = new AzureAdTokenValidator(
+                Options.Create(new AzureAdAuthOptions
+                {
+                    TenantId = "common",
+                    ClientId = clientId,
+                    AllowedTenantIds = new[] { "allowed-tenant-guid" },
+                    AllowedDomains = new[] { "unicesar.edu.co" }
+                }),
+                configManagerMock.Object);
+
+            var act = () => validator.ValidateAsync(token);
+
+            await act.Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("El dominio de correo no está autorizado para acceder al sistema.");
+        }
     }
 }

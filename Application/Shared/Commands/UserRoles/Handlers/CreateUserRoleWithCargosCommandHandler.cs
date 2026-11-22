@@ -57,8 +57,16 @@ namespace Application.Shared.Commands.UserRoles.Handlers
                 throw new InvalidOperationException("Debe indicar al menos un cargo habilitado para el docente.");
             }
 
-            var entity = _mapper.Map<UserRole>(dto);
-            entity.IdUserCreatedAt = request.CurrentUser.UserId;
+            var entity = new UserRole
+            {
+                Id = dto.Id,
+                IdUserCreatedAt = request.CurrentUser.UserId is > 0 ? request.CurrentUser.UserId : null,
+                CreatedAt = DateTimeOffset.UtcNow,
+                OperationRegister = string.IsNullOrWhiteSpace(dto.OperationRegister) ? "INSERT" : dto.OperationRegister,
+                StatusRegister = dto.StatusRegister,
+                IdUser = dto.IdUser,
+                IdRole = dto.IdRole
+            };
 
             await _userRoleRepository.AddAsync(entity);
 

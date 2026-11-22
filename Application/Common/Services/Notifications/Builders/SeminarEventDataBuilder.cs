@@ -25,7 +25,9 @@ namespace Application.Common.Services.Notifications.Builders
                 var data = await BuildBaseDataAsync(inscription, entity.IdStateStage, eventType, "Seminario de Actualización");
                 data["Observations"] = entity.Observations ?? "Sin observaciones registradas";
                 data["SeminarName"] = entity.SeminarName ?? "-";
-                data["Attendance"] = entity.AttendancePercentage?.ToString("F1") + "%" ?? "-";
+                data["Attendance"] = entity.AttendancePercentage.HasValue
+                    ? $"{entity.AttendancePercentage.Value:F1}%"
+                    : "-";
                 data["FinalGrade"] = entity.FinalGrade?.ToString("F2") ?? "-";
                 return data;
             }

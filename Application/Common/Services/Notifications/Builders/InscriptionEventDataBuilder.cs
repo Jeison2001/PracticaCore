@@ -1,3 +1,4 @@
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Notifications;
@@ -85,30 +86,60 @@ namespace Application.Common.Services.Notifications.Builders
             {
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
                 var academicPeriodRepo = _unitOfWork.GetRepository<AcademicPeriod, int>();
+                var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
+                var stateInscriptionRepo = _unitOfWork.GetRepository<StateInscription, int>();
 
                 var modality = await modalityRepo.GetByIdAsync(modalityId);
                 var academicPeriod = await academicPeriodRepo.GetByIdAsync(academicPeriodId);
+                var inscription = inscriptionId > 0
+                    ? await inscriptionModalityRepo.GetByIdAsync(inscriptionId)
+                    : null;
+
+                StateInscription? stateInscription = null;
+                if (inscription?.IdStateInscription > 0)
+                {
+                    stateInscription = await stateInscriptionRepo.GetByIdAsync(inscription.IdStateInscription);
+                }
+                else if (modality != null)
+                {
+                    var expectedStateCode = modality.RequiresApproval
+                        ? StateInscriptionCodes.Pendiente
+                        : StateInscriptionCodes.NoAplica;
+                    stateInscription = await stateInscriptionRepo.GetFirstOrDefaultAsync(
+                        s => s.Code == expectedStateCode && s.StatusRegister,
+                        CancellationToken.None);
+                }
+
+                var inscriptionState = !string.IsNullOrWhiteSpace(stateInscription?.Name)
+                    ? stateInscription!.Name
+                    : !string.IsNullOrWhiteSpace(stateInscription?.Code)
+                        ? stateInscription!.Code
+                        : modality?.RequiresApproval == false
+                            ? StateInscriptionCodes.NoAplica
+                            : StateInscriptionCodes.Pendiente;
 
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByUserIdsAsync(studentIds);
 
                 var eventData = new Dictionary<string, object>
                 {
                     ["InscriptionId"] = inscriptionId,
-                    ["InscriptionState"] = "PENDIENTE",
+                    ["InscriptionState"] = inscriptionState,
                     ["EventType"] = "INSCRIPTION_CREATED",
                     ["ModalityName"] = modality?.Name ?? string.Empty,
+                    ["ModalityCode"] = modality?.Code ?? string.Empty,
                     ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty,
                     ["AcademicPeriodCode"] = academicPeriod?.Code ?? string.Empty,
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
                     ["StudentsCount"] = studentCount,
-                    ["InscriptionDate"] = DateTime.UtcNow.ToString("dd/MM/yyyy"),
+                    ["InscriptionDate"] = (inscription?.CreatedAt.UtcDateTime ?? DateTime.UtcNow).ToString("dd/MM/yyyy"),
                     ["ApprovalDate"] = string.Empty,
                     ["ReviewDate"] = string.Empty,
                     ["ApprovalComments"] = string.Empty,
                     ["RejectionComments"] = string.Empty,
-                    ["CreatedAt"] = DateTime.UtcNow
+                    ["CreatedAt"] = inscription?.CreatedAt.UtcDateTime ?? DateTime.UtcNow,
+                    ["NextSteps"] = GetNextStepsByModality(modality?.Code ?? string.Empty)
                 };
 
                 _logger.LogDebug("Built basic inscription data for ID: {InscriptionId} with {StudentCount} students", inscriptionId, studentCount);
@@ -123,13 +154,13 @@ namespace Application.Common.Services.Notifications.Builders
 
         private static readonly Dictionary<string, string> ModalityNextStepsMap = new(StringComparer.OrdinalIgnoreCase)
         {
-            {"PROYECTO_GRADO", "<li>Proceder con la radicación de la propuesta</li><li>Mantente atento a futuras comunicaciones del comité académico</li>"},
-            {"PRACTICA_ACADEMICA", "<li>Proceder con la inscripción de la práctica académica</li><li>Completar el formulario de inscripción de práctica</li>"},
-            {"CO_TERMINAL", "<li>Gestionar los trámites de co-terminalidad con posgrado</li><li>Entregar documentación requerida</li>"},
-            {"SEMINARIO_ACT", "<li>Preparar y presentar el seminario de actualización</li><li>Obtener aprobación del comité</li>"},
-            {"PUBLICACION_ARTICULO", "<li>Gestionar la publicación del artículo científico</li><li>Verificar indexación en Publindex/Scimago/Scopus</li>"},
-            {"GRADO_PROMEDIO", "<li>Tramitar grado por promedio académico</li><li>Verificar cumplimiento de requisitos</li>"},
-            {"SABER_PRO", "<li>Gestionar grado según resultados Saber Pro</li><li>Entregar documentación requerida</li>"}
+            {ModalityCodes.ProyectoGrado, "<li>Proceder con la radicación de la propuesta</li><li>Mantente atento a futuras comunicaciones del comité académico</li>"},
+            {ModalityCodes.PracticaAcademica, "<li>Proceder con la inscripción de la práctica académica</li><li>Completar el formulario de inscripción de práctica</li>"},
+            {ModalityCodes.CoTerminal, "<li>Gestionar los trámites de co-terminalidad con posgrado</li><li>Entregar documentación requerida</li>"},
+            {ModalityCodes.SeminarioAct, "<li>Preparar y presentar el seminario de actualización</li><li>Obtener aprobación del comité</li>"},
+            {ModalityCodes.PublicacionArticulo, "<li>Gestionar la publicación del artículo científico</li><li>Verificar indexación en Publindex/Scimago/Scopus</li>"},
+            {ModalityCodes.GradoPromedio, "<li>Tramitar grado por promedio académico</li><li>Verificar cumplimiento de requisitos</li>"},
+            {ModalityCodes.SaberPro, "<li>Gestionar grado según resultados Saber Pro</li><li>Entregar documentación requerida</li>"}
         };
 
         private string GetNextStepsByModality(string modalityCode)

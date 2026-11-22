@@ -61,9 +61,11 @@ namespace Application.Features.Proposals.EventHandlers
             var inscription = await inscriptionModalityRepo.GetByIdAsync(notification.InscriptionModalityId);
             if (inscription == null) return;
 
+            var auditUserId = notification.TriggeredByUserId is > 0 ? notification.TriggeredByUserId : null;
+
             inscription.IdStageModality = targetStageModality.Id;
             inscription.UpdatedAt = DateTimeOffset.UtcNow;
-            inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
+            inscription.IdUserUpdatedAt = auditUserId;
             inscription.OperationRegister += " | Fase propuesta asignada por DomainEvent";
 
             await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
@@ -77,7 +79,7 @@ namespace Application.Features.Proposals.EventHandlers
                 _unitOfWork,
                 notification.InscriptionModalityId,
                 InitialPermissions,
-                notification.TriggeredByUserId,
+                auditUserId,
                 cancellationToken);
         }
     }

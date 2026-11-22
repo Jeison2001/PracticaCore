@@ -48,7 +48,7 @@ namespace Application.Shared.Commands.AcademicAverages.Handlers
                 entity.Id,
                 request.Dto.IdStateStage,
                 request.CurrentUser,
-                [PermissionCodes.GradoPromedio.N3GPSGG, PermissionCodes.GradoPromedio.N3GPSGR],
+                [PermissionCodes.GradoPromedio.N3GPSGR],
                 cancellationToken);
 
             _logger.LogInformation("Patching AcademicAverage Id={Id}. StateStage={State}, Observations={Obs}",

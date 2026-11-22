@@ -97,7 +97,7 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
         }
 
         [Fact]
-        public async Task AuthenticateWithTokenAsync_NewUser_CreatesUser()
+        public async Task AuthenticateWithTokenAsync_UnregisteredUser_ThrowsUsuarioNoRegistrado()
         {
             var token = "valid_token";
             var email = "new@unicesar.edu.co";
@@ -107,20 +107,6 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 GivenName = "New", 
                 FamilyName = "User" 
             };
-            
-            var newUser = new User 
-            { 
-                Id = 2, 
-                Email = email, 
-                FirstName = "New", 
-                LastName = "User" 
-            };
-
-            var loginData = new UserLoginData
-            {
-                Roles = new List<RoleInfoResult>(),
-                Permissions = new List<PermissionInfo>()
-            };
 
             _tokenValidatorMock.Setup(x => x.ValidateAsync(token))
                 .ReturnsAsync(payload);
@@ -128,27 +114,13 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
             _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync(email))
                 .ReturnsAsync((User?)null);
 
-            _userInfoRepositoryMock.Setup(x => x.CreateUserIfNotExistsAsync(email, "New", "User"))
-                .ReturnsAsync(newUser);
+            var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                _service.AuthenticateWithTokenAsync(token, "google"));
 
-            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(newUser.Id))
-                .ReturnsAsync(loginData);
-
-            _jwtServiceMock.Setup(x => x.GenerateTokenWithClaims(
-                It.IsAny<string>(), 
-                It.IsAny<string>(), 
-                It.IsAny<List<string>>(), 
-                It.IsAny<List<string>>(), 
-                It.IsAny<string>(), 
-                It.IsAny<string>(), 
-                It.IsAny<string>()))
-                .Returns("jwt_token");
-
-            var result = await _service.AuthenticateWithTokenAsync(token, "google");
-
-            Assert.NotNull(result);
-            Assert.Equal(newUser.Email, result.User.Email);
-            _userInfoRepositoryMock.Verify(x => x.CreateUserIfNotExistsAsync(email, "New", "User"), Times.Once);
+            Assert.Equal(
+                $"USUARIO_NO_REGISTRADO: El correo '{email}' no se encuentra registrado. Complete primero su registro institucional.",
+                ex.Message);
+            _userInfoRepositoryMock.Verify(x => x.GetUserLoginDataAsync(It.IsAny<int>()), Times.Never);
         }
 
         [Fact]
@@ -159,7 +131,7 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
         }
 
         [Fact]
-        public async Task AuthenticateWithTokenAsync_NormalizesEmailBeforeLookupAndCreation()
+        public async Task AuthenticateWithTokenAsync_NormalizesEmailBeforeLookupAndUnregisteredError()
         {
             var token = "valid_token";
             var normalizedEmail = "mixed.user@unicesar.edu.co";
@@ -170,7 +142,18 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 FamilyName = "User"
             };
 
-            var createdUser = new User
+            _tokenValidatorMock.Setup(x => x.ValidateAsync(token)).ReturnsAsync(payload);
+            _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync(normalizedEmail)).ReturnsAsync((User?)null);
+
+            var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                _service.AuthenticateWithTokenAsync(token, "google"));
+
+            Assert.Equal(
+                $"USUARIO_NO_REGISTRADO: El correo '{normalizedEmail}' no se encuentra registrado. Complete primero su registro institucional.",
+                ex.Message);
+            _userInfoRepositoryMock.Verify(x => x.FindUserByEmailAsync(normalizedEmail), Times.Once);
+
+            var existingUser = new User
             {
                 Id = 3,
                 Email = normalizedEmail,
@@ -178,11 +161,8 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 LastName = "User",
                 StatusRegister = true
             };
-
-            _tokenValidatorMock.Setup(x => x.ValidateAsync(token)).ReturnsAsync(payload);
-            _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync(normalizedEmail)).ReturnsAsync((User?)null);
-            _userInfoRepositoryMock.Setup(x => x.CreateUserIfNotExistsAsync(normalizedEmail, "Mixed", "User")).ReturnsAsync(createdUser);
-            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(createdUser.Id)).ReturnsAsync(new UserLoginData());
+            _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync(normalizedEmail)).ReturnsAsync(existingUser);
+            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(existingUser.Id)).ReturnsAsync(new UserLoginData());
             _jwtServiceMock.Setup(x => x.GenerateTokenWithClaims(
                 It.IsAny<string>(),
                 It.IsAny<string>(),
@@ -195,8 +175,49 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
             var result = await _service.AuthenticateWithTokenAsync(token, "google");
 
             Assert.Equal(normalizedEmail, result.User.Email);
-            _userInfoRepositoryMock.Verify(x => x.FindUserByEmailAsync(normalizedEmail), Times.Once);
-            _userInfoRepositoryMock.Verify(x => x.CreateUserIfNotExistsAsync(normalizedEmail, "Mixed", "User"), Times.Once);
+        }
+
+        [Fact]
+        public async Task AuthenticateWithTokenAsync_WhenNoDomainsConfigured_FallsBackToRegisterDomainsOrInstitutionalDefault()
+        {
+            // 1. Sin configuración alguna (_configuration == null en _service): fail-closed a unicesar.edu.co
+            _tokenValidatorMock.Setup(x => x.ValidateAsync("ext_token"))
+                .ReturnsAsync(new TokenPayload { Email = "external@gmail.com", GivenName = "Ext", FamilyName = "User" });
+
+            var defaultEx = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                _service.AuthenticateWithTokenAsync("ext_token", "google"));
+            Assert.Equal("El dominio de correo no está autorizado para acceder al sistema.", defaultEx.Message);
+
+            // 2. Fallback a Authentication:Register:AllowedDomains cuando ni proveedor ni Authentication:AllowedDomains existen
+            var registerConfig = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Authentication:Register:AllowedDomains:0"] = "aliado.edu.co"
+                })
+                .Build();
+
+            var registerFallbackService = new FederatedAuthService(
+                _jwtServiceMock.Object,
+                _userInfoRepositoryMock.Object,
+                new[] { _tokenValidatorMock.Object },
+                registerConfig);
+
+            _tokenValidatorMock.Setup(x => x.ValidateAsync("ally_token"))
+                .ReturnsAsync(new TokenPayload { Email = "docente@aliado.edu.co", GivenName = "Doc", FamilyName = "Ally" });
+            _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync("docente@aliado.edu.co"))
+                .ReturnsAsync(new User { Id = 22, Email = "docente@aliado.edu.co", FirstName = "Doc", LastName = "Ally", StatusRegister = true });
+            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(22)).ReturnsAsync(new UserLoginData());
+            _jwtServiceMock.Setup(x => x.GenerateTokenWithClaims(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<List<string>>(),
+                It.IsAny<List<string>>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>())).Returns("ally_jwt");
+
+            var allyResult = await registerFallbackService.AuthenticateWithTokenAsync("ally_token", "google");
+            Assert.Equal("ally_jwt", allyResult.Token);
         }
 
         [Fact]

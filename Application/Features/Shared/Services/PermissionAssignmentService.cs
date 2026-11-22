@@ -13,7 +13,7 @@ namespace Application.Features.Shared.Services
             IUnitOfWork unitOfWork,
             int inscriptionModalityId,
             string[] permissionCodes,
-            int triggeredByUserId,
+            int? triggeredByUserId,
             CancellationToken cancellationToken = default)
         {
             if (permissionCodes == null || permissionCodes.Length == 0) return;
@@ -47,6 +47,7 @@ namespace Application.Features.Shared.Services
                 .ToDictionary(g => g.Key, g => g.First());
 
             var now = DateTimeOffset.UtcNow;
+            var auditUserId = triggeredByUserId is > 0 ? triggeredByUserId : null;
             var toAdd = new List<UserPermission>();
 
             foreach (var userId in userIds)
@@ -59,7 +60,7 @@ namespace Application.Features.Shared.Services
                         {
                             IdUser = userId,
                             IdPermission = perm.Id,
-                            IdUserCreatedAt = triggeredByUserId,
+                            IdUserCreatedAt = auditUserId,
                             OperationRegister = "Asignado automáticamente por DomainEvent",
                             StatusRegister = true,
                             CreatedAt = now
@@ -69,7 +70,7 @@ namespace Application.Features.Shared.Services
                     {
                         existing.StatusRegister = true;
                         existing.UpdatedAt = now;
-                        existing.IdUserUpdatedAt = triggeredByUserId;
+                        existing.IdUserUpdatedAt = auditUserId;
                         existing.OperationRegister = "Reactivado automáticamente por DomainEvent";
                         await userPermissionRepo.UpdateAsync(existing);
                     }

@@ -91,10 +91,7 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
             // Registrar historial de observaciones solo si hay texto nuevo/distinto
             if (!string.IsNullOrWhiteSpace(dto.Observations))
             {
-                var evaluatorId = request.CurrentUser?.UserId
-                    ?? academicPractice.IdUserUpdatedAt
-                    ?? academicPractice.IdUserCreatedAt
-                    ?? 1;
+                var evaluatorId = request.CurrentUser?.UserId ?? 0;
 
                 await ObservationHistoryHelper.CreateIfChangedAsync(
                     _unitOfWork,

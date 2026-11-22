@@ -4,17 +4,63 @@ namespace Infrastructure.Services.Auth
 {
     internal static class AuthValidationHelper
     {
-        public static string[] GetAllowedDomains(IConfiguration? configuration)
+        private static readonly string[] DefaultAllowedDomains = ["unicesar.edu.co"];
+
+        public static string[] GetAllowedDomains(IConfiguration? configuration, string? provider = null)
+        {
+            var globalDomains = ReadDomainsFromSection(configuration, "Authentication:AllowedDomains");
+            if (globalDomains.Length > 0)
+                return globalDomains;
+
+            var providerDomains = GetProviderAllowedDomains(configuration, provider);
+            if (providerDomains.Length > 0)
+                return providerDomains;
+
+            var registerDomains = ReadDomainsFromSection(configuration, "Authentication:Register:AllowedDomains");
+            if (registerDomains.Length > 0)
+                return registerDomains;
+
+            return DefaultAllowedDomains;
+        }
+
+        private static string[] GetProviderAllowedDomains(IConfiguration? configuration, string? provider)
+        {
+            if (configuration == null || string.IsNullOrWhiteSpace(provider))
+                return Array.Empty<string>();
+
+            var normalizedProvider = provider.Trim().ToLowerInvariant();
+            var sectionName = normalizedProvider switch
+            {
+                "google" => "Google",
+                "azure" => "AzureAd",
+                _ => provider.Trim()
+            };
+
+            var allowedDomains = ReadDomainsFromSection(configuration, $"Authentication:{sectionName}:AllowedDomains");
+            if (allowedDomains.Length > 0)
+                return allowedDomains;
+
+            if (normalizedProvider == "google")
+            {
+                var hostedDomain = configuration["Authentication:Google:HostedDomain"]?.Trim().TrimStart('@');
+                if (!string.IsNullOrWhiteSpace(hostedDomain) && hostedDomain != "*")
+                    return [hostedDomain];
+            }
+
+            return Array.Empty<string>();
+        }
+
+        private static string[] ReadDomainsFromSection(IConfiguration? configuration, string sectionPath)
         {
             if (configuration == null)
                 return Array.Empty<string>();
 
-            var section = configuration.GetSection("Authentication:AllowedDomains");
+            var section = configuration.GetSection(sectionPath);
             var childrenValues = section.GetChildren()
-                .Select(c => c.Value)
+                .SelectMany(c => (c.Value ?? string.Empty).Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Select(v => v.TrimStart('@'))
                 .Where(v => !string.IsNullOrWhiteSpace(v))
-                .Select(v => v!.Trim().TrimStart('@'))
-                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
             if (childrenValues.Length > 0)
@@ -23,9 +69,10 @@ namespace Infrastructure.Services.Auth
             if (!string.IsNullOrWhiteSpace(section.Value))
             {
                 return section.Value
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(v => v.TrimStart('@'))
                     .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToArray();
             }
 

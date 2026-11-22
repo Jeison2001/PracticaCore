@@ -60,13 +60,15 @@ namespace Application.Features.AcademicPractices.EventHandlers
             // Idempotencia: no crear si ya existe
             if (await academicPracticeRepo.AnyAsync(x => x.Id == notification.InscriptionModalityId, cancellationToken)) return;
 
+            var auditUserId = notification.TriggeredByUserId is > 0 ? notification.TriggeredByUserId : null;
+
             await academicPracticeRepo.AddAsync(new AcademicPractice
             {
                 Id = notification.InscriptionModalityId,
                 IdStateStage = targetStateStage.Id,
                 Title = "",
                 IsEmprendimiento = false,
-                IdUserCreatedAt = notification.TriggeredByUserId,
+                IdUserCreatedAt = auditUserId,
                 OperationRegister = "Creada automáticamente al aprobar inscripción",
                 StatusRegister = true,
                 CreatedAt = DateTimeOffset.UtcNow
@@ -77,7 +79,7 @@ namespace Application.Features.AcademicPractices.EventHandlers
 
             inscription.IdStageModality = targetStageModality.Id;
             inscription.UpdatedAt = DateTimeOffset.UtcNow;
-            inscription.IdUserUpdatedAt = notification.TriggeredByUserId;
+            inscription.IdUserUpdatedAt = auditUserId;
             inscription.OperationRegister += " | Fase asignada por DomainEvent";
 
             await inscriptionModalityRepo.UpdatePartialAsync(inscription, [
@@ -97,7 +99,7 @@ namespace Application.Features.AcademicPractices.EventHandlers
                     PermissionCodes.PracticaAcademica.N3PAF0R,
                     PermissionCodes.PracticaAcademica.N3PAF0C
                 ],
-                notification.TriggeredByUserId,
+                auditUserId,
                 cancellationToken);
         }
     }

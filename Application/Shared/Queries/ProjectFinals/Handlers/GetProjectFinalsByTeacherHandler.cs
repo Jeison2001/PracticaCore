@@ -66,10 +66,10 @@ namespace Application.Shared.Queries.ProjectFinals.Handlers
                             UserName = uim.User != null ? (uim.User.FirstName + " " + uim.User.LastName) : string.Empty,
                             Identification = uim.User?.Identification ?? string.Empty,
                             Email = uim.User?.Email ?? string.Empty,
-                            CurrentAcademicPeriod = string.Empty, // Completar si tienes el dato
-                            CumulativeAverage = null, // Completar si tienes el dato
-                            ApprovedCredits = null, // Completar si tienes el dato
-                            TotalAcademicCredits = null // Completar si tienes el dato
+                            CurrentAcademicPeriod = uim.User?.CurrentAcademicPeriod ?? string.Empty,
+                            CumulativeAverage = uim.User?.CumulativeAverage,
+                            ApprovedCredits = uim.User?.ApprovedCredits,
+                            TotalAcademicCredits = uim.User?.TotalAcademicCredits
                         }).ToList(),
                         Teachers = AssignedTeacherDto.FromEntities(e.Teachers)
                     }

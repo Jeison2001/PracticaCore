@@ -48,7 +48,7 @@ namespace Application.Shared.Commands.SaberPros.Handlers
                 entity.Id,
                 request.Dto.IdStateStage,
                 request.CurrentUser,
-                [PermissionCodes.SaberPro.N3SPSGG, PermissionCodes.SaberPro.N3SPSGR],
+                [PermissionCodes.SaberPro.N3SPSGR],
                 cancellationToken);
 
             _logger.LogInformation("Patching SaberPro Id={Id}. StateStage={State}, Observations={Obs}",

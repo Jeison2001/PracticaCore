@@ -109,15 +109,15 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
                 throw new ForbiddenAccessException("El usuario autenticado debe estar incluido entre los estudiantes de la inscripción.");
 
             var users = await _unitOfWork.GetRepository<User, int>()
-                .GetAllAsync(u => userIds.Contains(u.Id));
+                .GetAllAsync(u => userIds.Contains(u.Id) && u.StatusRegister);
             
             var usersDict = users.ToDictionary(u => u.Id);
             
             var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
-            var userRoles = await userRoleRepo.GetAllAsync(ur => userIds.Contains(ur.IdUser));
+            var userRoles = await userRoleRepo.GetAllAsync(ur => userIds.Contains(ur.IdUser) && ur.StatusRegister);
             
             var roleRepo = _unitOfWork.GetRepository<Role, int>();
-            var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT", cancellationToken);
+            var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT" && r.StatusRegister, cancellationToken);
             
             if (studentRole == null)
                 throw new InvalidOperationException("No se encontró el rol 'STUDENT' en el sistema.");
@@ -126,9 +126,9 @@ namespace Application.Shared.Commands.InscriptionWithStudents.Handlers
             foreach (var student in request.Dto.Students)
             {
                 var userInfo = userDictionary[student.Identification];
-                var hasStudentRole = userRoles.Any(ur => ur.IdUser == userInfo.Id && ur.IdRole == studentRoleId);
+                var hasStudentRole = userRoles.Any(ur => ur.IdUser == userInfo.Id && ur.IdRole == studentRoleId && ur.StatusRegister);
                 
-                if (!usersDict.ContainsKey(userInfo.Id) || !hasStudentRole)
+                if (!usersDict.TryGetValue(userInfo.Id, out var activeUser) || !activeUser.StatusRegister || !hasStudentRole)
                 {
                     throw new InvalidOperationException($"El usuario con identificación '{student.Identification}' no existe o no tiene el rol 'STUDENT'.");
                 }

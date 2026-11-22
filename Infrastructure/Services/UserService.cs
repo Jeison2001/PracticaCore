@@ -17,7 +17,10 @@ namespace Infrastructure.Services
         public async Task<UserIdentificationResult> GetUserIdByIdentification(int idIdentificationType, string identification)
         {
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.IdIdentificationType == idIdentificationType && u.Identification == identification);
+                .FirstOrDefaultAsync(u =>
+                    u.IdIdentificationType == idIdentificationType &&
+                    u.Identification == identification &&
+                    u.StatusRegister);
 
             if (user == null)
             {

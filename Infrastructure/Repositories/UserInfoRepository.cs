@@ -125,59 +125,5 @@ namespace Infrastructure.Repositories
 
             return users?.FirstOrDefault();
         }
-
-        public async Task<User> CreateUserIfNotExistsAsync(string email, string firstName, string lastName)
-        {
-            var normalizedEmail = email.Trim().ToLowerInvariant();
-            var user = await FindUserByEmailAsync(normalizedEmail);
-
-            if (user != null)
-                return user;
-
-            var random = new Random();
-            var tempIdentification = random.Next(1000000000, int.MaxValue).ToString();
-
-            user = new User
-            {
-                Email = normalizedEmail,
-                FirstName = firstName,
-                LastName = lastName,
-                IdIdentificationType = 1,
-                Identification = tempIdentification,
-                IdAcademicProgram = 1
-            };
-
-            using var transaction = await _unitOfWork.BeginTransactionAsync();
-            try
-            {
-                // Persistir usuario para obtener ID generado por la base de datos
-                await _unitOfWork.GetRepository<User, int>().AddAsync(user);
-                await _unitOfWork.CommitAsync();
-
-                // Asignar rol STUDENT por defecto para nuevos usuarios
-                var roleRepo = _unitOfWork.GetRepository<Role, int>();
-                var studentRole = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == "STUDENT", CancellationToken.None);
-                
-                if (studentRole != null)
-                {
-                    var userRole = new UserRole
-                    {
-                        IdUser = user.Id,
-                        IdRole = studentRole.Id,
-                        IdUserCreatedAt = 1 // System user
-                    };
-                    await _unitOfWork.GetRepository<UserRole, int>().AddAsync(userRole);
-                    await _unitOfWork.CommitAsync();
-                }
-
-                await transaction.CommitAsync();
-                return user;
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        }
     }
 }

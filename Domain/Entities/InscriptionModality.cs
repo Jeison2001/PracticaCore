@@ -16,7 +16,8 @@ namespace Domain.Entities
                 // omitimos si el estado_anterior era 0 (esto evita triggers en INSERTS vacíos o creación)
                 if (_idStateInscription != 0 && _idStateInscription != value)
                 {
-                    AddDomainEvent(new InscriptionStateChangedEvent(this.Id, this.IdModality, value, this.IdUserUpdatedAt ?? 0));
+                    var triggeredBy = this.IdUserUpdatedAt ?? this.IdUserCreatedAt;
+                    AddDomainEvent(new InscriptionStateChangedEvent(this.Id, this.IdModality, value, triggeredBy is > 0 ? triggeredBy : null));
                 }
                 _idStateInscription = value;
             }

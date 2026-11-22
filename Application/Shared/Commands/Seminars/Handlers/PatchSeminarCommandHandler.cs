@@ -48,7 +48,7 @@ namespace Application.Shared.Commands.Seminars.Handlers
                 entity.Id,
                 request.Dto.IdStateStage,
                 request.CurrentUser,
-                [PermissionCodes.Seminario.N3SASGG, PermissionCodes.Seminario.N3SASGR],
+                [PermissionCodes.Seminario.N3SASGR],
                 cancellationToken);
 
             _logger.LogInformation("Patching Seminar Id={Id}. StateStage={State}, Observations={Obs}",

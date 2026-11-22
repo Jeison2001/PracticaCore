@@ -48,7 +48,7 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
                 entity.Id,
                 request.Dto.IdStateStage,
                 request.CurrentUser,
-                [PermissionCodes.PublicacionArticulo.N3PCSGG, PermissionCodes.PublicacionArticulo.N3PCSGR],
+                [PermissionCodes.PublicacionArticulo.N3PCSGR],
                 cancellationToken);
 
             _logger.LogInformation("Patching ScientificArticle Id={Id}. StateStage={State}, Observations={Obs}",
@@ -68,7 +68,7 @@ namespace Application.Shared.Commands.ScientificArticles.Handlers
                     entity.Id,
                     originalStateId,
                     request.Dto.IdStateStage.Value,
-                    allowCrossStageWithinSameModality: true,
+                    allowCrossStageWithinSameModality: false,
                     cancellationToken);
 
                 entity.IdStateStage = request.Dto.IdStateStage.Value;

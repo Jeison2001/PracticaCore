@@ -57,5 +57,30 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
             result.GivenName.Should().Be("Verified");
             result.FamilyName.Should().Be("User");
         }
+
+        [Fact]
+        public async Task ValidateAsync_WhenAllowedDomainsConfigured_RejectsDisallowedDomain()
+        {
+            var options = Options.Create(new GoogleAuthOptions
+            {
+                ClientId = "test-google-client-id",
+                AllowedDomains = new[] { "unicesar.edu.co" }
+            });
+
+            var validator = new GoogleTokenValidator(
+                options,
+                (_, _) => Task.FromResult(new GoogleJsonWebSignature.Payload
+                {
+                    Email = "external@gmail.com",
+                    EmailVerified = true,
+                    GivenName = "External",
+                    FamilyName = "User"
+                }));
+
+            var act = () => validator.ValidateAsync("id-token");
+
+            await act.Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("El dominio de correo no está autorizado para acceder al sistema.");
+        }
     }
 }

@@ -1090,9 +1090,25 @@ namespace Tests.Integration.Authorization
                         selfRes.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"self-approval on {c.Url}");
                     }
 
-                    // 3. Comité/Revisor (305) aprueba estado final -> 200 OK y encola job de notificación
+                    // 3. Vocal/Jefe con solo N3*SGG (lectura) o combinación N2*R + N3*SGG sin N3*SGR -> 403 Forbidden al dictaminar
+                    var readOnlyManagementPerm = c.ReviewerPerm.Split(',')[1];
+                    using (var sggOnlyReq = CreateRequest(HttpMethod.Patch, c.Url, readOnlyManagementPerm, userId: "305"))
+                    {
+                        sggOnlyReq.Content = JsonContent.Create(c.BuildBody(c.FinalStateId));
+                        var sggOnlyRes = await _client.SendAsync(sggOnlyReq);
+                        sggOnlyRes.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"read-only SGG on {c.Url}");
+                    }
+                    using (var studentPlusSggReq = CreateRequest(HttpMethod.Patch, c.Url, $"{c.StudentPerm},{readOnlyManagementPerm}", userId: "305"))
+                    {
+                        studentPlusSggReq.Content = JsonContent.Create(c.BuildBody(c.FinalStateId));
+                        var studentPlusSggRes = await _client.SendAsync(studentPlusSggReq);
+                        studentPlusSggRes.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"N2*R+N3*SGG without N3*SGR on {c.Url}");
+                    }
+
+                    // 4. Comité/Revisor (305 con N3*SGR) aprueba estado final -> 200 OK y encola job de notificación
                     _factory.EnqueuedJobs.Clear();
-                    using (var reviewerReq = CreateRequest(HttpMethod.Patch, c.Url, c.ReviewerPerm, userId: "305"))
+                    var reviewerOnlyPerm = c.ReviewerPerm.Split(',')[0];
+                    using (var reviewerReq = CreateRequest(HttpMethod.Patch, c.Url, reviewerOnlyPerm, userId: "305"))
                     {
                         reviewerReq.Content = JsonContent.Create(c.BuildBody(c.FinalStateId));
                         var reviewerRes = await _client.SendAsync(reviewerReq);
@@ -1614,6 +1630,120 @@ namespace Tests.Integration.Authorization
 
             // Control: docente activo confirmado -> 200 OK
             (await EvaluateAsync("412")).StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task ScientificArticle_Patch_BlocksDirectCrossStageJump_AndAdvancesOnlyViaPhase1CommitteeApproval()
+        {
+            int articleId;
+            int fase1InicialId;
+            int fase1AprobadoId;
+            int fase2InicialId;
+            int fase2StageId;
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                SeedingUtilities.SeedCatalogs(context);
+                var periodId = EnsureBaseUsersAndPeriod(context, 301, 305);
+
+                var artModalityId = context.Set<Modality>().First(m => m.Code == ModalityCodes.PublicacionArticulo).Id;
+                var aprobadoInscId = context.Set<StateInscription>().First(s => s.Code == StateInscriptionCodes.Aprobado).Id;
+                var fase1StageId = context.Set<StageModality>().First(s => s.IdModality == artModalityId && s.StageOrder == 1).Id;
+                fase2StageId = context.Set<StageModality>().First(s => s.IdModality == artModalityId && s.StageOrder == 2).Id;
+
+                fase1InicialId = context.Set<StateStage>().First(s => s.Code == "PC_FASEINICIAL").Id;
+                fase1AprobadoId = context.Set<StateStage>().First(s => s.Code == "PC_FASE1_APROBADO").Id;
+                fase2InicialId = context.Set<StateStage>().First(s => s.Code == "PC_FASE2_INICIAL").Id;
+
+                var insc = new InscriptionModality
+                {
+                    IdModality = artModalityId,
+                    IdStateInscription = aprobadoInscId,
+                    IdAcademicPeriod = periodId,
+                    IdStageModality = fase1StageId,
+                    StatusRegister = true,
+                    OperationRegister = "SeedF01"
+                };
+                context.Set<InscriptionModality>().Add(insc);
+                await context.SaveChangesAsync();
+                articleId = insc.Id;
+
+                context.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+                {
+                    IdInscriptionModality = articleId,
+                    IdUser = 301,
+                    IsConfirmed = true,
+                    StatusRegister = true,
+                    OperationRegister = "SeedF01"
+                });
+                context.Set<ScientificArticle>().Add(new ScientificArticle
+                {
+                    Id = articleId,
+                    IdStateStage = fase1InicialId,
+                    ArticleTitle = "Artículo Fase 1 Acuerdo 015",
+                    JournalName = "Revista Científica",
+                    StatusRegister = true,
+                    OperationRegister = "SeedF01"
+                });
+                await context.SaveChangesAsync();
+            }
+
+            // 1. Estudiante (N2PCR) en Fase 1 NO puede saltar por PATCH directo a un estado de Fase 2 -> 400 BadRequest
+            using (var studentJumpReq = CreateRequest(
+                HttpMethod.Patch,
+                $"/api/ScientificArticle/{articleId}",
+                PermissionCodes.PublicacionArticulo.N2PCR,
+                "301"))
+            {
+                studentJumpReq.Content = JsonContent.Create(new ScientificArticlePatchDto
+                {
+                    IdStateStage = fase2InicialId,
+                    Observations = "Intento salto directo Fase 1 -> Fase 2"
+                });
+                (await _client.SendAsync(studentJumpReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // 2. Ni siquiera un revisor (N3PCSGR) puede saltar Fase 1 -> Fase 2 directamente sin aprobar Fase 1 -> 400 BadRequest
+            using (var reviewerJumpReq = CreateRequest(
+                HttpMethod.Patch,
+                $"/api/ScientificArticle/{articleId}",
+                PermissionCodes.PublicacionArticulo.N3PCSGR,
+                "305"))
+            {
+                reviewerJumpReq.Content = JsonContent.Create(new ScientificArticlePatchDto
+                {
+                    IdStateStage = fase2InicialId,
+                    Observations = "Intento salto directo revisor"
+                });
+                (await _client.SendAsync(reviewerJumpReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // 3. Comité (N3PCSGR) aprueba Fase 1 (PC_FASE1_APROBADO) -> AdvanceScientificArticlePhaseHandler promueve a Fase 2 (PC_FASE2_INICIAL)
+            using (var approveFase1Req = CreateRequest(
+                HttpMethod.Patch,
+                $"/api/ScientificArticle/{articleId}",
+                PermissionCodes.PublicacionArticulo.N3PCSGR,
+                "305"))
+            {
+                approveFase1Req.Content = JsonContent.Create(new ScientificArticlePatchDto
+                {
+                    IdStateStage = fase1AprobadoId,
+                    Observations = "Fase 1 aprobada por Comité"
+                });
+                var approveRes = await _client.SendAsync(approveFase1Req);
+                approveRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+
+            using (var verifyScope = _factory.Services.CreateScope())
+            {
+                var verifyDb = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var updatedArticle = await verifyDb.Set<ScientificArticle>().FindAsync(articleId);
+                var updatedInsc = await verifyDb.Set<InscriptionModality>().FindAsync(articleId);
+
+                updatedArticle!.IdStateStage.Should().Be(fase2InicialId);
+                updatedInsc!.IdStageModality.Should().Be(fase2StageId);
+            }
         }
     }
 }

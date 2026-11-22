@@ -1712,7 +1712,8 @@ namespace Tests.Integration.Authorization
                 paInscripcionAprobadaId = context.Set<StateStage>().First(s => s.Code == StateStageCodes.PaInscripcionAprobada).Id;
             }
 
-            // 1. PUT /api/Proposal/{id} por comite (N4PGPPR/N4PGPPG) preserva el IdStateStage existente
+            // 1. PUT /api/Proposal/{id}: evaluador con solo N4PGPPR recibe 403 Forbidden; gestor N4PGPPG preserva IdStateStage existente,
+            //    respeta MaxSpecificObjectives y rechaza propuestas ya cerradas con 400 BadRequest.
             var committeePutDto = new ProposalDto
             {
                 Id = scenario.InscriptionAId,
@@ -1726,13 +1727,58 @@ namespace Tests.Integration.Authorization
                 IdStateStage = propPertinenteId,
                 StatusRegister = true
             };
-            using (var committeePutReq = CreateRequest(HttpMethod.Put, $"/api/Proposal/{scenario.InscriptionAId}", 501, PermissionCodes.ProyectoGrado.N4PGPPR))
+            using (var evaluatorPutReq = CreateRequest(HttpMethod.Put, $"/api/Proposal/{scenario.InscriptionAId}", 501, PermissionCodes.ProyectoGrado.N4PGPPR))
+            {
+                evaluatorPutReq.Content = JsonContent.Create(committeePutDto);
+                (await client.SendAsync(evaluatorPutReq)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            }
+            using (var committeePutReq = CreateRequest(HttpMethod.Put, $"/api/Proposal/{scenario.InscriptionAId}", 501, PermissionCodes.ProyectoGrado.N4PGPPG))
             {
                 committeePutReq.Content = JsonContent.Create(committeePutDto);
                 var res = await client.SendAsync(committeePutReq);
                 res.StatusCode.Should().Be(HttpStatusCode.OK);
                 var payload = await res.Content.ReadFromJsonAsync<ApiResponse<ProposalDto>>();
                 payload!.Data!.IdStateStage.Should().NotBe(propPertinenteId);
+            }
+
+            // 1b. PUT /api/Proposal/{id} excediendo MaxSpecificObjectives -> 400 BadRequest
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var pgModality = context.Set<Modality>().First(m => m.Code == ModalityCodes.ProyectoGrado);
+                pgModality.MaxSpecificObjectives = 3;
+                await context.SaveChangesAsync();
+            }
+            using (var tooManyObjectivesReq = CreateRequest(HttpMethod.Put, $"/api/Proposal/{scenario.InscriptionAId}", 501, PermissionCodes.ProyectoGrado.N4PGPPG))
+            {
+                tooManyObjectivesReq.Content = JsonContent.Create(committeePutDto with
+                {
+                    SpecificObjectives = new List<string> { "O1", "O2", "O3", "O4" }
+                });
+                (await client.SendAsync(tooManyObjectivesReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+
+            // 1c. PUT /api/Proposal/{id} por N4PGPPG cuando la propuesta ya está cerrada (PROP_PERTINENTE) -> 400 BadRequest
+            int originalProposalAStateId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var prop = await context.Set<Proposal>().FindAsync(scenario.InscriptionAId);
+                originalProposalAStateId = prop!.IdStateStage;
+                prop.IdStateStage = propPertinenteId;
+                await context.SaveChangesAsync();
+            }
+            using (var closedPutReq = CreateRequest(HttpMethod.Put, $"/api/Proposal/{scenario.InscriptionAId}", 501, PermissionCodes.ProyectoGrado.N4PGPPG))
+            {
+                closedPutReq.Content = JsonContent.Create(committeePutDto);
+                (await client.SendAsync(closedPutReq)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            }
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var prop = await context.Set<Proposal>().FindAsync(scenario.InscriptionAId);
+                prop!.IdStateStage = originalProposalAStateId;
+                await context.SaveChangesAsync();
             }
 
             // 2. ProjectPresentation: InscriptionB esta en SUST_PENDIENTE_PROGRAMACION

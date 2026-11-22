@@ -224,7 +224,47 @@ namespace Tests.Integration.Auth
                 var assignedRole = context.Set<UserRole>().FirstOrDefault(ur => ur.IdUser == apiResponse.Data.Id);
                 assignedRole.Should().NotBeNull();
                 assignedRole!.IdRole.Should().Be(studentRoleId);
+                assignedRole.IdUserCreatedAt.Should().Be((int)apiResponse.Data.Id);
             }
+        }
+
+        [Fact]
+        public async Task TokenLogin_WhenUserNotRegistered_ReturnsUnauthorizedWithUsuarioNoRegistradoAndDoesNotAutoCreateUser()
+        {
+            var unregisteredEmail = $"unregistered_{Guid.NewGuid():N}@unicesar.edu.co";
+            const string validToken = "valid-unregistered-token";
+
+            _tokenValidatorMock.Setup(x => x.ValidateAsync(validToken))
+                .ReturnsAsync(new TokenPayload
+                {
+                    Email = $"  {unregisteredEmail.ToUpperInvariant()}  ",
+                    GivenName = "Ghost",
+                    FamilyName = "Student"
+                });
+
+            using var customFactory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddScoped(_ => _tokenValidatorMock.Object);
+                });
+            });
+
+            using var client = customFactory.CreateClient();
+            var response = await client.PostAsJsonAsync(
+                "/api/auth/token",
+                new TokenAuthRequest { IdToken = validToken, Provider = "google" });
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            var payload = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            payload.Should().NotBeNull();
+            payload!.Success.Should().BeFalse();
+            payload.Errors.Should().ContainSingle()
+                .Which.Should().Be($"USUARIO_NO_REGISTRADO: El correo '{unregisteredEmail}' no se encuentra registrado. Complete primero su registro institucional.");
+
+            using var verifyScope = customFactory.Services.CreateScope();
+            var verifyDb = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            (await verifyDb.Users.AnyAsync(u => u.Email == unregisteredEmail)).Should().BeFalse();
         }
 
         [Fact]

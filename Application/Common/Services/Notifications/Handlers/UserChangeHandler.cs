@@ -2,6 +2,7 @@ using Domain.Entities;
 using Domain.Interfaces.Services.Notifications.Handlers;
 using Domain.Interfaces.Services.Notifications;
 using Domain.Interfaces.Repositories;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Common.Services.Notifications.Handlers
@@ -15,15 +16,18 @@ namespace Application.Common.Services.Notifications.Handlers
         private readonly IEmailNotificationQueueService _queueService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<UserChangeHandler> _logger;
+        private readonly IConfiguration? _configuration;
 
         public UserChangeHandler(
             IEmailNotificationQueueService queueService,
             IUnitOfWork unitOfWork,
-            ILogger<UserChangeHandler> logger)
+            ILogger<UserChangeHandler> logger,
+            IConfiguration? configuration = null)
         {
             _queueService = queueService;
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public Task HandleChangeAsync(User oldEntity, User newEntity, CancellationToken cancellationToken = default)
@@ -53,7 +57,7 @@ namespace Application.Common.Services.Notifications.Handlers
                     { "AcademicProgram", program?.Name ?? "No asignado" },
                     { "PhoneNumber", entity.PhoneNumber ?? "" },
                     { "CreatedDate", DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm") },
-                    { "LoginUrl", "https://sigepro-five.vercel.app/login" }
+                    { "LoginUrl", ResolveLoginUrl() }
                 };
 
                 var jobId = _queueService.EnqueueEventNotification("USER_CREATED", eventData);
@@ -65,6 +69,26 @@ namespace Application.Common.Services.Notifications.Handlers
                 _logger.LogError(ex, "Error procesando notificación de creación para usuario ID {Id}", entity.Id);
                 throw;
             }
+        }
+
+        private string ResolveLoginUrl()
+        {
+            var configuredUrl = _configuration?["App:FrontendUrl"];
+            if (string.IsNullOrWhiteSpace(configuredUrl))
+            {
+                configuredUrl = _configuration?
+                    .GetSection("AllowedOrigins")
+                    .GetChildren()
+                    .Select(c => c.Value)
+                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))
+                    ?? _configuration?["AllowedOrigins"];
+            }
+
+            var baseUrl = string.IsNullOrWhiteSpace(configuredUrl)
+                ? "http://localhost:4200"
+                : configuredUrl.Trim();
+
+            return $"{baseUrl.TrimEnd('/')}/iniciar-sesion";
         }
     }
 }

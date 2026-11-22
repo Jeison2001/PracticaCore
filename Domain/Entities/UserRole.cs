@@ -31,7 +31,8 @@ namespace Domain.Entities
             if (_idUser != 0 && _idRole != 0)
             {
                 ClearDomainEvents();
-                AddDomainEvent(new UserRoleAssignedEvent(_idUser, _idRole, IdUserUpdatedAt ?? IdUserCreatedAt ?? 1));
+                var triggeredBy = IdUserUpdatedAt ?? IdUserCreatedAt;
+                AddDomainEvent(new UserRoleAssignedEvent(_idUser, _idRole, triggeredBy is > 0 ? triggeredBy : null));
             }
         }
 

@@ -6,30 +6,86 @@ namespace Infrastructure.Repositories
     public class EfDatabaseTransaction : IDatabaseTransaction
     {
         private readonly IDbContextTransaction? _transaction;
+        private readonly Func<CancellationToken, Task>? _onCommittedAsync;
+        private readonly Action? _onAborted;
+        private bool _completed;
 
-        public EfDatabaseTransaction(IDbContextTransaction? transaction)
+        public EfDatabaseTransaction(
+            IDbContextTransaction? transaction,
+            Func<CancellationToken, Task>? onCommittedAsync = null,
+            Action? onAborted = null)
         {
             _transaction = transaction;
+            _onCommittedAsync = onCommittedAsync;
+            _onAborted = onAborted;
         }
 
-        public Task CommitAsync(CancellationToken ct = default)
+        public async Task CommitAsync(CancellationToken ct = default)
         {
-            return _transaction?.CommitAsync(ct) ?? Task.CompletedTask;
+            if (_transaction != null)
+            {
+                await _transaction.CommitAsync(ct);
+            }
+
+            _completed = true;
+            if (_onCommittedAsync != null)
+            {
+                await _onCommittedAsync(ct);
+            }
         }
 
-        public Task RollbackAsync(CancellationToken ct = default)
+        public async Task RollbackAsync(CancellationToken ct = default)
         {
-            return _transaction?.RollbackAsync(ct) ?? Task.CompletedTask;
+            try
+            {
+                if (_transaction != null)
+                {
+                    await _transaction.RollbackAsync(ct);
+                }
+            }
+            finally
+            {
+                if (!_completed)
+                {
+                    _completed = true;
+                    _onAborted?.Invoke();
+                }
+            }
         }
 
         public void Dispose()
         {
-            _transaction?.Dispose();
+            try
+            {
+                _transaction?.Dispose();
+            }
+            finally
+            {
+                if (!_completed)
+                {
+                    _completed = true;
+                    _onAborted?.Invoke();
+                }
+            }
         }
 
-        public ValueTask DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
-            return _transaction?.DisposeAsync() ?? ValueTask.CompletedTask;
+            try
+            {
+                if (_transaction != null)
+                {
+                    await _transaction.DisposeAsync();
+                }
+            }
+            finally
+            {
+                if (!_completed)
+                {
+                    _completed = true;
+                    _onAborted?.Invoke();
+                }
+            }
         }
     }
 }

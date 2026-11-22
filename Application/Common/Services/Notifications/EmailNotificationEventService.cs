@@ -75,10 +75,10 @@ namespace Application.Common.Services.Notifications
         {
             try
             {
-                // Cargar reglas de destinatarios
+                // Cargar reglas de destinatarios activas
                 var ruleRepo = _unitOfWork.GetRepository<EmailRecipientRule, int>();
                 var rules = await ruleRepo.GetAllAsync(
-                    filter: r => r.EmailNotificationConfigId == config.Id,
+                    filter: r => r.EmailNotificationConfigId == config.Id && r.StatusRegister,
                     orderBy: q => q.OrderBy(r => r.Priority)
                 );
 

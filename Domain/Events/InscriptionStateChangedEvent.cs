@@ -6,5 +6,5 @@ namespace Domain.Events
         int InscriptionModalityId, 
         int ModalityId, 
         int NewStateInscriptionId, 
-        int TriggeredByUserId) : BaseEvent;
+        int? TriggeredByUserId) : BaseEvent;
 }

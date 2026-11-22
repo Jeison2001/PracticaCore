@@ -50,6 +50,7 @@ namespace Application.Features.Security.EventHandlers
                 .ToDictionary(g => g.Key, g => g.First());
 
             var now = DateTimeOffset.UtcNow;
+            var auditUserId = notification.TriggeredByUserId is > 0 ? notification.TriggeredByUserId : null;
             var operationRegister = $"Asignación automática por Rol ID: {notification.RoleId}";
             var toAdd = new List<UserPermission>();
 
@@ -61,7 +62,7 @@ namespace Application.Features.Security.EventHandlers
                     {
                         IdUser = notification.UserId,
                         IdPermission = perm.Id,
-                        IdUserCreatedAt = notification.TriggeredByUserId,
+                        IdUserCreatedAt = auditUserId,
                         OperationRegister = operationRegister,
                         StatusRegister = true,
                         CreatedAt = now
@@ -71,7 +72,7 @@ namespace Application.Features.Security.EventHandlers
                 {
                     // El nuevo rol asignado reactiva el permiso para el usuario
                     existingUserPermission.StatusRegister = true;
-                    existingUserPermission.IdUserUpdatedAt = notification.TriggeredByUserId;
+                    existingUserPermission.IdUserUpdatedAt = auditUserId;
                     existingUserPermission.UpdatedAt = now;
                     existingUserPermission.OperationRegister = $"Reactivación por asignación de Rol ID: {notification.RoleId}";
                     await userPermissionRepo.UpdateAsync(existingUserPermission);

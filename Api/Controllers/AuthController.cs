@@ -238,10 +238,12 @@ namespace Api.Controllers
 
                     var userRole = new Domain.Entities.UserRole
                     {
-                        IdUser = user.Id,
-                        IdRole = studentRole.Id,
+                        IdUserCreatedAt = user.Id,
+                        CreatedAt = DateTimeOffset.UtcNow,
                         StatusRegister = true,
-                        OperationRegister = "User Registration"
+                        OperationRegister = "User Registration",
+                        IdUser = user.Id,
+                        IdRole = studentRole.Id
                     };
 
                     var userRoleRepo = _unitOfWork.GetRepository<Domain.Entities.UserRole, int>();

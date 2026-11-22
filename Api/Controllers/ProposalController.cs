@@ -174,7 +174,7 @@ namespace Api.Controllers
             return Task.FromResult<IActionResult>(NotFound());
         }
 
-        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPR, PermissionCodes.ProyectoGrado.N3PGRP, PermissionCodes.ProyectoGrado.N3PGCP)]
+        [RequirePermission(PermissionCodes.ProyectoGrado.N4PGPPG, PermissionCodes.ProyectoGrado.N3PGRP, PermissionCodes.ProyectoGrado.N3PGCP)]
         [HttpPut("{id}")]
         public override async Task<IActionResult> Update(int id, [FromBody] ProposalDto dto)
         {
@@ -184,10 +184,10 @@ namespace Api.Controllers
             int? previousStateId = null;
 
             var permissions = PermissionClaimHelper.ExtractPermissionCodes(User);
-            var isCommitteeOrEvaluator =
-                permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPR);
+            var isCommitteeManager =
+                permissions.Contains(PermissionCodes.ProyectoGrado.N4PGPPG);
 
-            if (!isCommitteeOrEvaluator)
+            if (!isCommitteeManager)
             {
                 var currentUserId = User.GetUserId();
                 if (!currentUserId.HasValue)
@@ -218,7 +218,8 @@ namespace Api.Controllers
                     || !currentState.StatusRegister
                     || currentState.Code != StateStageCodes.PropNoPertinente
                     || currentState.IsFinalStateForStage
-                    || currentState.IsFinalStateForModalityOverall)
+                    || currentState.IsFinalStateForModalityOverall
+                    || currentState.IsRejectionState)
                 {
                     return BadRequest(new ApiResponse<ProposalDto>
                     {
@@ -244,8 +245,8 @@ namespace Api.Controllers
             }
             else
             {
-                // El comite/evaluador no puede saltar transiciones de estado ni notificaciones via PUT;
-                // debe usar PATCH /api/Proposal/{id} (PatchProposalCommand).
+                // El gestor del comité no puede saltar transiciones de estado ni notificaciones via PUT;
+                // debe usar PATCH /api/Proposal/{id} (PatchProposalCommand), y no puede editar propuestas cerradas.
                 var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
                 var existingProposal = await proposalRepo.GetByIdAsync(id);
                 if (existingProposal == null)
@@ -257,11 +258,47 @@ namespace Api.Controllers
                     });
                 }
 
+                var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
+                var currentState = await stateStageRepo.GetByIdAsync(existingProposal.IdStateStage);
+                if (currentState != null &&
+                    (currentState.IsFinalStateForStage ||
+                     currentState.IsFinalStateForModalityOverall ||
+                     currentState.IsRejectionState))
+                {
+                    return BadRequest(new ApiResponse<ProposalDto>
+                    {
+                        Success = false,
+                        Errors = new List<string>
+                        {
+                            $"No se puede modificar una propuesta que ya se encuentra en estado '{currentState.Name}'."
+                        }
+                    });
+                }
+
                 dto = dto with
                 {
                     Id = dto.Id == 0 ? id : dto.Id,
                     IdStateStage = existingProposal.IdStateStage
                 };
+            }
+
+            var inscription = await _unitOfWork.GetRepository<InscriptionModality, int>().GetByIdAsync(id);
+            if (inscription != null)
+            {
+                var modality = await _unitOfWork.GetRepository<Modality, int>().GetByIdAsync(inscription.IdModality);
+                if (modality?.MaxSpecificObjectives.HasValue == true &&
+                    dto.SpecificObjectives != null &&
+                    dto.SpecificObjectives.Count > modality.MaxSpecificObjectives.Value)
+                {
+                    return BadRequest(new ApiResponse<ProposalDto>
+                    {
+                        Success = false,
+                        Errors = new List<string>
+                        {
+                            $"El número de objetivos específicos ({dto.SpecificObjectives.Count}) no puede exceder el máximo permitido ({modality.MaxSpecificObjectives.Value})"
+                        }
+                    });
+                }
             }
 
             var updateResult = await base.Update(id, dto);

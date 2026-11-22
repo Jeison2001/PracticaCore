@@ -28,7 +28,7 @@ namespace Application.Common.Services.Notifications
         {
             var result = new EmailRecipientsResult();
 
-            foreach (var rule in rules.OrderBy(r => r.Priority))
+            foreach (var rule in rules.Where(r => r.StatusRegister).OrderBy(r => r.Priority))
             {
                 try
                 {
@@ -86,16 +86,18 @@ namespace Application.Common.Services.Notifications
                 var roleRepo = _unitOfWork.GetRepository<Role, int>();
                 var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
 
-                // Buscar rol por código (más estable que por nombre)
-                var role = await roleRepo.GetFirstOrDefaultAsync(r => r.Code == rule.RuleValue, CancellationToken.None);
+                // Buscar rol activo por código (más estable que por nombre)
+                var role = await roleRepo.GetFirstOrDefaultAsync(
+                    r => r.Code == rule.RuleValue && r.StatusRegister,
+                    CancellationToken.None);
                 if (role == null) 
                 {
                     _logger.LogWarning("No se encontró rol con código: {RoleCode}", rule.RuleValue);
                     return emails;
                 }
 
-                // Obtener usuarios con ese rol
-                var userRoles = await userRoleRepo.GetAllAsync(filter: ur => ur.IdRole == role.Id);
+                // Obtener usuarios con asignación de rol activa
+                var userRoles = await userRoleRepo.GetAllAsync(filter: ur => ur.IdRole == role.Id && ur.StatusRegister);
                 var userIds = userRoles.Select(ur => ur.IdUser).ToList();
 
                 var users = await userRepo.GetAllAsync(filter: u => userIds.Contains(u.Id) && u.StatusRegister);
@@ -277,27 +279,47 @@ namespace Application.Common.Services.Notifications
 
         private async Task<IEnumerable<User>> ApplyAdditionalConditionsAsync(IEnumerable<User> users, string conditions, Dictionary<string, object> eventData)
         {
-            // Implementar lógica para aplicar condiciones adicionales en JSON
-            // Por ejemplo, filtrar por facultad, programa académico, etc.
-            
             try
             {
                 var conditionsDict = JsonSerializer.Deserialize<Dictionary<string, object>>(conditions);
-                if (conditionsDict == null) return users;
+                if (conditionsDict == null)
+                    return Enumerable.Empty<User>();
 
-                // Ejemplo: filtrar por facultad si está en las condiciones
-                if (conditionsDict.ContainsKey("FacultyId") && eventData.ContainsKey("FacultyId"))
+                if (conditionsDict.ContainsKey("FacultyId"))
                 {
-                    var facultyId = Convert.ToInt32(eventData["FacultyId"]);
-                    // Aplicar filtro por facultad (esto requeriría relación User -> AcademicProgram -> Faculty)
-                    // users = users.Where(u => u.AcademicProgram?.FacultyId == facultyId);
+                    int facultyId;
+                    if (eventData.TryGetValue("FacultyId", out var rawEventFacultyId) && rawEventFacultyId != null)
+                    {
+                        facultyId = Convert.ToInt32(rawEventFacultyId);
+                    }
+                    else if (conditionsDict["FacultyId"] is JsonElement je && je.ValueKind == JsonValueKind.Number && je.TryGetInt32(out var literalFacultyId))
+                    {
+                        facultyId = literalFacultyId;
+                    }
+                    else
+                    {
+                        return Enumerable.Empty<User>();
+                    }
+
+                    var userList = users.ToList();
+                    var programIds = userList.Select(u => u.IdAcademicProgram).Where(id => id > 0).Distinct().ToList();
+                    var programRepo = _unitOfWork.GetRepository<AcademicProgram, int>();
+                    var matchingProgramIds = (await programRepo.GetAllAsync(
+                            p => programIds.Contains(p.Id) && p.IdFaculty == facultyId && p.StatusRegister))
+                        .Select(p => p.Id)
+                        .ToHashSet();
+
+                    users = userList.Where(u =>
+                        (u.AcademicProgram != null && u.AcademicProgram.IdFaculty == facultyId) ||
+                        matchingProgramIds.Contains(u.IdAcademicProgram));
                 }
 
                 return users;
             }
-            catch
+            catch (Exception ex)
             {
-                return users; // Si hay error en condiciones, devolver todos los usuarios
+                _logger.LogWarning(ex, "Error aplicando condiciones adicionales de destinatarios; se retorna lista vacía (fail-closed).");
+                return Enumerable.Empty<User>();
             }
         }
 
@@ -426,7 +448,7 @@ namespace Application.Common.Services.Notifications
 
                 // Buscar el tipo de asignación por código
                 var assignmentType = await typeTeachingAssignmentRepo.GetFirstOrDefaultAsync(
-                    tta => tta.Code == assignmentTypeCode, 
+                    tta => tta.Code == assignmentTypeCode && tta.StatusRegister, 
                     CancellationToken.None);
 
                 if (assignmentType == null)
@@ -435,11 +457,13 @@ namespace Application.Common.Services.Notifications
                     return emails;
                 }
 
-                // Obtener asignaciones de docentes para esta inscripción y tipo
+                // Obtener asignaciones de docentes activas, confirmadas y no revocadas para esta inscripción y tipo
                 var assignments = await teachingAssignmentRepo.GetAllAsync(
                     filter: ta => ta.IdInscriptionModality == inscriptionModalityId && 
                                  ta.IdTypeTeachingAssignment == assignmentType.Id &&
-                                 ta.StatusRegister);
+                                 ta.StatusRegister &&
+                                 ta.IsConfirmed &&
+                                 ta.RevocationDate == null);
 
                 if (!assignments.Any())
                 {

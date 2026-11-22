@@ -48,7 +48,7 @@ namespace Application.Shared.Commands.CoTerminals.Handlers
                 entity.Id,
                 request.Dto.IdStateStage,
                 request.CurrentUser,
-                [PermissionCodes.CoTerminal.N3CTSGG, PermissionCodes.CoTerminal.N3CTSGR],
+                [PermissionCodes.CoTerminal.N3CTSGR],
                 cancellationToken);
 
             _logger.LogInformation("Patching CoTerminal Id={Id}. StateStage={State}, Observations={Obs}",
