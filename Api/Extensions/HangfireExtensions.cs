@@ -16,13 +16,19 @@ namespace Api.Extensions
             if (string.IsNullOrEmpty(connectionString))
                 throw new InvalidOperationException("La cadena de conexión 'Hangfire' no está configurada.");
 
+            var schemaName = configuration["Hangfire:SchemaName"];
+            if (string.IsNullOrWhiteSpace(schemaName))
+                schemaName = "hangfire";
+            else
+                schemaName = schemaName.Trim();
+
             services.AddHangfire(config => config
                 .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                 .UseSimpleAssemblyNameTypeSerializer()
                 .UseRecommendedSerializerSettings()
                 .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString), new PostgreSqlStorageOptions
                 {
-                    SchemaName = "hangfire",
+                    SchemaName = schemaName,
                     EnableTransactionScopeEnlistment = true
                 }));
 
