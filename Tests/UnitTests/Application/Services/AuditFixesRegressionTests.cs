@@ -1075,5 +1075,92 @@ namespace Tests.UnitTests.Application.Services
                     .WithMessage("*rechazo*");
             }
         }
+
+        [Fact]
+        public async Task HallazgoA_MinorModalityBuilders_WhenRequiresApprovalFalseAndInscriptionApprovalDateNull_PopulateColombiaApprovalDate()
+        {
+            using var context = CreateInMemoryContext();
+            var uow = new UnitOfWork(context, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
+
+            var studentDataMock = new Mock<IStudentDataService>();
+            studentDataMock.Setup(s => s.GetStudentDataByInscriptionAsync(It.IsAny<int>()))
+                .ReturnsAsync(("Valentina Ríos", "valentina@unicesar.edu.co", 1));
+
+            context.Set<Modality>().AddRange(
+                new Modality { Id = 6, Code = ModalityCodes.GradoPromedio, Name = "Grado por Promedio", RequiresApproval = false, StatusRegister = true },
+                new Modality { Id = 7, Code = ModalityCodes.SaberPro, Name = "Saber Pro", RequiresApproval = false, StatusRegister = true });
+
+            context.Set<StateInscription>().Add(new StateInscription
+            {
+                Id = 3,
+                Code = StateInscriptionCodes.NoAplica,
+                Name = "No Aplica",
+                StatusRegister = true
+            });
+
+            context.Set<StateStage>().AddRange(
+                new StateStage { Id = 80, Code = nameof(StateStageCodeEnum.SP_APROBADO), Name = "Saber Pro Aprobado", IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, StatusRegister = true },
+                new StateStage { Id = 81, Code = nameof(StateStageCodeEnum.GP_APROBADO), Name = "Grado por Promedio Aprobado", IsFinalStateForStage = true, IsFinalStateForModalityOverall = true, StatusRegister = true });
+
+            context.Set<InscriptionModality>().AddRange(
+                new InscriptionModality
+                {
+                    Id = 980,
+                    IdModality = 7,
+                    IdStateInscription = 3,
+                    ApprovalDate = null, // Modalidad sin aprobación previa de inscripción
+                    StatusRegister = true
+                },
+                new InscriptionModality
+                {
+                    Id = 981,
+                    IdModality = 6,
+                    IdStateInscription = 3,
+                    ApprovalDate = null, // Modalidad sin aprobación previa de inscripción
+                    StatusRegister = true
+                });
+
+            // 2026-11-28 02:15 UTC == 2026-11-27 09:15 PM en América/Bogotá (UTC-5) -> fecha Colombia "27/11/2026"
+            var evaluationInstantUtc = new DateTimeOffset(2026, 11, 28, 2, 15, 0, TimeSpan.Zero);
+
+            context.Set<SaberPro>().Add(new SaberPro
+            {
+                Id = 980,
+                IdStateStage = 80,
+                ResultQuintile = "Q5",
+                ResultScore = 215,
+                CreatedAt = evaluationInstantUtc.AddDays(-5),
+                UpdatedAt = evaluationInstantUtc,
+                StatusRegister = true
+            });
+
+            context.Set<AcademicAverage>().Add(new AcademicAverage
+            {
+                Id = 981,
+                IdStateStage = 81,
+                CertifiedAverage = 4.65m,
+                HasFailedSubjects = false,
+                CreatedAt = evaluationInstantUtc.AddDays(-3),
+                UpdatedAt = evaluationInstantUtc,
+                StatusRegister = true
+            });
+
+            await context.SaveChangesAsync();
+
+            var saberProBuilder = new SaberProEventDataBuilder(
+                uow,
+                studentDataMock.Object,
+                NullLogger<SaberProEventDataBuilder>.Instance);
+            var academicAverageBuilder = new AcademicAverageEventDataBuilder(
+                uow,
+                studentDataMock.Object,
+                NullLogger<AcademicAverageEventDataBuilder>.Instance);
+
+            var spData = await saberProBuilder.BuildEventDataAsync(980, "SABER_PRO_APPROVED");
+            var gpData = await academicAverageBuilder.BuildEventDataAsync(981, "ACADEMIC_AVERAGE_APPROVED");
+
+            spData["ApprovalDate"].Should().Be("27/11/2026");
+            gpData["ApprovalDate"].Should().Be("27/11/2026");
+        }
     }
 }

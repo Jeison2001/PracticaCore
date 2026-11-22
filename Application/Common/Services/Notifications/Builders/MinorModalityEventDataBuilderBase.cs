@@ -43,6 +43,9 @@ namespace Application.Common.Services.Notifications.Builders
             var effectiveSubmissionDate = submissionDate.HasValue && submissionDate.Value != default
                 ? submissionDate.Value
                 : DateTimeOffset.UtcNow;
+            var effectiveApprovalDate = tone == "approved"
+                ? effectiveSubmissionDate
+                : (inscription.ApprovalDate ?? effectiveSubmissionDate);
             var cleanObservations = string.IsNullOrWhiteSpace(rawObservations)
                 ? string.Empty
                 : rawObservations.Trim();
@@ -64,7 +67,7 @@ namespace Application.Common.Services.Notifications.Builders
                 ["Observations"] = cleanObservations,
                 ["ObservationsBlock"] = NotificationFormattingHelper.BuildObservationsBlockHtml(cleanObservations, tone),
                 ["SubmissionDate"] = NotificationFormattingHelper.ToColombiaDateTime(effectiveSubmissionDate),
-                ["ApprovalDate"] = NotificationFormattingHelper.ToColombiaDate(inscription.ApprovalDate)
+                ["ApprovalDate"] = NotificationFormattingHelper.ToColombiaDate(effectiveApprovalDate)
             };
         }
 
