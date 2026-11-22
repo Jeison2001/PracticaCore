@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Notifications;
@@ -78,14 +79,16 @@ namespace Application.Common.Services.Notifications.Builders
                     ["ModalityName"] = modality?.Name ?? string.Empty,
                     ["CurrentStage"] = currentStage?.Name ?? "Sin fase definida",
                     ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty,
-                    ["AssignmentDate"] = assignment.CreatedAt.ToString("dd/MM/yyyy"),
+                    ["AssignmentDate"] = NotificationFormattingHelper.ToColombiaDate(assignment.CreatedAt),
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
                     ["StudentsCount"] = studentCount,
                     ["EventType"] = eventType,
                     ["InscriptionId"] = inscription.Id,
+                    ["InscriptionModalityId"] = inscription.Id,
+                    ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor("info"),
                     ["CreatedAt"] = assignment.CreatedAt,
-                    ["UpdatedAt"] = assignment.UpdatedAt ?? DateTime.UtcNow
+                    ["UpdatedAt"] = assignment.UpdatedAt ?? DateTimeOffset.UtcNow
                 };
 
                 _logger.LogDebug("Built event data for TeachingAssignment ID: {AssignmentId}, Event: {EventType}", assignmentId, eventType);
@@ -118,7 +121,9 @@ namespace Application.Common.Services.Notifications.Builders
 
                 // Obtener título de la propuesta
                 var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
-                var proposal = await proposalRepo.GetFirstOrDefaultAsync(p => p.InscriptionModality.Id == inscription.Id, CancellationToken.None);
+                var proposal = await proposalRepo.GetFirstOrDefaultAsync(
+                    p => (p.Id == inscription.Id || (p.InscriptionModality != null && p.InscriptionModality.Id == inscription.Id)) && p.StatusRegister,
+                    CancellationToken.None);
 
                 if (proposal != null && !string.IsNullOrEmpty(proposal.Title))
                 {

@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Interfaces.Services.Notifications.Handlers;
 using Microsoft.Extensions.Logging;
@@ -58,15 +59,31 @@ namespace Application.Common.Services.Notifications.Handlers
                 var userInscriptions = (await userInscriptionRepo.GetAllAsync(ui => ui.IdInscriptionModality == entity.Id && ui.StatusRegister)).ToList();
                 var studentIds = userInscriptions.Select(ui => ui.IdUser).ToList();
 
-                var eventData = await _eventDataBuilder.BuildBasicInscriptionDataAsync(
-                    entity.Id,
-                    entity.IdModality,
-                    entity.IdAcademicPeriod,
-                    studentIds);
+                var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
+                var modality = modalityRepo != null && entity.IdModality > 0
+                    ? await modalityRepo.GetByIdAsync(entity.IdModality)
+                    : null;
 
-                var jobId = _queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
+                // Solo encolar INSCRIPTION_CREATED cuando la modalidad requiere aprobación de inscripción
+                // (cuando modality == null en entornos/mocks parciales se conserva compatibilidad).
+                if (modality == null || modality.RequiresApproval)
+                {
+                    var eventData = await _eventDataBuilder.BuildBasicInscriptionDataAsync(
+                        entity.Id,
+                        entity.IdModality,
+                        entity.IdAcademicPeriod,
+                        studentIds);
 
-                _logger.LogInformation("Inscription creation notification enqueued - Inscription ID: {InscriptionId}, JobId: {JobId}", entity.Id, jobId);
+                    var jobId = _queueService.EnqueueEventNotification("INSCRIPTION_CREATED", eventData);
+
+                    _logger.LogInformation("Inscription creation notification enqueued - Inscription ID: {InscriptionId}, JobId: {JobId}", entity.Id, jobId);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Modalidad '{ModalityCode}' (ID={ModalityId}) tiene RequiresApproval=false; se omite INSCRIPTION_CREATED para Inscription ID: {InscriptionId}.",
+                        modality.Code, modality.Id, entity.Id);
+                }
 
                 var pendingCoStudents = userInscriptions
                     .Where(ui => ui.StatusRegister && !ui.IsConfirmed)
@@ -94,14 +111,17 @@ namespace Application.Common.Services.Notifications.Handlers
                     if (creator == null && firstConfirmedId.HasValue)
                         usersById.TryGetValue(firstConfirmedId.Value, out creator);
 
-                    var modality = await _unitOfWork.GetRepository<Modality, int>().GetByIdAsync(entity.IdModality);
-                    var academicPeriod = await _unitOfWork.GetRepository<AcademicPeriod, int>().GetByIdAsync(entity.IdAcademicPeriod);
+                    var academicPeriodRepo = _unitOfWork.GetRepository<AcademicPeriod, int>();
+                    var academicPeriod = academicPeriodRepo != null && entity.IdAcademicPeriod > 0
+                        ? await academicPeriodRepo.GetByIdAsync(entity.IdAcademicPeriod)
+                        : null;
 
                     var creatorName = creator != null ? $"{creator.FirstName} {creator.LastName}".Trim() : string.Empty;
                     var creatorEmail = creator?.Email ?? string.Empty;
                     var modalityName = modality?.Name ?? string.Empty;
                     var periodCode = academicPeriod?.Code ?? string.Empty;
-                    var inscriptionDate = entity.CreatedAt.ToString("dd/MM/yyyy");
+                    var inscriptionDate = NotificationFormattingHelper.ToColombiaDate(
+                        entity.CreatedAt != default ? entity.CreatedAt : DateTimeOffset.UtcNow);
 
                     foreach (var pending in pendingCoStudents)
                     {
@@ -116,6 +136,7 @@ namespace Application.Common.Services.Notifications.Handlers
                         var invitedEventData = new Dictionary<string, object>
                         {
                             ["InscriptionId"] = entity.Id,
+                            ["InscriptionModalityId"] = entity.Id,
                             ["ModalityName"] = modalityName,
                             ["AcademicPeriod"] = periodCode,
                             ["AcademicPeriodCode"] = periodCode,
@@ -123,7 +144,8 @@ namespace Application.Common.Services.Notifications.Handlers
                             ["CreatorName"] = creatorName,
                             ["CreatorEmail"] = creatorEmail,
                             ["InvitedStudentName"] = $"{invitedUser.FirstName} {invitedUser.LastName}".Trim(),
-                            ["InvitedStudentEmail"] = invitedUser.Email
+                            ["InvitedStudentEmail"] = invitedUser.Email,
+                            ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor("info")
                         };
 
                         var inviteJobId = _queueService.EnqueueEventNotification("INSCRIPTION_COSTUDENT_INVITED", invitedEventData);

@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Notifications;
@@ -7,7 +8,7 @@ namespace Application.Common.Services.Notifications.Builders
 {
     /// <summary>
     /// Lógica compartida para construir datos de evento de notificación para modalidades menores
-    /// (CoTerminal, Seminar, SaberPro, ScientificArticle).
+    /// (CoTerminal, Seminar, SaberPro, ScientificArticle, AcademicAverage).
     /// </summary>
     public abstract class MinorModalityEventDataBuilderBase
     {
@@ -22,7 +23,13 @@ namespace Application.Common.Services.Notifications.Builders
             _logger = logger;
         }
 
-        protected async Task<Dictionary<string, object>> BuildBaseDataAsync(InscriptionModality inscription, int stateStageId, string eventType, string phaseLabel)
+        protected async Task<Dictionary<string, object>> BuildBaseDataAsync(
+            InscriptionModality inscription,
+            int stateStageId,
+            string eventType,
+            string phaseLabel,
+            DateTimeOffset? submissionDate = null,
+            string? rawObservations = null)
         {
             var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
             var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
@@ -32,6 +39,13 @@ namespace Application.Common.Services.Notifications.Builders
 
             var stateInfo = await GetStateInfoAsync(stateStageId);
             var evaluationResult = GetEvaluationResultText(stateInfo.StateCode);
+            var tone = GetToneFromStateCode(stateInfo.StateCode, stateInfo.IsRejectionState);
+            var effectiveSubmissionDate = submissionDate.HasValue && submissionDate.Value != default
+                ? submissionDate.Value
+                : DateTimeOffset.UtcNow;
+            var cleanObservations = string.IsNullOrWhiteSpace(rawObservations)
+                ? string.Empty
+                : rawObservations.Trim();
 
             return new Dictionary<string, object>
             {
@@ -45,16 +59,29 @@ namespace Application.Common.Services.Notifications.Builders
                 ["EventType"] = eventType,
                 ["Phase"] = phaseLabel,
                 ["EvaluationResult"] = evaluationResult,
-                ["SubmissionDate"] = DateTimeOffset.UtcNow.ToString("dd/MM/yyyy HH:mm"),
-                ["ApprovalDate"] = inscription.ApprovalDate?.ToString("dd/MM/yyyy") ?? string.Empty
+                ["EvaluationBadgeHtml"] = NotificationFormattingHelper.BuildEvaluationBadgeHtml(evaluationResult, tone),
+                ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor(tone),
+                ["Observations"] = cleanObservations,
+                ["ObservationsBlock"] = NotificationFormattingHelper.BuildObservationsBlockHtml(cleanObservations, tone),
+                ["SubmissionDate"] = NotificationFormattingHelper.ToColombiaDateTime(effectiveSubmissionDate),
+                ["ApprovalDate"] = NotificationFormattingHelper.ToColombiaDate(inscription.ApprovalDate)
             };
         }
 
-        private async Task<(string StateName, string StateCode)> GetStateInfoAsync(int stateStageId)
+        private async Task<(string StateName, string StateCode, bool IsRejectionState)> GetStateInfoAsync(int stateStageId)
         {
             var repo = _unitOfWork.GetRepository<StateStage, int>();
             var state = await repo.GetByIdAsync(stateStageId);
-            return (state?.Name ?? "Estado desconocido", state?.Code ?? "UNKNOWN");
+            return (state?.Name ?? "Estado desconocido", state?.Code ?? "UNKNOWN", state?.IsRejectionState ?? false);
+        }
+
+        protected static string GetToneFromStateCode(string stateCode, bool isRejectionState = false)
+        {
+            var upper = (stateCode ?? string.Empty).ToUpperInvariant();
+            if (isRejectionState || upper.Contains("RECHAZADO")) return "rejected";
+            if (upper.Contains("OBSERVACIONES")) return "warning";
+            if (upper.Contains("APROBADO")) return "approved";
+            return "info";
         }
 
         protected static string GetEvaluationResultText(string stateCode)

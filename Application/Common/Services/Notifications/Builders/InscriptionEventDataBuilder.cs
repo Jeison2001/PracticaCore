@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
@@ -47,9 +48,15 @@ namespace Application.Common.Services.Notifications.Builders
 
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByInscriptionAsync(inscriptionId);
 
+                var tone = GetInscriptionTone(stateInscription?.Code, eventType);
+                var cleanObservations = string.IsNullOrWhiteSpace(inscription.Observations)
+                    ? string.Empty
+                    : inscription.Observations.Trim();
+
                 var eventData = new Dictionary<string, object>
                 {
                     ["InscriptionId"] = inscription.Id,
+                    ["InscriptionModalityId"] = inscription.Id,
                     ["InscriptionState"] = stateInscription?.Name ?? string.Empty,
                     ["EventType"] = eventType,
                     ["ModalityName"] = modality?.Name ?? string.Empty,
@@ -60,13 +67,15 @@ namespace Application.Common.Services.Notifications.Builders
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
                     ["StudentsCount"] = studentCount, // Alias para templates que usan StudentsCount
-                    ["InscriptionDate"] = inscription.CreatedAt.ToString("dd/MM/yyyy"),
-                    ["ApprovalDate"] = inscription.ApprovalDate?.ToString("dd/MM/yyyy") ?? inscription.UpdatedAt?.ToString("dd/MM/yyyy") ?? string.Empty,
-                    ["ReviewDate"] = inscription.UpdatedAt?.ToString("dd/MM/yyyy") ?? string.Empty,
-                    ["ApprovalComments"] = inscription.Observations ?? string.Empty,
-                    ["RejectionComments"] = inscription.Observations ?? string.Empty,
+                    ["InscriptionDate"] = NotificationFormattingHelper.ToColombiaDate(inscription.CreatedAt),
+                    ["ApprovalDate"] = NotificationFormattingHelper.ToColombiaDate(inscription.ApprovalDate ?? inscription.UpdatedAt),
+                    ["ReviewDate"] = NotificationFormattingHelper.ToColombiaDate(inscription.UpdatedAt),
+                    ["ApprovalComments"] = cleanObservations,
+                    ["RejectionComments"] = cleanObservations,
+                    ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor(tone),
+                    ["ObservationsBlock"] = NotificationFormattingHelper.BuildObservationsBlockHtml(cleanObservations, tone),
                     ["CreatedAt"] = inscription.CreatedAt,
-                    ["UpdatedAt"] = inscription.UpdatedAt ?? DateTime.UtcNow,
+                    ["UpdatedAt"] = inscription.UpdatedAt ?? DateTimeOffset.UtcNow,
                     ["NextSteps"] = GetNextStepsByModality(modality?.Code ?? string.Empty)
                 };
 
@@ -120,9 +129,14 @@ namespace Application.Common.Services.Notifications.Builders
 
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByUserIdsAsync(studentIds);
 
+                var createdAt = inscription != null && inscription.CreatedAt != default
+                    ? inscription.CreatedAt
+                    : DateTimeOffset.UtcNow;
+
                 var eventData = new Dictionary<string, object>
                 {
                     ["InscriptionId"] = inscriptionId,
+                    ["InscriptionModalityId"] = inscriptionId,
                     ["InscriptionState"] = inscriptionState,
                     ["EventType"] = "INSCRIPTION_CREATED",
                     ["ModalityName"] = modality?.Name ?? string.Empty,
@@ -133,12 +147,14 @@ namespace Application.Common.Services.Notifications.Builders
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
                     ["StudentsCount"] = studentCount,
-                    ["InscriptionDate"] = (inscription?.CreatedAt.UtcDateTime ?? DateTime.UtcNow).ToString("dd/MM/yyyy"),
+                    ["InscriptionDate"] = NotificationFormattingHelper.ToColombiaDate(createdAt),
                     ["ApprovalDate"] = string.Empty,
                     ["ReviewDate"] = string.Empty,
                     ["ApprovalComments"] = string.Empty,
                     ["RejectionComments"] = string.Empty,
-                    ["CreatedAt"] = inscription?.CreatedAt.UtcDateTime ?? DateTime.UtcNow,
+                    ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor("info"),
+                    ["ObservationsBlock"] = string.Empty,
+                    ["CreatedAt"] = createdAt.UtcDateTime,
                     ["NextSteps"] = GetNextStepsByModality(modality?.Code ?? string.Empty)
                 };
 
@@ -152,9 +168,21 @@ namespace Application.Common.Services.Notifications.Builders
             }
         }
 
+        private static string GetInscriptionTone(string? stateCode, string? eventType)
+        {
+            var upperState = (stateCode ?? string.Empty).ToUpperInvariant();
+            var upperEvent = (eventType ?? string.Empty).ToUpperInvariant();
+
+            if (upperState == StateInscriptionCodes.Aprobado || upperEvent == "INSCRIPTION_APPROVED")
+                return "approved";
+            if (upperState == StateInscriptionCodes.Rechazado || upperEvent == "INSCRIPTION_REJECTED")
+                return "rejected";
+            return "info";
+        }
+
         private static readonly Dictionary<string, string> ModalityNextStepsMap = new(StringComparer.OrdinalIgnoreCase)
         {
-            {ModalityCodes.ProyectoGrado, "<li>Proceder con la radicación de la propuesta</li><li>Mantente atento a futuras comunicaciones del comité académico</li>"},
+            {ModalityCodes.ProyectoGrado, "<li>Proceder con la radicación de la propuesta</li><li>Manténgase atento a futuras comunicaciones del comité académico</li>"},
             {ModalityCodes.PracticaAcademica, "<li>Proceder con la inscripción de la práctica académica</li><li>Completar el formulario de inscripción de práctica</li>"},
             {ModalityCodes.CoTerminal, "<li>Gestionar los trámites de co-terminalidad con posgrado</li><li>Entregar documentación requerida</li>"},
             {ModalityCodes.SeminarioAct, "<li>Preparar y presentar el seminario de actualización</li><li>Obtener aprobación del comité</li>"},

@@ -13,6 +13,11 @@ namespace Domain.Common.Notifications
         public string To { get; set; } = string.Empty;
 
         /// <summary>
+        /// Lista completa de destinatarios principales (To) sin duplicados
+        /// </summary>
+        public List<string> ToAddresses { get; set; } = new();
+
+        /// <summary>
         /// Asunto del correo electrónico
         /// </summary>
         public string Subject { get; set; } = string.Empty;

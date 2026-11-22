@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Application.Common.Services;
 using Application.Common.Services.Notifications;
 using Application.Common.Services.Notifications.Builders;
@@ -26,19 +27,23 @@ using Domain.Common.Teachers;
 using Domain.Common.Users;
 using Domain.Constants;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Events;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services;
 using Domain.Interfaces.Services.Jobs;
 using Domain.Interfaces.Services.Notifications;
+using Domain.Interfaces.Services.Notifications.Builders;
 using FluentAssertions;
 using Infrastructure.Data;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
+using Infrastructure.Services.Notifications;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using MimeKit;
 using Moq;
 using Xunit;
 
@@ -95,10 +100,10 @@ namespace Tests.UnitTests.Application.Services
                 .HandleCreationAsync(user);
             captured.Last()["LoginUrl"].Should().Be("https://app.pegi.edu.co/iniciar-sesion");
 
-            // 3. Fallback a localhost:4200
+            // 3. Fallback a URL institucional por defecto (sigepro-five.vercel.app)
             await new UserChangeHandler(queueMock.Object, uow, NullLogger<UserChangeHandler>.Instance)
                 .HandleCreationAsync(user);
-            captured.Last()["LoginUrl"].Should().Be("http://localhost:4200/iniciar-sesion");
+            captured.Last()["LoginUrl"].Should().Be("https://sigepro-five.vercel.app/iniciar-sesion");
         }
 
         [Fact]
@@ -459,6 +464,406 @@ namespace Tests.UnitTests.Application.Services
             await FluentActions.Invoking(() => inscHandler.Handle(inactiveRoleCmd, CancellationToken.None))
                 .Should().ThrowAsync<InvalidOperationException>()
                 .WithMessage("*no existe o no tiene el rol 'STUDENT'*");
+        }
+
+        [Fact]
+        public async Task Etapa1_EmailNotificationEventService_AndSmtp_SanitizeSinglePass_SupportRawHtmlKeys_MultiToWithoutBcc_AndPlainTextBody()
+        {
+            using var context = CreateInMemoryContext();
+            var uow = new UnitOfWork(context, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
+
+            context.Set<EmailNotificationConfig>().Add(new EmailNotificationConfig
+            {
+                Id = 10,
+                EventName = "ETAPA1_TEMPLATE_TEST",
+                SubjectTemplate = "[SIGEPRO] {ProjectTitle} & Revisión {MissingKey}",
+                BodyTemplate = "<style>.x{color:red}</style><div data-accent=\"{TopAccentColor}\"><p>{StudentNames}</p><p>{Observations}</p>{ObservationsBlock}{EvaluationBadgeHtml}{SpecificObjectivesHtml}<ul>{NextSteps}</ul><a href=\"{LoginUrl}\">{AppUrl}</a>{UnknownPlaceholder}</div>",
+                StatusRegister = true
+            });
+
+            context.Set<EmailRecipientRule>().AddRange(
+                new EmailRecipientRule { Id = 1, EmailNotificationConfigId = 10, RecipientType = "TO", RuleType = "EVENT_PARTICIPANT", RuleValue = "STUDENT", Priority = 1, StatusRegister = true },
+                new EmailRecipientRule { Id = 2, EmailNotificationConfigId = 10, RecipientType = "CC", RuleType = "FIXED_EMAIL", RuleValue = "EST1@unicesar.edu.co", Priority = 2, StatusRegister = true },
+                new EmailRecipientRule { Id = 3, EmailNotificationConfigId = 10, RecipientType = "CC", RuleType = "FIXED_EMAIL", RuleValue = "comite@unicesar.edu.co", Priority = 3, StatusRegister = true },
+                new EmailRecipientRule { Id = 4, EmailNotificationConfigId = 10, RecipientType = "BCC", RuleType = "FIXED_EMAIL", RuleValue = "COMITE@unicesar.edu.co", Priority = 4, StatusRegister = true },
+                new EmailRecipientRule { Id = 5, EmailNotificationConfigId = 10, RecipientType = "BCC", RuleType = "FIXED_EMAIL", RuleValue = "auditoria@unicesar.edu.co", Priority = 5, StatusRegister = true });
+            await context.SaveChangesAsync();
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["App:FrontendUrl"] = "https://pegi.unicesar.edu.co/"
+                })
+                .Build();
+
+            EmailNotification? capturedNotification = null;
+            var notifMock = new Mock<INotificationService>();
+            notifMock.Setup(n => n.SendEmailAsync(It.IsAny<EmailNotification>(), It.IsAny<CancellationToken>()))
+                .Callback<EmailNotification, CancellationToken>((e, _) => capturedNotification = e)
+                .ReturnsAsync(true);
+
+            var resolver = new EmailRecipientResolverService(uow, NullLogger<EmailRecipientResolverService>.Instance);
+            var eventService = new EmailNotificationEventService(
+                uow,
+                resolver,
+                notifMock.Object,
+                NullLogger<EmailNotificationEventService>.Instance,
+                configuration);
+
+            await eventService.ProcessEventAsync("ETAPA1_TEMPLATE_TEST", new Dictionary<string, object>
+            {
+                ["ProjectTitle"] = "Título\r\nCon Salto & {StudentEmails}",
+                ["StudentNames"] = "Ana <script>alert(1)</script> & {LoginUrl}",
+                ["StudentEmails"] = "est1@unicesar.edu.co, est2@unicesar.edu.co, EST1@UNICESAR.EDU.CO",
+                ["Observations"] = "Ajustar marco teórico\r\nRevisar citas <img src=x>",
+                ["ObservationsBlock"] = NotificationFormattingHelper.BuildObservationsBlockHtml("Revisar citas\nSegunda línea", "warning"),
+                ["EvaluationBadgeHtml"] = NotificationFormattingHelper.BuildEvaluationBadgeHtml("CON OBSERVACIONES", "warning"),
+                ["SpecificObjectivesHtml"] = NotificationFormattingHelper.BuildBulletedListHtml(["Objetivo <1>", "Objetivo 2"]),
+                ["NextSteps"] = "<li>Corregir documento</li>",
+                ["TopAccentColor"] = "#D97706"
+            });
+
+            capturedNotification.Should().NotBeNull();
+            // Subject: sin HtmlEncode, sin saltos CR/LF, sin segunda pasada sobre {StudentEmails}, clave faltante -> ""
+            capturedNotification!.Subject.Should().Be("[SIGEPRO] Título  Con Salto & {StudentEmails} & Revisión ");
+
+            // Body: escapa campos de usuario + <br />, NO expande {LoginUrl} inyectado dentro de StudentNames, y respeta RawHtmlKeys
+            capturedNotification.Body.Should().Contain("Ana &lt;script&gt;alert(1)&lt;/script&gt; &amp; {LoginUrl}");
+            capturedNotification.Body.Should().Contain($"{System.Net.WebUtility.HtmlEncode("Ajustar marco teórico")}<br />Revisar citas &lt;img src=x&gt;");
+            capturedNotification.Body.Should().Contain("<table role=\"presentation\"");
+            capturedNotification.Body.Should().Contain("CON OBSERVACIONES</span>");
+            capturedNotification.Body.Should().Contain("<li>Objetivo &lt;1&gt;</li><li>Objetivo 2</li>");
+            capturedNotification.Body.Should().Contain("<li>Corregir documento</li>");
+            capturedNotification.Body.Should().Contain("href=\"https://pegi.unicesar.edu.co/iniciar-sesion\">https://pegi.unicesar.edu.co</a>");
+            capturedNotification.Body.Should().NotContain("{UnknownPlaceholder}");
+
+            // Destinatarios: ambos estudiantes en ToAddresses, sin mover el 2.° a Bcc y deduplicando To -> Cc -> Bcc
+            capturedNotification.To.Should().Be("est1@unicesar.edu.co");
+            capturedNotification.ToAddresses.Should().Equal("est1@unicesar.edu.co", "est2@unicesar.edu.co");
+            capturedNotification.Cc.Should().Equal("comite@unicesar.edu.co");
+            capturedNotification.Bcc.Should().Equal("auditoria@unicesar.edu.co");
+
+            // SmtpNotificationService.CreateMimeMessage: múltiples To, DefaultFromName institucional y TextBody plano
+            var smtpService = new SmtpNotificationService(
+                new ConfigurationBuilder().Build(),
+                NullLogger<SmtpNotificationService>.Instance);
+            var mime = smtpService.CreateMimeMessage(capturedNotification);
+
+            mime.From.Mailboxes.Single().Name.Should().Be("SIGEPRO · Universidad Popular del Cesar");
+            mime.To.Mailboxes.Select(m => m.Address).Should().Equal("est1@unicesar.edu.co", "est2@unicesar.edu.co");
+            mime.Cc.Mailboxes.Select(m => m.Address).Should().Equal("comite@unicesar.edu.co");
+            mime.Bcc.Mailboxes.Select(m => m.Address).Should().Equal("auditoria@unicesar.edu.co");
+            mime.HtmlBody.Should().NotBeNullOrWhiteSpace();
+            mime.TextBody.Should().NotBeNullOrWhiteSpace();
+            mime.TextBody.Should().NotContain(".x{color:red}");
+            mime.TextBody.Should().Contain("Ana <script>alert(1)</script> & {LoginUrl}");
+            mime.TextBody.Should().Contain("Objetivo <1>");
+        }
+
+        [Fact]
+        public async Task Etapa1_NotificationFormattingHelper_FormatsColombiaTime_AndObservationsBlocks()
+        {
+            // 2026-11-28 01:30 UTC == 2026-11-27 08:30 PM en América/Bogotá (UTC-5)
+            var utcInstant = new DateTimeOffset(2026, 11, 28, 1, 30, 0, TimeSpan.Zero);
+            NotificationFormattingHelper.ToColombiaDateTime(utcInstant).Should().Be("27/11/2026 08:30 PM");
+            NotificationFormattingHelper.ToColombiaDate(utcInstant).Should().Be("27/11/2026");
+
+            NotificationFormattingHelper.BuildObservationsBlockHtml(null, "approved").Should().BeEmpty();
+            NotificationFormattingHelper.BuildObservationsBlockHtml("   ", "info").Should().BeEmpty();
+
+            var warningFallback = NotificationFormattingHelper.BuildObservationsBlockHtml(" ", "warning");
+            System.Net.WebUtility.HtmlDecode(warningFallback).Should().Contain("Consulte el detalle y los soportes de evaluación directamente en la plataforma SIGEPRO.");
+            warningFallback.Should().Contain("#D97706");
+
+            var rejectedBlock = NotificationFormattingHelper.BuildObservationsBlockHtml("Falta aval <b>firmado</b>\nAdjuntar PDF", "rejected");
+            rejectedBlock.Should().Contain("#DC2626");
+            rejectedBlock.Should().Contain("Falta aval &lt;b&gt;firmado&lt;/b&gt;<br />Adjuntar PDF");
+        }
+
+        [Fact]
+        public async Task Etapa1_RecipientResolver_ResolvesPermissionWithRoleFallback_AndPracticeStageResponsibleAcrossPhases()
+        {
+            using var context = CreateInMemoryContext();
+            var uow = new UnitOfWork(context, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
+
+            context.Set<Permission>().AddRange(
+                new Permission { Id = 1, Code = PermissionCodes.PracticaAcademica.N4PAF0PA, StatusRegister = true },
+                new Permission { Id = 2, Code = PermissionCodes.PracticaAcademica.N4PAF1PG, StatusRegister = true },
+                new Permission { Id = 3, Code = PermissionCodes.PracticaAcademica.N4PAF2PG, StatusRegister = true });
+
+            context.Set<Role>().Add(new Role { Id = 10, Code = "PA_COMMITTEE", Name = "Comité PA", StatusRegister = true });
+            context.Set<RolePermission>().AddRange(
+                new RolePermission { Id = 1, IdRole = 10, IdPermission = 1, StatusRegister = true },
+                new RolePermission { Id = 2, IdRole = 10, IdPermission = 2, StatusRegister = true },
+                new RolePermission { Id = 3, IdRole = 10, IdPermission = 3, StatusRegister = true });
+
+            // User 1: tiene UserPermission directa activa para N4PAF0PA
+            // User 2: NO tiene ninguna fila en UserPermission, pero tiene UserRole activo en PA_COMMITTEE -> entra por fallback
+            // User 3: tiene UserRole en PA_COMMITTEE, pero tiene fila UserPermission revocada (StatusRegister=false) -> NO entra por fallback
+            // User 4: docente confirmado asignado a la práctica
+            context.Set<User>().AddRange(
+                new User { Id = 1, Email = "direct.f0@unicesar.edu.co", StatusRegister = true },
+                new User { Id = 2, Email = "fallback.role@unicesar.edu.co", StatusRegister = true },
+                new User { Id = 3, Email = "revoked.perm@unicesar.edu.co", StatusRegister = true },
+                new User { Id = 4, Email = "docente.pa@unicesar.edu.co", StatusRegister = true },
+                new User { Id = 5, Email = "docente.noconf@unicesar.edu.co", StatusRegister = true });
+
+            context.Set<UserPermission>().AddRange(
+                new UserPermission { Id = 1, IdUser = 1, IdPermission = 1, StatusRegister = true },
+                new UserPermission { Id = 2, IdUser = 3, IdPermission = 1, StatusRegister = false });
+
+            context.Set<UserRole>().AddRange(
+                new UserRole { Id = 1, IdUser = 2, IdRole = 10, StatusRegister = true },
+                new UserRole { Id = 2, IdUser = 3, IdRole = 10, StatusRegister = true });
+
+            context.Set<StageModality>().AddRange(
+                new StageModality { Id = 100, Code = StageModalityCodes.PaFaseInscripcion, StatusRegister = true },
+                new StageModality { Id = 101, Code = StageModalityCodes.PaFaseDesarrollo, StatusRegister = true },
+                new StageModality { Id = 102, Code = StageModalityCodes.PaFaseEvaluacion, StatusRegister = true });
+
+            context.Set<InscriptionModality>().AddRange(
+                new InscriptionModality { Id = 500, IdStageModality = 100, StatusRegister = true },
+                new InscriptionModality { Id = 501, IdStageModality = 101, StatusRegister = true },
+                new InscriptionModality { Id = 502, IdStageModality = 102, StatusRegister = true });
+
+            context.Set<TeachingAssignment>().AddRange(
+                new TeachingAssignment { Id = 1, IdInscriptionModality = 501, IdTeacher = 4, IsConfirmed = true, RevocationDate = null, StatusRegister = true },
+                new TeachingAssignment { Id = 2, IdInscriptionModality = 501, IdTeacher = 5, IsConfirmed = false, RevocationDate = null, StatusRegister = true },
+                new TeachingAssignment { Id = 3, IdInscriptionModality = 502, IdTeacher = 4, IsConfirmed = true, RevocationDate = null, StatusRegister = true });
+
+            await context.SaveChangesAsync();
+
+            var resolver = new EmailRecipientResolverService(uow, NullLogger<EmailRecipientResolverService>.Instance);
+            var rule = new EmailRecipientRule
+            {
+                Id = 1,
+                RecipientType = "TO",
+                RuleType = "BY_ENTITY_RELATION",
+                RuleValue = "PRACTICE_STAGE_RESPONSIBLE",
+                StatusRegister = true
+            };
+
+            // Fase 0 (Inscripción): N4PAF0PA -> direct.f0 + fallback.role (excluyendo revoked.perm)
+            var f0 = await resolver.ResolveRecipientsAsync([rule], new Dictionary<string, object> { ["InscriptionModalityId"] = 500 });
+            f0.To.Should().BeEquivalentTo(["direct.f0@unicesar.edu.co", "fallback.role@unicesar.edu.co"]);
+
+            // Fase 1 (Desarrollo): docente confirmado + N4PAF1PG (fallback.role)
+            var f1 = await resolver.ResolveRecipientsAsync([rule], new Dictionary<string, object> { ["InscriptionModalityId"] = 501 });
+            f1.To.Should().BeEquivalentTo(["docente.pa@unicesar.edu.co", "fallback.role@unicesar.edu.co"]);
+
+            // Fase 2 (Evaluación): docente confirmado + N4PAF2PG (fallback.role)
+            var f2 = await resolver.ResolveRecipientsAsync([rule], new Dictionary<string, object> { ["InscriptionModalityId"] = 502 });
+            f2.To.Should().BeEquivalentTo(["docente.pa@unicesar.edu.co", "fallback.role@unicesar.edu.co"]);
+        }
+
+        [Fact]
+        public async Task Etapa1_ChangeHandlers_FixUnassignedTeacher_RequiresApprovalFalse_PreliminaryEnEvaluacion_AndProposalAdjustments()
+        {
+            using var context = CreateInMemoryContext();
+            var uow = new UnitOfWork(context, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
+
+            var enqueued = new List<(string EventName, Dictionary<string, object> Data)>();
+            var queueMock = new Mock<IEmailNotificationQueueService>();
+            queueMock.Setup(q => q.EnqueueEventNotification(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()))
+                .Callback<string, Dictionary<string, object>>((evt, data) => enqueued.Add((evt, data)))
+                .Returns("job-ok");
+
+            context.Set<Modality>().AddRange(
+                new Modality { Id = 1, Code = ModalityCodes.ProyectoGrado, Name = "Proyecto de Grado", RequiresApproval = true, StatusRegister = true },
+                new Modality { Id = 3, Code = ModalityCodes.CoTerminal, Name = "Co-Terminal", RequiresApproval = false, StatusRegister = true });
+            context.Set<AcademicPeriod>().Add(new AcademicPeriod { Id = 1, Code = "2026-2", StatusRegister = true });
+            context.Set<StageModality>().Add(new StageModality { Id = 4, Code = StageModalityCodes.PgFasePropuesta, Name = "Fase Propuesta", StatusRegister = true });
+            context.Set<StateStage>().AddRange(
+                new StateStage { Id = 5, Code = StateStageCodes.ApRadicadoPendAsigEval, Name = "Radicado", StatusRegister = true },
+                new StateStage { Id = 37, Code = StateStageCodes.ApEnEvaluacion, Name = "En Evaluación", StatusRegister = true },
+                new StateStage { Id = 31, Code = StateStageCodes.PropNoPertinente, Name = "No Pertinente", IsRejectionState = false, StatusRegister = true },
+                new StateStage { Id = 99, Code = "PROP_RECHAZADA", Name = "Rechazada", IsRejectionState = true, StatusRegister = true });
+
+            context.Set<User>().AddRange(
+                new User { Id = 10, Email = "old.teacher@unicesar.edu.co", FirstName = "Carlos", LastName = "Docente", StatusRegister = true },
+                new User { Id = 20, Email = "creator@unicesar.edu.co", FirstName = "Ana", LastName = "Lider", StatusRegister = true },
+                new User { Id = 21, Email = "invited@unicesar.edu.co", FirstName = "Luis", LastName = "Invitado", StatusRegister = true });
+
+            context.Set<TypeTeachingAssignment>().Add(new TypeTeachingAssignment { Id = 1, Code = "DIRECTOR", Name = "Director", StatusRegister = true });
+            context.Set<InscriptionModality>().AddRange(
+                new InscriptionModality { Id = 700, IdModality = 1, IdAcademicPeriod = 1, IdStageModality = 4, StatusRegister = true },
+                new InscriptionModality { Id = 701, IdModality = 3, IdAcademicPeriod = 1, IdUserCreatedAt = 20, CreatedAt = DateTimeOffset.UtcNow, StatusRegister = true });
+            context.Set<Proposal>().Add(new Proposal { Id = 700, Title = "Sistema Inteligente SIGEPRO", IdStateStage = 31, StatusRegister = true });
+            context.Set<UserInscriptionModality>().AddRange(
+                new UserInscriptionModality { Id = 1, IdInscriptionModality = 701, IdUser = 20, IsConfirmed = true, StatusRegister = true },
+                new UserInscriptionModality { Id = 2, IdInscriptionModality = 701, IdUser = 21, IsConfirmed = false, StatusRegister = true });
+            await context.SaveChangesAsync();
+
+            // 1. TEACHER_UNASSIGNED cuando oldEntity.IdInscriptionModality == 0 toma fallback de newEntity.IdInscriptionModality
+            var taBuilderMock = new Mock<ITeachingAssignmentEventDataBuilder>();
+            taBuilderMock.Setup(b => b.BuildTeachingAssignmentEventDataAsync(It.IsAny<int>(), It.IsAny<string>()))
+                .ReturnsAsync(new Dictionary<string, object> { ["Dummy"] = 1 });
+
+            var taHandler = new TeachingAssignmentChangeHandler(
+                queueMock.Object,
+                taBuilderMock.Object,
+                uow,
+                NullLogger<TeachingAssignmentChangeHandler>.Instance);
+
+            await taHandler.HandleChangeAsync(
+                new TeachingAssignment { Id = 55, IdInscriptionModality = 0, IdTeacher = 10, IdTypeTeachingAssignment = 1, StatusRegister = true },
+                new TeachingAssignment { Id = 55, IdInscriptionModality = 700, IdTeacher = 10, IdTypeTeachingAssignment = 1, RevocationDate = DateTimeOffset.UtcNow, StatusRegister = false });
+
+            var unassignedEvt = enqueued.Single(e => e.EventName == "TEACHER_UNASSIGNED");
+            unassignedEvt.Data["InscriptionId"].Should().Be(700);
+            unassignedEvt.Data["ProjectTitle"].Should().Be("Sistema Inteligente SIGEPRO");
+            unassignedEvt.Data["ModalityName"].Should().Be("Proyecto de Grado");
+
+            // 2. InscriptionChangeHandler: RequiresApproval == false NO encola INSCRIPTION_CREATED, pero SÍ INSCRIPTION_COSTUDENT_INVITED
+            enqueued.Clear();
+            var inscBuilderMock = new Mock<IInscriptionEventDataBuilder>();
+            var inscChangeHandler = new InscriptionChangeHandler(
+                queueMock.Object,
+                inscBuilderMock.Object,
+                uow,
+                NullLogger<InscriptionChangeHandler>.Instance);
+
+            var nonApprovalInsc = await context.Set<InscriptionModality>().FindAsync(701);
+            await inscChangeHandler.HandleCreationAsync(nonApprovalInsc!);
+
+            enqueued.Select(e => e.EventName).Should().Equal("INSCRIPTION_COSTUDENT_INVITED");
+            inscBuilderMock.Verify(b => b.BuildBasicInscriptionDataAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<IList<int>>()), Times.Never);
+
+            // 3. PreliminaryProjectChangeHandler: solo AP_RADICADO_PEND_ASIG_EVAL dispara ANTEPROYECTO_SUBMITTED (NO AP_EN_EVALUACION)
+            enqueued.Clear();
+            var ppBuilderMock = new Mock<IPreliminaryProjectEventDataBuilder>();
+            ppBuilderMock.Setup(b => b.BuildPreliminaryProjectEventDataAsync(It.IsAny<int>(), It.IsAny<string>()))
+                .ReturnsAsync(new Dictionary<string, object> { ["PreliminaryProjectId"] = 700 });
+
+            var ppChangeHandler = new PreliminaryProjectChangeHandler(
+                queueMock.Object,
+                ppBuilderMock.Object,
+                uow,
+                NullLogger<PreliminaryProjectChangeHandler>.Instance);
+
+            await ppChangeHandler.HandleChangeAsync(
+                new PreliminaryProject { Id = 700, IdStateStage = 1 },
+                new PreliminaryProject { Id = 700, IdStateStage = 5 }); // AP_RADICADO_PEND_ASIG_EVAL
+            await ppChangeHandler.HandleChangeAsync(
+                new PreliminaryProject { Id = 700, IdStateStage = 5 },
+                new PreliminaryProject { Id = 700, IdStateStage = 37 }); // AP_EN_EVALUACION
+
+            enqueued.Select(e => e.EventName).Should().Equal("ANTEPROYECTO_SUBMITTED");
+
+            // 4. ProposalChangeHandler: PROP_NO_PERTINENTE -> PROPOSAL_ADJUSTMENTS, estado de rechazo -> PROPOSAL_REJECTED
+            enqueued.Clear();
+            var propBuilderMock = new Mock<IProposalEventDataBuilder>();
+            propBuilderMock.Setup(b => b.BuildProposalEventDataAsync(It.IsAny<int>(), It.IsAny<string>()))
+                .ReturnsAsync(new Dictionary<string, object> { ["ProposalId"] = 700 });
+
+            var propChangeHandler = new ProposalChangeHandler(
+                queueMock.Object,
+                propBuilderMock.Object,
+                uow,
+                NullLogger<ProposalChangeHandler>.Instance);
+
+            await propChangeHandler.HandleChangeAsync(
+                new Proposal { Id = 700, IdStateStage = 1 },
+                new Proposal { Id = 700, IdStateStage = 31 });
+            await propChangeHandler.HandleChangeAsync(
+                new Proposal { Id = 700, IdStateStage = 31 },
+                new Proposal { Id = 700, IdStateStage = 99 });
+
+            enqueued.Select(e => e.EventName).Should().Equal("PROPOSAL_ADJUSTMENTS", "PROPOSAL_REJECTED");
+        }
+
+        [Fact]
+        public async Task Etapa1_AdvanceAcademicPracticePhaseHandler_StampsExactDatesPerPhase_AndAcademicPracticeBuilderPopulatesFields()
+        {
+            using var context = CreateInMemoryContext();
+            var uow = new UnitOfWork(context, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
+
+            context.Set<Modality>().Add(new Modality { Id = 2, Code = ModalityCodes.PracticaAcademica, Name = "Práctica Académica", RequiresApproval = true, StatusRegister = true });
+            context.Set<StageModality>().AddRange(
+                new StageModality { Id = 1, IdModality = 2, Code = StageModalityCodes.PaFaseInscripcion, StageOrder = 1, StatusRegister = true },
+                new StageModality { Id = 2, IdModality = 2, Code = StageModalityCodes.PaFaseDesarrollo, StageOrder = 2, StatusRegister = true },
+                new StageModality { Id = 3, IdModality = 2, Code = StageModalityCodes.PaFaseEvaluacion, StageOrder = 3, StatusRegister = true });
+
+            context.Set<StateStage>().AddRange(
+                new StateStage { Id = 10, Code = StateStageCodes.PaInscripcionPendDoc, StatusRegister = true },
+                new StateStage { Id = 11, Code = StateStageCodes.PaInscripcionAprobada, StatusRegister = true },
+                new StateStage { Id = 12, Code = StateStageCodes.PaDesarrolloAprobada, StatusRegister = true },
+                new StateStage { Id = 13, Code = StateStageCodes.PaInformeFinalEnRevision, StatusRegister = true },
+                new StateStage { Id = 14, Code = StateStageCodes.PaAprobado, StatusRegister = true },
+                new StateStage { Id = 15, Code = nameof(StateStageCodeEnum.PA_NO_APROBADO), Name = "No Aprobado", IsRejectionState = true, StatusRegister = true });
+
+            context.Set<Permission>().AddRange(
+                new Permission { Id = 1, Code = PermissionCodes.PracticaAcademica.N1PA, StatusRegister = true },
+                new Permission { Id = 2, Code = PermissionCodes.PracticaAcademica.N2PAF1, ParentCode = PermissionCodes.PracticaAcademica.N1PA, StatusRegister = true },
+                new Permission { Id = 3, Code = PermissionCodes.PracticaAcademica.N3PAF1R, ParentCode = PermissionCodes.PracticaAcademica.N2PAF1, StatusRegister = true },
+                new Permission { Id = 4, Code = PermissionCodes.PracticaAcademica.N3PAF1C, ParentCode = PermissionCodes.PracticaAcademica.N2PAF1, StatusRegister = true },
+                new Permission { Id = 5, Code = PermissionCodes.PracticaAcademica.N2PAF2, ParentCode = PermissionCodes.PracticaAcademica.N1PA, StatusRegister = true },
+                new Permission { Id = 6, Code = PermissionCodes.PracticaAcademica.N3PAF2R, ParentCode = PermissionCodes.PracticaAcademica.N2PAF2, StatusRegister = true },
+                new Permission { Id = 7, Code = PermissionCodes.PracticaAcademica.N3PAF2C, ParentCode = PermissionCodes.PracticaAcademica.N2PAF2, StatusRegister = true });
+
+            context.Set<InscriptionModality>().Add(new InscriptionModality { Id = 800, IdModality = 2, IdStageModality = 1, StatusRegister = true });
+            context.Set<AcademicPractice>().Add(new AcademicPractice
+            {
+                Id = 800,
+                Title = "Práctica en Gobernación",
+                InstitutionName = null,
+                IdStateStage = 10,
+                Observations = "Observación comité",
+                EvaluatorObservations = "Observación evaluador",
+                StatusRegister = true
+            });
+            await context.SaveChangesAsync();
+
+            var phaseHandler = new AdvanceAcademicPracticePhaseHandler(uow, NullLogger<AdvanceAcademicPracticePhaseHandler>.Instance);
+
+            // 1. PaInscripcionAprobada: solo AvalApprovalDate (PlanApprovalDate permanece null)
+            await phaseHandler.Handle(new AcademicPracticeStateChangedEvent(800, 11, 10, 1), CancellationToken.None);
+            await context.SaveChangesAsync();
+            var ap = (await context.Set<AcademicPractice>().FindAsync(800))!;
+            ap.AvalApprovalDate.Should().NotBeNull();
+            ap.PlanApprovalDate.Should().BeNull();
+            ap.DevelopmentCompletionDate.Should().BeNull();
+            ap.FinalReportApprovalDate.Should().BeNull();
+            ap.FinalApprovalDate.Should().BeNull();
+
+            // 2. PaDesarrolloAprobada: PlanApprovalDate y DevelopmentCompletionDate
+            await phaseHandler.Handle(new AcademicPracticeStateChangedEvent(800, 12, 11, 1), CancellationToken.None);
+            await context.SaveChangesAsync();
+            ap = (await context.Set<AcademicPractice>().FindAsync(800))!;
+            ap.PlanApprovalDate.Should().NotBeNull();
+            ap.DevelopmentCompletionDate.Should().NotBeNull();
+            ap.FinalReportApprovalDate.Should().BeNull();
+
+            // 3. PaInformeFinalEnRevision: NO estampa FinalReportApprovalDate
+            await phaseHandler.Handle(new AcademicPracticeStateChangedEvent(800, 13, 12, 1), CancellationToken.None);
+            await context.SaveChangesAsync();
+            ap = (await context.Set<AcademicPractice>().FindAsync(800))!;
+            ap.FinalReportApprovalDate.Should().BeNull();
+            ap.FinalApprovalDate.Should().BeNull();
+
+            // 4. PaAprobado: estampa FinalReportApprovalDate y FinalApprovalDate
+            await phaseHandler.Handle(new AcademicPracticeStateChangedEvent(800, 14, 13, 1), CancellationToken.None);
+            await context.SaveChangesAsync();
+            ap = (await context.Set<AcademicPractice>().FindAsync(800))!;
+            ap.FinalReportApprovalDate.Should().NotBeNull();
+            ap.FinalApprovalDate.Should().NotBeNull();
+
+            // 5. AcademicPracticeEventDataBuilder en PA_NO_APROBADO: CompanyName fallback, ObservationsBlock combinado y PossibleCauses poblado
+            ap.IdStateStage = 15;
+            await context.SaveChangesAsync();
+
+            var studentSvcMock = new Mock<IStudentDataService>();
+            studentSvcMock.Setup(s => s.GetStudentDataByInscriptionAsync(800))
+                .ReturnsAsync(("María Gómez", "maria@unicesar.edu.co", 1));
+
+            var apBuilder = new AcademicPracticeEventDataBuilder(uow, studentSvcMock.Object, NullLogger<AcademicPracticeEventDataBuilder>.Instance);
+            var apData = await apBuilder.BuildAcademicPracticeEventDataAsync(800, "PRACTICE_EVALUATED");
+
+            apData["CompanyName"].Should().Be("Institución receptora por confirmar");
+            apData["TopAccentColor"].Should().Be("#DC2626");
+            System.Net.WebUtility.HtmlDecode(apData["ObservationsBlock"].ToString()!).Should().Contain("Observación comité");
+            System.Net.WebUtility.HtmlDecode(apData["ObservationsBlock"].ToString()!).Should().Contain("Observación evaluador");
+            apData["PossibleCauses"].ToString().Should().Contain("<li>");
         }
     }
 }

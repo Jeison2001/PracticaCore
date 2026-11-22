@@ -1,4 +1,5 @@
 using Domain.Common.Notifications;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Notifications;
@@ -54,10 +55,22 @@ namespace Application.Common.Services.Notifications
                 }
             }
 
-            // Remover duplicados
-            result.To = result.To.Distinct().ToList();
-            result.Cc = result.Cc.Distinct().ToList();
-            result.Bcc = result.Bcc.Distinct().ToList();
+            // Remover duplicados (case-insensitive)
+            result.To = result.To
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            result.Cc = result.Cc
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            result.Bcc = result.Bcc
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             return result;
         }
@@ -118,7 +131,13 @@ namespace Application.Common.Services.Notifications
             return emails;
         }
 
-        private async Task<List<string>> ResolveByPermissionAsync(EmailRecipientRule rule, Dictionary<string, object> eventData)
+        private Task<List<string>> ResolveByPermissionAsync(EmailRecipientRule rule, Dictionary<string, object> eventData) =>
+            ResolveByPermissionCodeAsync(rule.RuleValue, rule.Conditions, eventData);
+
+        private async Task<List<string>> ResolveByPermissionCodeAsync(
+            string permissionCode,
+            string? conditions,
+            Dictionary<string, object> eventData)
         {
             var emails = new List<string>();
 
@@ -128,28 +147,96 @@ namespace Application.Common.Services.Notifications
                 var permissionRepo = _unitOfWork.GetRepository<Permission, int>();
                 var userPermissionRepo = _unitOfWork.GetRepository<UserPermission, int>();
 
+                if (permissionRepo == null || userPermissionRepo == null || userRepo == null)
+                    return emails;
+
                 var permission = await permissionRepo.GetFirstOrDefaultAsync(
-                    p => p.Code == rule.RuleValue && p.StatusRegister,
+                    p => p.Code == permissionCode && p.StatusRegister,
                     CancellationToken.None);
 
                 if (permission == null)
                 {
-                    _logger.LogWarning("No se encontró permiso con código: {PermissionCode}", rule.RuleValue);
+                    _logger.LogWarning("No se encontró permiso con código: {PermissionCode}", permissionCode);
                     return emails;
                 }
 
                 var userPermissions = await userPermissionRepo.GetAllAsync(
                     filter: up => up.IdPermission == permission.Id && up.StatusRegister);
-                var userIds = userPermissions.Select(up => up.IdUser).ToList();
+                var targetUserIds = userPermissions.Select(up => up.IdUser).ToHashSet();
+
+                // Regla fallback idéntica a UserInfoRepository: usuarios activos sin NINGUNA fila en UserPermission
+                // heredan permisos desde RolePermission a través de UserRole y Role activos.
+                var rolePermissionRepo = _unitOfWork.GetRepository<RolePermission, int>();
+                var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
+                var roleRepo = _unitOfWork.GetRepository<Role, int>();
+
+                if (rolePermissionRepo != null && userRoleRepo != null)
+                {
+                    var rolePermissions = await rolePermissionRepo.GetAllAsync(
+                        filter: rp => rp.IdPermission == permission.Id && rp.StatusRegister);
+                    var roleIds = rolePermissions.Select(rp => rp.IdRole).Distinct().ToList();
+
+                    if (roleIds.Count > 0)
+                    {
+                        HashSet<int> activeRoleIds;
+                        if (roleRepo != null)
+                        {
+                            var activeRoles = await roleRepo.GetAllAsync(
+                                filter: r => roleIds.Contains(r.Id) && r.StatusRegister);
+                            activeRoleIds = activeRoles.Select(r => r.Id).ToHashSet();
+                        }
+                        else
+                        {
+                            activeRoleIds = roleIds.ToHashSet();
+                        }
+
+                        if (activeRoleIds.Count > 0)
+                        {
+                            var candidateUserRoles = await userRoleRepo.GetAllAsync(
+                                filter: ur => activeRoleIds.Contains(ur.IdRole) && ur.StatusRegister);
+                            var candidateUserIds = candidateUserRoles
+                                .Select(ur => ur.IdUser)
+                                .Where(uid => !targetUserIds.Contains(uid))
+                                .Distinct()
+                                .ToList();
+
+                            if (candidateUserIds.Count > 0)
+                            {
+                                var existingUserPermRows = await userPermissionRepo.GetAllAsync(
+                                    filter: up => candidateUserIds.Contains(up.IdUser));
+                                var usersWithAnyUserPermission = existingUserPermRows
+                                    .Select(up => up.IdUser)
+                                    .ToHashSet();
+
+                                foreach (var uid in candidateUserIds.Where(id => !usersWithAnyUserPermission.Contains(id)))
+                                {
+                                    targetUserIds.Add(uid);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (targetUserIds.Count == 0)
+                    return emails;
 
                 var users = await userRepo.GetAllAsync(
-                    filter: u => userIds.Contains(u.Id) && u.StatusRegister);
+                    filter: u => targetUserIds.Contains(u.Id) && u.StatusRegister);
 
-                emails.AddRange(users.Select(u => u.Email).Where(e => !string.IsNullOrEmpty(e)));
+                if (!string.IsNullOrEmpty(conditions))
+                {
+                    users = await ApplyAdditionalConditionsAsync(users, conditions, eventData);
+                }
+
+                emails.AddRange(users
+                    .Select(u => u.Email)
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Select(e => e.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error resolviendo destinatarios por permiso: {PermissionCode}", rule.RuleValue);
+                _logger.LogError(ex, "Error resolviendo destinatarios por permiso: {PermissionCode}", permissionCode);
             }
 
             return emails;
@@ -187,13 +274,119 @@ namespace Application.Common.Services.Notifications
                     case "ASESOR_ASSIGNED":
                         emails.AddRange(await GetTeachersByAssignmentTypeAsync(eventData, "ASESOR"));
                         break;
-                    // Agregar más casos según necesidades
+                    case "PRACTICE_STAGE_RESPONSIBLE":
+                        emails.AddRange(await ResolvePracticeStageResponsibleAsync(rule, eventData));
+                        break;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error resolviendo destinatarios por relación de entidad: {RuleValue}", rule.RuleValue);
             }
+
+            return emails;
+        }
+
+        private async Task<List<string>> ResolvePracticeStageResponsibleAsync(
+            EmailRecipientRule rule,
+            Dictionary<string, object> eventData)
+        {
+            var emails = new List<string>();
+
+            int inscriptionModalityId = 0;
+            if (eventData.TryGetValue("InscriptionModalityId", out var rawImId) && rawImId != null)
+            {
+                inscriptionModalityId = Convert.ToInt32(rawImId);
+            }
+            else if (eventData.TryGetValue("InscriptionId", out var rawInsId) && rawInsId != null)
+            {
+                inscriptionModalityId = Convert.ToInt32(rawInsId);
+            }
+
+            if (inscriptionModalityId <= 0)
+            {
+                _logger.LogWarning("No se encontró InscriptionModalityId ni InscriptionId válido en eventData para PRACTICE_STAGE_RESPONSIBLE.");
+                return emails;
+            }
+
+            var inscriptionRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
+            var stageModalityRepo = _unitOfWork.GetRepository<StageModality, int>();
+
+            var inscription = inscriptionRepo != null ? await inscriptionRepo.GetByIdAsync(inscriptionModalityId) : null;
+            if (inscription == null)
+            {
+                _logger.LogWarning("No se encontró InscriptionModality con ID {Id} para PRACTICE_STAGE_RESPONSIBLE.", inscriptionModalityId);
+                return emails;
+            }
+
+            var stageModality = inscription.StageModality;
+            if (stageModality == null && inscription.IdStageModality.HasValue && stageModalityRepo != null)
+            {
+                stageModality = await stageModalityRepo.GetByIdAsync(inscription.IdStageModality.Value);
+            }
+
+            var stageCode = stageModality?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+
+            switch (stageCode)
+            {
+                case StageModalityCodes.PaFaseInscripcion:
+                    emails.AddRange(await ResolveByPermissionCodeAsync(
+                        PermissionCodes.PracticaAcademica.N4PAF0PA,
+                        rule.Conditions,
+                        eventData));
+                    break;
+
+                case StageModalityCodes.PaFaseDesarrollo:
+                    emails.AddRange(await GetConfirmedPracticeTeachersEmailsAsync(inscriptionModalityId));
+                    emails.AddRange(await ResolveByPermissionCodeAsync(
+                        PermissionCodes.PracticaAcademica.N4PAF1PG,
+                        rule.Conditions,
+                        eventData));
+                    break;
+
+                case StageModalityCodes.PaFaseEvaluacion:
+                default:
+                    emails.AddRange(await GetConfirmedPracticeTeachersEmailsAsync(inscriptionModalityId));
+                    emails.AddRange(await ResolveByPermissionCodeAsync(
+                        PermissionCodes.PracticaAcademica.N4PAF2PG,
+                        rule.Conditions,
+                        eventData));
+                    break;
+            }
+
+            return emails
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private async Task<List<string>> GetConfirmedPracticeTeachersEmailsAsync(int inscriptionModalityId)
+        {
+            var emails = new List<string>();
+            var teachingAssignmentRepo = _unitOfWork.GetRepository<TeachingAssignment, int>();
+            var userRepo = _unitOfWork.GetRepository<User, int>();
+
+            if (teachingAssignmentRepo == null || userRepo == null)
+                return emails;
+
+            var assignments = await teachingAssignmentRepo.GetAllAsync(
+                filter: ta => ta.IdInscriptionModality == inscriptionModalityId &&
+                              ta.StatusRegister &&
+                              ta.RevocationDate == null &&
+                              ta.IsConfirmed);
+
+            var teacherIds = assignments.Select(ta => ta.IdTeacher).Distinct().ToList();
+            if (teacherIds.Count == 0)
+                return emails;
+
+            var teachers = await userRepo.GetAllAsync(
+                filter: u => teacherIds.Contains(u.Id) && u.StatusRegister);
+
+            emails.AddRange(teachers
+                .Select(t => t.Email)
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e.Trim()));
 
             return emails;
         }

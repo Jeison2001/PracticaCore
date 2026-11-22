@@ -106,8 +106,14 @@ namespace Application.Common.Services.Notifications.Handlers
                         StateStageCodeEnum.PFINF_RADICADO_EN_EVALUACION => "PROYECTO_FINAL_SUBMITTED",
                         StateStageCodeEnum.PFINF_INFORME_APROBADO => "PROYECTO_FINAL_EVALUATION_RESULT",
                         StateStageCodeEnum.PFINF_INFORME_CON_OBSERVACIONES => "PROYECTO_FINAL_EVALUATION_RESULT",
-                        _ => string.Empty
+                        _ => stateStage?.IsRejectionState == true ? "PROYECTO_FINAL_EVALUATION_RESULT" : string.Empty
                     };
+                }
+
+                var upper = (code ?? string.Empty).Trim().ToUpperInvariant();
+                if (stateStage?.IsRejectionState == true || upper is "PFINF_APROBADO" or "PFINF_CON_OBSERVACIONES" or "PFINF_RECHAZADO" or "PFINF_INFORME_RECHAZADO")
+                {
+                    return "PROYECTO_FINAL_EVALUATION_RESULT";
                 }
 
                 return string.Empty;

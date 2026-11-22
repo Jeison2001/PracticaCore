@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Interfaces.Services.Notifications.Handlers;
 using Microsoft.Extensions.Logging;
@@ -122,14 +123,24 @@ namespace Application.Common.Services.Notifications.Handlers
                     : newEntity.IdTypeTeachingAssignment;
                 var oldTypeAssignment = await typeAssignmentRepo.GetByIdAsync(typeId);
                 
+                var inscriptionId = oldEntity.IdInscriptionModality > 0
+                    ? oldEntity.IdInscriptionModality
+                    : newEntity.IdInscriptionModality;
+
                 var inscriptionRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
-                var inscription = await inscriptionRepo.GetByIdAsync(oldEntity.IdInscriptionModality);
+                var inscription = inscriptionId > 0
+                    ? await inscriptionRepo.GetByIdAsync(inscriptionId)
+                    : null;
                 
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
-                var modality = await modalityRepo.GetByIdAsync(inscription?.IdModality ?? 0);
+                var modality = inscription is { IdModality: > 0 }
+                    ? await modalityRepo.GetByIdAsync(inscription.IdModality)
+                    : null;
                 
                 var academicPeriodRepo = _unitOfWork.GetRepository<AcademicPeriod, int>();
-                var academicPeriod = await academicPeriodRepo.GetByIdAsync(inscription?.IdAcademicPeriod ?? 0);
+                var academicPeriod = inscription is { IdAcademicPeriod: > 0 }
+                    ? await academicPeriodRepo.GetByIdAsync(inscription.IdAcademicPeriod)
+                    : null;
                 
                 var stageModalityRepo = _unitOfWork.GetRepository<StageModality, int>();
                 StageModality? currentStage = null;
@@ -143,7 +154,7 @@ namespace Application.Common.Services.Notifications.Handlers
 
                 return new Dictionary<string, object>
                 {
-                    ["AssignmentId"] = oldEntity.Id,
+                    ["AssignmentId"] = oldEntity.Id > 0 ? oldEntity.Id : newEntity.Id,
                     ["TeacherId"] = oldEntity.IdTeacher,
                     ["TeacherName"] = $"{oldTeacher?.FirstName} {oldTeacher?.LastName}".Trim(),
                     ["UnassignedTeacherEmail"] = oldTeacher?.Email ?? string.Empty, // Campo específico para desasignación
@@ -153,9 +164,11 @@ namespace Application.Common.Services.Notifications.Handlers
                     ["ModalityName"] = modality?.Name ?? string.Empty,
                     ["CurrentStage"] = currentStage?.Name ?? "Sin fase definida",
                     ["AcademicPeriod"] = academicPeriod?.Code ?? string.Empty,
-                    ["UnassignmentDate"] = DateTime.UtcNow.ToString("dd/MM/yyyy"),
+                    ["UnassignmentDate"] = NotificationFormattingHelper.NowColombiaDate(),
                     ["EventType"] = "TEACHER_UNASSIGNED",
-                    ["InscriptionId"] = inscription?.Id ?? 0
+                    ["InscriptionId"] = inscription?.Id ?? inscriptionId,
+                    ["InscriptionModalityId"] = inscription?.Id ?? inscriptionId,
+                    ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor("warning")
                 };
             }
             catch (Exception ex)
@@ -174,19 +187,34 @@ namespace Application.Common.Services.Notifications.Handlers
 
             try
             {
+                var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
+                var modality = inscription.IdModality > 0
+                    ? await modalityRepo.GetByIdAsync(inscription.IdModality)
+                    : null;
+
+                if (modality?.Code == "PRACTICA_ACADEMICA")
+                {
+                    var practiceRepo = _unitOfWork.GetRepository<AcademicPractice, int>();
+                    var practice = practiceRepo != null ? await practiceRepo.GetByIdAsync(inscription.Id) : null;
+                    if (practice != null && !string.IsNullOrWhiteSpace(practice.Title))
+                    {
+                        return practice.Title;
+                    }
+                }
+
                 // Verificar si tiene propuesta
                 var proposalRepo = _unitOfWork.GetRepository<Proposal, int>();
-                var proposal = await proposalRepo.GetFirstOrDefaultAsync(p => p.InscriptionModality.Id == inscription.Id, CancellationToken.None);
+                var proposal = proposalRepo != null
+                    ? await proposalRepo.GetFirstOrDefaultAsync(
+                        p => (p.Id == inscription.Id || (p.InscriptionModality != null && p.InscriptionModality.Id == inscription.Id)) && p.StatusRegister,
+                        CancellationToken.None)
+                    : null;
                 
                 if (proposal != null && !string.IsNullOrEmpty(proposal.Title))
                 {
                     return proposal.Title;
                 }
 
-                // Si no hay propuesta, usar información genérica
-                var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
-                var modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
-                
                 return $"Trabajo de {modality?.Name ?? "modalidad"} - Inscripción #{inscription.Id}";
             }
             catch (Exception ex)

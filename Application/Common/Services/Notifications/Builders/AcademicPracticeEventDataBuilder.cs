@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Interfaces.Repositories;
@@ -71,14 +72,23 @@ namespace Application.Common.Services.Notifications.Builders
                 var stateInfo = await GetStateInfoAsync(academicPractice.IdStateStage);
 
                 var phaseInfo = GetPhaseInfo(stateInfo.StateCode);
+                var tone = GetTone(stateInfo.StateCode, stateInfo.IsRejectionState);
 
-                var submissionDate = academicPractice.UpdatedAt?.ToString("dd/MM/yyyy HH:mm") ?? academicPractice.CreatedAt.ToString("dd/MM/yyyy HH:mm");
+                var submissionDate = NotificationFormattingHelper.ToColombiaDateTime(
+                    academicPractice.UpdatedAt ?? academicPractice.CreatedAt);
                 var approvalDate = GetApprovalDate(stateInfo.StateCode, academicPractice);
+                var companyName = string.IsNullOrWhiteSpace(academicPractice.InstitutionName)
+                    ? "Institución receptora por confirmar"
+                    : academicPractice.InstitutionName.Trim();
+                var combinedObservations = CombineObservations(
+                    academicPractice.Observations,
+                    academicPractice.EvaluatorObservations);
 
                 var eventData = new Dictionary<string, object>
                 {
                     ["InscriptionModalityId"] = inscription.Id,
                     ["ProjectTitle"] = projectTitle,
+                    ["CompanyName"] = companyName,
                     ["StudentNames"] = studentNames,
                     ["StudentEmails"] = studentEmails,
                     ["StudentsCount"] = studentCount,
@@ -87,7 +97,10 @@ namespace Application.Common.Services.Notifications.Builders
                     ["SubmissionDate"] = submissionDate,
                     ["EventType"] = eventType,
                     ["ApprovalDate"] = approvalDate,
-                    ["Observations"] = academicPractice.Observations ?? string.Empty,
+                    ["Observations"] = academicPractice.Observations?.Trim() ?? string.Empty,
+                    ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor(tone),
+                    ["EvaluationBadgeHtml"] = NotificationFormattingHelper.BuildEvaluationBadgeHtml(stateInfo.StateName, tone),
+                    ["ObservationsBlock"] = NotificationFormattingHelper.BuildObservationsBlockHtml(combinedObservations, tone),
 
                     ["Phase"] = phaseInfo.Phase,
                     ["PhaseDescription"] = phaseInfo.PhaseDescription,
@@ -103,8 +116,8 @@ namespace Application.Common.Services.Notifications.Builders
                     ["AdministrativeNextSteps"] = phaseInfo.AdministrativeNextSteps,
 
                     // BD-specific observations for OBSERVACIONES templates
-                    ["SpecificObservations"] = academicPractice.Observations ?? string.Empty,
-                    ["EvaluatorObservations"] = academicPractice.EvaluatorObservations ?? string.Empty
+                    ["SpecificObservations"] = academicPractice.Observations?.Trim() ?? string.Empty,
+                    ["EvaluatorObservations"] = academicPractice.EvaluatorObservations?.Trim() ?? string.Empty
                 };
 
                 return eventData;
@@ -130,11 +143,57 @@ namespace Application.Common.Services.Notifications.Builders
             }
         }
 
-        private async Task<(string StateName, string StateCode)> GetStateInfoAsync(int stateStageId)
+        private async Task<(string StateName, string StateCode, bool IsRejectionState)> GetStateInfoAsync(int stateStageId)
         {
             var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
             var stateStage = await stateStageRepo.GetByIdAsync(stateStageId);
-            return (stateStage?.Name ?? "Estado desconocido", stateStage?.Code ?? "UNKNOWN");
+            return (stateStage?.Name ?? "Estado desconocido", stateStage?.Code ?? "UNKNOWN", stateStage?.IsRejectionState ?? false);
+        }
+
+        private static string GetTone(string stateCode, bool isRejectionState)
+        {
+            var upper = (stateCode ?? string.Empty).ToUpperInvariant();
+            if (isRejectionState || upper is
+                nameof(StateStageCodeEnum.PA_INSCRIPCION_RECHAZADA) or
+                nameof(StateStageCodeEnum.PA_DESARROLLO_NO_APROBADA) or
+                nameof(StateStageCodeEnum.PA_NO_APROBADO))
+            {
+                return "rejected";
+            }
+
+            if (upper is
+                nameof(StateStageCodeEnum.PA_INSCRIPCION_OBSERVACIONES) or
+                nameof(StateStageCodeEnum.PA_DESARROLLO_OBSERVACIONES) or
+                nameof(StateStageCodeEnum.PA_INFORME_FINAL_OBSERVACIONES))
+            {
+                return "warning";
+            }
+
+            if (upper is
+                nameof(StateStageCodeEnum.PA_INSCRIPCION_APROBADA) or
+                nameof(StateStageCodeEnum.PA_DESARROLLO_APROBADA) or
+                nameof(StateStageCodeEnum.PA_APROBADO))
+            {
+                return "approved";
+            }
+
+            return "info";
+        }
+
+        private static string CombineObservations(string? committeeObservations, string? evaluatorObservations)
+        {
+            var obs = string.IsNullOrWhiteSpace(committeeObservations) ? string.Empty : committeeObservations.Trim();
+            var evalObs = string.IsNullOrWhiteSpace(evaluatorObservations) ? string.Empty : evaluatorObservations.Trim();
+
+            if (!string.IsNullOrEmpty(obs) && !string.IsNullOrEmpty(evalObs))
+            {
+                if (string.Equals(obs, evalObs, StringComparison.OrdinalIgnoreCase))
+                    return obs;
+
+                return $"{obs}\n\nObservaciones del evaluador:\n{evalObs}";
+            }
+
+            return !string.IsNullOrEmpty(obs) ? obs : evalObs;
         }
 
         /// <summary>
@@ -253,6 +312,8 @@ namespace Application.Common.Services.Notifications.Builders
                     Phase = "Final",
                     PhaseDescription = "su práctica académica",
                     ReasonDescription = "La evaluación integral del proceso no alcanzó los estándares mínimos requeridos para esta modalidad de grado.",
+                    PossibleCausesTitle = "Posibles causas de no aprobación:",
+                    PossibleCauses = "<li>Informe final insuficiente o sin soporte de cumplimiento de objetivos</li><li>Incumplimiento de requisitos técnicos o formales establecidos en el Acuerdo 015</li><li>Certificación institucional incompleta o evaluación desfavorable del proceso</li><li>Observaciones previas no subsanadas satisfactoriamente</li>",
                     AvailableOptions = "<li>Solicitar una reunión con el comité para conocer los detalles específicos</li><li>Considerar la posibilidad de presentar una nueva propuesta</li><li>Explorar otras modalidades de grado disponibles</li><li>Solicitar orientación académica para definir la mejor ruta hacia su titulación</li>",
                     ImportantMessage = "Este resultado no define su capacidad académica. Le animamos a explorar las opciones disponibles y a contactar con la coordinación para recibir orientación personalizada."
                 },
@@ -287,10 +348,10 @@ namespace Application.Common.Services.Notifications.Builders
             DateTimeOffset? date = code switch
             {
                 // Fechas por fase
-                StateStageCodeEnum.PA_INSCRIPCION_APROBADA => ap.PlanApprovalDate ?? ap.AvalApprovalDate,
+                StateStageCodeEnum.PA_INSCRIPCION_APROBADA => ap.AvalApprovalDate ?? ap.PlanApprovalDate,
                 StateStageCodeEnum.PA_DESARROLLO_EN_REVISION => ap.DevelopmentCompletionDate,
                 StateStageCodeEnum.PA_DESARROLLO_OBSERVACIONES => ap.DevelopmentCompletionDate,
-                StateStageCodeEnum.PA_DESARROLLO_APROBADA => ap.DevelopmentCompletionDate,
+                StateStageCodeEnum.PA_DESARROLLO_APROBADA => ap.DevelopmentCompletionDate ?? ap.PlanApprovalDate,
                 StateStageCodeEnum.PA_DESARROLLO_NO_APROBADA => ap.DevelopmentCompletionDate,
                 StateStageCodeEnum.PA_APROBADO => ap.FinalApprovalDate ?? ap.FinalReportApprovalDate,
                 StateStageCodeEnum.PA_NO_APROBADO => ap.FinalApprovalDate ?? ap.FinalReportApprovalDate,
@@ -301,7 +362,7 @@ namespace Application.Common.Services.Notifications.Builders
                 
                 _ => null
             };
-            return date?.ToString("dd/MM/yyyy") ?? string.Empty;
+            return NotificationFormattingHelper.ToColombiaDate(date);
         }
     }
 }

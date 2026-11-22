@@ -101,8 +101,8 @@ namespace Tests.Integration.ProjectPresentations
             var eventData = await builder.BuildProjectPresentationEventDataAsync(presentationId, "SUSTENTACION_SCHEDULED");
 
             // Assert
-            eventData["ScheduledDateTime"].Should().Be("27/11/2026 15:00");
-            eventData["ActualDateTime"].Should().Be("27/11/2026 20:30");
+            eventData["ScheduledDateTime"].Should().Be("27/11/2026 03:00 PM");
+            eventData["ActualDateTime"].Should().Be("27/11/2026 08:30 PM");
         }
 
         [Fact]

@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Notifications;
@@ -25,13 +26,18 @@ namespace Application.Common.Services.Notifications.Builders
                 var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
                 var stateStage = await stateStageRepo.GetByIdAsync(entity.IdStateStage);
                 var phaseLabel = GetPhaseLabel(stateStage?.Code ?? string.Empty);
-                var data = await BuildBaseDataAsync(inscription, entity.IdStateStage, eventType, phaseLabel);
-                data["Observations"] = entity.Observations ?? "Sin observaciones registradas";
+                var data = await BuildBaseDataAsync(
+                    inscription,
+                    entity.IdStateStage,
+                    eventType,
+                    phaseLabel,
+                    entity.UpdatedAt ?? entity.CreatedAt,
+                    entity.Observations);
                 data["ArticleTitle"] = entity.ArticleTitle ?? "-";
                 data["JournalName"] = entity.JournalName ?? "-";
                 data["ISSN"] = entity.ISSN ?? "-";
                 data["JournalCategory"] = entity.JournalCategory ?? "-";
-                data["AcceptanceDate"] = entity.AcceptanceDate?.ToString("dd/MM/yyyy") ?? "-";
+                data["AcceptanceDate"] = NotificationFormattingHelper.ToColombiaDate(entity.AcceptanceDate, "-");
                 return data;
             }
             catch (Exception ex) { _logger.LogError(ex, "Error building ScientificArticle event data"); return []; }

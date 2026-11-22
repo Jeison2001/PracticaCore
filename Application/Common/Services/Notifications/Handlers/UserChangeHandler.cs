@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Interfaces.Services.Notifications.Handlers;
 using Domain.Interfaces.Services.Notifications;
@@ -46,6 +47,10 @@ namespace Application.Common.Services.Notifications.Handlers
                     ? await academicProgramRepo.GetByIdAsync(entity.IdAcademicProgram)
                     : null;
 
+                var createdAt = entity.CreatedAt != default ? entity.CreatedAt : DateTimeOffset.UtcNow;
+                var appUrl = NotificationFormattingHelper.ResolveAppBaseUrl(_configuration);
+                var loginUrl = NotificationFormattingHelper.ResolveLoginUrl(_configuration);
+
                 var eventData = new Dictionary<string, object>
                 {
                     { "UserId", entity.Id },
@@ -56,8 +61,10 @@ namespace Application.Common.Services.Notifications.Handlers
                     { "Identification", entity.Identification ?? "" },
                     { "AcademicProgram", program?.Name ?? "No asignado" },
                     { "PhoneNumber", entity.PhoneNumber ?? "" },
-                    { "CreatedDate", DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm") },
-                    { "LoginUrl", ResolveLoginUrl() }
+                    { "CreatedDate", NotificationFormattingHelper.ToColombiaDateTime(createdAt) },
+                    { "AppUrl", appUrl },
+                    { "LoginUrl", loginUrl },
+                    { "TopAccentColor", NotificationFormattingHelper.GetTopAccentColor("approved") }
                 };
 
                 var jobId = _queueService.EnqueueEventNotification("USER_CREATED", eventData);
@@ -69,26 +76,6 @@ namespace Application.Common.Services.Notifications.Handlers
                 _logger.LogError(ex, "Error procesando notificación de creación para usuario ID {Id}", entity.Id);
                 throw;
             }
-        }
-
-        private string ResolveLoginUrl()
-        {
-            var configuredUrl = _configuration?["App:FrontendUrl"];
-            if (string.IsNullOrWhiteSpace(configuredUrl))
-            {
-                configuredUrl = _configuration?
-                    .GetSection("AllowedOrigins")
-                    .GetChildren()
-                    .Select(c => c.Value)
-                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))
-                    ?? _configuration?["AllowedOrigins"];
-            }
-
-            var baseUrl = string.IsNullOrWhiteSpace(configuredUrl)
-                ? "http://localhost:4200"
-                : configuredUrl.Trim();
-
-            return $"{baseUrl.TrimEnd('/')}/iniciar-sesion";
         }
     }
 }

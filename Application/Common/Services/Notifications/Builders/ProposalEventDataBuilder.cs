@@ -1,4 +1,6 @@
+using Application.Common.Helpers;
 using Domain.Entities;
+using Domain.Enums;
 using Domain.Interfaces.Services.Notifications.Builders;
 using Microsoft.Extensions.Logging;
 using Domain.Interfaces.Services.Notifications;
@@ -37,8 +39,10 @@ namespace Application.Common.Services.Notifications.Builders
                     throw new ArgumentException($"Proposal with ID {proposalId} not found");
 
                 var inscriptionModalityRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
-                var inscriptionModality = await inscriptionModalityRepo
-                    .GetFirstOrDefaultAsync(im => im.Proposal != null && im.Proposal.Id == proposalId, CancellationToken.None);
+                var inscriptionModality = await inscriptionModalityRepo.GetByIdAsync(proposalId)
+                    ?? await inscriptionModalityRepo.GetFirstOrDefaultAsync(
+                        im => im.Proposal != null && im.Proposal.Id == proposalId,
+                        CancellationToken.None);
 
                 var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
                 var academicPeriodRepo = _unitOfWork.GetRepository<AcademicPeriod, int>();
@@ -61,13 +65,21 @@ namespace Application.Common.Services.Notifications.Builders
 
                 var (studentNames, studentEmails, studentCount) = await _studentDataService.GetStudentDataByProposalAsync(proposalId);
 
+                var stateCode = stateStage?.Code ?? string.Empty;
+                var tone = GetProposalTone(stateCode, stateStage?.IsRejectionState ?? false);
+                var cleanObservation = string.IsNullOrWhiteSpace(proposal.Observation)
+                    ? string.Empty
+                    : proposal.Observation.Trim();
+
                 var eventData = new Dictionary<string, object>
                 {
                     ["ProposalId"] = proposal.Id,
+                    ["InscriptionModalityId"] = inscriptionModality?.Id ?? proposal.Id,
                     ["ProposalTitle"] = proposal.Title ?? string.Empty,
                     ["ProposalDescription"] = proposal.Description ?? proposal.GeneralObjective ?? string.Empty,
                     ["GeneralObjective"] = proposal.GeneralObjective ?? string.Empty,
                     ["SpecificObjectives"] = string.Join("; ", proposal.SpecificObjectives ?? new List<string>()),
+                    ["SpecificObjectivesHtml"] = NotificationFormattingHelper.BuildBulletedListHtml(proposal.SpecificObjectives),
                     ["ProposalStateStage"] = stateStage?.Name ?? string.Empty,
                     ["EventType"] = eventType,
                     ["ModalityName"] = modality?.Name ?? string.Empty,
@@ -79,12 +91,17 @@ namespace Application.Common.Services.Notifications.Builders
                     ["StudentEmails"] = studentEmails,
                     ["StudentCount"] = studentCount,
                     ["StudentsCount"] = studentCount,
-                    ["SubmissionDate"] = proposal.CreatedAt.ToString("dd/MM/yyyy"),
-                    ["ApprovalDate"] = proposal.UpdatedAt?.ToString("dd/MM/yyyy") ?? string.Empty,
-                    ["Observation"] = proposal.Observation ?? string.Empty,
-                    ["RejectionComments"] = proposal.Observation ?? string.Empty,
+                    ["SubmissionDate"] = NotificationFormattingHelper.ToColombiaDate(proposal.CreatedAt),
+                    ["ApprovalDate"] = NotificationFormattingHelper.ToColombiaDate(proposal.UpdatedAt),
+                    ["Observation"] = cleanObservation,
+                    ["RejectionComments"] = cleanObservation,
+                    ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor(tone),
+                    ["EvaluationBadgeHtml"] = NotificationFormattingHelper.BuildEvaluationBadgeHtml(
+                        stateStage?.Name ?? stateCode,
+                        tone),
+                    ["ObservationsBlock"] = NotificationFormattingHelper.BuildObservationsBlockHtml(cleanObservation, tone),
                     ["CreatedAt"] = proposal.CreatedAt,
-                    ["UpdatedAt"] = proposal.UpdatedAt ?? DateTime.UtcNow
+                    ["UpdatedAt"] = proposal.UpdatedAt ?? DateTimeOffset.UtcNow
                 };
 
                 _logger.LogDebug("Built event data for Proposal ID: {ProposalId}, Event: {EventType}", proposalId, eventType);
@@ -95,6 +112,18 @@ namespace Application.Common.Services.Notifications.Builders
                 _logger.LogError(ex, "Error building event data for Proposal ID: {ProposalId}, Event: {EventType}", proposalId, eventType);
                 throw;
             }
+        }
+
+        private static string GetProposalTone(string stateCode, bool isRejectionState)
+        {
+            var upper = (stateCode ?? string.Empty).ToUpperInvariant();
+            if (upper == nameof(StateStageCodeEnum.PROP_PERTINENTE))
+                return "approved";
+            if (isRejectionState || upper.Contains("RECHAZ"))
+                return "rejected";
+            if (upper == nameof(StateStageCodeEnum.PROP_NO_PERTINENTE))
+                return "warning";
+            return "info";
         }
     }
 }

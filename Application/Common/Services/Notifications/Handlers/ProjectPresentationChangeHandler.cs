@@ -89,8 +89,14 @@ namespace Application.Common.Services.Notifications.Handlers
                         StateStageCodeEnum.SUST_APROBADA => "SUSTENTACION_EVALUATION_RESULT",
                         StateStageCodeEnum.SUST_NO_APROBADA_REINTENTO => "SUSTENTACION_EVALUATION_RESULT",
                         StateStageCodeEnum.SUST_REPROBADA_FINAL => "SUSTENTACION_EVALUATION_RESULT",
-                        _ => string.Empty
+                        _ => stateStage?.IsRejectionState == true ? "SUSTENTACION_EVALUATION_RESULT" : string.Empty
                     };
+                }
+
+                var upper = (code ?? string.Empty).Trim().ToUpperInvariant();
+                if (stateStage?.IsRejectionState == true || upper == "SUST_NO_APROBADA_DEFINITIVA")
+                {
+                    return "SUSTENTACION_EVALUATION_RESULT";
                 }
 
                 return string.Empty;

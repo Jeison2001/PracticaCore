@@ -104,12 +104,14 @@ namespace Application.Common.Services.Notifications.Handlers
                     return stateCode switch
                     {
                         StateStageCodeEnum.AP_RADICADO_PEND_ASIG_EVAL => "ANTEPROYECTO_SUBMITTED",
-                        StateStageCodeEnum.AP_EN_EVALUACION => "ANTEPROYECTO_SUBMITTED",
                         StateStageCodeEnum.AP_APROBADO => "ANTEPROYECTO_EVALUATION_RESULT",
                         StateStageCodeEnum.AP_CON_OBSERVACIONES => "ANTEPROYECTO_EVALUATION_RESULT",
-                        _ => string.Empty
+                        _ => stateStage?.IsRejectionState == true ? "ANTEPROYECTO_EVALUATION_RESULT" : string.Empty
                     };
                 }
+
+                if (stateStage?.IsRejectionState == true)
+                    return "ANTEPROYECTO_EVALUATION_RESULT";
 
                 return string.Empty;
             }

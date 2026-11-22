@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Notifications;
@@ -22,9 +23,14 @@ namespace Application.Common.Services.Notifications.Builders
                 var entity = await entityRepo.GetByIdAsync(entityId);
                 if (entity == null) return [];
 
-                var data = await BuildBaseDataAsync(inscription, entity.IdStateStage, eventType, "Saber Pro");
-                data["Observations"] = entity.Observations ?? "Sin observaciones registradas";
-                data["ExamDate"] = entity.ExamDate?.ToString("dd/MM/yyyy") ?? "-";
+                var data = await BuildBaseDataAsync(
+                    inscription,
+                    entity.IdStateStage,
+                    eventType,
+                    "Saber Pro",
+                    entity.UpdatedAt ?? entity.CreatedAt,
+                    entity.Observations);
+                data["ExamDate"] = NotificationFormattingHelper.ToColombiaDate(entity.ExamDate, "-");
                 data["ResultQuintile"] = entity.ResultQuintile?.ToString() ?? "-";
                 data["ResultScore"] = entity.ResultScore?.ToString() ?? "-";
                 return data;

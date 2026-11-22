@@ -51,49 +51,69 @@ namespace Application.Features.AcademicPractices.EventHandlers
             // =========================================================================
             // 1. ESTAMPADO DE FECHAS AUTOMÁTICAS
             // =========================================================================
+            var now = DateTimeOffset.UtcNow;
+            var datesModified = false;
+
             switch (newState.Code)
             {
                 case StateStageCodes.PaInscripcionAprobada:
                     if (academicPractice.AvalApprovalDate == null)
                     {
-                        academicPractice.AvalApprovalDate = DateTimeOffset.UtcNow;
-                        academicPractice.PlanApprovalDate = DateTimeOffset.UtcNow;
-                        _logger.LogInformation("{Handler}: Fechas Aval y Plan establecidas para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
+                        academicPractice.AvalApprovalDate = now;
+                        datesModified = true;
+                        _logger.LogInformation("{Handler}: Fecha AvalApprovalDate establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
                     }
                     break;
 
                 case StateStageCodes.PaDesarrolloAprobada:
+                    if (academicPractice.PlanApprovalDate == null)
+                    {
+                        academicPractice.PlanApprovalDate = now;
+                        datesModified = true;
+                    }
                     if (academicPractice.DevelopmentCompletionDate == null)
                     {
-                        academicPractice.DevelopmentCompletionDate = DateTimeOffset.UtcNow;
-                        _logger.LogInformation("{Handler}: Fecha DevelopmentCompletion establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
+                        academicPractice.DevelopmentCompletionDate = now;
+                        datesModified = true;
+                    }
+                    if (datesModified)
+                    {
+                        _logger.LogInformation("{Handler}: Fechas PlanApprovalDate y DevelopmentCompletionDate establecidas para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
                     }
                     break;
 
                 case StateStageCodes.PaInformeFinalEnRevision:
-                    if (academicPractice.FinalReportApprovalDate == null)
-                    {
-                        academicPractice.FinalReportApprovalDate = DateTimeOffset.UtcNow;
-                        _logger.LogInformation("{Handler}: Fecha FinalReportApproval establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
-                    }
+                    // El informe final apenas entra en revisión; NO se estampa FinalReportApprovalDate aquí.
                     break;
 
                 case StateStageCodes.PaAprobado:
+                    if (academicPractice.FinalReportApprovalDate == null)
+                    {
+                        academicPractice.FinalReportApprovalDate = now;
+                        datesModified = true;
+                    }
                     if (academicPractice.FinalApprovalDate == null)
                     {
-                        academicPractice.FinalApprovalDate = DateTimeOffset.UtcNow;
-                        _logger.LogInformation("{Handler}: Fecha FinalApproval establecida para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
+                        academicPractice.FinalApprovalDate = now;
+                        datesModified = true;
+                    }
+                    if (datesModified)
+                    {
+                        _logger.LogInformation("{Handler}: Fechas FinalReportApprovalDate y FinalApprovalDate establecidas para AcademicPractice ID {Id}", nameof(AdvanceAcademicPracticePhaseHandler), academicPractice.Id);
                     }
                     break;
             }
 
-            await academicPracticeRepo.UpdatePartialAsync(academicPractice, [
-                x => x.AvalApprovalDate,
-                x => x.PlanApprovalDate,
-                x => x.DevelopmentCompletionDate,
-                x => x.FinalReportApprovalDate,
-                x => x.FinalApprovalDate
-            ]);
+            if (datesModified)
+            {
+                await academicPracticeRepo.UpdatePartialAsync(academicPractice, [
+                    x => x.AvalApprovalDate,
+                    x => x.PlanApprovalDate,
+                    x => x.DevelopmentCompletionDate,
+                    x => x.FinalReportApprovalDate,
+                    x => x.FinalApprovalDate
+                ]);
+            }
 
             // =========================================================================
             // 2. TRANSICIONES DE FASE Y PERMISOS (lógica existente)

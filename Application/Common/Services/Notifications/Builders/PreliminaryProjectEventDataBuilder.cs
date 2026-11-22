@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Interfaces.Repositories;
@@ -68,6 +69,11 @@ namespace Application.Common.Services.Notifications.Builders
                 var projectTitle = await GetProjectTitleAsync(inscriptionModality);
 
                 var stateInfo = await GetStateInfoAsync(preliminaryProject.IdStateStage);
+                var evaluationResult = GetEvaluationResultText(stateInfo.StateCode, stateInfo.IsRejectionState);
+                var tone = GetTone(stateInfo.StateCode, stateInfo.IsRejectionState);
+                var cleanObservations = string.IsNullOrWhiteSpace(preliminaryProject.Observations)
+                    ? string.Empty
+                    : preliminaryProject.Observations.Trim();
 
                 var eventData = new Dictionary<string, object>
                 {
@@ -79,14 +85,17 @@ namespace Application.Common.Services.Notifications.Builders
                     ["StudentsCount"] = studentCount,
                     ["CurrentState"] = stateInfo.StateName,
                     ["CurrentStateCode"] = stateInfo.StateCode,
-                    ["SubmissionDate"] = preliminaryProject.UpdatedAt?.ToString("dd/MM/yyyy HH:mm") ?? 
-                                       preliminaryProject.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
+                    ["SubmissionDate"] = NotificationFormattingHelper.ToColombiaDateTime(
+                        preliminaryProject.UpdatedAt ?? preliminaryProject.CreatedAt),
                     ["EventType"] = eventType,
                     ["Phase"] = "Anteproyecto",
 
-                    ["EvaluationResult"] = GetEvaluationResultText(stateInfo.StateCode),
-                    ["Observations"] = preliminaryProject.Observations ?? "Sin observaciones registradas",
-                    ["ApprovalDate"] = preliminaryProject.ApprovalDate?.ToString("dd/MM/yyyy") ?? string.Empty
+                    ["EvaluationResult"] = evaluationResult,
+                    ["EvaluationBadgeHtml"] = NotificationFormattingHelper.BuildEvaluationBadgeHtml(evaluationResult, tone),
+                    ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor(tone),
+                    ["Observations"] = cleanObservations,
+                    ["ObservationsBlock"] = NotificationFormattingHelper.BuildObservationsBlockHtml(cleanObservations, tone),
+                    ["ApprovalDate"] = NotificationFormattingHelper.ToColombiaDate(preliminaryProject.ApprovalDate)
                 };
 
                 _logger.LogInformation("Preliminary project event data built successfully for PreliminaryProject ID: {PreliminaryProjectId}", preliminaryProjectId);
@@ -125,26 +134,35 @@ namespace Application.Common.Services.Notifications.Builders
         /// <summary>
         /// Obtiene información del estado actual
         /// </summary>
-        private async Task<(string StateName, string StateCode)> GetStateInfoAsync(int stateStageId)
+        private async Task<(string StateName, string StateCode, bool IsRejectionState)> GetStateInfoAsync(int stateStageId)
         {
             try
             {
                 var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
                 var stateStage = await stateStageRepo.GetByIdAsync(stateStageId);
                 
-                return (stateStage?.Name ?? "Estado desconocido", stateStage?.Code ?? "UNKNOWN");
+                return (stateStage?.Name ?? "Estado desconocido", stateStage?.Code ?? "UNKNOWN", stateStage?.IsRejectionState ?? false);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting state info for StateStage ID: {StateStageId}", stateStageId);
-                return ("Estado desconocido", "UNKNOWN");
+                return ("Estado desconocido", "UNKNOWN", false);
             }
+        }
+
+        private static string GetTone(string stateCode, bool isRejectionState)
+        {
+            var upper = (stateCode ?? string.Empty).ToUpperInvariant();
+            if (upper == nameof(StateStageCodeEnum.AP_APROBADO)) return "approved";
+            if (upper == nameof(StateStageCodeEnum.AP_CON_OBSERVACIONES)) return "warning";
+            if (isRejectionState || upper.Contains("RECHAZ") || upper.Contains("NO_APROBAD")) return "rejected";
+            return "info";
         }
 
         /// <summary>
         /// Convierte el código de estado a texto de resultado de evaluación
         /// </summary>
-        private string GetEvaluationResultText(string stateCode)
+        private static string GetEvaluationResultText(string stateCode, bool isRejectionState)
         {
             if (Enum.TryParse<StateStageCodeEnum>(stateCode, out var code))
             {
@@ -155,9 +173,12 @@ namespace Application.Common.Services.Notifications.Builders
                     StateStageCodeEnum.AP_EN_EVALUACION => "EN EVALUACIÓN",
                     StateStageCodeEnum.AP_RADICADO_PEND_ASIG_EVAL => "RADICADO - PENDIENTE ASIGNACIÓN",
                     StateStageCodeEnum.AP_PENDIENTE_DOCUMENTO => "PENDIENTE DOCUMENTO",
-                    _ => "ESTADO DESCONOCIDO"
+                    _ => isRejectionState ? "RECHAZADO" : "ESTADO DESCONOCIDO"
                 };
             }
+
+            if (isRejectionState || (stateCode ?? string.Empty).Contains("RECHAZ", StringComparison.OrdinalIgnoreCase))
+                return "RECHAZADO";
 
             return "ESTADO DESCONOCIDO";
         }

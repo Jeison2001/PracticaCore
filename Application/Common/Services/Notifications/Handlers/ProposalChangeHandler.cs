@@ -70,16 +70,21 @@ namespace Application.Common.Services.Notifications.Handlers
                 var stateStage = await repo.GetByIdAsync(stateStageId);
                 var code = stateStage?.Code;
 
-                if (string.IsNullOrWhiteSpace(code)) return string.Empty;
+                if (stateStage == null || string.IsNullOrWhiteSpace(code))
+                    return string.Empty;
 
-                if (!Enum.TryParse<StateStageCodeEnum>(code, ignoreCase: false, out var stateCode))
+                var upper = code.Trim().ToUpperInvariant();
+                if (stateStage.IsRejectionState || upper is "PROP_RECHAZADA" or "PROP_RECHAZADO")
+                    return "PROPOSAL_REJECTED";
+
+                if (!Enum.TryParse<StateStageCodeEnum>(code, ignoreCase: true, out var stateCode))
                     return string.Empty;
 
                 return stateCode switch
                 {
                     StateStageCodeEnum.PROP_RADICADA => "PROPOSAL_SUBMITTED",
                     StateStageCodeEnum.PROP_PERTINENTE => "PROPOSAL_APPROVED",
-                    StateStageCodeEnum.PROP_NO_PERTINENTE => "PROPOSAL_REJECTED",
+                    StateStageCodeEnum.PROP_NO_PERTINENTE => "PROPOSAL_ADJUSTMENTS",
                     _ => string.Empty
                 };
             }

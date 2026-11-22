@@ -22,8 +22,13 @@ namespace Application.Common.Services.Notifications.Builders
                 var entity = await entityRepo.GetByIdAsync(entityId);
                 if (entity == null) return [];
 
-                var data = await BuildBaseDataAsync(inscription, entity.IdStateStage, eventType, "Seminario de Actualización");
-                data["Observations"] = entity.Observations ?? "Sin observaciones registradas";
+                var data = await BuildBaseDataAsync(
+                    inscription,
+                    entity.IdStateStage,
+                    eventType,
+                    "Seminario de Actualización",
+                    entity.UpdatedAt ?? entity.CreatedAt,
+                    entity.Observations);
                 data["SeminarName"] = entity.SeminarName ?? "-";
                 data["Attendance"] = entity.AttendancePercentage.HasValue
                     ? $"{entity.AttendancePercentage.Value:F1}%"

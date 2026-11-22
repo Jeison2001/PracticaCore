@@ -1,3 +1,4 @@
+using Application.Common.Helpers;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Interfaces.Repositories;
@@ -12,8 +13,6 @@ namespace Application.Common.Services.Notifications.Builders
         private readonly IUnitOfWork _unitOfWork;
         private readonly IStudentDataService _studentDataService;
         private readonly ILogger<ProjectPresentationEventDataBuilder> _logger;
-
-        private static readonly TimeZoneInfo ColombiaTimeZone = ResolveColombiaTimeZone();
 
         public ProjectPresentationEventDataBuilder(
             IUnitOfWork unitOfWork,
@@ -55,6 +54,11 @@ namespace Application.Common.Services.Notifications.Builders
 
                 var projectTitle = await GetProjectTitleAsync(inscriptionModality);
                 var stateInfo = await GetStateInfoAsync(presentation.IdStateStage);
+                var evaluationResult = GetEvaluationResultText(stateInfo.StateCode, stateInfo.IsRejectionState);
+                var tone = GetTone(stateInfo.StateCode, stateInfo.IsRejectionState);
+                var cleanObservations = string.IsNullOrWhiteSpace(presentation.Observations)
+                    ? string.Empty
+                    : presentation.Observations.Trim();
 
                 var eventData = new Dictionary<string, object>
                 {
@@ -67,14 +71,18 @@ namespace Application.Common.Services.Notifications.Builders
                     ["CurrentState"] = stateInfo.StateName,
                     ["CurrentStateCode"] = stateInfo.StateCode,
                     ["ScheduledDateTime"] = presentation.ScheduledDateTime.HasValue
-                        ? FormatColombiaDateTime(presentation.ScheduledDateTime.Value)
+                        ? NotificationFormattingHelper.ToColombiaDateTime(presentation.ScheduledDateTime.Value)
                         : "Por definir",
-                    ["ActualDateTime"] = FormatColombiaDateTime(presentation.ActualDateTime ?? DateTimeOffset.UtcNow),
+                    ["ActualDateTime"] = NotificationFormattingHelper.ToColombiaDateTime(
+                        presentation.ActualDateTime ?? DateTimeOffset.UtcNow),
                     ["PresentationModality"] = presentation.PresentationModality ?? "No especificada",
                     ["LocationOrLink"] = presentation.LocationOrLink ?? "No especificado",
                     ["AttemptNumber"] = presentation.AttemptNumber,
-                    ["EvaluationResult"] = GetEvaluationResultText(stateInfo.StateCode),
-                    ["Observations"] = !string.IsNullOrWhiteSpace(presentation.Observations) ? presentation.Observations : "Sin observaciones registradas",
+                    ["EvaluationResult"] = evaluationResult,
+                    ["EvaluationBadgeHtml"] = NotificationFormattingHelper.BuildEvaluationBadgeHtml(evaluationResult, tone),
+                    ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor(tone),
+                    ["Observations"] = cleanObservations,
+                    ["ObservationsBlock"] = NotificationFormattingHelper.BuildObservationsBlockHtml(cleanObservations, tone),
                     ["EventType"] = eventType,
                     ["Phase"] = "Sustentación"
                 };
@@ -107,55 +115,46 @@ namespace Application.Common.Services.Notifications.Builders
             }
         }
 
-        private async Task<(string StateName, string StateCode)> GetStateInfoAsync(int stateStageId)
+        private async Task<(string StateName, string StateCode, bool IsRejectionState)> GetStateInfoAsync(int stateStageId)
         {
             try
             {
                 var stateStageRepo = _unitOfWork.GetRepository<StateStage, int>();
                 var stateStage = await stateStageRepo.GetByIdAsync(stateStageId);
 
-                return (stateStage?.Name ?? "Estado desconocido", stateStage?.Code ?? "UNKNOWN");
+                return (stateStage?.Name ?? "Estado desconocido", stateStage?.Code ?? "UNKNOWN", stateStage?.IsRejectionState ?? false);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting state info for StateStage ID: {StateStageId}", stateStageId);
-                return ("Estado desconocido", "UNKNOWN");
+                return ("Estado desconocido", "UNKNOWN", false);
             }
         }
 
-        private static string FormatColombiaDateTime(DateTimeOffset value) =>
-            TimeZoneInfo.ConvertTime(value, ColombiaTimeZone).ToString("dd/MM/yyyy HH:mm");
-
-        private static TimeZoneInfo ResolveColombiaTimeZone()
+        private static string GetTone(string stateCode, bool isRejectionState)
         {
-            foreach (var tzId in new[] { "America/Bogota", "SA Pacific Standard Time" })
-            {
-                if (TimeZoneInfo.TryFindSystemTimeZoneById(tzId, out var tz))
-                    return tz;
-            }
-            return TimeZoneInfo.CreateCustomTimeZone(
-                "COT",
-                TimeSpan.FromHours(-5),
-                "Colombia Standard Time",
-                "Colombia Standard Time");
+            var upper = (stateCode ?? string.Empty).ToUpperInvariant();
+            if (upper == nameof(StateStageCodeEnum.SUST_APROBADA))
+                return "approved";
+            if (upper == nameof(StateStageCodeEnum.SUST_NO_APROBADA_REINTENTO))
+                return "warning";
+            if (isRejectionState || upper is nameof(StateStageCodeEnum.SUST_REPROBADA_FINAL) or "SUST_NO_APROBADA_DEFINITIVA")
+                return "rejected";
+            return "info";
         }
 
-        private string GetEvaluationResultText(string stateCode)
+        private static string GetEvaluationResultText(string stateCode, bool isRejectionState)
         {
-            if (Enum.TryParse<StateStageCodeEnum>(stateCode, out var code))
+            var upper = (stateCode ?? string.Empty).ToUpperInvariant();
+            return upper switch
             {
-                return code switch
-                {
-                    StateStageCodeEnum.SUST_APROBADA => "APROBADA",
-                    StateStageCodeEnum.SUST_NO_APROBADA_REINTENTO => "NO APROBADA (CON REINTENTO)",
-                    StateStageCodeEnum.SUST_REPROBADA_FINAL => "NO APROBADA DEFINITIVA (REPROBADA)",
-                    StateStageCodeEnum.SUST_PROGRAMADA => "PROGRAMADA",
-                    StateStageCodeEnum.SUST_PENDIENTE_PROGRAMACION => "PENDIENTE DE PROGRAMACIÓN",
-                    _ => "ESTADO DESCONOCIDO"
-                };
-            }
-
-            return "ESTADO DESCONOCIDO";
+                nameof(StateStageCodeEnum.SUST_APROBADA) => "APROBADA",
+                nameof(StateStageCodeEnum.SUST_NO_APROBADA_REINTENTO) => "NO APROBADA (CON REINTENTO)",
+                nameof(StateStageCodeEnum.SUST_REPROBADA_FINAL) or "SUST_NO_APROBADA_DEFINITIVA" => "NO APROBADA DEFINITIVA (REPROBADA)",
+                nameof(StateStageCodeEnum.SUST_PROGRAMADA) => "PROGRAMADA",
+                nameof(StateStageCodeEnum.SUST_PENDIENTE_PROGRAMACION) => "PENDIENTE DE PROGRAMACIÓN",
+                _ => isRejectionState ? "NO APROBADA DEFINITIVA (REPROBADA)" : "ESTADO DESCONOCIDO"
+            };
         }
     }
 }

@@ -22,8 +22,13 @@ namespace Application.Common.Services.Notifications.Builders
                 var entity = await entityRepo.GetByIdAsync(entityId);
                 if (entity == null) return [];
 
-                var data = await BuildBaseDataAsync(inscription, entity.IdStateStage, eventType, "Grado por Promedio");
-                data["Observations"] = entity.Observations ?? "Sin observaciones registradas";
+                var data = await BuildBaseDataAsync(
+                    inscription,
+                    entity.IdStateStage,
+                    eventType,
+                    "Grado por Promedio",
+                    entity.UpdatedAt ?? entity.CreatedAt,
+                    entity.Observations);
                 data["CertifiedAverage"] = entity.CertifiedAverage?.ToString("F2") ?? "-";
                 data["HasFailedSubjects"] = entity.HasFailedSubjects.HasValue ? (entity.HasFailedSubjects.Value ? "Sí" : "No") : "-";
                 return data;
