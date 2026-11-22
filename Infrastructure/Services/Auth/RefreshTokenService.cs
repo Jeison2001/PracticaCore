@@ -13,9 +13,12 @@ namespace Infrastructure.Services.Auth
     /// </summary>
     public class RefreshTokenService : IRefreshTokenService
     {
+        public const int DefaultMaxActiveSessions = 2;
+
         private readonly AppDbContext _context;
         private readonly IUnitOfWork _unitOfWork;
         private readonly int _tokenExpirationDays;
+        private readonly int _maxActiveSessions;
 
         private const int TokenByteLength = 64; // 512 bits → 86 chars en Base64
 
@@ -31,19 +34,50 @@ namespace Infrastructure.Services.Auth
             _tokenExpirationDays = int.TryParse(expireRaw, out var days) && days > 0
                 ? days
                 : throw new InvalidOperationException($"Jwt:RefreshTokenExpirationDays tiene un valor inválido: '{expireRaw}'. Debe ser un entero positivo.");
+
+            var raw = configuration["Jwt:MaxActiveSessions"];
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                _maxActiveSessions = DefaultMaxActiveSessions;
+            }
+            else if (int.TryParse(raw, out var maxSessions) && maxSessions >= 0)
+            {
+                _maxActiveSessions = maxSessions;
+            }
+            else
+            {
+                throw new InvalidOperationException($"Jwt:MaxActiveSessions tiene un valor inválido: '{raw}'. Debe ser un entero mayor o igual a cero.");
+            }
         }
 
         /// <inheritdoc />
         public async Task<RefreshToken> GenerateAsync(int userId, CancellationToken ct = default)
         {
+            var now = DateTimeOffset.UtcNow;
+
+            if (_maxActiveSessions > 0)
+            {
+                var activeTokens = await _context.RefreshTokens
+                    .Where(rt => rt.IdUser == userId && rt.RevokedAt == null && rt.ExpiresAt > now)
+                    .OrderByDescending(rt => rt.CreatedAt)
+                    .ThenByDescending(rt => rt.Id)
+                    .ToListAsync(ct);
+
+                var tokensToEvict = activeTokens.Skip(_maxActiveSessions - 1).ToList();
+                if (tokensToEvict.Count > 0)
+                {
+                    _context.RefreshTokens.RemoveRange(tokensToEvict);
+                }
+            }
+
             var tokenValue = GenerateSecureToken();
 
             var refreshToken = new RefreshToken
             {
                 IdUser = userId,
                 Token = tokenValue,
-                ExpiresAt = DateTimeOffset.UtcNow.AddDays(_tokenExpirationDays),
-                CreatedAt = DateTimeOffset.UtcNow,
+                ExpiresAt = now.AddDays(_tokenExpirationDays),
+                CreatedAt = now,
                 StatusRegister = true,
                 OperationRegister = "Generación Token"
             };

@@ -8,8 +8,10 @@ using Domain.Interfaces.Services.Auth;
 using FluentAssertions;
 using Google.Apis.Auth;
 using Infrastructure.Data;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
@@ -454,6 +456,208 @@ namespace Tests.Integration.Auth
 
             var response = await _client.PostAsJsonAsync("/api/Auth/register", request);
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task MaxActiveSessions_AfterThreeLogins_EvictsFirstSessionCleanlyWithoutRevokingSecondOrThirdSessions()
+        {
+            using var customFactory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Jwt:MaxActiveSessions"] = "2"
+                    });
+                });
+            });
+
+            using var client = customFactory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                HandleCookies = false
+            });
+
+            var email = $"fifo_{Guid.NewGuid():N}@unicesar.edu.co";
+            using (var scope = customFactory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var idType = context.Set<IdentificationType>().FirstOrDefault(x => x.StatusRegister)
+                    ?? new IdentificationType { Code = "CC", Name = "Cedula", Description = "Cedula", StatusRegister = true };
+                if (idType.Id == 0) context.Set<IdentificationType>().Add(idType);
+
+                var faculty = context.Set<Faculty>().FirstOrDefault(x => x.StatusRegister)
+                    ?? new Faculty { Name = "Fac", Code = "F1", StatusRegister = true };
+                if (faculty.Id == 0) context.Set<Faculty>().Add(faculty);
+
+                var program = context.Set<AcademicProgram>().FirstOrDefault(x => x.StatusRegister)
+                    ?? new AcademicProgram { Name = "Prog", Code = "P1", Faculty = faculty, StatusRegister = true };
+                if (program.Id == 0) context.Set<AcademicProgram>().Add(program);
+
+                await context.SaveChangesAsync();
+
+                context.Users.Add(new User
+                {
+                    IdIdentificationType = idType.Id,
+                    Identification = Guid.NewGuid().ToString("N")[..10],
+                    Email = email,
+                    FirstName = "Session",
+                    LastName = "Limit",
+                    IdAcademicProgram = program.Id,
+                    StatusRegister = true,
+                    OperationRegister = "SEED"
+                });
+                await context.SaveChangesAsync();
+            }
+
+            static string ExtractRefreshTokenCookie(HttpResponseMessage res)
+            {
+                res.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+                var cookie = cookies!.FirstOrDefault(c =>
+                    c.StartsWith("refreshToken=", StringComparison.OrdinalIgnoreCase)
+                    && !c.StartsWith("refreshToken=;", StringComparison.OrdinalIgnoreCase));
+                cookie.Should().NotBeNull();
+                return cookie!.Split(';', 2)[0]["refreshToken=".Length..];
+            }
+
+            var login1 = await client.PostAsJsonAsync("/api/Auth/manual", new ManualAuthRequest { Email = email });
+            login1.StatusCode.Should().Be(HttpStatusCode.OK);
+            var rt1 = ExtractRefreshTokenCookie(login1);
+
+            var login2 = await client.PostAsJsonAsync("/api/Auth/manual", new ManualAuthRequest { Email = email });
+            login2.StatusCode.Should().Be(HttpStatusCode.OK);
+            var rt2 = ExtractRefreshTokenCookie(login2);
+
+            var login3 = await client.PostAsJsonAsync("/api/Auth/manual", new ManualAuthRequest { Email = email });
+            login3.StatusCode.Should().Be(HttpStatusCode.OK);
+            var rt3 = ExtractRefreshTokenCookie(login3);
+
+            // El 1.er refreshToken desplazado por FIFO recibe 401, limpia cookies y NO dispara revocación global por reúso
+            using var refresh1Req = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            refresh1Req.Headers.Add("X-Test-Anonymous", "true");
+            refresh1Req.Headers.Add("Cookie", $"refreshToken={rt1}");
+            refresh1Req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var refresh1Res = await client.SendAsync(refresh1Req);
+            refresh1Res.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+            var refresh1Payload = await refresh1Res.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            refresh1Payload.Should().NotBeNull();
+            refresh1Payload!.Success.Should().BeFalse();
+            refresh1Payload.Errors.Should().Contain("Refresh token inválido.");
+
+            refresh1Res.Headers.TryGetValues("Set-Cookie", out var refresh1Cookies).Should().BeTrue();
+            var refresh1CookieList = refresh1Cookies!.ToList();
+            refresh1CookieList.Should().Contain(c => c.StartsWith("refreshToken=;", StringComparison.OrdinalIgnoreCase));
+            refresh1CookieList.Should().Contain(c => c.StartsWith("accessToken=;", StringComparison.OrdinalIgnoreCase));
+
+            // El 2.º y el 3.er login siguen completamente activos (200 OK al refrescar el 2.º y el 3.º)
+            using var refresh2Req = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            refresh2Req.Headers.Add("X-Test-Anonymous", "true");
+            refresh2Req.Headers.Add("Cookie", $"refreshToken={rt2}");
+            refresh2Req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var refresh2Res = await client.SendAsync(refresh2Req);
+            refresh2Res.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            using var refresh3Req = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            refresh3Req.Headers.Add("X-Test-Anonymous", "true");
+            refresh3Req.Headers.Add("Cookie", $"refreshToken={rt3}");
+            refresh3Req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var refresh3Res = await client.SendAsync(refresh3Req);
+            refresh3Res.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task RefreshTokens_WithExpiredToken_ReturnsUnauthorizedAndClearsCookies()
+        {
+            var expiredToken = $"rt_exp_{Guid.NewGuid():N}";
+            var userId = await SeedUserWithRefreshTokensAsync(userIsActive: true);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                context.RefreshTokens.Add(new RefreshToken
+                {
+                    IdUser = userId,
+                    Token = expiredToken,
+                    ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+                    CreatedAt = DateTimeOffset.UtcNow.AddDays(-7),
+                    StatusRegister = true,
+                    OperationRegister = "SEED"
+                });
+                await context.SaveChangesAsync();
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
+            request.Headers.Add("X-Test-Anonymous", "true");
+            request.Headers.Add("Cookie", $"refreshToken={expiredToken}");
+            request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+            var payload = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            payload.Should().NotBeNull();
+            payload!.Success.Should().BeFalse();
+            payload.Errors.Should().Contain("Refresh token expirado.");
+
+            response.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
+            var cookieList = setCookies!.ToList();
+            cookieList.Should().Contain(c => c.StartsWith("refreshToken=;", StringComparison.OrdinalIgnoreCase));
+            cookieList.Should().Contain(c => c.StartsWith("accessToken=;", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public async Task LogoutAll_Authenticated_RevokesAllUserRefreshTokensAndClearsCookies_WhileAnonymousReturnsUnauthorized()
+        {
+            var userToken1 = $"rt_{Guid.NewGuid():N}";
+            var userToken2 = $"rt_{Guid.NewGuid():N}";
+            var otherUserToken = $"rt_{Guid.NewGuid():N}";
+
+            var userId = await SeedUserWithRefreshTokensAsync(userIsActive: true, userToken1, userToken2);
+            var otherUserId = await SeedUserWithRefreshTokensAsync(userIsActive: true, otherUserToken);
+
+            // Petición anónima debe ser rechazada con 401
+            using var anonRequest = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/logout-all");
+            anonRequest.Headers.Add("X-Test-Anonymous", "true");
+            var anonResponse = await _client.SendAsync(anonRequest);
+            anonResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+            // Petición autenticada revoca todos los RefreshTokens del usuario y limpia cookies
+            using var authRequest = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/logout-all");
+            authRequest.Headers.Add("X-Test-UserId", userId.ToString());
+            authRequest.Headers.Add("X-Test-Permissions", "NONE");
+            authRequest.Headers.Add("Cookie", $"accessToken=dummy-jwt; refreshToken={userToken1}");
+            authRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var response = await _client.SendAsync(authRequest);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var payload = await response.Content.ReadFromJsonAsync<ApiResponse<string>>();
+            payload.Should().NotBeNull();
+            payload!.Success.Should().BeTrue();
+            payload.Data.Should().Be("Todas las sesiones han sido cerradas correctamente.");
+
+            response.Headers.TryGetValues("Set-Cookie", out var setCookies).Should().BeTrue();
+            var cookieList = setCookies!.ToList();
+            cookieList.Should().Contain(c => c.StartsWith("refreshToken=;", StringComparison.OrdinalIgnoreCase));
+            cookieList.Should().Contain(c => c.StartsWith("accessToken=;", StringComparison.OrdinalIgnoreCase));
+
+            using var verifyScope = _factory.Services.CreateScope();
+            var verifyContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var remainingUserTokens = await verifyContext.RefreshTokens
+                .AsNoTracking()
+                .Where(rt => rt.IdUser == userId)
+                .ToListAsync();
+            remainingUserTokens.Should().BeEmpty();
+
+            var remainingOtherTokens = await verifyContext.RefreshTokens
+                .AsNoTracking()
+                .Where(rt => rt.IdUser == otherUserId)
+                .ToListAsync();
+            remainingOtherTokens.Should().ContainSingle(rt => rt.Token == otherUserToken);
         }
     }
 }

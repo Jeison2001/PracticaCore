@@ -16,7 +16,6 @@ namespace Api.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
-    [AllowAnonymous]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -63,6 +62,7 @@ namespace Api.Controllers
         /// <summary>
         /// Login federado con el proveedor de identidad configurado (Google, Azure AD, etc.).
         /// </summary>
+        [AllowAnonymous]
         [HttpPost("token")]
         public async Task<IActionResult> TokenLogin([FromBody] TokenAuthRequest request)
         {
@@ -93,6 +93,7 @@ namespace Api.Controllers
         }
 
         //Testing
+        [AllowAnonymous]
         [HttpPost("manual")]
         public async Task<IActionResult> ManualLogin([FromBody] ManualAuthRequest request)
         {
@@ -125,6 +126,7 @@ namespace Api.Controllers
             }
         }
 
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
@@ -277,6 +279,7 @@ namespace Api.Controllers
                 return StatusCode(500, new ApiResponse<object> { Success = false, Errors = new List<string> { message } });
             }
         }
+        [AllowAnonymous]
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshTokens()
         {
@@ -290,10 +293,16 @@ namespace Api.Controllers
             var rtEntity = await _refreshTokenService.ValidateTokenForReuseAsync(refreshTokenString, cancellationToken);
 
             if (rtEntity == null)
+            {
+                ClearAuthCookies();
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Refresh token inválido." } });
+            }
 
             if (rtEntity.IsExpired)
+            {
+                ClearAuthCookies();
                 return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Refresh token expirado." } });
+            }
 
             if (rtEntity.RevokedAt != null)
             {
@@ -364,6 +373,7 @@ namespace Api.Controllers
             return Ok(new ApiResponse<AuthResponse> { Success = true, Data = response });
         }
 
+        [AllowAnonymous]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
@@ -376,6 +386,24 @@ namespace Api.Controllers
             ClearAuthCookies();
 
             return Ok(new ApiResponse<object> { Success = true, Data = "Sesión cerrada correctamente." });
+        }
+
+        [Authorize]
+        [HttpPost("logout-all")]
+        public async Task<IActionResult> LogoutAll()
+        {
+            var rawUserId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? User?.FindFirst("sub")?.Value;
+
+            if (!int.TryParse(rawUserId, out var userId) || userId <= 0)
+            {
+                return Unauthorized(new ApiResponse<object> { Success = false, Errors = new List<string> { "Usuario no autenticado." } });
+            }
+
+            await _refreshTokenService.RevokeAllTokensForUserAsync(userId, HttpContext?.RequestAborted ?? CancellationToken.None);
+            ClearAuthCookies();
+
+            return Ok(new ApiResponse<object> { Success = true, Data = "Todas las sesiones han sido cerradas correctamente." });
         }
 
         private List<string> GetAllowedRegisterDomains()

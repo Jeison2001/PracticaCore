@@ -332,6 +332,7 @@ namespace Tests.UnitTests.Api.Authorization
 
             var expectedExceptions = new HashSet<string>(StringComparer.Ordinal)
             {
+                $"{nameof(AuthController)}.{nameof(AuthController.LogoutAll)}",
                 $"{nameof(DocumentController)}.{nameof(DocumentController.GetById)}",
                 $"{nameof(DocumentController)}.{nameof(DocumentController.DownloadFile)}",
                 $"{nameof(DocumentController)}.{nameof(DocumentController.GetByInscriptionModality)}",
