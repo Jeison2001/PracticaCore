@@ -121,7 +121,6 @@ namespace Infrastructure.Services.Auth
             }
 
             var email = GetClaim("email", "preferred_username", "upn");
-            AuthValidationHelper.EnsureEmailDomainAllowed(email, _options.AllowedDomains);
 
             return new TokenPayload
             {

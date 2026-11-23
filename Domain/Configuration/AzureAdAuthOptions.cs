@@ -24,10 +24,5 @@ namespace Domain.Configuration
         /// Lista opcional de Tenant IDs autorizados cuando TenantId es multi-tenant.
         /// </summary>
         public string[]? AllowedTenantIds { get; set; }
-
-        /// <summary>
-        /// Lista opcional de dominios de correo electrónico permitidos.
-        /// </summary>
-        public string[]? AllowedDomains { get; set; }
     }
 }

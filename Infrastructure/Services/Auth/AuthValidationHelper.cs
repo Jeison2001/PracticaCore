@@ -6,48 +6,17 @@ namespace Infrastructure.Services.Auth
     {
         private static readonly string[] DefaultAllowedDomains = ["unicesar.edu.co"];
 
-        public static string[] GetAllowedDomains(IConfiguration? configuration, string? provider = null)
+        public static string[] GetAllowedDomains(IConfiguration? configuration)
         {
             var globalDomains = ReadDomainsFromSection(configuration, "Authentication:AllowedDomains");
             if (globalDomains.Length > 0)
                 return globalDomains;
-
-            var providerDomains = GetProviderAllowedDomains(configuration, provider);
-            if (providerDomains.Length > 0)
-                return providerDomains;
 
             var registerDomains = ReadDomainsFromSection(configuration, "Authentication:Register:AllowedDomains");
             if (registerDomains.Length > 0)
                 return registerDomains;
 
             return DefaultAllowedDomains;
-        }
-
-        private static string[] GetProviderAllowedDomains(IConfiguration? configuration, string? provider)
-        {
-            if (configuration == null || string.IsNullOrWhiteSpace(provider))
-                return Array.Empty<string>();
-
-            var normalizedProvider = provider.Trim().ToLowerInvariant();
-            var sectionName = normalizedProvider switch
-            {
-                "google" => "Google",
-                "azure" => "AzureAd",
-                _ => provider.Trim()
-            };
-
-            var allowedDomains = ReadDomainsFromSection(configuration, $"Authentication:{sectionName}:AllowedDomains");
-            if (allowedDomains.Length > 0)
-                return allowedDomains;
-
-            if (normalizedProvider == "google")
-            {
-                var hostedDomain = configuration["Authentication:Google:HostedDomain"]?.Trim().TrimStart('@');
-                if (!string.IsNullOrWhiteSpace(hostedDomain) && hostedDomain != "*")
-                    return [hostedDomain];
-            }
-
-            return Array.Empty<string>();
         }
 
         private static string[] ReadDomainsFromSection(IConfiguration? configuration, string sectionPath)

@@ -38,19 +38,12 @@ namespace Infrastructure.Services.Auth
                 Audience = new[] { _options.ClientId }
             };
 
-            if (!string.IsNullOrEmpty(_options.HostedDomain))
-            {
-                settings.HostedDomain = _options.HostedDomain;
-            }
-
             var payload = await _validateToken(idToken, settings);
 
             if (!payload.EmailVerified)
             {
                 throw new UnauthorizedAccessException("El correo de Google no está verificado.");
             }
-
-            AuthValidationHelper.EnsureEmailDomainAllowed(payload.Email, _options.AllowedDomains);
 
             return new TokenPayload
             {

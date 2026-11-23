@@ -57,7 +57,7 @@ namespace Infrastructure.Services.Auth
                 }
 
                 var normalizedEmail = payload.Email.Trim().ToLowerInvariant();
-                var allowedDomains = AuthValidationHelper.GetAllowedDomains(_configuration, provider);
+                var allowedDomains = AuthValidationHelper.GetAllowedDomains(_configuration);
                 AuthValidationHelper.EnsureEmailDomainAllowed(normalizedEmail, allowedDomains);
 
                 var user = await _userInfoRepository.FindUserByEmailAsync(normalizedEmail);

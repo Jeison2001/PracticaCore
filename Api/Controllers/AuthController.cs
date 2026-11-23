@@ -410,7 +410,19 @@ namespace Api.Controllers
 
         private List<string> GetAllowedRegisterDomains()
         {
-            const string configKey = "Authentication:Register:AllowedDomains";
+            var registerDomains = ReadConfiguredDomains("Authentication:Register:AllowedDomains");
+            if (registerDomains.Count > 0)
+                return registerDomains;
+
+            var globalDomains = ReadConfiguredDomains("Authentication:AllowedDomains");
+            if (globalDomains.Count > 0)
+                return globalDomains;
+
+            return new List<string> { "unicesar.edu.co" };
+        }
+
+        private List<string> ReadConfiguredDomains(string configKey)
+        {
             var rawValue = _configuration[configKey];
 
             IEnumerable<string> rawEntries;

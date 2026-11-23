@@ -542,6 +542,58 @@ namespace Tests.Integration.Auth
             rejectedPayload.Errors.Should().Contain("Solo se permite el registro con correos institucionales autorizados (@otro.edu.co, @unicesar.edu.co).");
         }
 
+        [Fact]
+        public async Task Register_WhenRegisterOverrideAbsent_InheritsGlobalAuthenticationAllowedDomains()
+        {
+            using var customFactory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Authentication:Register:AllowedDomains"] = "",
+                        ["Authentication:Register:AllowedDomains:0"] = "",
+                        ["Authentication:AllowedDomains:0"] = "aliado.edu.co",
+                        ["Authentication:AllowedDomains:1"] = "unicesar.edu.co"
+                    });
+                });
+            });
+            using var client = customFactory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                HandleCookies = false
+            });
+
+            var (idTypeId, programId) = await SeedRegistrationCatalogAsync(customFactory.Services);
+
+            var allyResponse = await client.PostAsJsonAsync("/api/Auth/register", new RegisterRequest
+            {
+                IdIdentificationType = idTypeId,
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                Email = $"est_{Guid.NewGuid():N}@aliado.edu.co",
+                FirstName = "Student",
+                LastName = "Aliado",
+                IdAcademicProgram = programId,
+                RoleId = 0
+            });
+            allyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var rejectedResponse = await client.PostAsJsonAsync("/api/Auth/register", new RegisterRequest
+            {
+                IdIdentificationType = idTypeId,
+                Identification = Guid.NewGuid().ToString("N")[..10],
+                Email = $"est_{Guid.NewGuid():N}@gmail.com",
+                FirstName = "Student",
+                LastName = "Rejected",
+                IdAcademicProgram = programId,
+                RoleId = 0
+            });
+            rejectedResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            var rejectedPayload = await rejectedResponse.Content.ReadFromJsonAsync<ApiResponse<object>>();
+            rejectedPayload.Should().NotBeNull();
+            rejectedPayload!.Success.Should().BeFalse();
+            rejectedPayload.Errors.Should().Contain("Solo se permite el registro con correos institucionales autorizados (@aliado.edu.co, @unicesar.edu.co).");
+        }
+
         private static async Task<(int idTypeId, int programId)> SeedRegistrationCatalogAsync(IServiceProvider services)
         {
             using var scope = services.CreateScope();

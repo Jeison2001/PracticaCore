@@ -188,7 +188,7 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
                 _service.AuthenticateWithTokenAsync("ext_token", "google"));
             Assert.Equal("El dominio de correo no está autorizado para acceder al sistema.", defaultEx.Message);
 
-            // 2. Fallback a Authentication:Register:AllowedDomains cuando ni proveedor ni Authentication:AllowedDomains existen
+            // 2. Fallback a Authentication:Register:AllowedDomains cuando Authentication:AllowedDomains no existe
             var registerConfig = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -281,6 +281,65 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
             var result = await service.AuthenticateWithTokenAsync("token", "google");
 
             Assert.Equal("jwt_token", result.Token);
+        }
+
+        [Fact]
+        public async Task AuthenticateWithTokenAsync_WithMultipleAllowedDomains_AppliesUniformlyAcrossGoogleAndAzure()
+        {
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Authentication:AllowedDomains:0"] = "unicesar.edu.co",
+                    ["Authentication:AllowedDomains:1"] = "gmail.com"
+                })
+                .Build();
+
+            var googleValidatorMock = new Mock<ITokenValidator>();
+            googleValidatorMock.SetupGet(x => x.Provider).Returns("google");
+            googleValidatorMock.Setup(x => x.ValidateAsync("g_gmail"))
+                .ReturnsAsync(new TokenPayload { Email = "doc@gmail.com", GivenName = "Doc", FamilyName = "Gmail" });
+            googleValidatorMock.Setup(x => x.ValidateAsync("g_blocked"))
+                .ReturnsAsync(new TokenPayload { Email = "doc@otro.com", GivenName = "Doc", FamilyName = "Otro" });
+
+            var azureValidatorMock = new Mock<ITokenValidator>();
+            azureValidatorMock.SetupGet(x => x.Provider).Returns("azure");
+            azureValidatorMock.Setup(x => x.ValidateAsync("a_upc"))
+                .ReturnsAsync(new TokenPayload { Email = "est@unicesar.edu.co", GivenName = "Est", FamilyName = "Upc" });
+            azureValidatorMock.Setup(x => x.ValidateAsync("a_blocked"))
+                .ReturnsAsync(new TokenPayload { Email = "est@otro.com", GivenName = "Est", FamilyName = "Otro" });
+
+            _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync("doc@gmail.com"))
+                .ReturnsAsync(new User { Id = 11, Email = "doc@gmail.com", FirstName = "Doc", LastName = "Gmail", StatusRegister = true });
+            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(11)).ReturnsAsync(new UserLoginData());
+            _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync("est@unicesar.edu.co"))
+                .ReturnsAsync(new User { Id = 12, Email = "est@unicesar.edu.co", FirstName = "Est", LastName = "Upc", StatusRegister = true });
+            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(12)).ReturnsAsync(new UserLoginData());
+            _jwtServiceMock.Setup(x => x.GenerateTokenWithClaims(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<List<string>>(),
+                It.IsAny<List<string>>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>())).Returns("jwt_ok");
+
+            var service = new FederatedAuthService(
+                _jwtServiceMock.Object,
+                _userInfoRepositoryMock.Object,
+                new[] { googleValidatorMock.Object, azureValidatorMock.Object },
+                config);
+
+            var googleResult = await service.AuthenticateWithTokenAsync("g_gmail", "google");
+            var azureResult = await service.AuthenticateWithTokenAsync("a_upc", "azure");
+            Assert.Equal("jwt_ok", googleResult.Token);
+            Assert.Equal("jwt_ok", azureResult.Token);
+
+            var gEx = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.AuthenticateWithTokenAsync("g_blocked", "google"));
+            var aEx = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.AuthenticateWithTokenAsync("a_blocked", "azure"));
+            Assert.Equal("El dominio de correo no está autorizado para acceder al sistema.", gEx.Message);
+            Assert.Equal("El dominio de correo no está autorizado para acceder al sistema.", aEx.Message);
         }
     }
 }
