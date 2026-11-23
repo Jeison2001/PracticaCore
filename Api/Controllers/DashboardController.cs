@@ -32,7 +32,7 @@ namespace Api.Controllers
 
         /// <summary>KPIs y breakdowns agregados según los filtros aplicados.</summary>
         [HttpPost("summary")]
-        public async Task<IActionResult> GetSummary([FromBody] DashboardFilter filter)
+        public async Task<IActionResult> GetSummary([FromBody] DashboardFilter? filter)
         {
             var summary = await _mediator.Send(new GetDashboardSummaryQuery(filter ?? new DashboardFilter()));
             return Ok(new ApiResponse<DashboardSummary> { Success = true, Data = summary });
@@ -43,20 +43,36 @@ namespace Api.Controllers
         /// distribuciones propias). Requiere exactamente una modalidad en el filtro; si no, devuelve null.
         /// </summary>
         [HttpPost("modality-breakdown")]
-        public async Task<IActionResult> GetModalityBreakdown([FromBody] DashboardFilter filter)
+        public async Task<IActionResult> GetModalityBreakdown([FromBody] DashboardFilter? filter)
         {
             var breakdown = await _mediator.Send(new GetModalityBreakdownQuery(filter ?? new DashboardFilter()));
             return Ok(new ApiResponse<ModalityBreakdown?> { Success = true, Data = breakdown });
         }
 
-        /// <summary>Exporta a CSV las inscripciones que cumplen los filtros.</summary>
+        /// <summary>Alertas operativas: estancamiento, incumplimiento SLA Acuerdo 015, riesgo de plazo, sustentaciones y retrabajo.</summary>
+        [HttpPost("alerts")]
+        public async Task<IActionResult> GetAlerts([FromBody] DashboardFilter? filter)
+        {
+            var alerts = await _mediator.Send(new GetDashboardAlertsQuery(filter ?? new DashboardFilter()));
+            return Ok(new ApiResponse<DashboardOperationalAlerts> { Success = true, Data = alerts });
+        }
+
+        /// <summary>Listado paginado, buscable y ordenable de registros enriquecidos según los filtros.</summary>
+        [HttpPost("records")]
+        public async Task<IActionResult> GetRecords([FromBody] DashboardFilter? filter)
+        {
+            var page = await _mediator.Send(new GetDashboardRecordsQuery(filter ?? new DashboardFilter()));
+            return Ok(new ApiResponse<DashboardRecordsPage> { Success = true, Data = page });
+        }
+
+        /// <summary>Exporta a CSV enriquecido las inscripciones que cumplen los filtros.</summary>
         [HttpPost("export")]
-        public async Task<IActionResult> ExportCsv([FromBody] DashboardFilter filter)
+        public async Task<IActionResult> ExportCsv([FromBody] DashboardFilter? filter)
         {
             var rows = await _mediator.Send(new GetDashboardExportQuery(filter ?? new DashboardFilter()));
 
             var sb = new StringBuilder();
-            sb.AppendLine("Id,Modalidad,Estado,Periodo,Programa,Facultad,Estudiantes,FechaCreacion,FechaAprobacion,FaseActual,EstadoFase,DetalleModalidad");
+            sb.AppendLine("Id,Modalidad,Estado,Periodo,Programa,Facultad,Estudiantes,FechaCreacion,FechaAprobacion,FaseActual,EstadoFase,DetalleModalidad,EstadoCicloVida,Identificaciones,Correos,Docentes,Titulo,LineaInvestigacion,SublineaInvestigacion,UltimaActividad,DiasTranscurridos");
             foreach (var r in rows)
             {
                 sb.AppendLine(string.Join(",",
@@ -71,13 +87,33 @@ namespace Api.Controllers
                     Csv(r.ApprovalDate),
                     Csv(r.CurrentPhase),
                     Csv(r.PhaseState),
-                    Csv(r.ModalityDetail)));
+                    Csv(r.ModalityDetail),
+                    Csv(r.LifecycleStatus),
+                    Csv(r.StudentIdentifications),
+                    Csv(r.StudentEmails),
+                    Csv(r.Teachers),
+                    Csv(r.Title),
+                    Csv(r.ResearchLine),
+                    Csv(r.ResearchSubLine),
+                    Csv(r.LastActivityAt),
+                    Csv(r.DaysElapsed.ToString())));
             }
 
             // BOM UTF-8 para que Excel respete los acentos.
             var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
-            var fileName = $"reporte_inscripciones_{DateTime.UtcNow:yyyyMMdd_HHmm}.csv";
+            var colombiaNow = DashboardTimeHelper.NowColombia();
+            var fileName = $"reporte_inscripciones_{colombiaNow:yyyyMMdd_HHmm}.csv";
             return File(bytes, "text/csv", fileName);
+        }
+
+        /// <summary>Exporta un libro Excel (.xlsx) institucional multipestaña con resumen, registros, carga docente y alertas.</summary>
+        [HttpPost("export-excel")]
+        public async Task<IActionResult> ExportExcel([FromBody] DashboardFilter? filter)
+        {
+            var bytes = await _mediator.Send(new GetDashboardExcelQuery(filter ?? new DashboardFilter()));
+            var colombiaNow = DashboardTimeHelper.NowColombia();
+            var fileName = $"reporte_pegi_{colombiaNow:yyyyMMdd_HHmm}.xlsx";
+            return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
         /// <summary>Escapa un valor para CSV neutralizando inyección de fórmulas.</summary>

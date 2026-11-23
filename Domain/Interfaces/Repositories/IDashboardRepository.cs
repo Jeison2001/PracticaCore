@@ -4,7 +4,7 @@ using Domain.Interfaces.Common;
 namespace Domain.Interfaces.Repositories
 {
     /// <summary>
-    /// Consultas de agregación para el dashboard de reportes. Solo lectura.
+    /// Consultas de agregación, alertas operativas y exportación para el dashboard de reportes. Solo lectura.
     /// </summary>
     public interface IDashboardRepository : IScopedService
     {
@@ -17,7 +17,13 @@ namespace Domain.Interfaces.Repositories
         /// </summary>
         Task<ModalityBreakdown?> GetModalityBreakdownAsync(DashboardFilter filter, CancellationToken cancellationToken = default);
 
-        /// <summary>Filas planas (una por inscripción) para exportación a CSV, aplicando los mismos filtros.</summary>
+        /// <summary>Alertas operativas: estancamiento, SLA Acuerdo 015, riesgo de vencimiento, sustentaciones y retrabajo.</summary>
+        Task<DashboardOperationalAlerts> GetOperationalAlertsAsync(DashboardFilter filter, CancellationToken cancellationToken = default);
+
+        /// <summary>Listado paginado y buscable de inscripciones enriquecidas.</summary>
+        Task<DashboardRecordsPage> GetPagedRecordsAsync(DashboardFilter filter, CancellationToken cancellationToken = default);
+
+        /// <summary>Filas planas enriquecidas (una por inscripción, con tope seguro) para exportación CSV/Excel.</summary>
         Task<List<DashboardExportRow>> GetExportRowsAsync(DashboardFilter filter, CancellationToken cancellationToken = default);
     }
 }

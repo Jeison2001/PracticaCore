@@ -24,6 +24,30 @@ namespace Domain.Common.Dashboard
         /// <summary>Filtra registros con (true) o sin (false) asignación docente. null = sin filtro.</summary>
         public bool? HasTeachingAssignment { get; set; }
 
+        /// <summary>Estados consolidados de ciclo de vida: COMPLETED, IN_REVIEW, WITH_OBSERVATIONS, IN_PROGRESS, REJECTED.</summary>
+        public List<string>? LifecycleStatuses { get; set; }
+
+        /// <summary>Si es true, la carga docente solo incluye inscripciones activas (excluye COMPLETED y REJECTED).</summary>
+        public bool ActiveTeachersOnly { get; set; } = true;
+
+        /// <summary>Umbral de días sin actividad para considerar una inscripción estancada.</summary>
+        public int StaleDaysThreshold { get; set; } = 30;
+
+        /// <summary>Búsqueda de texto libre (estudiante, identificación, correo, título, docente, detalle).</summary>
+        public string? Search { get; set; }
+
+        /// <summary>Página solicitada para el listado paginado de registros (1-based).</summary>
+        public int Page { get; set; } = 1;
+
+        /// <summary>Tamaño de página para el listado paginado de registros.</summary>
+        public int PageSize { get; set; } = 20;
+
+        /// <summary>Campo de ordenamiento para el listado paginado.</summary>
+        public string? SortBy { get; set; }
+
+        /// <summary>Dirección de ordenamiento ("asc" o "desc").</summary>
+        public string? SortDir { get; set; }
+
         /// <summary>
         /// Filtros condicionados a la modalidad seleccionada. Solo se evalúan cuando
         /// <see cref="ModalityCodes"/> contiene EXACTAMENTE una modalidad; en otro caso se ignoran.

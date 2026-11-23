@@ -20,7 +20,7 @@ namespace Infrastructure.Data.Configurations
 
             // Relación 1:1 con InscriptionModality (patrón tabla extensión)
             builder.HasOne(e => e.InscriptionModality)
-                .WithOne()
+                .WithOne(i => i.ProjectFinal)
                 .HasForeignKey<ProjectFinal>(e => e.Id)
                 .OnDelete(DeleteBehavior.Cascade);
         }

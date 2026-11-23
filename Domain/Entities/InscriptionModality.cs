@@ -34,6 +34,9 @@ namespace Domain.Entities
         public virtual AcademicPeriod? AcademicPeriod { get; set; }
         public virtual StageModality? StageModality { get; set; }
         public virtual Proposal? Proposal { get; set; }
+        public virtual PreliminaryProject? PreliminaryProject { get; set; }
+        public virtual ProjectFinal? ProjectFinal { get; set; }
+        public virtual ProjectPresentation? ProjectPresentation { get; set; }
         public virtual AcademicPractice? AcademicPractice { get; set; }
         public virtual CoTerminal? CoTerminal { get; set; }
         public virtual Seminar? Seminar { get; set; }
