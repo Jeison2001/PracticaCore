@@ -152,6 +152,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 if (useHangfire)
 {
     app.MapHangfireConfiguration(builder.Configuration, app.Environment);
+    app.RegisterHangfireRecurringJobs(builder.Configuration);
 }
 
 app.Run();

@@ -2,7 +2,9 @@ using Api.Authorization;
 using Api.Responses;
 using Application.Shared.Queries.Dashboard;
 using Domain.Common.Dashboard;
+using Domain.Common.Notifications;
 using Domain.Constants;
+using Domain.Interfaces.Services.Notifications;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
@@ -114,6 +116,14 @@ namespace Api.Controllers
             var colombiaNow = DashboardTimeHelper.NowColombia();
             var fileName = $"reporte_pegi_{colombiaNow:yyyyMMdd_HHmm}.xlsx";
             return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+
+        /// <summary>Ejecuta bajo demanda el motor institucional de alertas SLA y recordatorios de vencimiento (idempotente).</summary>
+        [HttpPost("run-sla-alerts")]
+        public async Task<IActionResult> RunSlaAlerts([FromServices] ISlaDeadlineAlertService slaAlertService)
+        {
+            var summary = await slaAlertService.ProcessDueAlertsAsync(HttpContext?.RequestAborted ?? CancellationToken.None);
+            return Ok(new ApiResponse<SlaAlertExecutionSummary> { Success = true, Data = summary });
         }
 
         /// <summary>Escapa un valor para CSV neutralizando inyección de fórmulas.</summary>

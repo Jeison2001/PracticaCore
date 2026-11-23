@@ -60,6 +60,7 @@ namespace Infrastructure.Data
          // Email Notification entities
          public DbSet<EmailNotificationConfig> EmailNotificationConfigs => Set<EmailNotificationConfig>();
          public DbSet<EmailRecipientRule> EmailRecipientRules => Set<EmailRecipientRule>();
+         public DbSet<EmailAlertDispatchLog> EmailAlertDispatchLogs => Set<EmailAlertDispatchLog>();
 
          // Teacher enabled cargos
          public DbSet<TeacherEnabledCargo> TeacherEnabledCargos => Set<TeacherEnabledCargo>();

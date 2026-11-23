@@ -2,11 +2,14 @@ using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
 using Api.Middlewares;
+using Domain.Common.Dashboard;
+using Domain.Interfaces.Services.Notifications;
 
 namespace Api.Extensions
 {
     public static class HangfireExtensions
     {
+        public const string SlaDeadlineAlertsJobId = "sigepro-sla-deadline-alerts";
         /// <summary>
         /// Registra Hangfire con PostgreSQL.
         /// </summary>
@@ -59,6 +62,33 @@ namespace Api.Extensions
                 DashboardTitle = "PracticaCore - Hangfire Dashboard",
                 IgnoreAntiforgeryToken = true
             }).AllowAnonymous();
+        }
+
+        /// <summary>
+        /// Registra trabajos recurrentes de Hangfire (alertas SLA diarias en zona horaria Colombia).
+        /// </summary>
+        public static void RegisterHangfireRecurringJobs(
+            this IApplicationBuilder app,
+            IConfiguration configuration)
+        {
+            var enabled = configuration.GetValue("SlaAlerts:Enabled", true);
+            if (!enabled)
+            {
+                RecurringJob.RemoveIfExists(SlaDeadlineAlertsJobId);
+                return;
+            }
+
+            var rawCron = configuration["SlaAlerts:Cron"];
+            var cron = string.IsNullOrWhiteSpace(rawCron) ? "30 7 * * *" : rawCron.Trim();
+
+            RecurringJob.AddOrUpdate<ISlaDeadlineAlertService>(
+                SlaDeadlineAlertsJobId,
+                service => service.ProcessDueAlertsAsync(CancellationToken.None),
+                cron,
+                new RecurringJobOptions
+                {
+                    TimeZone = DashboardTimeHelper.ColombiaTimeZone
+                });
         }
     }
 }

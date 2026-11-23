@@ -49,6 +49,37 @@ namespace Domain.Common.Dashboard
         public static DateTimeOffset NowColombia() =>
             TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, ColombiaTimeZone);
 
+        /// <summary>
+        /// Cuenta los días hábiles (lunes a viernes) transcurridos en el intervalo (startUtc, endUtc]
+        /// evaluando las fechas calendario en zona horaria de Colombia (America/Bogota, UTC-5).
+        /// </summary>
+        public static int CountBusinessDaysElapsed(DateTimeOffset startUtc, DateTimeOffset endUtc)
+        {
+            var startColombia = TimeZoneInfo.ConvertTime(startUtc, ColombiaTimeZone);
+            var endColombia = TimeZoneInfo.ConvertTime(endUtc, ColombiaTimeZone);
+
+            var startDate = DateOnly.FromDateTime(startColombia.Date);
+            var endDate = DateOnly.FromDateTime(endColombia.Date);
+
+            if (endDate <= startDate)
+                return 0;
+
+            var totalDays = endDate.DayNumber - startDate.DayNumber;
+            var fullWeeks = totalDays / 7;
+            var remainder = totalDays % 7;
+            var businessDays = fullWeeks * 5;
+
+            var cursor = startDate.AddDays(fullWeeks * 7);
+            for (var i = 1; i <= remainder; i++)
+            {
+                var dow = cursor.AddDays(i).DayOfWeek;
+                if (dow != DayOfWeek.Saturday && dow != DayOfWeek.Sunday)
+                    businessDays++;
+            }
+
+            return businessDays;
+        }
+
         private static DateOnly ExtractColombiaCalendarDate(DateTimeOffset input)
         {
             // Cuando el cliente envía una fecha calendario sin hora (p.ej. 2026-03-15T00:00:00Z o -05:00),

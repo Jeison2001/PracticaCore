@@ -88,7 +88,13 @@ namespace Application.Common.Services.Notifications
             };
         }
 
-        private async Task<List<string>> ResolveByRoleAsync(EmailRecipientRule rule, Dictionary<string, object> eventData)
+        private Task<List<string>> ResolveByRoleAsync(EmailRecipientRule rule, Dictionary<string, object> eventData) =>
+            ResolveByRoleCodeAsync(rule.RuleValue, rule.Conditions, eventData);
+
+        private async Task<List<string>> ResolveByRoleCodeAsync(
+            string roleCode,
+            string? conditions,
+            Dictionary<string, object> eventData)
         {
             var emails = new List<string>();
             
@@ -99,13 +105,16 @@ namespace Application.Common.Services.Notifications
                 var roleRepo = _unitOfWork.GetRepository<Role, int>();
                 var userRoleRepo = _unitOfWork.GetRepository<UserRole, int>();
 
+                if (roleRepo == null || userRoleRepo == null || userRepo == null)
+                    return emails;
+
                 // Buscar rol activo por código (más estable que por nombre)
                 var role = await roleRepo.GetFirstOrDefaultAsync(
-                    r => r.Code == rule.RuleValue && r.StatusRegister,
+                    r => r.Code == roleCode && r.StatusRegister,
                     CancellationToken.None);
                 if (role == null) 
                 {
-                    _logger.LogWarning("No se encontró rol con código: {RoleCode}", rule.RuleValue);
+                    _logger.LogWarning("No se encontró rol con código: {RoleCode}", roleCode);
                     return emails;
                 }
 
@@ -116,16 +125,16 @@ namespace Application.Common.Services.Notifications
                 var users = await userRepo.GetAllAsync(filter: u => userIds.Contains(u.Id) && u.StatusRegister);
                 
                 // Aplicar condiciones adicionales si existen
-                if (!string.IsNullOrEmpty(rule.Conditions))
+                if (!string.IsNullOrEmpty(conditions))
                 {
-                    users = await ApplyAdditionalConditionsAsync(users, rule.Conditions, eventData);
+                    users = await ApplyAdditionalConditionsAsync(users, conditions, eventData);
                 }
 
                 emails.AddRange(users.Select(u => u.Email).Where(e => !string.IsNullOrEmpty(e)));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error resolviendo destinatarios por rol: {RoleValue}", rule.RuleValue);
+                _logger.LogError(ex, "Error resolviendo destinatarios por rol: {RoleValue}", roleCode);
             }
 
             return emails;
@@ -277,11 +286,211 @@ namespace Application.Common.Services.Notifications
                     case "PRACTICE_STAGE_RESPONSIBLE":
                         emails.AddRange(await ResolvePracticeStageResponsibleAsync(rule, eventData));
                         break;
+                    case "STAGE_EVALUATOR_RESPONSIBLE":
+                        emails.AddRange(await ResolveStageEvaluatorResponsibleAsync(rule, eventData));
+                        break;
+                    case "COMMITTEE_STAGE_RESPONSIBLE":
+                        emails.AddRange(await ResolveCommitteeStageResponsibleAsync(rule, eventData));
+                        break;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error resolviendo destinatarios por relación de entidad: {RuleValue}", rule.RuleValue);
+            }
+
+            return emails;
+        }
+
+        private static bool TryExtractInscriptionModalityId(
+            Dictionary<string, object> eventData,
+            out int inscriptionModalityId)
+        {
+            inscriptionModalityId = 0;
+
+            if (eventData.TryGetValue("InscriptionModalityId", out var rawImId) && rawImId != null)
+            {
+                inscriptionModalityId = Convert.ToInt32(rawImId);
+            }
+            else if (eventData.TryGetValue("InscriptionId", out var rawInsId) && rawInsId != null)
+            {
+                inscriptionModalityId = Convert.ToInt32(rawInsId);
+            }
+
+            return inscriptionModalityId > 0;
+        }
+
+        private static Dictionary<string, object> EnsureInscriptionModalityIdInData(
+            Dictionary<string, object> eventData,
+            int inscriptionModalityId)
+        {
+            if (eventData.ContainsKey("InscriptionModalityId"))
+                return eventData;
+
+            var clone = new Dictionary<string, object>(eventData)
+            {
+                ["InscriptionModalityId"] = inscriptionModalityId
+            };
+            return clone;
+        }
+
+        private async Task<List<string>> ResolveStageEvaluatorResponsibleAsync(
+            EmailRecipientRule rule,
+            Dictionary<string, object> eventData)
+        {
+            var emails = new List<string>();
+
+            if (!TryExtractInscriptionModalityId(eventData, out var inscriptionModalityId))
+            {
+                _logger.LogWarning("No se encontró InscriptionModalityId ni InscriptionId válido en eventData para STAGE_EVALUATOR_RESPONSIBLE.");
+                return emails;
+            }
+
+            var inscriptionRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
+            var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
+
+            var inscription = inscriptionRepo != null ? await inscriptionRepo.GetByIdAsync(inscriptionModalityId) : null;
+            if (inscription == null)
+            {
+                _logger.LogWarning("No se encontró InscriptionModality con ID {Id} para STAGE_EVALUATOR_RESPONSIBLE.", inscriptionModalityId);
+                return emails;
+            }
+
+            var modality = inscription.Modality;
+            if (modality == null && modalityRepo != null)
+            {
+                modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
+            }
+
+            var modalityCode = modality?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+            var lookupData = EnsureInscriptionModalityIdInData(eventData, inscriptionModalityId);
+
+            if (modalityCode == ModalityCodes.ProyectoGrado)
+            {
+                emails.AddRange(await GetTeachersByAssignmentTypeAsync(lookupData, "JURADO_EVALUADOR"));
+            }
+            else if (modalityCode == ModalityCodes.PracticaAcademica)
+            {
+                emails.AddRange(await ResolvePracticeStageResponsibleAsync(rule, lookupData));
+            }
+
+            emails = emails
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (emails.Count == 0
+                && lookupData.TryGetValue("FallbackPermissionCode", out var rawFallback)
+                && !string.IsNullOrWhiteSpace(rawFallback?.ToString()))
+            {
+                var fallbackPermCode = rawFallback.ToString()!.Trim();
+                emails.AddRange(await ResolveByPermissionCodeAsync(fallbackPermCode, rule.Conditions, lookupData));
+                emails = emails
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Select(e => e.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            return emails;
+        }
+
+        private async Task<List<string>> ResolveCommitteeStageResponsibleAsync(
+            EmailRecipientRule rule,
+            Dictionary<string, object> eventData)
+        {
+            var emails = new List<string>();
+
+            if (!TryExtractInscriptionModalityId(eventData, out var inscriptionModalityId))
+            {
+                _logger.LogWarning("No se encontró InscriptionModalityId ni InscriptionId válido en eventData para COMMITTEE_STAGE_RESPONSIBLE.");
+                return emails;
+            }
+
+            var inscriptionRepo = _unitOfWork.GetRepository<InscriptionModality, int>();
+            var modalityRepo = _unitOfWork.GetRepository<Modality, int>();
+            var stateInscriptionRepo = _unitOfWork.GetRepository<StateInscription, int>();
+            var stageModalityRepo = _unitOfWork.GetRepository<StageModality, int>();
+
+            var inscription = inscriptionRepo != null ? await inscriptionRepo.GetByIdAsync(inscriptionModalityId) : null;
+            if (inscription == null)
+            {
+                _logger.LogWarning("No se encontró InscriptionModality con ID {Id} para COMMITTEE_STAGE_RESPONSIBLE.", inscriptionModalityId);
+                return emails;
+            }
+
+            var modality = inscription.Modality;
+            if (modality == null && modalityRepo != null)
+            {
+                modality = await modalityRepo.GetByIdAsync(inscription.IdModality);
+            }
+
+            var stateInscription = inscription.StateInscription;
+            if (stateInscription == null && stateInscriptionRepo != null)
+            {
+                stateInscription = await stateInscriptionRepo.GetByIdAsync(inscription.IdStateInscription);
+            }
+
+            var stageModality = inscription.StageModality;
+            if (stageModality == null && inscription.IdStageModality.HasValue && stageModalityRepo != null)
+            {
+                stageModality = await stageModalityRepo.GetByIdAsync(inscription.IdStageModality.Value);
+            }
+
+            var modalityCode = modality?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+            var stateInscriptionCode = stateInscription?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+            var stageCode = stageModality?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+            var lookupData = EnsureInscriptionModalityIdInData(eventData, inscriptionModalityId);
+
+            if (stateInscriptionCode == StateInscriptionCodes.Pendiente)
+            {
+                emails.AddRange(await ResolveByPermissionCodeAsync(
+                    PermissionCodes.ModalidadesGrado.N3MGPR,
+                    rule.Conditions,
+                    lookupData));
+            }
+            else if (modalityCode == ModalityCodes.PracticaAcademica)
+            {
+                emails.AddRange(await ResolvePracticeStageResponsibleAsync(rule, lookupData));
+            }
+            else
+            {
+                var permCode = (modalityCode, stageCode) switch
+                {
+                    (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFasePropuesta) => PermissionCodes.ProyectoGrado.N4PGPPR,
+                    (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseAnteproyecto) => PermissionCodes.ProyectoGrado.N4PGPAA,
+                    (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseSustentacion) => PermissionCodes.ProyectoGrado.N4PGPSG,
+                    (ModalityCodes.ProyectoGrado, _) => PermissionCodes.ProyectoGrado.N4PGPPG,
+                    (ModalityCodes.PublicacionArticulo, _) => PermissionCodes.PublicacionArticulo.N3PCSGR,
+                    (ModalityCodes.SaberPro, _) => PermissionCodes.SaberPro.N3SPSGR,
+                    (ModalityCodes.GradoPromedio, _) => PermissionCodes.GradoPromedio.N3GPSGR,
+                    (ModalityCodes.CoTerminal, _) => PermissionCodes.CoTerminal.N3CTSGR,
+                    (ModalityCodes.SeminarioAct, _) => PermissionCodes.Seminario.N3SASGR,
+                    _ => null
+                };
+
+                if (!string.IsNullOrWhiteSpace(permCode))
+                {
+                    emails.AddRange(await ResolveByPermissionCodeAsync(permCode, rule.Conditions, lookupData));
+                }
+            }
+
+            emails = emails
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (emails.Count == 0)
+            {
+                emails.AddRange(await ResolveByRoleCodeAsync("COMMITTEE_DIRECTOR", rule.Conditions, lookupData));
+                emails.AddRange(await ResolveByRoleCodeAsync("SECRETARY", rule.Conditions, lookupData));
+                emails = emails
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Select(e => e.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             }
 
             return emails;
