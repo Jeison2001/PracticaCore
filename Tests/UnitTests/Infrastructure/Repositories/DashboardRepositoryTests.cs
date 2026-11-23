@@ -795,5 +795,72 @@ namespace Tests.UnitTests.Infrastructure.Repositories
                 .ToQueryString();
             pgSql.Should().Contain("PreliminaryProject").And.Contain("ProjectFinal").And.Contain("ProjectPresentation");
         }
+
+        [Fact]
+        public async Task GetOperationalAlertsAsync_HonorsSlaAlertConfiguration_EvaluatorOverdueBusinessDays()
+        {
+            using var ctx = CreateInMemoryContext();
+            SeedCatalog(ctx);
+            var now = DateTimeOffset.UtcNow;
+
+            ctx.SlaAlertConfigurations.Add(new SlaAlertConfiguration
+            {
+                Id = 1,
+                IsEnabled = true,
+                EvaluatorWarningBusinessDays = 7,
+                EvaluatorOverdueBusinessDays = 10,
+                CreatedAt = now.AddDays(-5),
+                OperationRegister = "TEST",
+                StatusRegister = true
+            });
+
+            // 18 días calendario = al menos 12 días hábiles (>= 10 configurado, aunque < 25 por defecto)
+            var activityAt = now.AddDays(-18);
+            ctx.Set<InscriptionModality>().Add(new InscriptionModality
+            {
+                Id = 95,
+                IdModality = 1,
+                IdStateInscription = 2,
+                IdAcademicPeriod = 5,
+                IdStageModality = 2,
+                CreatedAt = activityAt,
+                UpdatedAt = activityAt,
+                StatusRegister = true
+            });
+            ctx.Set<Proposal>().Add(new Proposal
+            {
+                Id = 95,
+                Title = "PG SLA Dinámico",
+                IdResearchLine = 1,
+                IdResearchSubLine = 1,
+                IdStateStage = 1,
+                CreatedAt = activityAt,
+                StatusRegister = true
+            });
+            ctx.Set<PreliminaryProject>().Add(new PreliminaryProject
+            {
+                Id = 95,
+                IdStateStage = 3, // AP_EN_EVALUACION
+                CreatedAt = activityAt,
+                UpdatedAt = activityAt,
+                StatusRegister = true
+            });
+            ctx.Set<UserInscriptionModality>().Add(new UserInscriptionModality
+            {
+                Id = 95,
+                IdInscriptionModality = 95,
+                IdUser = 1,
+                IsConfirmed = true,
+                StatusRegister = true
+            });
+            await ctx.SaveChangesAsync();
+
+            var repo = new DashboardRepository(ctx);
+            var alerts = await repo.GetOperationalAlertsAsync(new DashboardFilter { StaleDaysThreshold = 10 });
+
+            alerts.TotalEvaluationSlaBreachCount.Should().Be(1);
+            var stale = alerts.StaleItems.Should().ContainSingle(s => s.InscriptionId == 95).Subject;
+            stale.SlaBreachAcuerdo015.Should().BeTrue();
+        }
     }
 }

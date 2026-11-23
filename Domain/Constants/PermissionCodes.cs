@@ -33,6 +33,8 @@ namespace Domain.Constants
             public const string N3CFING  = "N3CFING";
             public const string N3CFINL  = "N3CFINL";
             public const string N3CFINS  = "N3CFINS";
+            public const string N2CFNO   = "N2CFNO";
+            public const string N3CFNOA  = "N3CFNOA";
         }
 
         // ---------- Modalidades de Grado ----------

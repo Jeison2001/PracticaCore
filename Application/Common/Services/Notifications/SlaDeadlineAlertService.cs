@@ -68,24 +68,33 @@ namespace Application.Common.Services.Notifications
 
         public async Task<SlaAlertExecutionSummary> ProcessDueAlertsAsync(CancellationToken cancellationToken = default)
         {
-            if (!GetBoolConfig("SlaAlerts:Enabled", defaultValue: true))
+            var dbConfig = await _slaAlertRepository.GetConfigurationAsync(cancellationToken);
+
+            var isEnabled = dbConfig?.IsEnabled ?? GetBoolConfig("SlaAlerts:Enabled", defaultValue: true);
+            if (!isEnabled)
             {
-                _logger.LogInformation("Motor de alertas SLA deshabilitado por configuración (SlaAlerts:Enabled=false).");
+                _logger.LogInformation("Motor de alertas SLA deshabilitado por configuración.");
                 return new SlaAlertExecutionSummary(0, 0, 0, 0, []);
             }
 
-            var evaluatorWarningDays = GetIntConfig("SlaAlerts:EvaluatorWarningBusinessDays", 20);
-            var evaluatorOverdueDays = GetIntConfig("SlaAlerts:EvaluatorOverdueBusinessDays", 25);
-            var committeeOverdueDays = GetIntConfig("SlaAlerts:CommitteeOverdueBusinessDays", 10);
-            var studentObservationsDays = GetIntConfig("SlaAlerts:StudentObservationsBusinessDays", 15);
-            var defenseReminderHours = GetIntConfig("SlaAlerts:DefenseReminderHours", 48);
+            var evaluatorWarningDays = dbConfig?.EvaluatorWarningBusinessDays ?? GetIntConfig("SlaAlerts:EvaluatorWarningBusinessDays", 20);
+            var evaluatorOverdueDays = dbConfig?.EvaluatorOverdueBusinessDays ?? GetIntConfig("SlaAlerts:EvaluatorOverdueBusinessDays", 25);
+            var committeeOverdueDays = dbConfig?.CommitteeOverdueBusinessDays ?? GetIntConfig("SlaAlerts:CommitteeOverdueBusinessDays", 10);
+            var studentObservationsDays = dbConfig?.StudentObservationsBusinessDays ?? GetIntConfig("SlaAlerts:StudentObservationsBusinessDays", 15);
+            var defenseReminderHours = dbConfig?.DefenseReminderHours ?? GetIntConfig("SlaAlerts:DefenseReminderHours", 48);
+            var warnOnLastAllowedPeriod = dbConfig?.WarnOnLastAllowedPeriod ?? GetBoolConfig("SlaAlerts:WarnOnLastAllowedPeriod", defaultValue: true);
 
             var nowUtc = _timeProvider.GetUtcNow();
             var candidates = await _slaAlertRepository.GetActiveCandidatesAsync(nowUtc, cancellationToken);
 
             if (candidates.Count == 0)
             {
-                return new SlaAlertExecutionSummary(0, 0, 0, 0, []);
+                var emptySummary = new SlaAlertExecutionSummary(0, 0, 0, 0, []);
+                if (dbConfig != null)
+                {
+                    await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, emptySummary, cancellationToken);
+                }
+                return emptySummary;
             }
 
             var pendingAlerts = new List<PendingAlertCandidate>();
@@ -102,12 +111,17 @@ namespace Application.Common.Services.Notifications
                     defenseReminderHours,
                     pendingAlerts);
 
-                EvaluateTermLimitAlert(candidate, pendingAlerts);
+                EvaluateTermLimitAlert(candidate, warnOnLastAllowedPeriod, pendingAlerts);
             }
 
             if (pendingAlerts.Count == 0)
             {
-                return new SlaAlertExecutionSummary(candidates.Count, 0, 0, 0, []);
+                var noPendingSummary = new SlaAlertExecutionSummary(candidates.Count, 0, 0, 0, []);
+                if (dbConfig != null)
+                {
+                    await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, noPendingSummary, cancellationToken);
+                }
+                return noPendingSummary;
             }
 
             var existingKeys = await _slaAlertRepository.GetExistingDeduplicationKeysAsync(
@@ -194,12 +208,19 @@ namespace Application.Common.Services.Notifications
                 skipped,
                 failed);
 
-            return new SlaAlertExecutionSummary(
+            var summary = new SlaAlertExecutionSummary(
                 EvaluatedInscriptions: candidates.Count,
                 AlertsTriggered: triggered,
                 AlertsSkippedAlreadySent: skipped,
                 AlertsFailed: failed,
                 DispatchedKeys: dispatchedKeys);
+
+            if (dbConfig != null)
+            {
+                await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, summary, cancellationToken);
+            }
+
+            return summary;
         }
 
         private static void EvaluateStageAndScheduleAlerts(
@@ -351,6 +372,7 @@ namespace Application.Common.Services.Notifications
 
         private static void EvaluateTermLimitAlert(
             SlaAlertInscriptionCandidate c,
+            bool warnOnLastAllowedPeriod,
             List<PendingAlertCandidate> output)
         {
             if (!c.MaximumTermPeriods.HasValue || c.MaximumTermPeriods.Value <= 0 || c.PeriodsElapsed <= 0)
@@ -363,6 +385,8 @@ namespace Application.Common.Services.Notifications
                 return;
 
             var isExceeded = elapsed > maxTerm;
+            if (!isExceeded && !warnOnLastAllowedPeriod)
+                return;
             var riskLevel = isExceeded ? "EXCEEDED" : "WARNING";
             var riskLabel = isExceeded
                 ? "Plazo reglamentario excedido"

@@ -1572,7 +1572,16 @@ namespace Infrastructure.Repositories
             var nowUtc = DateTimeOffset.UtcNow;
             var threshold = filter.StaleDaysThreshold > 0 ? filter.StaleDaysThreshold : 30;
             var staleCutoffUtc = nowUtc.AddDays(-threshold);
-            var slaCutoffUtc = nowUtc.AddDays(-Acuerdo015CalendarSlaDays);
+
+            var slaConfig = await _context.SlaAlertConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == 1 && x.StatusRegister, cancellationToken);
+            var evaluatorOverdueBusinessDays = slaConfig?.EvaluatorOverdueBusinessDays > 0
+                ? slaConfig.EvaluatorOverdueBusinessDays
+                : 25;
+            var slaCutoffExclusiveUtc = DashboardTimeHelper.GetBusinessDaysCutoffExclusiveUtc(
+                nowUtc,
+                evaluatorOverdueBusinessDays);
 
             var baseQuery = BuildBaseQuery(filter);
             var lifecycleQuery = WithLifecycle(ProjectInscriptions(baseQuery));
@@ -1588,7 +1597,7 @@ namespace Infrastructure.Repositories
             var totalSlaBreachCount = await lifecycleQuery
                 .CountAsync(x => x.LifecycleCode == LifecycleInReview
                     && JuryEvaluationStateStageCodes.Contains(x.EffectiveStateStageCode)
-                    && x.LastActivityAt <= slaCutoffUtc, cancellationToken);
+                    && x.LastActivityAt < slaCutoffExclusiveUtc, cancellationToken);
 
             var staleRaw = await staleBase
                 .OrderBy(x => x.LastActivityAt)
@@ -1713,7 +1722,9 @@ namespace Infrastructure.Repositories
             {
                 var daysSince = Math.Max(0, (int)(nowUtc - x.LastActivityAt).TotalDays);
                 var isJuryEval = JuryEvaluationStateStageCodes.Contains(x.EffectiveStateStageCode);
-                var slaBreach = x.LifecycleCode == LifecycleInReview && isJuryEval && daysSince >= Acuerdo015CalendarSlaDays;
+                var slaBreach = x.LifecycleCode == LifecycleInReview
+                    && isJuryEval
+                    && DashboardTimeHelper.CountBusinessDaysElapsed(x.LastActivityAt, nowUtc) >= evaluatorOverdueBusinessDays;
                 var responsible = isJuryEval
                     ? "Jurados / Evaluadores"
                     : x.LifecycleCode == LifecycleInReview

@@ -3,7 +3,11 @@ using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
 using Api.Middlewares;
 using Domain.Common.Dashboard;
+using Domain.Common.Notifications;
+using Domain.Entities;
 using Domain.Interfaces.Services.Notifications;
+using Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api.Extensions
 {
@@ -71,6 +75,48 @@ namespace Api.Extensions
             this IApplicationBuilder app,
             IConfiguration configuration)
         {
+            SlaAlertConfiguration? dbConfig = null;
+            try
+            {
+                using var scope = app.ApplicationServices.CreateScope();
+                var dbContext = scope.ServiceProvider.GetService<AppDbContext>();
+                if (dbContext != null)
+                {
+                    dbConfig = dbContext.SlaAlertConfigurations
+                        .AsNoTracking()
+                        .FirstOrDefault(x => x.Id == 1 && x.StatusRegister);
+                }
+            }
+            catch (Exception ex)
+            {
+                var logger = app.ApplicationServices.GetService<ILoggerFactory>()?.CreateLogger(nameof(HangfireExtensions));
+                logger?.LogWarning(ex, "No fue posible consultar SlaAlertConfiguration al iniciar; se usarán valores de configuración por defecto.");
+            }
+
+            if (dbConfig != null)
+            {
+                if (!dbConfig.IsEnabled)
+                {
+                    RecurringJob.RemoveIfExists(SlaDeadlineAlertsJobId);
+                    return;
+                }
+
+                var dbCron = SlaCronHelper.BuildCron(
+                    dbConfig.ScheduleHourColombia,
+                    dbConfig.ScheduleMinuteColombia,
+                    dbConfig.WeekdaysOnly);
+
+                RecurringJob.AddOrUpdate<ISlaDeadlineAlertService>(
+                    SlaDeadlineAlertsJobId,
+                    service => service.ProcessDueAlertsAsync(CancellationToken.None),
+                    dbCron,
+                    new RecurringJobOptions
+                    {
+                        TimeZone = DashboardTimeHelper.ColombiaTimeZone
+                    });
+                return;
+            }
+
             var enabled = configuration.GetValue("SlaAlerts:Enabled", true);
             if (!enabled)
             {

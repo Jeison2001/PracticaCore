@@ -61,6 +61,7 @@ namespace Infrastructure.Data
          public DbSet<EmailNotificationConfig> EmailNotificationConfigs => Set<EmailNotificationConfig>();
          public DbSet<EmailRecipientRule> EmailRecipientRules => Set<EmailRecipientRule>();
          public DbSet<EmailAlertDispatchLog> EmailAlertDispatchLogs => Set<EmailAlertDispatchLog>();
+         public DbSet<SlaAlertConfiguration> SlaAlertConfigurations { get; set; } = null!;
 
          // Teacher enabled cargos
          public DbSet<TeacherEnabledCargo> TeacherEnabledCargos => Set<TeacherEnabledCargo>();

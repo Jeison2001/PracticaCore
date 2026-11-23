@@ -1,3 +1,4 @@
+using Domain.Common.Dashboard;
 using Domain.Common.Notifications;
 using Domain.Constants;
 using Domain.Entities;
@@ -19,6 +20,31 @@ namespace Infrastructure.Repositories
         {
             _context = context;
             _logger = logger;
+        }
+
+        public Task<SlaAlertConfiguration?> GetConfigurationAsync(CancellationToken cancellationToken = default) =>
+            _context.SlaAlertConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == 1 && x.StatusRegister, cancellationToken);
+
+        public async Task SaveConfigurationRunMetricsAsync(
+            DateTimeOffset runAtUtc,
+            SlaAlertExecutionSummary summary,
+            CancellationToken cancellationToken = default)
+        {
+            var entity = await _context.SlaAlertConfigurations
+                .FirstOrDefaultAsync(x => x.Id == 1 && x.StatusRegister, cancellationToken);
+
+            if (entity == null)
+                return;
+
+            entity.LastRunAt = runAtUtc;
+            entity.LastRunEvaluatedCount = summary.EvaluatedInscriptions;
+            entity.LastRunTriggeredCount = summary.AlertsTriggered;
+            entity.LastRunSkippedCount = summary.AlertsSkippedAlreadySent;
+            entity.LastRunFailedCount = summary.AlertsFailed;
+
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         public async Task<List<SlaAlertInscriptionCandidate>> GetActiveCandidatesAsync(
@@ -437,6 +463,378 @@ namespace Infrastructure.Repositories
                     logEntry.DeduplicationKey);
                 return false;
             }
+        }
+
+        public async Task<SlaAlertSettingsSnapshot> GetSettingsSnapshotAsync(
+            IReadOnlyCollection<string> slaEventNames,
+            CancellationToken cancellationToken = default)
+        {
+            var config = await GetConfigurationAsync(cancellationToken);
+
+            var eventList = slaEventNames.ToList();
+            var emailConfigs = await _context.EmailNotificationConfigs
+                .AsNoTracking()
+                .Where(c => eventList.Contains(c.EventName))
+                .OrderBy(c => c.Id)
+                .ToListAsync(cancellationToken);
+
+            var configIds = emailConfigs.Select(c => c.Id).ToList();
+            var activeCcRules = configIds.Count > 0
+                ? await _context.EmailRecipientRules
+                    .AsNoTracking()
+                    .Where(r => configIds.Contains(r.EmailNotificationConfigId)
+                        && r.StatusRegister
+                        && r.RecipientType == "CC")
+                    .OrderBy(r => r.Priority)
+                    .ThenBy(r => r.Id)
+                    .ToListAsync(cancellationToken)
+                : [];
+
+            var modalityLimits = await _context.Set<Modality>()
+                .AsNoTracking()
+                .Where(m => m.StatusRegister)
+                .OrderBy(m => m.Id)
+                .Select(m => new ModalityTermLimitDto
+                {
+                    Id = m.Id,
+                    Code = m.Code,
+                    Name = m.Name,
+                    MaximumTermPeriods = m.MaximumTermPeriods,
+                    AllowsExtension = m.AllowsExtension
+                })
+                .ToListAsync(cancellationToken);
+
+            return new SlaAlertSettingsSnapshot(config, emailConfigs, activeCcRules, modalityLimits);
+        }
+
+        public async Task SaveSettingsAsync(
+            SlaAlertConfiguration updatedGlobal,
+            IReadOnlyList<SlaAlertRulePersistenceInstruction> ruleInstructions,
+            int? currentUserId,
+            DateTimeOffset nowUtc,
+            CancellationToken cancellationToken = default)
+        {
+            var globalEntity = await _context.SlaAlertConfigurations
+                .FirstOrDefaultAsync(x => x.Id == 1, cancellationToken);
+
+            if (globalEntity == null)
+            {
+                globalEntity = new SlaAlertConfiguration
+                {
+                    Id = 1,
+                    IsEnabled = updatedGlobal.IsEnabled,
+                    ScheduleHourColombia = updatedGlobal.ScheduleHourColombia,
+                    ScheduleMinuteColombia = updatedGlobal.ScheduleMinuteColombia,
+                    WeekdaysOnly = updatedGlobal.WeekdaysOnly,
+                    EvaluatorWarningBusinessDays = updatedGlobal.EvaluatorWarningBusinessDays,
+                    EvaluatorOverdueBusinessDays = updatedGlobal.EvaluatorOverdueBusinessDays,
+                    CommitteeOverdueBusinessDays = updatedGlobal.CommitteeOverdueBusinessDays,
+                    StudentObservationsBusinessDays = updatedGlobal.StudentObservationsBusinessDays,
+                    DefenseReminderHours = updatedGlobal.DefenseReminderHours,
+                    WarnOnLastAllowedPeriod = updatedGlobal.WarnOnLastAllowedPeriod,
+                    IdUserCreatedAt = currentUserId,
+                    CreatedAt = nowUtc,
+                    IdUserUpdatedAt = currentUserId,
+                    UpdatedAt = nowUtc,
+                    OperationRegister = "SLA_SETTINGS_CREATE",
+                    StatusRegister = true
+                };
+                _context.SlaAlertConfigurations.Add(globalEntity);
+            }
+            else
+            {
+                globalEntity.IsEnabled = updatedGlobal.IsEnabled;
+                globalEntity.ScheduleHourColombia = updatedGlobal.ScheduleHourColombia;
+                globalEntity.ScheduleMinuteColombia = updatedGlobal.ScheduleMinuteColombia;
+                globalEntity.WeekdaysOnly = updatedGlobal.WeekdaysOnly;
+                globalEntity.EvaluatorWarningBusinessDays = updatedGlobal.EvaluatorWarningBusinessDays;
+                globalEntity.EvaluatorOverdueBusinessDays = updatedGlobal.EvaluatorOverdueBusinessDays;
+                globalEntity.CommitteeOverdueBusinessDays = updatedGlobal.CommitteeOverdueBusinessDays;
+                globalEntity.StudentObservationsBusinessDays = updatedGlobal.StudentObservationsBusinessDays;
+                globalEntity.DefenseReminderHours = updatedGlobal.DefenseReminderHours;
+                globalEntity.WarnOnLastAllowedPeriod = updatedGlobal.WarnOnLastAllowedPeriod;
+                globalEntity.StatusRegister = true;
+                globalEntity.IdUserUpdatedAt = currentUserId;
+                globalEntity.UpdatedAt = nowUtc;
+                globalEntity.OperationRegister = "SLA_SETTINGS_UPDATE";
+            }
+
+            if (ruleInstructions.Count > 0)
+            {
+                var targetEvents = ruleInstructions.Select(r => r.EventName).Distinct().ToList();
+                var existingConfigs = await _context.EmailNotificationConfigs
+                    .Where(c => targetEvents.Contains(c.EventName))
+                    .ToListAsync(cancellationToken);
+
+                var configsByEvent = existingConfigs
+                    .GroupBy(c => c.EventName, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Id).First(), StringComparer.OrdinalIgnoreCase);
+
+                var createdNewConfigs = new List<(EmailNotificationConfig Config, SlaAlertRulePersistenceInstruction Instruction)>();
+
+                foreach (var instruction in ruleInstructions)
+                {
+                    if (!configsByEvent.TryGetValue(instruction.EventName, out var configEntity))
+                    {
+                        configEntity = new EmailNotificationConfig
+                        {
+                            EventName = instruction.EventName,
+                            SubjectTemplate = instruction.DefaultSubjectTemplate,
+                            BodyTemplate = instruction.DefaultBodyTemplate,
+                            IdUserCreatedAt = currentUserId,
+                            CreatedAt = nowUtc,
+                            IdUserUpdatedAt = currentUserId,
+                            UpdatedAt = nowUtc,
+                            OperationRegister = "SLA_SETTINGS_BOOTSTRAP",
+                            StatusRegister = instruction.IsActive
+                        };
+                        _context.EmailNotificationConfigs.Add(configEntity);
+                        configsByEvent[instruction.EventName] = configEntity;
+                        createdNewConfigs.Add((configEntity, instruction));
+                    }
+                    else
+                    {
+                        configEntity.StatusRegister = instruction.IsActive;
+                        configEntity.IdUserUpdatedAt = currentUserId;
+                        configEntity.UpdatedAt = nowUtc;
+                        configEntity.OperationRegister = "SLA_SETTINGS_UPDATE";
+                    }
+                }
+
+                if (createdNewConfigs.Count > 0)
+                {
+                    await _context.SaveChangesAsync(cancellationToken);
+                    foreach (var (newConfig, instruction) in createdNewConfigs)
+                    {
+                        foreach (var toRule in instruction.DefaultToRules)
+                        {
+                            _context.EmailRecipientRules.Add(new EmailRecipientRule
+                            {
+                                EmailNotificationConfigId = newConfig.Id,
+                                RecipientType = "TO",
+                                RuleType = toRule.RuleType,
+                                RuleValue = toRule.RuleValue,
+                                Priority = toRule.Priority,
+                                IdUserCreatedAt = currentUserId,
+                                CreatedAt = nowUtc,
+                                OperationRegister = "SLA_SETTINGS_BOOTSTRAP_TO",
+                                StatusRegister = true
+                            });
+                        }
+                    }
+                }
+
+                var configIds = configsByEvent.Values.Select(c => c.Id).ToList();
+
+                // Cargar ÚNICAMENTE reglas CC (jamás se consultan con tracking ni se modifican filas TO / BCC)
+                var existingCcRules = await _context.EmailRecipientRules
+                    .Where(r => configIds.Contains(r.EmailNotificationConfigId) && r.RecipientType == "CC")
+                    .OrderBy(r => r.Id)
+                    .ToListAsync(cancellationToken);
+
+                var nonCcMaxPriorities = await _context.EmailRecipientRules
+                    .AsNoTracking()
+                    .Where(r => configIds.Contains(r.EmailNotificationConfigId) && r.RecipientType != "CC")
+                    .GroupBy(r => r.EmailNotificationConfigId)
+                    .Select(g => new { ConfigId = g.Key, MaxPriority = g.Max(x => x.Priority) })
+                    .ToDictionaryAsync(x => x.ConfigId, x => x.MaxPriority, cancellationToken);
+
+                foreach (var instruction in ruleInstructions)
+                {
+                    var configEntity = configsByEvent[instruction.EventName];
+                    var ccRowsForConfig = existingCcRules
+                        .Where(r => r.EmailNotificationConfigId == configEntity.Id)
+                        .ToList();
+
+                    var basePriority = nonCcMaxPriorities.TryGetValue(configEntity.Id, out var maxP)
+                        ? Math.Max(1, maxP)
+                        : Math.Max(1, instruction.DefaultToRules.Count);
+
+                    var matchedRuleIds = new HashSet<int>();
+
+                    for (var idx = 0; idx < instruction.SelectedCcTargets.Count; idx++)
+                    {
+                        var target = instruction.SelectedCcTargets[idx];
+                        var desiredPriority = basePriority + idx + 1;
+
+                        var existingMatch = ccRowsForConfig.FirstOrDefault(r =>
+                            !matchedRuleIds.Contains(r.Id)
+                            && string.Equals(r.RuleType, target.RuleType, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(r.RuleValue, target.RuleValue, StringComparison.OrdinalIgnoreCase));
+
+                        if (existingMatch != null)
+                        {
+                            matchedRuleIds.Add(existingMatch.Id);
+                            existingMatch.StatusRegister = true;
+                            existingMatch.Priority = desiredPriority;
+                            existingMatch.IdUserUpdatedAt = currentUserId;
+                            existingMatch.UpdatedAt = nowUtc;
+                            existingMatch.OperationRegister = "SLA_SETTINGS_ENABLE_CC";
+                        }
+                        else
+                        {
+                            _context.EmailRecipientRules.Add(new EmailRecipientRule
+                            {
+                                EmailNotificationConfigId = configEntity.Id,
+                                RecipientType = "CC",
+                                RuleType = target.RuleType,
+                                RuleValue = target.RuleValue,
+                                Priority = desiredPriority,
+                                IdUserCreatedAt = currentUserId,
+                                CreatedAt = nowUtc,
+                                OperationRegister = "SLA_SETTINGS_ADD_CC",
+                                StatusRegister = true
+                            });
+                        }
+                    }
+
+                    foreach (var unmatched in ccRowsForConfig.Where(r => !matchedRuleIds.Contains(r.Id) && r.StatusRegister))
+                    {
+                        unmatched.StatusRegister = false;
+                        unmatched.IdUserUpdatedAt = currentUserId;
+                        unmatched.UpdatedAt = nowUtc;
+                        unmatched.OperationRegister = "SLA_SETTINGS_DISABLE_CC";
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<SlaAlertDispatchLogsPageDto> GetDispatchLogsAsync(
+            int page,
+            int pageSize,
+            string? alertCode,
+            string? search,
+            CancellationToken cancellationToken = default)
+        {
+            var normalizedPage = page < 1 ? 1 : page;
+            var normalizedPageSize = Math.Clamp(pageSize < 1 ? 15 : pageSize, 1, 100);
+
+            var query = _context.EmailAlertDispatchLogs
+                .AsNoTracking()
+                .Where(x => x.StatusRegister);
+
+            if (!string.IsNullOrWhiteSpace(alertCode))
+            {
+                var trimmedCode = alertCode.Trim();
+                query = query.Where(x => x.AlertCode == trimmedCode);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                var hasId = int.TryParse(term, out var idSearch);
+
+                query = query.Where(x =>
+                    (hasId && x.IdInscriptionModality == idSearch)
+                    || (x.RecipientsSummary != null && x.RecipientsSummary.ToLower().Contains(term))
+                    || x.AlertCode.ToLower().Contains(term)
+                    || x.EventName.ToLower().Contains(term)
+                    || x.StageStateSnapshot.ToLower().Contains(term)
+                    || (x.InscriptionModality != null
+                        && x.InscriptionModality.Modality != null
+                        && (x.InscriptionModality.Modality.Name.ToLower().Contains(term)
+                            || x.InscriptionModality.Modality.Code.ToLower().Contains(term)))
+                    || (x.InscriptionModality != null
+                        && x.InscriptionModality.UserInscriptionModalities.Any(uim =>
+                            uim.StatusRegister
+                            && uim.IsConfirmed
+                            && uim.User != null
+                            && ((uim.User.FirstName + " " + uim.User.LastName).ToLower().Contains(term)
+                                || uim.User.Email.ToLower().Contains(term)
+                                || uim.User.Identification.ToLower().Contains(term)))));
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var rawItems = await query
+                .OrderByDescending(x => x.CreatedAt)
+                .ThenByDescending(x => x.Id)
+                .Skip((normalizedPage - 1) * normalizedPageSize)
+                .Take(normalizedPageSize)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.CreatedAt,
+                    x.IdInscriptionModality,
+                    ModalityName = x.InscriptionModality != null && x.InscriptionModality.Modality != null
+                        ? x.InscriptionModality.Modality.Name
+                        : "",
+                    x.AlertCode,
+                    x.EventName,
+                    x.StageStateSnapshot,
+                    x.BusinessDaysElapsed,
+                    x.RecipientsSummary
+                })
+                .ToListAsync(cancellationToken);
+
+            var inscriptionIds = rawItems.Select(x => x.IdInscriptionModality).Distinct().ToList();
+            var studentsByInscription = new Dictionary<int, string>();
+            var modalityByInscription = new Dictionary<int, string>();
+
+            if (inscriptionIds.Count > 0)
+            {
+                var studentRows = await _context.Set<UserInscriptionModality>()
+                    .AsNoTracking()
+                    .Where(uim => uim.StatusRegister
+                        && uim.IsConfirmed
+                        && uim.User != null
+                        && inscriptionIds.Contains(uim.IdInscriptionModality))
+                    .Select(uim => new
+                    {
+                        uim.IdInscriptionModality,
+                        FullName = (uim.User!.FirstName + " " + uim.User.LastName).Trim()
+                    })
+                    .ToListAsync(cancellationToken);
+
+                foreach (var grp in studentRows.GroupBy(s => s.IdInscriptionModality))
+                {
+                    studentsByInscription[grp.Key] = string.Join(
+                        ", ",
+                        grp.Select(x => x.FullName).Where(n => !string.IsNullOrWhiteSpace(n)));
+                }
+
+                if (rawItems.Any(x => string.IsNullOrWhiteSpace(x.ModalityName)))
+                {
+                    var modRows = await _context.Set<InscriptionModality>()
+                        .AsNoTracking()
+                        .Where(i => inscriptionIds.Contains(i.Id) && i.Modality != null)
+                        .Select(i => new { i.Id, ModalityName = i.Modality!.Name })
+                        .ToListAsync(cancellationToken);
+
+                    foreach (var m in modRows)
+                    {
+                        modalityByInscription[m.Id] = m.ModalityName;
+                    }
+                }
+            }
+
+            var items = rawItems.Select(x => new SlaAlertDispatchLogItemDto
+            {
+                Id = x.Id,
+                CreatedAtColombia = DashboardTimeHelper.FormatDateTime(x.CreatedAt),
+                IdInscriptionModality = x.IdInscriptionModality,
+                ModalityName = !string.IsNullOrWhiteSpace(x.ModalityName)
+                    ? x.ModalityName
+                    : (modalityByInscription.TryGetValue(x.IdInscriptionModality, out var fallbackMod) ? fallbackMod : string.Empty),
+                StudentsSummary = studentsByInscription.TryGetValue(x.IdInscriptionModality, out var students)
+                    ? students
+                    : string.Empty,
+                AlertCode = x.AlertCode,
+                EventName = x.EventName,
+                StageStateSnapshot = x.StageStateSnapshot,
+                BusinessDaysElapsed = x.BusinessDaysElapsed,
+                RecipientsSummary = x.RecipientsSummary
+            }).ToList();
+
+            return new SlaAlertDispatchLogsPageDto
+            {
+                TotalCount = totalCount,
+                Page = normalizedPage,
+                PageSize = normalizedPageSize,
+                Items = items
+            };
         }
 
         private static string ResolveWorkTitle(RawCandidateProjection r)

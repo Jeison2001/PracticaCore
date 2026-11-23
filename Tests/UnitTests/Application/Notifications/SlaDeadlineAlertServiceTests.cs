@@ -670,5 +670,194 @@ namespace Tests.UnitTests.Application.Notifications
             var logs = await ctx.Set<EmailAlertDispatchLog>().ToListAsync();
             logs.Should().ContainSingle(l => l.IdInscriptionModality == 81);
         }
+
+        [Fact]
+        public async Task DbConfiguration_IsEnabledFalse_DisablesEngineAndSkipsSending()
+        {
+            var nowUtc = new DateTimeOffset(2026, 5, 20, 15, 0, 0, TimeSpan.Zero);
+            var clock = new ManualTimeProvider(nowUtc);
+            using var ctx = CreateInMemoryContext();
+            SeedBaseCatalog(ctx, nowUtc);
+
+            ctx.SlaAlertConfigurations.Add(new SlaAlertConfiguration
+            {
+                Id = 1,
+                IsEnabled = false,
+                CreatedAt = nowUtc.AddDays(-1),
+                OperationRegister = "TEST",
+                StatusRegister = true
+            });
+
+            var t26 = SubtractBusinessDaysColombia(nowUtc, 26);
+            ctx.Set<InscriptionModality>().Add(new InscriptionModality
+            {
+                Id = 90, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 2,
+                CreatedAt = t26, UpdatedAt = t26, StatusRegister = true
+            });
+            ctx.Set<PreliminaryProject>().Add(new PreliminaryProject { Id = 90, IdStateStage = 4, CreatedAt = t26, UpdatedAt = t26, StatusRegister = true });
+            ctx.Set<UserInscriptionModality>().Add(new UserInscriptionModality { Id = 90, IdInscriptionModality = 90, IdUser = 1, IsConfirmed = true, StatusRegister = true });
+            ctx.Set<TeachingAssignment>().Add(new TeachingAssignment { Id = 90, IdInscriptionModality = 90, IdTeacher = 2, IdTypeTeachingAssignment = 2, IsConfirmed = true, StatusRegister = true });
+            await ctx.SaveChangesAsync();
+
+            var (service, sentEmails) = BuildFullPipeline(
+                ctx,
+                clock,
+                extraConfig: new Dictionary<string, string?> { ["SlaAlerts:Enabled"] = "true" });
+
+            var summary = await service.ProcessDueAlertsAsync();
+            summary.EvaluatedInscriptions.Should().Be(0);
+            summary.AlertsTriggered.Should().Be(0);
+            sentEmails.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task DbConfiguration_CustomThresholds_And_WarnOnLastAllowedPeriodFalse_AreHonored_And_PersistRunMetrics()
+        {
+            var nowUtc = new DateTimeOffset(2026, 5, 20, 15, 0, 0, TimeSpan.Zero);
+            var clock = new ManualTimeProvider(nowUtc);
+            using var ctx = CreateInMemoryContext();
+            SeedBaseCatalog(ctx, nowUtc);
+
+            ctx.SlaAlertConfigurations.Add(new SlaAlertConfiguration
+            {
+                Id = 1,
+                IsEnabled = true,
+                ScheduleHourColombia = 8,
+                ScheduleMinuteColombia = 15,
+                WeekdaysOnly = true,
+                EvaluatorWarningBusinessDays = 8,
+                EvaluatorOverdueBusinessDays = 12,
+                CommitteeOverdueBusinessDays = 4,
+                StudentObservationsBusinessDays = 5,
+                DefenseReminderHours = 12,
+                WarnOnLastAllowedPeriod = false,
+                CreatedAt = nowUtc.AddDays(-2),
+                OperationRegister = "TEST",
+                StatusRegister = true
+            });
+
+            // 1. Inscripción 91: 13 días hábiles en AP_EN_EVALUACION -> con umbral DB=12 dispara SLA_EVALUATOR_OVERDUE
+            var t13 = SubtractBusinessDaysColombia(nowUtc, 13);
+            ctx.Set<InscriptionModality>().Add(new InscriptionModality
+            {
+                Id = 91, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 2,
+                CreatedAt = t13, UpdatedAt = t13, StatusRegister = true
+            });
+            ctx.Set<Proposal>().Add(new Proposal { Id = 91, Title = "PG Umbral 12", IdResearchLine = 1, IdResearchSubLine = 1, IdStateStage = 14, StatusRegister = true });
+            ctx.Set<PreliminaryProject>().Add(new PreliminaryProject { Id = 91, IdStateStage = 4, CreatedAt = t13, UpdatedAt = t13, StatusRegister = true });
+            ctx.Set<UserInscriptionModality>().Add(new UserInscriptionModality { Id = 91, IdInscriptionModality = 91, IdUser = 1, IsConfirmed = true, StatusRegister = true });
+            ctx.Set<TeachingAssignment>().Add(new TeachingAssignment { Id = 91, IdInscriptionModality = 91, IdTeacher = 2, IdTypeTeachingAssignment = 2, IsConfirmed = true, StatusRegister = true });
+
+            // 2. Co-Terminal (MaxTerm=2) con WarnOnLastAllowedPeriod=false:
+            //    - 92 en 2025-2 (2/2 WARNING) -> NO debe disparar
+            //    - 93 en 2025-1 (3/2 EXCEEDED) -> SÍ debe disparar
+            var recent = nowUtc.AddDays(-1);
+            foreach (var (id, periodId, name) in new[] { (92, 2, "CT 2/2 Ignorado"), (93, 1, "CT 3/2 Excedido") })
+            {
+                ctx.Set<InscriptionModality>().Add(new InscriptionModality
+                {
+                    Id = id, IdModality = 3, IdStateInscription = 2, IdAcademicPeriod = periodId, IdStageModality = 6,
+                    CreatedAt = recent, UpdatedAt = recent, StatusRegister = true
+                });
+                ctx.Set<CoTerminal>().Add(new CoTerminal { Id = id, IdStateStage = 12, PostgraduateProgramName = name, CreatedAt = recent, UpdatedAt = recent, StatusRegister = true });
+                ctx.Set<UserInscriptionModality>().Add(new UserInscriptionModality { Id = id, IdInscriptionModality = id, IdUser = 1, IsConfirmed = true, StatusRegister = true });
+            }
+
+            await ctx.SaveChangesAsync();
+
+            var (service, sentEmails) = BuildFullPipeline(ctx, clock);
+            var summary = await service.ProcessDueAlertsAsync();
+
+            summary.EvaluatedInscriptions.Should().Be(3);
+            summary.AlertsTriggered.Should().Be(2);
+            summary.DispatchedKeys.Should().Contain(k => k.StartsWith("91|SLA_EVALUATOR_OVERDUE|", StringComparison.Ordinal));
+            summary.DispatchedKeys.Should().Contain("93|SLA_TERM_LIMIT_WARNING|EXCEEDED:3_OF_2");
+            summary.DispatchedKeys.Should().NotContain(k => k.StartsWith("92|SLA_TERM_LIMIT_WARNING|", StringComparison.Ordinal));
+            sentEmails.Should().HaveCount(2);
+
+            var updatedCfg = await ctx.SlaAlertConfigurations.AsNoTracking().SingleAsync(x => x.Id == 1);
+            updatedCfg.LastRunAt.Should().Be(nowUtc);
+            updatedCfg.LastRunEvaluatedCount.Should().Be(3);
+            updatedCfg.LastRunTriggeredCount.Should().Be(2);
+            updatedCfg.LastRunSkippedCount.Should().Be(0);
+            updatedCfg.LastRunFailedCount.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task RecipientResolver_CommitteeStageResponsible_UsesSiblingManagementPermissionBeforeInstitutionalRoleFallback()
+        {
+            var nowUtc = new DateTimeOffset(2026, 5, 20, 15, 0, 0, TimeSpan.Zero);
+            using var ctx = CreateInMemoryContext();
+            SeedBaseCatalog(ctx, nowUtc);
+
+            // Agregar modalidades restantes para cubrir todas las ramas de sibling management permissions
+            ctx.Set<Modality>().AddRange(
+                new Modality { Id = 5, Code = ModalityCodes.PublicacionArticulo, Name = "Publicación de Artículo", StatusRegister = true },
+                new Modality { Id = 6, Code = ModalityCodes.GradoPromedio, Name = "Grado por Promedio", StatusRegister = true },
+                new Modality { Id = 7, Code = ModalityCodes.SeminarioAct, Name = "Seminario de Actualización", StatusRegister = true });
+
+            // Roles COMMITTEE_DIRECTOR y SECRETARY existen con usuarios activos (User 4 y User 5)
+            ctx.Set<Role>().AddRange(
+                new Role { Id = 20, Code = "COMMITTEE_DIRECTOR", Name = "Director Comité", StatusRegister = true },
+                new Role { Id = 21, Code = "SECRETARY", Name = "Secretaría", StatusRegister = true });
+            ctx.Set<UserRole>().AddRange(
+                new UserRole { Id = 20, IdUser = 4, IdRole = 20, StatusRegister = true },
+                new UserRole { Id = 21, IdUser = 5, IdRole = 21, StatusRegister = true });
+
+            // User 3 tendrá únicamente los permisos hermanos de GESTIÓN (SIN permisos primarios *R / N4PGPAA)
+            var siblingPermissions = new (int PermId, string Code)[]
+            {
+                (301, PermissionCodes.ModalidadesGrado.N3MGPG),
+                (302, PermissionCodes.ProyectoGrado.N4PGPPG),
+                (303, PermissionCodes.ProyectoGrado.N4PGPAG),
+                (304, PermissionCodes.ProyectoGrado.N4PGPSG),
+                (305, PermissionCodes.PublicacionArticulo.N3PCSGG),
+                (306, PermissionCodes.SaberPro.N3SPSGG),
+                (307, PermissionCodes.GradoPromedio.N3GPSGG),
+                (308, PermissionCodes.CoTerminal.N3CTSGG),
+                (309, PermissionCodes.Seminario.N3SASGG)
+            };
+
+            foreach (var (permId, code) in siblingPermissions)
+            {
+                ctx.Set<Permission>().Add(new Permission { Id = permId, Code = code, Description = code, StatusRegister = true });
+                ctx.Set<UserPermission>().Add(new UserPermission { Id = permId, IdUser = 3, IdPermission = permId, StatusRegister = true });
+            }
+
+            // Crear 9 inscripciones (una por cada rama del mapeo hermano)
+            ctx.Set<InscriptionModality>().AddRange(
+                new InscriptionModality { Id = 201, IdModality = 1, IdStateInscription = 1, IdAcademicPeriod = 3, StatusRegister = true }, // PENDIENTE -> N3MGPG
+                new InscriptionModality { Id = 202, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 1, StatusRegister = true }, // PG_FASE_PROPUESTA -> N4PGPPG
+                new InscriptionModality { Id = 203, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 2, StatusRegister = true }, // PG_FASE_ANTEPROYECTO -> N4PGPAG
+                new InscriptionModality { Id = 204, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 4, StatusRegister = true }, // PG_FASE_SUSTENTACION -> N4PGPSG
+                new InscriptionModality { Id = 205, IdModality = 5, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }, // PUBLICACION_ARTICULO -> N3PCSGG
+                new InscriptionModality { Id = 206, IdModality = 4, IdStateInscription = 4, IdAcademicPeriod = 3, StatusRegister = true }, // SABER_PRO -> N3SPSGG
+                new InscriptionModality { Id = 207, IdModality = 6, IdStateInscription = 4, IdAcademicPeriod = 3, StatusRegister = true }, // GRADO_PROMEDIO -> N3GPSGG
+                new InscriptionModality { Id = 208, IdModality = 3, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }, // COTERMINAL -> N3CTSGG
+                new InscriptionModality { Id = 209, IdModality = 7, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }  // SEMINARIO_ACT -> N3SASGG
+            );
+            await ctx.SaveChangesAsync();
+
+            var uow = new UnitOfWork(ctx, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
+            var resolver = new EmailRecipientResolverService(uow, NullLogger<EmailRecipientResolverService>.Instance);
+            var rules = new List<EmailRecipientRule>
+            {
+                new() { Id = 1, RecipientType = "TO", RuleType = "BY_ENTITY_RELATION", RuleValue = "COMMITTEE_STAGE_RESPONSIBLE", Priority = 1, StatusRegister = true }
+            };
+
+            foreach (var insId in Enumerable.Range(201, 9))
+            {
+                var resolved = await resolver.ResolveRecipientsAsync(rules, new Dictionary<string, object>
+                {
+                    ["InscriptionModalityId"] = insId
+                });
+
+                // Debe resolver el permiso hermano de gestión (User 3) y NO caer a COMMITTEE_DIRECTOR / SECRETARY
+                resolved.To.Should().Equal("comite.pg@unicesar.edu.co");
+            }
+
+            SlaCronHelper.BuildCron(7, 30, weekdaysOnly: false).Should().Be("30 7 * * *");
+            SlaCronHelper.BuildCron(8, 5, weekdaysOnly: true).Should().Be("5 8 * * 1-5");
+        }
     }
 }

@@ -460,7 +460,7 @@ namespace Application.Common.Services.Notifications
                 {
                     (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFasePropuesta) => PermissionCodes.ProyectoGrado.N4PGPPR,
                     (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseAnteproyecto) => PermissionCodes.ProyectoGrado.N4PGPAA,
-                    (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseSustentacion) => PermissionCodes.ProyectoGrado.N4PGPSG,
+                    (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseSustentacion) => PermissionCodes.ProyectoGrado.N4PGPSR,
                     (ModalityCodes.ProyectoGrado, _) => PermissionCodes.ProyectoGrado.N4PGPPG,
                     (ModalityCodes.PublicacionArticulo, _) => PermissionCodes.PublicacionArticulo.N3PCSGR,
                     (ModalityCodes.SaberPro, _) => PermissionCodes.SaberPro.N3SPSGR,
@@ -481,6 +481,35 @@ namespace Application.Common.Services.Notifications
                 .Select(e => e.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+
+            if (emails.Count == 0)
+            {
+                var siblingManagementPermCode = stateInscriptionCode == StateInscriptionCodes.Pendiente
+                    ? PermissionCodes.ModalidadesGrado.N3MGPG
+                    : (modalityCode, stageCode) switch
+                    {
+                        (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFasePropuesta) => PermissionCodes.ProyectoGrado.N4PGPPG,
+                        (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseAnteproyecto) => PermissionCodes.ProyectoGrado.N4PGPAG,
+                        (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseSustentacion) => PermissionCodes.ProyectoGrado.N4PGPSG,
+                        (ModalityCodes.PracticaAcademica, StageModalityCodes.PaFaseInscripcion) => PermissionCodes.PracticaAcademica.N4PAF0PG,
+                        (ModalityCodes.PublicacionArticulo, _) => PermissionCodes.PublicacionArticulo.N3PCSGG,
+                        (ModalityCodes.SaberPro, _) => PermissionCodes.SaberPro.N3SPSGG,
+                        (ModalityCodes.GradoPromedio, _) => PermissionCodes.GradoPromedio.N3GPSGG,
+                        (ModalityCodes.CoTerminal, _) => PermissionCodes.CoTerminal.N3CTSGG,
+                        (ModalityCodes.SeminarioAct, _) => PermissionCodes.Seminario.N3SASGG,
+                        _ => null
+                    };
+
+                if (!string.IsNullOrWhiteSpace(siblingManagementPermCode))
+                {
+                    emails.AddRange(await ResolveByPermissionCodeAsync(siblingManagementPermCode, rule.Conditions, lookupData));
+                    emails = emails
+                        .Where(e => !string.IsNullOrWhiteSpace(e))
+                        .Select(e => e.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+            }
 
             if (emails.Count == 0)
             {

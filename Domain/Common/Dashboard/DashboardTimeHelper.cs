@@ -80,6 +80,34 @@ namespace Domain.Common.Dashboard
             return businessDays;
         }
 
+        /// <summary>
+        /// Calcula el instante UTC exclusivo tal que cualquier marca temporal &lt; retorno
+        /// acumula al menos <paramref name="businessDays"/> días hábiles transcurridos hasta <paramref name="endUtc"/> en Colombia.
+        /// </summary>
+        public static DateTimeOffset GetBusinessDaysCutoffExclusiveUtc(DateTimeOffset endUtc, int businessDays)
+        {
+            if (businessDays <= 0)
+                return endUtc;
+
+            var endColombia = TimeZoneInfo.ConvertTime(endUtc, ColombiaTimeZone);
+            var cursor = DateOnly.FromDateTime(endColombia.Date);
+            var counted = 0;
+
+            while (counted < businessDays)
+            {
+                if (cursor.DayOfWeek != DayOfWeek.Saturday && cursor.DayOfWeek != DayOfWeek.Sunday)
+                {
+                    counted++;
+                }
+                cursor = cursor.AddDays(-1);
+            }
+
+            var nextDay = cursor.AddDays(1);
+            var localMidnight = new DateTime(nextDay.Year, nextDay.Month, nextDay.Day, 0, 0, 0, DateTimeKind.Unspecified);
+            var offset = ColombiaTimeZone.GetUtcOffset(localMidnight);
+            return new DateTimeOffset(localMidnight, offset).ToUniversalTime();
+        }
+
         private static DateOnly ExtractColombiaCalendarDate(DateTimeOffset input)
         {
             // Cuando el cliente envía una fecha calendario sin hora (p.ej. 2026-03-15T00:00:00Z o -05:00),
