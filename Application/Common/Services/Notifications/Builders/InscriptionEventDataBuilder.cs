@@ -154,7 +154,7 @@ namespace Application.Common.Services.Notifications.Builders
                     ["RejectionComments"] = string.Empty,
                     ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor("info"),
                     ["ObservationsBlock"] = string.Empty,
-                    ["CreatedAt"] = createdAt.UtcDateTime,
+                    ["CreatedAt"] = createdAt,
                     ["NextSteps"] = GetNextStepsByModality(modality?.Code ?? string.Empty)
                 };
 

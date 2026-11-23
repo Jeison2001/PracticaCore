@@ -1,3 +1,4 @@
+using Domain.Common.Notifications;
 using Domain.Interfaces.Common;
 
 namespace Domain.Interfaces.Services.Notifications;
@@ -16,6 +17,11 @@ public interface IEmailNotificationEventService : IScopedService
     /// <param name="eventData">Datos del evento para reemplazar en plantillas</param>
     /// <param name="entityContext">Contexto de la entidad relacionada para determinar destinatarios</param>
     Task ProcessEventAsync(string eventName, Dictionary<string, object> eventData, object? entityContext = null);
+
+    /// <summary>
+    /// Procesa un evento, envía las notificaciones correspondientes y retorna el resumen real de correos enviados.
+    /// </summary>
+    Task<EmailEventDispatchResult> ProcessEventWithSummaryAsync(string eventName, Dictionary<string, object> eventData, object? entityContext = null);
 
     /// <summary>
     /// Verifica si existe configuración activa para un evento

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Api.Authorization;
 using Api.Extensions;
 using Api.Middlewares;
+using Api.Serialization;
 using Api.SwaggerFilters;
 using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -85,7 +86,12 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new NullableUtcDateTimeOffsetJsonConverter());
+    });
 
 // Más información sobre configuración de Swagger/OpenAPI en https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

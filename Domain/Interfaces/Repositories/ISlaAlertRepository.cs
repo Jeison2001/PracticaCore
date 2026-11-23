@@ -22,8 +22,17 @@ namespace Domain.Interfaces.Repositories
             IEnumerable<string> candidateKeys,
             CancellationToken cancellationToken = default);
 
-        Task<bool> TryRecordDispatchAsync(
-            EmailAlertDispatchLog logEntry,
+        Task<bool> TryClaimDispatchAsync(
+            EmailAlertDispatchLog entry,
+            CancellationToken cancellationToken = default);
+
+        Task ConfirmDispatchClaimAsync(
+            int logId,
+            string recipientsSummary,
+            CancellationToken cancellationToken = default);
+
+        Task ReleaseDispatchClaimAsync(
+            int logId,
             CancellationToken cancellationToken = default);
 
         Task<SlaAlertSettingsSnapshot> GetSettingsSnapshotAsync(

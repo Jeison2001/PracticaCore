@@ -117,5 +117,41 @@ namespace Tests.UnitTests.Api.Controllers
             recordsResponse.Success.Should().BeTrue();
             recordsResponse.Data!.TotalCount.Should().Be(12);
         }
+
+        [Fact]
+        public async Task ExportCsv_FormatsIso8601UtcStrings_ToColombiaLocalTimeText()
+        {
+            var rows = new List<DashboardExportRow>
+            {
+                new(
+                    InscriptionId: 77,
+                    ModalityName: "Proyecto de Grado",
+                    StateName: "Aprobado",
+                    AcademicPeriod: "2026-1",
+                    Program: "Ingeniería de Sistemas",
+                    Faculty: "Ingenierías y Tecnológicas",
+                    Students: "Valeria Mendoza",
+                    CreatedAt: "2026-03-16T04:30:00Z", // 2026-03-15 23:30 COT
+                    ApprovalDate: "2026-03-16T04:59:59Z", // 2026-03-15 COT
+                    CurrentPhase: "Propuesta",
+                    PhaseState: "Pertinente",
+                    ModalityDetail: "Detalle",
+                    LastActivityAt: "2026-04-01T20:15:00Z", // 2026-04-01 15:15 COT
+                    DaysElapsed: 16)
+            };
+
+            var mediatorMock = new Mock<IMediator>();
+            mediatorMock
+                .Setup(m => m.Send(It.IsAny<GetDashboardExportQuery>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(rows);
+
+            var controller = new DashboardController(mediatorMock.Object);
+            var actionResult = await controller.ExportCsv(new DashboardFilter());
+            var fileResult = actionResult.Should().BeOfType<FileContentResult>().Subject;
+            var csvText = Encoding.UTF8.GetString(fileResult.FileContents).TrimStart('\uFEFF');
+
+            csvText.Should().Contain(",2026-03-15 23:30,2026-03-15,");
+            csvText.Should().Contain(",2026-04-01 15:15,16");
+        }
     }
 }

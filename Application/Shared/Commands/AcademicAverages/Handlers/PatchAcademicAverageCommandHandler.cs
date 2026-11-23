@@ -88,7 +88,8 @@ namespace Application.Shared.Commands.AcademicAverages.Handlers
                 evaluationTypeCode: EvaluationTypeCodes.AcademicAverage,
                 newObservations: request.Dto.Observations,
                 previousObservations: originalObservations,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                effectiveStateStageId: entity.IdStateStage);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

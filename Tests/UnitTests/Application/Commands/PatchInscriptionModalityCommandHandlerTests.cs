@@ -393,5 +393,72 @@ namespace Tests.UnitTests.Application.Commands
                 .WithMessage("La inscripción no tiene estudiantes confirmados activos.");
             _unitOfWorkMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
         }
+
+        [Fact]
+        public async Task Handle_WhenTransitioningWithObservations_RecordsTargetStateCodeInEvaluationResult()
+        {
+            // Arrange
+            const int inscriptionId = 60;
+            const int originalStateId = 1;
+            const int rejectedStateId = 3;
+
+            var existingEntity = new InscriptionModality
+            {
+                Id = inscriptionId,
+                IdStateInscription = originalStateId,
+                IsFinalRejection = false,
+                StatusRegister = true
+            };
+
+            var pendingState = new StateInscription
+            {
+                Id = originalStateId,
+                Code = StateInscriptionCodes.Pendiente,
+                Name = "Pendiente",
+                IsFinalStateForStage = false
+            };
+
+            var rejectedState = new StateInscription
+            {
+                Id = rejectedStateId,
+                Code = StateInscriptionCodes.Rechazado,
+                Name = "Rechazado",
+                IsFinalStateForStage = true,
+                IsRejectionState = true
+            };
+
+            Evaluation? capturedEvaluation = null;
+
+            _repositoryMock.Setup(r => r.GetByIdAsync(inscriptionId)).ReturnsAsync(existingEntity);
+            _stateRepoMock.Setup(s => s.GetByIdAsync(originalStateId)).ReturnsAsync(pendingState);
+            _stateRepoMock.Setup(s => s.GetByIdAsync(rejectedStateId)).ReturnsAsync(rejectedState);
+            _evalTypeRepoMock.Setup(r => r.GetFirstOrDefaultAsync(
+                    It.IsAny<Expression<Func<EvaluationType, bool>>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new EvaluationType { Id = 1, Code = "COMITE", Name = "Comité", StatusRegister = true });
+            _evalRepoMock.Setup(r => r.AddAsync(It.IsAny<Evaluation>()))
+                .Callback<Evaluation>(ev => capturedEvaluation = ev)
+                .Returns(Task.CompletedTask);
+            _mapperMock.Setup(m => m.Map<InscriptionModalityDto>(existingEntity))
+                .Returns(new InscriptionModalityDto { Id = inscriptionId, IdStateInscription = rejectedStateId });
+
+            var command = new PatchInscriptionModalityCommand(
+                inscriptionId,
+                new InscriptionModalityPatchDto
+                {
+                    IdStateInscription = rejectedStateId,
+                    Observations = "Inscripción rechazada por requisitos"
+                },
+                new CurrentUserInfo { UserId = 42 });
+
+            // Act
+            await _handler.Handle(command, CancellationToken.None);
+
+            // Assert
+            capturedEvaluation.Should().NotBeNull();
+            capturedEvaluation!.EntityType.Should().Be(nameof(InscriptionModality));
+            capturedEvaluation.Result.Should().Be(StateInscriptionCodes.Rechazado);
+            capturedEvaluation.Observations.Should().Be("Inscripción rechazada por requisitos");
+        }
     }
 }

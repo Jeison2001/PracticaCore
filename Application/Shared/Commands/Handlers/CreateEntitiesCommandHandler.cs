@@ -1,5 +1,6 @@
 using Application.Shared.DTOs;
 using AutoMapper;
+using Domain.Common.Dashboard;
 using Domain.Entities;
 using MediatR;
 using Domain.Interfaces.Repositories;
@@ -32,11 +33,28 @@ namespace Application.Shared.Commands.Handlers
                 throw new ArgumentException("Debe proporcionar al menos un elemento.");
 
             var entities = _mapper.Map<List<T>>(request.Dtos);
+            var nowUtc = DateTimeOffset.UtcNow;
             foreach (var entity in entities)
             {
                 if (entity is BaseEntity<TId> baseEntity)
                 {
                     baseEntity.IdUserCreatedAt = request.CurrentUser.UserId;
+                    baseEntity.CreatedAt = nowUtc;
+                    baseEntity.UpdatedAt = null;
+                }
+
+                switch (entity)
+                {
+                    case SaberPro saberPro:
+                        saberPro.ExamDate = DashboardTimeHelper.NormalizeCalendarDateUtc(saberPro.ExamDate);
+                        break;
+                    case ScientificArticle scientificArticle:
+                        scientificArticle.AcceptanceDate = DashboardTimeHelper.NormalizeCalendarDateUtc(scientificArticle.AcceptanceDate);
+                        break;
+                    case AcademicPractice academicPractice:
+                        academicPractice.PracticeStartDate = DashboardTimeHelper.NormalizeCalendarDateUtc(academicPractice.PracticeStartDate);
+                        academicPractice.PracticeEndDate = DashboardTimeHelper.NormalizeCalendarDateUtc(academicPractice.PracticeEndDate);
+                        break;
                 }
             }
             await _repository.AddRangeAsync(entities);

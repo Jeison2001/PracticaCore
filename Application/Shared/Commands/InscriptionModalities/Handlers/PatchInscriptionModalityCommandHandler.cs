@@ -124,6 +124,21 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
                 updatedProperties.Add(x => x.Observations);
             }
 
+            string? inscriptionStateCode = null;
+            if (entity.IdStateInscription > 0)
+            {
+                var stateInscriptionRepo = _unitOfWork.GetRepository<Domain.Entities.StateInscription, int>();
+                var effectiveState = stateInscriptionRepo != null
+                    ? await stateInscriptionRepo.GetByIdAsync(entity.IdStateInscription)
+                    : null;
+                inscriptionStateCode = effectiveState?.Code;
+                if (string.Equals(inscriptionStateCode, StateInscriptionCodes.Pendiente, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(request.Dto.Observations))
+                {
+                    inscriptionStateCode = "PENDIENTE_OBSERVACIONES";
+                }
+            }
+
             // Registrar historial de observaciones solo si hay texto nuevo/distinto
             await ObservationHistoryHelper.CreateIfChangedAsync(_unitOfWork,
                 entityType: nameof(InscriptionModality),
@@ -132,7 +147,8 @@ namespace Application.Shared.Commands.InscriptionModalities.Handlers
                 evaluationTypeCode: EvaluationTypeCodes.InscriptionModality,
                 newObservations: request.Dto.Observations,
                 previousObservations: originalObservations,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                result: inscriptionStateCode);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

@@ -74,7 +74,8 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
                 newObservations: dto.EvaluatorObservations,
                 previousObservations: originalEvaluatorObservations,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                effectiveStateStageId: dto.NewStateStageId);
 
             if (!string.Equals(dto.Observations?.Trim(), dto.EvaluatorObservations?.Trim(), StringComparison.Ordinal))
             {
@@ -86,7 +87,8 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                     evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
                     newObservations: dto.Observations,
                     previousObservations: originalObservations,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken,
+                    effectiveStateStageId: dto.NewStateStageId);
             }
 
             await _unitOfWork.CommitAsync(cancellationToken);

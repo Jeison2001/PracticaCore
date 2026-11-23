@@ -17,7 +17,9 @@ namespace Application.Common.Services
             string evaluationTypeCode,
             string? newObservations,
             string? previousObservations,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            string? result = null,
+            int? effectiveStateStageId = null)
         {
             if (evaluatorId <= 0)
                 return false;
@@ -36,7 +38,9 @@ namespace Application.Common.Services
                 evaluatorId,
                 evaluationTypeCode,
                 trimmedNew,
-                cancellationToken);
+                cancellationToken,
+                result,
+                effectiveStateStageId);
 
             return true;
         }
@@ -48,24 +52,42 @@ namespace Application.Common.Services
             int evaluatorId,
             string evaluationTypeCode,
             string observations,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            string? result = null,
+            int? effectiveStateStageId = null)
         {
             if (evaluatorId <= 0)
                 return;
             var evalTypeRepo = unitOfWork.GetRepository<EvaluationType, int>();
+            if (evalTypeRepo == null)
+                return;
+
             var evalType = await evalTypeRepo.GetFirstOrDefaultAsync(
                 et => et.Code == evaluationTypeCode, cancellationToken);
 
             if (evalType == null)
                 return;
 
+            if (string.IsNullOrWhiteSpace(result) && effectiveStateStageId is > 0)
+            {
+                var stateRepo = unitOfWork.GetRepository<StateStage, int>();
+                if (stateRepo != null)
+                {
+                    result = (await stateRepo.GetByIdAsync(effectiveStateStageId.Value))?.Code;
+                }
+            }
+
             var evalRepo = unitOfWork.GetRepository<Evaluation, int>();
+            if (evalRepo == null)
+                return;
+
             await evalRepo.AddAsync(new Evaluation
             {
                 EntityType = entityType,
                 EntityId = entityId,
                 IdEvaluator = evaluatorId,
                 IdEvaluationType = evalType.Id,
+                Result = string.IsNullOrWhiteSpace(result) ? null : result.Trim(),
                 Observations = observations
             });
         }

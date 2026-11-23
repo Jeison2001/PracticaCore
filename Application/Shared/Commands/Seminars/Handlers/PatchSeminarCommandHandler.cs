@@ -88,7 +88,8 @@ namespace Application.Shared.Commands.Seminars.Handlers
                 evaluationTypeCode: EvaluationTypeCodes.Seminar,
                 newObservations: request.Dto.Observations,
                 previousObservations: originalObservations,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                effectiveStateStageId: entity.IdStateStage);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

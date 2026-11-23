@@ -190,5 +190,48 @@ namespace Tests.UnitTests.Infrastructure.Services
             ws4Values.Should().Contain("'-Title Attack");
             ws4Values.Should().Contain("Dr. Jurado");
         }
+
+        [Fact]
+        public void GenerateExcel_UsesDynamicEvaluatorOverdueThreshold_AndFormatsIsoUtcDatesToColombia()
+        {
+            var exporter = new DashboardExcelExporter();
+            var filter = new DashboardFilter { StaleDaysThreshold = 20 };
+            var summary = new DashboardSummary();
+            var alerts = new DashboardOperationalAlerts
+            {
+                StaleThresholdDays = 20,
+                EvaluatorOverdueBusinessDays = 10,
+                TotalStaleCount = 1,
+                TotalEvaluationSlaBreachCount = 1,
+                StaleItems = new List<StaleInscriptionAlert>
+                {
+                    new(101, "PROYECTO_GRADO", "Proyecto de Grado", "Juan Pérez", "Anteproyecto",
+                        "En evaluación", "IN_REVIEW", "En revisión", 25, "2026-05-01T14:00:00Z", true, "Jurado Uno")
+                },
+                UpcomingDefenses = new List<UpcomingDefenseAlert>
+                {
+                    new(102, "Tesis Cloud", "Ana Gómez", "2026-05-10T15:30:00Z", "Presencial", "Sala 1", 1, "Jurado Dos")
+                }
+            };
+            var rows = new List<DashboardExportRow>
+            {
+                new(101, "Proyecto de Grado", "Aprobado", "2026-1", "Sistemas", "Ingenierías", "Juan Pérez",
+                    "2026-03-16T04:30:00Z", "2026-03-16T04:59:59Z", "Anteproyecto", "En evaluación", "Detalle",
+                    LastActivityAt: "2026-05-01T14:00:00Z", DaysElapsed: 45)
+            };
+
+            var bytes = exporter.GenerateExcel(filter, summary, null, alerts, rows, new DashboardFilterOptions());
+            using var wb = new XLWorkbook(new MemoryStream(bytes));
+
+            var ws2Values = wb.Worksheet("Registros Detallados").CellsUsed().Select(c => c.GetString()).ToList();
+            ws2Values.Should().Contain("2026-03-15 23:30");
+            ws2Values.Should().Contain("2026-03-15");
+            ws2Values.Should().Contain("2026-05-01 09:00");
+
+            var ws4Values = wb.Worksheet("Alertas y Sustentaciones").CellsUsed().Select(c => c.GetString()).ToList();
+            ws4Values.Should().Contain("INCUMPLE (>10 días háb.)");
+            ws4Values.Should().Contain("2026-05-01 09:00");
+            ws4Values.Should().Contain("2026-05-10 10:30");
+        }
     }
 }

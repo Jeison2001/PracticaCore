@@ -565,13 +565,13 @@ namespace Tests.UnitTests.Application.Notifications
         }
 
         [Fact]
-        public async Task RecipientResolver_ResolvesEvaluatorFallback_And_CommitteeRoleFallback()
+        public async Task RecipientResolver_ReturnsEmptyWithoutArtificialFallbacks_WhenNoAssignedEvaluatorOrStagePermission()
         {
             var nowUtc = new DateTimeOffset(2026, 5, 20, 15, 0, 0, TimeSpan.Zero);
             using var ctx = CreateInMemoryContext();
             SeedBaseCatalog(ctx, nowUtc);
 
-            // Configurar roles COMMITTEE_DIRECTOR y SECRETARY para fallback cuando nadie tiene el permiso específico
+            // Configurar roles COMMITTEE_DIRECTOR y SECRETARY (NO deben usarse como fallback institucional)
             ctx.Set<Role>().AddRange(
                 new Role { Id = 10, Code = "COMMITTEE_DIRECTOR", Name = "Director Comité", StatusRegister = true },
                 new Role { Id = 11, Code = "SECRETARY", Name = "Secretaría", StatusRegister = true });
@@ -579,46 +579,78 @@ namespace Tests.UnitTests.Application.Notifications
                 new UserRole { Id = 10, IdUser = 4, IdRole = 10, StatusRegister = true },
                 new UserRole { Id = 11, IdUser = 5, IdRole = 11, StatusRegister = true });
 
-            // Permiso N4PGPAA asignado a User 3 para probar FallbackPermissionCode en STAGE_EVALUATOR_RESPONSIBLE
-            ctx.Set<Permission>().Add(new Permission { Id = 10, Code = PermissionCodes.ProyectoGrado.N4PGPAA, Description = "Anteproyecto Comité", StatusRegister = true });
-            ctx.Set<UserPermission>().Add(new UserPermission { Id = 10, IdUser = 3, IdPermission = 10, StatusRegister = true });
+            // User 3 tiene N4PGPAA y N4PGPSR, pero NO N4PGPSG ni permiso PA
+            ctx.Set<Permission>().AddRange(
+                new Permission { Id = 10, Code = PermissionCodes.ProyectoGrado.N4PGPAA, Description = "Anteproyecto Comité", StatusRegister = true },
+                new Permission { Id = 11, Code = PermissionCodes.ProyectoGrado.N4PGPSR, Description = "Sustentación Reasignar/Old", StatusRegister = true },
+                new Permission { Id = 12, Code = PermissionCodes.PracticaAcademica.N4PAF2PG, Description = "PA F2 Gestión", StatusRegister = true });
+            ctx.Set<UserPermission>().AddRange(
+                new UserPermission { Id = 10, IdUser = 3, IdPermission = 10, StatusRegister = true },
+                new UserPermission { Id = 11, IdUser = 3, IdPermission = 11, StatusRegister = true },
+                new UserPermission { Id = 12, IdUser = 3, IdPermission = 12, StatusRegister = true });
 
-            // Inscripción 70 en Proyecto de Grado (Sustentación) SIN ningún usuario con N4PGPSG y SIN jurados asignados
-            ctx.Set<InscriptionModality>().Add(new InscriptionModality
-            {
-                Id = 70, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 4, StatusRegister = true
-            });
+            // Inscripción 70 en Proyecto de Grado (Sustentación) sin N4PGPSG y sin jurados asignados
+            // Inscripción 71 en Práctica Académica (Evaluación) sin docentes confirmados
+            ctx.Set<InscriptionModality>().AddRange(
+                new InscriptionModality { Id = 70, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 4, StatusRegister = true },
+                new InscriptionModality { Id = 71, IdModality = 2, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 5, StatusRegister = true });
             await ctx.SaveChangesAsync();
 
             var uow = new UnitOfWork(ctx, Mock.Of<IMediator>(), NullLogger<UnitOfWork>.Instance);
             var resolver = new EmailRecipientResolverService(uow, NullLogger<EmailRecipientResolverService>.Instance);
 
-            // Caso A: STAGE_EVALUATOR_RESPONSIBLE sin jurados asignados -> usa FallbackPermissionCode (N4PGPAA -> User 3)
             var evaluatorRules = new List<EmailRecipientRule>
             {
                 new() { Id = 1, RecipientType = "TO", RuleType = "BY_ENTITY_RELATION", RuleValue = "STAGE_EVALUATOR_RESPONSIBLE", Priority = 1, StatusRegister = true }
             };
-            var evaluatorResult = await resolver.ResolveRecipientsAsync(evaluatorRules, new Dictionary<string, object>
+
+            // Caso A: STAGE_EVALUATOR_RESPONSIBLE sin jurados asignados -> vacío (ignora FallbackPermissionCode)
+            var pgEvaluatorResult = await resolver.ResolveRecipientsAsync(evaluatorRules, new Dictionary<string, object>
             {
                 ["InscriptionId"] = 70,
                 ["FallbackPermissionCode"] = PermissionCodes.ProyectoGrado.N4PGPAA
             });
-            evaluatorResult.To.Should().Equal("comite.pg@unicesar.edu.co");
+            pgEvaluatorResult.To.Should().BeEmpty();
 
-            // Caso B: COMMITTEE_STAGE_RESPONSIBLE sin usuarios con N4PGPSG -> cae a roles COMMITTEE_DIRECTOR y SECRETARY
+            // Caso B: STAGE_EVALUATOR_RESPONSIBLE en PA sin docente confirmado -> vacío (no cae a N4PAF2PG)
+            var paWithoutTeacherResult = await resolver.ResolveRecipientsAsync(evaluatorRules, new Dictionary<string, object>
+            {
+                ["InscriptionId"] = 71
+            });
+            paWithoutTeacherResult.To.Should().BeEmpty();
+
+            ctx.Set<TeachingAssignment>().Add(new TeachingAssignment
+            {
+                Id = 71, IdInscriptionModality = 71, IdTeacher = 2, IdTypeTeachingAssignment = 2, IsConfirmed = true, StatusRegister = true
+            });
+            await ctx.SaveChangesAsync();
+
+            var paWithTeacherResult = await resolver.ResolveRecipientsAsync(evaluatorRules, new Dictionary<string, object>
+            {
+                ["InscriptionId"] = 71
+            });
+            paWithTeacherResult.To.Should().Equal("jurado1@unicesar.edu.co");
+
+            // Caso C: COMMITTEE_STAGE_RESPONSIBLE en Sustentación sin N4PGPSG -> vacío (no acepta N4PGPSR ni roles)
             var committeeRules = new List<EmailRecipientRule>
             {
                 new() { Id = 2, RecipientType = "TO", RuleType = "BY_ENTITY_RELATION", RuleValue = "COMMITTEE_STAGE_RESPONSIBLE", Priority = 1, StatusRegister = true }
             };
-            var committeeResult = await resolver.ResolveRecipientsAsync(committeeRules, new Dictionary<string, object>
+            var committeeWithoutPermResult = await resolver.ResolveRecipientsAsync(committeeRules, new Dictionary<string, object>
             {
                 ["InscriptionModalityId"] = 70
             });
-            committeeResult.To.Should().BeEquivalentTo(new[]
+            committeeWithoutPermResult.To.Should().BeEmpty();
+
+            ctx.Set<Permission>().Add(new Permission { Id = 13, Code = PermissionCodes.ProyectoGrado.N4PGPSG, Description = "Sustentación Gestión", StatusRegister = true });
+            ctx.Set<UserPermission>().Add(new UserPermission { Id = 13, IdUser = 3, IdPermission = 13, StatusRegister = true });
+            await ctx.SaveChangesAsync();
+
+            var committeeWithPermResult = await resolver.ResolveRecipientsAsync(committeeRules, new Dictionary<string, object>
             {
-                "director.comite@unicesar.edu.co",
-                "secretaria.comite@unicesar.edu.co"
+                ["InscriptionModalityId"] = 70
             });
+            committeeWithPermResult.To.Should().Equal("comite.pg@unicesar.edu.co");
         }
 
         [Fact]
@@ -657,6 +689,13 @@ namespace Tests.UnitTests.Application.Notifications
                 .Single();
             classPerm.PermissionCodes.Should().Contain(PermissionCodes.Reportes.N2EDD);
 
+            var runMethodPerm = typeof(DashboardController)
+                .GetMethod(nameof(DashboardController.RunSlaAlerts))!
+                .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: true)
+                .Cast<RequirePermissionAttribute>()
+                .Single();
+            runMethodPerm.PermissionCodes.Should().Contain(PermissionCodes.Configuraciones.N3CFNOA);
+
             var actionResult = await controller.RunSlaAlerts(service);
             var okResult = actionResult.Should().BeOfType<OkObjectResult>().Subject;
             var payload = okResult.Value.Should().BeOfType<ApiResponse<SlaAlertExecutionSummary>>().Subject;
@@ -669,6 +708,7 @@ namespace Tests.UnitTests.Application.Notifications
 
             var logs = await ctx.Set<EmailAlertDispatchLog>().ToListAsync();
             logs.Should().ContainSingle(l => l.IdInscriptionModality == 81);
+            logs.Should().NotContain(l => l.IdInscriptionModality == 80);
         }
 
         [Fact]
@@ -784,19 +824,18 @@ namespace Tests.UnitTests.Application.Notifications
         }
 
         [Fact]
-        public async Task RecipientResolver_CommitteeStageResponsible_UsesSiblingManagementPermissionBeforeInstitutionalRoleFallback()
+        public async Task RecipientResolver_CommitteeStageResponsible_ResolvesExactNivel1Permissions_WithoutSiblingOrRoleFallbacks()
         {
             var nowUtc = new DateTimeOffset(2026, 5, 20, 15, 0, 0, TimeSpan.Zero);
             using var ctx = CreateInMemoryContext();
             SeedBaseCatalog(ctx, nowUtc);
 
-            // Agregar modalidades restantes para cubrir todas las ramas de sibling management permissions
             ctx.Set<Modality>().AddRange(
                 new Modality { Id = 5, Code = ModalityCodes.PublicacionArticulo, Name = "Publicación de Artículo", StatusRegister = true },
                 new Modality { Id = 6, Code = ModalityCodes.GradoPromedio, Name = "Grado por Promedio", StatusRegister = true },
                 new Modality { Id = 7, Code = ModalityCodes.SeminarioAct, Name = "Seminario de Actualización", StatusRegister = true });
 
-            // Roles COMMITTEE_DIRECTOR y SECRETARY existen con usuarios activos (User 4 y User 5)
+            // Roles COMMITTEE_DIRECTOR y SECRETARY existen con usuarios activos (User 4 y User 5), pero NO deben usarse
             ctx.Set<Role>().AddRange(
                 new Role { Id = 20, Code = "COMMITTEE_DIRECTOR", Name = "Director Comité", StatusRegister = true },
                 new Role { Id = 21, Code = "SECRETARY", Name = "Secretaría", StatusRegister = true });
@@ -804,13 +843,13 @@ namespace Tests.UnitTests.Application.Notifications
                 new UserRole { Id = 20, IdUser = 4, IdRole = 20, StatusRegister = true },
                 new UserRole { Id = 21, IdUser = 5, IdRole = 21, StatusRegister = true });
 
-            // User 3 tendrá únicamente los permisos hermanos de GESTIÓN (SIN permisos primarios *R / N4PGPAA)
-            var siblingPermissions = new (int PermId, string Code)[]
+            // Primero: User 3 SOLO tiene permisos hermanos *G (que ya NO hacen fallback) y N4PGPSR
+            var disallowedSiblingPermissions = new (int PermId, string Code)[]
             {
                 (301, PermissionCodes.ModalidadesGrado.N3MGPG),
                 (302, PermissionCodes.ProyectoGrado.N4PGPPG),
                 (303, PermissionCodes.ProyectoGrado.N4PGPAG),
-                (304, PermissionCodes.ProyectoGrado.N4PGPSG),
+                (304, PermissionCodes.ProyectoGrado.N4PGPSR),
                 (305, PermissionCodes.PublicacionArticulo.N3PCSGG),
                 (306, PermissionCodes.SaberPro.N3SPSGG),
                 (307, PermissionCodes.GradoPromedio.N3GPSGG),
@@ -818,23 +857,24 @@ namespace Tests.UnitTests.Application.Notifications
                 (309, PermissionCodes.Seminario.N3SASGG)
             };
 
-            foreach (var (permId, code) in siblingPermissions)
+            foreach (var (permId, code) in disallowedSiblingPermissions)
             {
                 ctx.Set<Permission>().Add(new Permission { Id = permId, Code = code, Description = code, StatusRegister = true });
                 ctx.Set<UserPermission>().Add(new UserPermission { Id = permId, IdUser = 3, IdPermission = permId, StatusRegister = true });
             }
 
-            // Crear 9 inscripciones (una por cada rama del mapeo hermano)
+            // Crear 10 inscripciones cubriendo todas las ramas de COMMITTEE_STAGE_RESPONSIBLE
             ctx.Set<InscriptionModality>().AddRange(
-                new InscriptionModality { Id = 201, IdModality = 1, IdStateInscription = 1, IdAcademicPeriod = 3, StatusRegister = true }, // PENDIENTE -> N3MGPG
-                new InscriptionModality { Id = 202, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 1, StatusRegister = true }, // PG_FASE_PROPUESTA -> N4PGPPG
-                new InscriptionModality { Id = 203, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 2, StatusRegister = true }, // PG_FASE_ANTEPROYECTO -> N4PGPAG
+                new InscriptionModality { Id = 201, IdModality = 1, IdStateInscription = 1, IdAcademicPeriod = 3, StatusRegister = true }, // PENDIENTE -> N3MGPR
+                new InscriptionModality { Id = 202, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 1, StatusRegister = true }, // PG_FASE_PROPUESTA -> N4PGPPR
+                new InscriptionModality { Id = 203, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 2, StatusRegister = true }, // PG_FASE_ANTEPROYECTO -> N4PGPAA
                 new InscriptionModality { Id = 204, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 4, StatusRegister = true }, // PG_FASE_SUSTENTACION -> N4PGPSG
-                new InscriptionModality { Id = 205, IdModality = 5, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }, // PUBLICACION_ARTICULO -> N3PCSGG
-                new InscriptionModality { Id = 206, IdModality = 4, IdStateInscription = 4, IdAcademicPeriod = 3, StatusRegister = true }, // SABER_PRO -> N3SPSGG
-                new InscriptionModality { Id = 207, IdModality = 6, IdStateInscription = 4, IdAcademicPeriod = 3, StatusRegister = true }, // GRADO_PROMEDIO -> N3GPSGG
-                new InscriptionModality { Id = 208, IdModality = 3, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }, // COTERMINAL -> N3CTSGG
-                new InscriptionModality { Id = 209, IdModality = 7, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }  // SEMINARIO_ACT -> N3SASGG
+                new InscriptionModality { Id = 205, IdModality = 5, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }, // PUBLICACION_ARTICULO -> N3PCSGR
+                new InscriptionModality { Id = 206, IdModality = 4, IdStateInscription = 4, IdAcademicPeriod = 3, StatusRegister = true }, // SABER_PRO -> N3SPSGR
+                new InscriptionModality { Id = 207, IdModality = 6, IdStateInscription = 4, IdAcademicPeriod = 3, StatusRegister = true }, // GRADO_PROMEDIO -> N3GPSGR
+                new InscriptionModality { Id = 208, IdModality = 3, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }, // COTERMINAL -> N3CTSGR
+                new InscriptionModality { Id = 209, IdModality = 7, IdStateInscription = 2, IdAcademicPeriod = 3, StatusRegister = true }, // SEMINARIO_ACT -> N3SASGR
+                new InscriptionModality { Id = 210, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 3, StatusRegister = true }  // PG_FASE_PROYECTO -> N4PGPPRG
             );
             await ctx.SaveChangesAsync();
 
@@ -845,19 +885,77 @@ namespace Tests.UnitTests.Application.Notifications
                 new() { Id = 1, RecipientType = "TO", RuleType = "BY_ENTITY_RELATION", RuleValue = "COMMITTEE_STAGE_RESPONSIBLE", Priority = 1, StatusRegister = true }
             };
 
-            foreach (var insId in Enumerable.Range(201, 9))
+            foreach (var insId in Enumerable.Range(201, 10))
+            {
+                var emptyResolved = await resolver.ResolveRecipientsAsync(rules, new Dictionary<string, object>
+                {
+                    ["InscriptionModalityId"] = insId
+                });
+                emptyResolved.To.Should().BeEmpty();
+            }
+
+            // Ahora otorgar los permisos exactos de Nivel 1 a User 3
+            var exactNivel1Permissions = new (int PermId, string Code)[]
+            {
+                (311, PermissionCodes.ModalidadesGrado.N3MGPR),
+                (312, PermissionCodes.ProyectoGrado.N4PGPPR),
+                (313, PermissionCodes.ProyectoGrado.N4PGPAA),
+                (314, PermissionCodes.ProyectoGrado.N4PGPSG),
+                (315, PermissionCodes.PublicacionArticulo.N3PCSGR),
+                (316, PermissionCodes.SaberPro.N3SPSGR),
+                (317, PermissionCodes.GradoPromedio.N3GPSGR),
+                (318, PermissionCodes.CoTerminal.N3CTSGR),
+                (319, PermissionCodes.Seminario.N3SASGR),
+                (320, PermissionCodes.ProyectoGrado.N4PGPPRG)
+            };
+
+            foreach (var (permId, code) in exactNivel1Permissions)
+            {
+                ctx.Set<Permission>().Add(new Permission { Id = permId, Code = code, Description = code, StatusRegister = true });
+                ctx.Set<UserPermission>().Add(new UserPermission { Id = permId, IdUser = 3, IdPermission = permId, StatusRegister = true });
+            }
+            await ctx.SaveChangesAsync();
+
+            foreach (var insId in Enumerable.Range(201, 10))
             {
                 var resolved = await resolver.ResolveRecipientsAsync(rules, new Dictionary<string, object>
                 {
                     ["InscriptionModalityId"] = insId
                 });
-
-                // Debe resolver el permiso hermano de gestión (User 3) y NO caer a COMMITTEE_DIRECTOR / SECRETARY
                 resolved.To.Should().Equal("comite.pg@unicesar.edu.co");
             }
 
             SlaCronHelper.BuildCron(7, 30, weekdaysOnly: false).Should().Be("30 7 * * *");
             SlaCronHelper.BuildCron(8, 5, weekdaysOnly: true).Should().Be("5 8 * * 1-5");
+        }
+
+        [Fact]
+        public async Task SlaDispatchClaim_WhenZeroEmailsSent_ReleasesClaimAndDoesNotPersistDispatchLog()
+        {
+            var nowUtc = new DateTimeOffset(2026, 5, 20, 15, 0, 0, TimeSpan.Zero);
+            var clock = new ManualTimeProvider(nowUtc);
+            using var ctx = CreateInMemoryContext();
+            SeedBaseCatalog(ctx, nowUtc);
+
+            // Sin usuarios con N4PGPAA -> COMMITTEE_STAGE_RESPONSIBLE resuelve 0 destinatarios (EmailsSent == 0)
+            var t10 = SubtractBusinessDaysColombia(nowUtc, 10);
+            ctx.Set<InscriptionModality>().Add(new InscriptionModality
+            {
+                Id = 99, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 3, IdStageModality = 2,
+                CreatedAt = t10, UpdatedAt = t10, StatusRegister = true
+            });
+            ctx.Set<Proposal>().Add(new Proposal { Id = 99, Title = "Sin Destinatarios", IdResearchLine = 1, IdResearchSubLine = 1, IdStateStage = 14, CreatedAt = t10, StatusRegister = true });
+            ctx.Set<PreliminaryProject>().Add(new PreliminaryProject { Id = 99, IdStateStage = 3, CreatedAt = t10, UpdatedAt = t10, StatusRegister = true });
+            ctx.Set<UserInscriptionModality>().Add(new UserInscriptionModality { Id = 99, IdInscriptionModality = 99, IdUser = 1, IsConfirmed = true, StatusRegister = true });
+            await ctx.SaveChangesAsync();
+
+            var (service, sentEmails) = BuildFullPipeline(ctx, clock);
+            var summary = await service.ProcessDueAlertsAsync();
+
+            summary.AlertsTriggered.Should().Be(0);
+            summary.AlertsFailed.Should().Be(0);
+            sentEmails.Should().BeEmpty();
+            ctx.Set<EmailAlertDispatchLog>().Should().BeEmpty();
         }
     }
 }

@@ -1,11 +1,16 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
+using Domain.Common.Dashboard;
 using Domain.Entities;
 
 namespace Domain.Common
 {
     public static class FilterBuilder
     {
+        private static readonly Regex CalendarDateRegex = new(@"^\d{4}-\d{2}-\d{2}$", RegexOptions.Compiled);
+        private static readonly Regex ExplicitOffsetRegex = new(@"(?:[Zz]|[+-]\d{2}:?\d{2})$", RegexOptions.Compiled);
         /// <summary>
         /// Proveedores configurables para delegar comparaciones de texto enriquecidas (ej. PostgreSQL unaccent + ILIKE).
         /// Si son nulos, se usa la comparación estándar ToLower().Contains/StartsWith/EndsWith.
@@ -131,7 +136,7 @@ namespace Domain.Common
                 MemberExpression property = Expression.Property(parameter, propertyInfo);
                 
                 // Convertir el valor al tipo de la propiedad
-                object? convertedValue = ConvertValue(value, propertyInfo.PropertyType);
+                object? convertedValue = ConvertValue(value, propertyInfo.PropertyType, operatorName);
                 if (convertedValue == null && operatorName != "like" && operatorName != "startswith" && operatorName != "endswith")
                     continue;
 
@@ -212,14 +217,14 @@ namespace Domain.Common
                 if (operatorName is "like" or "startswith" or "endswith")
                     continue;
 
-                if (ConvertValue(filter.Value, propertyInfo.PropertyType) == null)
+                if (ConvertValue(filter.Value, propertyInfo.PropertyType, operatorName) == null)
                     invalid.Add(key);
             }
 
             return invalid;
         }
 
-        private static object? ConvertValue(string value, Type targetType)
+        private static object? ConvertValue(string value, Type targetType, string operatorName = "eq")
         {
             try
             {
@@ -227,29 +232,29 @@ namespace Domain.Common
                     return Guid.Parse(value);
                 
                 if (targetType == typeof(DateTime))
-                    return DateTime.Parse(value);
+                    return DateTime.Parse(value, CultureInfo.InvariantCulture);
 
                 // Las fechas del dominio son DateTimeOffset (CreatedAt/UpdatedAt, etc.)
                 if (targetType == typeof(DateTimeOffset))
-                    return DateTimeOffset.Parse(value);
+                    return ConvertDateTimeOffset(value, operatorName);
                 
                 if (targetType == typeof(bool))
                     return bool.Parse(value);
                 
                 if (targetType == typeof(int))
-                    return int.Parse(value);
+                    return int.Parse(value, CultureInfo.InvariantCulture);
                 
                 if (targetType == typeof(double))
-                    return double.Parse(value);
+                    return double.Parse(value, CultureInfo.InvariantCulture);
                 
                 if (targetType == typeof(decimal))
-                    return decimal.Parse(value);
+                    return decimal.Parse(value, CultureInfo.InvariantCulture);
                 
                 // Para tipos nullable
                 if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
                     Type underlyingType = Nullable.GetUnderlyingType(targetType)!;
-                    return ConvertValue(value, underlyingType);
+                    return ConvertValue(value, underlyingType, operatorName);
                 }
                 
                 return value;
@@ -259,6 +264,40 @@ namespace Domain.Common
                 // En caso de error de conversión, retornamos null
                 return null;
             }
+        }
+
+        private static object? ConvertDateTimeOffset(string value, string operatorName)
+        {
+            var trimmed = value?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+                return null;
+
+            if (CalendarDateRegex.IsMatch(trimmed))
+            {
+                if (!DateOnly.TryParseExact(trimmed, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateOnly))
+                    return null;
+
+                var parsed = new DateTimeOffset(dateOnly.Year, dateOnly.Month, dateOnly.Day, 0, 0, 0, TimeSpan.Zero);
+                return operatorName == "le"
+                    ? DashboardTimeHelper.ToColombiaNextDayStartUtc(parsed).AddTicks(-1)
+                    : DashboardTimeHelper.ToColombiaDayStartUtc(parsed);
+            }
+
+            if (ExplicitOffsetRegex.IsMatch(trimmed))
+            {
+                return DateTimeOffset.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto)
+                    ? dto.ToUniversalTime()
+                    : null;
+            }
+
+            if (DateTime.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+            {
+                var unspecified = DateTime.SpecifyKind(dt, DateTimeKind.Unspecified);
+                var offset = DashboardTimeHelper.ColombiaTimeZone.GetUtcOffset(unspecified);
+                return new DateTimeOffset(unspecified, offset).ToUniversalTime();
+            }
+
+            return null;
         }
     }
 }

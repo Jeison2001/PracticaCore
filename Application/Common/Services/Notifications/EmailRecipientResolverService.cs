@@ -371,29 +371,14 @@ namespace Application.Common.Services.Notifications
             }
             else if (modalityCode == ModalityCodes.PracticaAcademica)
             {
-                emails.AddRange(await ResolvePracticeStageResponsibleAsync(rule, lookupData));
+                emails.AddRange(await GetConfirmedPracticeTeachersEmailsAsync(inscriptionModalityId));
             }
 
-            emails = emails
+            return emails
                 .Where(e => !string.IsNullOrWhiteSpace(e))
                 .Select(e => e.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
-
-            if (emails.Count == 0
-                && lookupData.TryGetValue("FallbackPermissionCode", out var rawFallback)
-                && !string.IsNullOrWhiteSpace(rawFallback?.ToString()))
-            {
-                var fallbackPermCode = rawFallback.ToString()!.Trim();
-                emails.AddRange(await ResolveByPermissionCodeAsync(fallbackPermCode, rule.Conditions, lookupData));
-                emails = emails
-                    .Where(e => !string.IsNullOrWhiteSpace(e))
-                    .Select(e => e.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-
-            return emails;
         }
 
         private async Task<List<string>> ResolveCommitteeStageResponsibleAsync(
@@ -460,8 +445,8 @@ namespace Application.Common.Services.Notifications
                 {
                     (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFasePropuesta) => PermissionCodes.ProyectoGrado.N4PGPPR,
                     (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseAnteproyecto) => PermissionCodes.ProyectoGrado.N4PGPAA,
-                    (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseSustentacion) => PermissionCodes.ProyectoGrado.N4PGPSR,
-                    (ModalityCodes.ProyectoGrado, _) => PermissionCodes.ProyectoGrado.N4PGPPG,
+                    (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseSustentacion) => PermissionCodes.ProyectoGrado.N4PGPSG,
+                    (ModalityCodes.ProyectoGrado, _) => PermissionCodes.ProyectoGrado.N4PGPPRG,
                     (ModalityCodes.PublicacionArticulo, _) => PermissionCodes.PublicacionArticulo.N3PCSGR,
                     (ModalityCodes.SaberPro, _) => PermissionCodes.SaberPro.N3SPSGR,
                     (ModalityCodes.GradoPromedio, _) => PermissionCodes.GradoPromedio.N3GPSGR,
@@ -476,53 +461,11 @@ namespace Application.Common.Services.Notifications
                 }
             }
 
-            emails = emails
+            return emails
                 .Where(e => !string.IsNullOrWhiteSpace(e))
                 .Select(e => e.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
-
-            if (emails.Count == 0)
-            {
-                var siblingManagementPermCode = stateInscriptionCode == StateInscriptionCodes.Pendiente
-                    ? PermissionCodes.ModalidadesGrado.N3MGPG
-                    : (modalityCode, stageCode) switch
-                    {
-                        (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFasePropuesta) => PermissionCodes.ProyectoGrado.N4PGPPG,
-                        (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseAnteproyecto) => PermissionCodes.ProyectoGrado.N4PGPAG,
-                        (ModalityCodes.ProyectoGrado, StageModalityCodes.PgFaseSustentacion) => PermissionCodes.ProyectoGrado.N4PGPSG,
-                        (ModalityCodes.PracticaAcademica, StageModalityCodes.PaFaseInscripcion) => PermissionCodes.PracticaAcademica.N4PAF0PG,
-                        (ModalityCodes.PublicacionArticulo, _) => PermissionCodes.PublicacionArticulo.N3PCSGG,
-                        (ModalityCodes.SaberPro, _) => PermissionCodes.SaberPro.N3SPSGG,
-                        (ModalityCodes.GradoPromedio, _) => PermissionCodes.GradoPromedio.N3GPSGG,
-                        (ModalityCodes.CoTerminal, _) => PermissionCodes.CoTerminal.N3CTSGG,
-                        (ModalityCodes.SeminarioAct, _) => PermissionCodes.Seminario.N3SASGG,
-                        _ => null
-                    };
-
-                if (!string.IsNullOrWhiteSpace(siblingManagementPermCode))
-                {
-                    emails.AddRange(await ResolveByPermissionCodeAsync(siblingManagementPermCode, rule.Conditions, lookupData));
-                    emails = emails
-                        .Where(e => !string.IsNullOrWhiteSpace(e))
-                        .Select(e => e.Trim())
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToList();
-                }
-            }
-
-            if (emails.Count == 0)
-            {
-                emails.AddRange(await ResolveByRoleCodeAsync("COMMITTEE_DIRECTOR", rule.Conditions, lookupData));
-                emails.AddRange(await ResolveByRoleCodeAsync("SECRETARY", rule.Conditions, lookupData));
-                emails = emails
-                    .Where(e => !string.IsNullOrWhiteSpace(e))
-                    .Select(e => e.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-
-            return emails;
         }
 
         private async Task<List<string>> ResolvePracticeStageResponsibleAsync(
@@ -585,10 +528,6 @@ namespace Application.Common.Services.Notifications
                 case StageModalityCodes.PaFaseEvaluacion:
                 default:
                     emails.AddRange(await GetConfirmedPracticeTeachersEmailsAsync(inscriptionModalityId));
-                    emails.AddRange(await ResolveByPermissionCodeAsync(
-                        PermissionCodes.PracticaAcademica.N4PAF2PG,
-                        rule.Conditions,
-                        eventData));
                     break;
             }
 
@@ -785,7 +724,7 @@ namespace Application.Common.Services.Notifications
                 var userRepo = _unitOfWork.GetRepository<User, int>();
                 var student = await userRepo.GetByIdAsync(studentId);
                 
-                if (student != null && !string.IsNullOrEmpty(student.Email))
+                if (student != null && student.StatusRegister && !string.IsNullOrEmpty(student.Email))
                 {
                     emails.Add(student.Email);
                     _logger.LogInformation("Email individual de estudiante por ID: {Email}", student.Email);
@@ -836,16 +775,6 @@ namespace Application.Common.Services.Notifications
                 {
                     emails.Add(teacherEmail);
                     _logger.LogInformation("Email del docente desasignado: {Email}", teacherEmail);
-                }
-            }
-            // Fallback usando TeacherEmail para compatibilidad
-            else if (eventData.ContainsKey("TeacherEmail"))
-            {
-                var teacherEmail = eventData["TeacherEmail"]?.ToString();
-                if (!string.IsNullOrEmpty(teacherEmail))
-                {
-                    emails.Add(teacherEmail);
-                    _logger.LogInformation("Email del docente (fallback): {Email}", teacherEmail);
                 }
             }
 

@@ -51,7 +51,13 @@ namespace Application.Common.Services.Notifications
             _configuration = configuration;
         }
 
-        public async Task ProcessEventAsync(string eventName, Dictionary<string, object> eventData, object? entityContext = null)
+        public Task ProcessEventAsync(string eventName, Dictionary<string, object> eventData, object? entityContext = null) =>
+            ProcessEventWithSummaryAsync(eventName, eventData, entityContext);
+
+        public async Task<EmailEventDispatchResult> ProcessEventWithSummaryAsync(
+            string eventName,
+            Dictionary<string, object> eventData,
+            object? entityContext = null)
         {
             try
             {
@@ -66,13 +72,30 @@ namespace Application.Common.Services.Notifications
                 if (!configs.Any())
                 {
                     _logger.LogInformation("No hay configuraciones activas para el evento: {EventName}", eventName);
-                    return;
+                    return new EmailEventDispatchResult(0, Array.Empty<string>());
                 }
+
+                var emailsSent = 0;
+                var dispatchedRecipients = new List<string>();
+                var seenRecipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var config in configs)
                 {
-                    await ProcessConfigurationAsync(config, eventData, entityContext);
+                    var sentForConfig = await ProcessConfigurationAsync(config, eventData, entityContext);
+                    if (sentForConfig.Count > 0)
+                    {
+                        emailsSent++;
+                        foreach (var recipient in sentForConfig)
+                        {
+                            if (seenRecipients.Add(recipient))
+                            {
+                                dispatchedRecipients.Add(recipient);
+                            }
+                        }
+                    }
                 }
+
+                return new EmailEventDispatchResult(emailsSent, dispatchedRecipients);
             }
             catch (Exception ex)
             {
@@ -91,7 +114,7 @@ namespace Application.Common.Services.Notifications
             return config != null;
         }
 
-        private async Task ProcessConfigurationAsync(EmailNotificationConfig config, Dictionary<string, object> eventData, object? entityContext)
+        private async Task<IReadOnlyList<string>> ProcessConfigurationAsync(EmailNotificationConfig config, Dictionary<string, object> eventData, object? entityContext)
         {
             try
             {
@@ -104,7 +127,7 @@ namespace Application.Common.Services.Notifications
                 if (!rules.Any())
                 {
                     _logger.LogWarning("No hay reglas de destinatarios para la configuración: {ConfigId}", config.Id);
-                    return;
+                    return Array.Empty<string>();
                 }
 
                 var renderData = eventData != null
@@ -134,7 +157,7 @@ namespace Application.Common.Services.Notifications
                 if (toList.Count == 0)
                 {
                     _logger.LogWarning("No se encontraron destinatarios para la configuración: {ConfigId}", config.Id);
-                    return;
+                    return Array.Empty<string>();
                 }
 
                 var ccList = (recipients.Cc ?? [])
@@ -169,6 +192,7 @@ namespace Application.Common.Services.Notifications
                 {
                     _logger.LogInformation("Email enviado exitosamente para evento {EventName} - Config {ConfigId}",
                         config.EventName, config.Id);
+                    return toList.Concat(ccList).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                 }
                 else
                 {

@@ -238,7 +238,8 @@ namespace Application.Shared.Commands.ProjectPresentations.Handlers
                     evaluatorId: request.CurrentUser?.UserId ?? 0,
                     evaluationTypeCode: EvaluationTypeCodes.ProjectPresentation,
                     observations: entity.Observations!,
-                    cancellationToken);
+                    cancellationToken: cancellationToken,
+                    effectiveStateStageId: entity.IdStateStage);
             }
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());

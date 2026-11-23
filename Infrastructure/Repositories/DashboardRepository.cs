@@ -1,8 +1,11 @@
 using System.Globalization;
+using Domain.Common;
 using Domain.Common.Dashboard;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Infrastructure.Data;
+using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories
@@ -20,7 +23,21 @@ namespace Infrastructure.Repositories
         private const string LifecycleRejected = "REJECTED";
         private const int MaxExportRows = 50_000;
         private const int HydrationChunkSize = 2_000;
-        private const int Acuerdo015CalendarSlaDays = 35; // ~25 días hábiles (Acuerdo 015 Arts. 15 y 24)
+
+        private static readonly string[] InscriptionEvaluationEntityTypes =
+        {
+            nameof(InscriptionModality),
+            nameof(Proposal),
+            nameof(PreliminaryProject),
+            nameof(ProjectFinal),
+            nameof(ProjectPresentation),
+            nameof(AcademicPractice),
+            nameof(CoTerminal),
+            nameof(Seminar),
+            nameof(ScientificArticle),
+            nameof(AcademicAverage),
+            nameof(SaberPro)
+        };
 
         private readonly AppDbContext _context;
 
@@ -135,17 +152,17 @@ namespace Infrastructure.Repositories
             if (filter.MaxStudents.HasValue)
                 query = query.Where(i => i.UserInscriptionModalities.Count(uim => uim.StatusRegister && uim.IsConfirmed) <= filter.MaxStudents.Value);
 
-            // Conteo de docentes asignados (TeachingAssignment activos y no revocados).
+            // Conteo de docentes asignados (TeachingAssignment activos, confirmados y no revocados).
             if (filter.MinTeachers.HasValue)
-                query = query.Where(i => i.TeachingAssignments.Count(ta => ta.StatusRegister && ta.RevocationDate == null) >= filter.MinTeachers.Value);
+                query = query.Where(i => i.TeachingAssignments.Count(ta => ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed) >= filter.MinTeachers.Value);
             if (filter.MaxTeachers.HasValue)
-                query = query.Where(i => i.TeachingAssignments.Count(ta => ta.StatusRegister && ta.RevocationDate == null) <= filter.MaxTeachers.Value);
+                query = query.Where(i => i.TeachingAssignments.Count(ta => ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed) <= filter.MaxTeachers.Value);
             if (filter.HasTeachingAssignment.HasValue)
             {
                 if (filter.HasTeachingAssignment.Value)
-                    query = query.Where(i => i.TeachingAssignments.Any(ta => ta.StatusRegister && ta.RevocationDate == null));
+                    query = query.Where(i => i.TeachingAssignments.Any(ta => ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed));
                 else
-                    query = query.Where(i => !i.TeachingAssignments.Any(ta => ta.StatusRegister && ta.RevocationDate == null));
+                    query = query.Where(i => !i.TeachingAssignments.Any(ta => ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed));
             }
 
             // Filtros condicionados: solo cuando hay EXACTAMENTE una modalidad seleccionada.
@@ -219,38 +236,74 @@ namespace Infrastructure.Repositories
                     : false));
         }
 
-        private static IQueryable<InscriptionModality> ApplySearch(IQueryable<InscriptionModality> query, string? search)
+        private bool IsInMemoryProvider() =>
+            _context.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true
+            || (_context.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) != true
+                && Environment.GetEnvironmentVariable("UseInMemoryDatabase") == "true");
+
+        private IQueryable<InscriptionModality> ApplySearch(IQueryable<InscriptionModality> query, string? search)
         {
             if (string.IsNullOrWhiteSpace(search))
                 return query;
 
-            var term = search.Trim().ToLower();
-            var hasId = int.TryParse(term, out var idSearch);
+            var trimmedSearch = search.Trim();
+            var hasId = int.TryParse(trimmedSearch, out var idSearch);
+
+            if (IsInMemoryProvider())
+            {
+                var normalizedTerm = FilterBuilder.RemoveDiacritics(trimmedSearch).ToLowerInvariant();
+                return query.Where(i =>
+                    (hasId && i.Id == idSearch)
+                    || (i.Modality != null && FilterBuilder.RemoveDiacritics(i.Modality.Name).ToLowerInvariant().Contains(normalizedTerm))
+                    || (i.AcademicPeriod != null && FilterBuilder.RemoveDiacritics(i.AcademicPeriod.Code).ToLowerInvariant().Contains(normalizedTerm))
+                    || i.UserInscriptionModalities.Any(uim =>
+                        uim.StatusRegister && uim.IsConfirmed && uim.User != null && (
+                            FilterBuilder.RemoveDiacritics((uim.User.FirstName ?? "") + " " + (uim.User.LastName ?? "")).ToLowerInvariant().Contains(normalizedTerm)
+                            || FilterBuilder.RemoveDiacritics(uim.User.Identification).ToLowerInvariant().Contains(normalizedTerm)
+                            || FilterBuilder.RemoveDiacritics(uim.User.Email).ToLowerInvariant().Contains(normalizedTerm)))
+                    || i.TeachingAssignments.Any(ta =>
+                        ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed && ta.Teacher != null
+                        && FilterBuilder.RemoveDiacritics((ta.Teacher.FirstName ?? "") + " " + (ta.Teacher.LastName ?? "")).ToLowerInvariant().Contains(normalizedTerm))
+                    || (i.Proposal != null && FilterBuilder.RemoveDiacritics(i.Proposal.Title).ToLowerInvariant().Contains(normalizedTerm))
+                    || (i.AcademicPractice != null && (
+                        FilterBuilder.RemoveDiacritics(i.AcademicPractice.Title).ToLowerInvariant().Contains(normalizedTerm)
+                        || (i.AcademicPractice.InstitutionName != null && FilterBuilder.RemoveDiacritics(i.AcademicPractice.InstitutionName).ToLowerInvariant().Contains(normalizedTerm))))
+                    || (i.ScientificArticle != null && (
+                        (i.ScientificArticle.ArticleTitle != null && FilterBuilder.RemoveDiacritics(i.ScientificArticle.ArticleTitle).ToLowerInvariant().Contains(normalizedTerm))
+                        || (i.ScientificArticle.JournalName != null && FilterBuilder.RemoveDiacritics(i.ScientificArticle.JournalName).ToLowerInvariant().Contains(normalizedTerm))
+                        || (i.ScientificArticle.ISSN != null && FilterBuilder.RemoveDiacritics(i.ScientificArticle.ISSN).ToLowerInvariant().Contains(normalizedTerm))))
+                    || (i.CoTerminal != null && (
+                        (i.CoTerminal.UniversityName != null && FilterBuilder.RemoveDiacritics(i.CoTerminal.UniversityName).ToLowerInvariant().Contains(normalizedTerm))
+                        || (i.CoTerminal.PostgraduateProgramName != null && FilterBuilder.RemoveDiacritics(i.CoTerminal.PostgraduateProgramName).ToLowerInvariant().Contains(normalizedTerm))))
+                    || (i.Seminar != null && i.Seminar.SeminarName != null && FilterBuilder.RemoveDiacritics(i.Seminar.SeminarName).ToLowerInvariant().Contains(normalizedTerm)));
+            }
+
+            var pattern = TeacherAssignmentLoader.LikePattern(trimmedSearch);
 
             return query.Where(i =>
                 (hasId && i.Id == idSearch)
-                || (i.Modality != null && i.Modality.Name.ToLower().Contains(term))
-                || (i.AcademicPeriod != null && i.AcademicPeriod.Code.ToLower().Contains(term))
+                || (i.Modality != null && EF.Functions.ILike(EF.Functions.Unaccent(i.Modality.Name), pattern))
+                || (i.AcademicPeriod != null && EF.Functions.ILike(EF.Functions.Unaccent(i.AcademicPeriod.Code), pattern))
                 || i.UserInscriptionModalities.Any(uim =>
                     uim.StatusRegister && uim.IsConfirmed && uim.User != null && (
-                        (uim.User.FirstName + " " + uim.User.LastName).ToLower().Contains(term)
-                        || uim.User.Identification.ToLower().Contains(term)
-                        || uim.User.Email.ToLower().Contains(term)))
+                        EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName + " " + uim.User.LastName), pattern)
+                        || EF.Functions.ILike(EF.Functions.Unaccent(uim.User.Identification), pattern)
+                        || EF.Functions.ILike(EF.Functions.Unaccent(uim.User.Email), pattern)))
                 || i.TeachingAssignments.Any(ta =>
-                    ta.StatusRegister && ta.RevocationDate == null && ta.Teacher != null
-                    && (ta.Teacher.FirstName + " " + ta.Teacher.LastName).ToLower().Contains(term))
-                || (i.Proposal != null && i.Proposal.Title.ToLower().Contains(term))
+                    ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed && ta.Teacher != null
+                    && EF.Functions.ILike(EF.Functions.Unaccent(ta.Teacher.FirstName + " " + ta.Teacher.LastName), pattern))
+                || (i.Proposal != null && EF.Functions.ILike(EF.Functions.Unaccent(i.Proposal.Title), pattern))
                 || (i.AcademicPractice != null && (
-                    i.AcademicPractice.Title.ToLower().Contains(term)
-                    || (i.AcademicPractice.InstitutionName != null && i.AcademicPractice.InstitutionName.ToLower().Contains(term))))
+                    EF.Functions.ILike(EF.Functions.Unaccent(i.AcademicPractice.Title), pattern)
+                    || (i.AcademicPractice.InstitutionName != null && EF.Functions.ILike(EF.Functions.Unaccent(i.AcademicPractice.InstitutionName), pattern))))
                 || (i.ScientificArticle != null && (
-                    (i.ScientificArticle.ArticleTitle != null && i.ScientificArticle.ArticleTitle.ToLower().Contains(term))
-                    || (i.ScientificArticle.JournalName != null && i.ScientificArticle.JournalName.ToLower().Contains(term))
-                    || (i.ScientificArticle.ISSN != null && i.ScientificArticle.ISSN.ToLower().Contains(term))))
+                    (i.ScientificArticle.ArticleTitle != null && EF.Functions.ILike(EF.Functions.Unaccent(i.ScientificArticle.ArticleTitle), pattern))
+                    || (i.ScientificArticle.JournalName != null && EF.Functions.ILike(EF.Functions.Unaccent(i.ScientificArticle.JournalName), pattern))
+                    || (i.ScientificArticle.ISSN != null && EF.Functions.ILike(EF.Functions.Unaccent(i.ScientificArticle.ISSN), pattern))))
                 || (i.CoTerminal != null && (
-                    (i.CoTerminal.UniversityName != null && i.CoTerminal.UniversityName.ToLower().Contains(term))
-                    || (i.CoTerminal.PostgraduateProgramName != null && i.CoTerminal.PostgraduateProgramName.ToLower().Contains(term))))
-                || (i.Seminar != null && i.Seminar.SeminarName != null && i.Seminar.SeminarName.ToLower().Contains(term)));
+                    (i.CoTerminal.UniversityName != null && EF.Functions.ILike(EF.Functions.Unaccent(i.CoTerminal.UniversityName), pattern))
+                    || (i.CoTerminal.PostgraduateProgramName != null && EF.Functions.ILike(EF.Functions.Unaccent(i.CoTerminal.PostgraduateProgramName), pattern))))
+                || (i.Seminar != null && i.Seminar.SeminarName != null && EF.Functions.ILike(EF.Functions.Unaccent(i.Seminar.SeminarName), pattern)));
         }
 
         private IQueryable<InscriptionModality> ApplyModalityScope(
@@ -824,11 +877,13 @@ namespace Infrastructure.Repositories
                 .Select(x => new PeriodModalityCount(x.PeriodCode, x.ModalityCode, x.ModalityName, x.Count))
                 .ToList();
 
-            // 6. Programa y facultad (por estudiante confirmado).
+            // 6. Programa y facultad (por estudiante confirmado, deduplicado por inscripción para trámites grupales).
             var byProgramRaw = await baseQuery
-                .SelectMany(i => i.UserInscriptionModalities.Where(uim =>
-                    uim.StatusRegister && uim.IsConfirmed && uim.User != null && uim.User.AcademicProgram != null))
-                .GroupBy(uim => uim.User!.AcademicProgram.Name)
+                .SelectMany(i => i.UserInscriptionModalities
+                    .Where(uim => uim.StatusRegister && uim.IsConfirmed && uim.User != null && uim.User.AcademicProgram != null)
+                    .Select(uim => new { InscriptionId = i.Id, Name = uim.User!.AcademicProgram.Name }))
+                .Distinct()
+                .GroupBy(x => x.Name)
                 .Select(g => new { Name = g.Key, Count = g.Count() })
                 .ToListAsync(cancellationToken);
             var byProgram = byProgramRaw
@@ -837,10 +892,12 @@ namespace Infrastructure.Repositories
                 .ToList();
 
             var byFacultyRaw = await baseQuery
-                .SelectMany(i => i.UserInscriptionModalities.Where(uim =>
-                    uim.StatusRegister && uim.IsConfirmed && uim.User != null
-                    && uim.User.AcademicProgram != null && uim.User.AcademicProgram.Faculty != null))
-                .GroupBy(uim => uim.User!.AcademicProgram.Faculty.Name)
+                .SelectMany(i => i.UserInscriptionModalities
+                    .Where(uim => uim.StatusRegister && uim.IsConfirmed && uim.User != null
+                        && uim.User.AcademicProgram != null && uim.User.AcademicProgram.Faculty != null)
+                    .Select(uim => new { InscriptionId = i.Id, Name = uim.User!.AcademicProgram.Faculty.Name }))
+                .Distinct()
+                .GroupBy(x => x.Name)
                 .Select(g => new { Name = g.Key, Count = g.Count() })
                 .ToListAsync(cancellationToken);
             var byFaculty = byFacultyRaw
@@ -880,7 +937,7 @@ namespace Infrastructure.Repositories
                 : baseQuery;
 
             var activeAssignments = teacherScopedInscriptions
-                .SelectMany(i => i.TeachingAssignments.Where(ta => ta.StatusRegister && ta.RevocationDate == null));
+                .SelectMany(i => i.TeachingAssignments.Where(ta => ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed));
 
             var teacherLoadRaw = await activeAssignments
                 .Where(ta => ta.Teacher != null)
@@ -1161,7 +1218,7 @@ namespace Infrastructure.Repositories
                 var teacherScope = filter.ActiveTeachersOnly ? FilterActiveOnly(baseQuery) : baseQuery;
 
                 var assignTypeRaw = await teacherScope
-                    .SelectMany(i => i.TeachingAssignments.Where(ta => ta.StatusRegister && ta.RevocationDate == null))
+                    .SelectMany(i => i.TeachingAssignments.Where(ta => ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed))
                     .Where(ta => ta.TypeTeachingAssignment != null)
                     .GroupBy(ta => new { ta.TypeTeachingAssignment!.Code, ta.TypeTeachingAssignment.Name })
                     .Select(g => new { g.Key.Code, g.Key.Name, Count = g.Count() })
@@ -1579,6 +1636,7 @@ namespace Infrastructure.Repositories
             var evaluatorOverdueBusinessDays = slaConfig?.EvaluatorOverdueBusinessDays > 0
                 ? slaConfig.EvaluatorOverdueBusinessDays
                 : 25;
+            var warnOnLastAllowedPeriod = slaConfig?.WarnOnLastAllowedPeriod ?? true;
             var slaCutoffExclusiveUtc = DashboardTimeHelper.GetBusinessDaysCutoffExclusiveUtc(
                 nowUtc,
                 evaluatorOverdueBusinessDays);
@@ -1599,8 +1657,17 @@ namespace Infrastructure.Repositories
                     && JuryEvaluationStateStageCodes.Contains(x.EffectiveStateStageCode)
                     && x.LastActivityAt < slaCutoffExclusiveUtc, cancellationToken);
 
-            var staleRaw = await staleBase
-                .OrderBy(x => x.LastActivityAt)
+            var staleRaw = await lifecycleQuery
+                .Where(x => x.LifecycleCode != LifecycleCompleted
+                    && x.LifecycleCode != LifecycleRejected
+                    && (x.LastActivityAt <= staleCutoffUtc
+                        || (x.LifecycleCode == LifecycleInReview
+                            && JuryEvaluationStateStageCodes.Contains(x.EffectiveStateStageCode)
+                            && x.LastActivityAt < slaCutoffExclusiveUtc)))
+                .OrderByDescending(x => x.LifecycleCode == LifecycleInReview
+                    && JuryEvaluationStateStageCodes.Contains(x.EffectiveStateStageCode)
+                    && x.LastActivityAt < slaCutoffExclusiveUtc)
+                .ThenBy(x => x.LastActivityAt)
                 .Take(50)
                 .ToListAsync(cancellationToken);
 
@@ -1636,8 +1703,10 @@ namespace Infrastructure.Repositories
                     x.EffectiveStateStageName,
                     PeriodsElapsed = x.RawPeriodsElapsed < 1 ? 1 : x.RawPeriodsElapsed
                 })
-                .Where(x => x.PeriodsElapsed >= x.MaxTermPeriods
-                    || (x.MaxTermPeriods >= 3 && x.PeriodsElapsed == x.MaxTermPeriods - 1));
+                .Where(x => x.PeriodsElapsed > x.MaxTermPeriods
+                    || (warnOnLastAllowedPeriod
+                        && (x.PeriodsElapsed == x.MaxTermPeriods
+                            || (x.MaxTermPeriods >= 3 && x.PeriodsElapsed == x.MaxTermPeriods - 1))));
 
             var totalTermRiskCount = await termRiskBase.CountAsync(cancellationToken);
 
@@ -1701,6 +1770,7 @@ namespace Infrastructure.Repositories
                     .AsNoTracking()
                     .Where(ta => ta.StatusRegister
                         && ta.RevocationDate == null
+                        && ta.IsConfirmed
                         && ta.Teacher != null
                         && ta.TypeTeachingAssignment != null
                         && upcomingIds.Contains(ta.IdInscriptionModality)
@@ -1741,7 +1811,7 @@ namespace Infrastructure.Repositories
                     x.LifecycleCode,
                     GetLifecycleLabel(x.LifecycleCode),
                     daysSince,
-                    DashboardTimeHelper.FormatDateTime(x.LastActivityAt),
+                    DashboardTimeHelper.FormatIsoUtc(x.LastActivityAt),
                     slaBreach,
                     responsible);
             }).ToList();
@@ -1762,7 +1832,7 @@ namespace Infrastructure.Repositories
                 x.Id,
                 x.Title,
                 studentsByInscription.TryGetValue(x.Id, out var st) ? st : "",
-                DashboardTimeHelper.FormatDateTime(x.ScheduledDateTime),
+                DashboardTimeHelper.FormatIsoUtc(x.ScheduledDateTime),
                 string.IsNullOrWhiteSpace(x.PresentationModality) ? "Sin definir" : FormatDefenseModalityLabel(x.PresentationModality.Trim().ToUpperInvariant()),
                 x.LocationOrLink,
                 x.AttemptNumber,
@@ -1777,19 +1847,31 @@ namespace Infrastructure.Repositories
 
             var baseIdModality = baseQuery
                 .Where(i => i.Modality != null)
-                .Select(i => new { i.Id, ModalityCode = i.Modality!.Code });
+                .Select(i => new
+                {
+                    i.Id,
+                    ModalityCode = i.Modality!.Code,
+                    StateCode = i.StateInscription != null ? i.StateInscription.Code : ""
+                });
 
             var obsEvalRaw = await _context.Set<Evaluation>()
                 .AsNoTracking()
-                .Where(e => e.StatusRegister && e.Result != null &&
-                    (e.Result.ToUpper().Contains("OBSERV")
-                     || e.Result.ToUpper().Contains("NO_PERTINENTE")
-                     || e.Result.ToUpper().Contains("REINTENTO")))
+                .Where(e => e.StatusRegister && InscriptionEvaluationEntityTypes.Contains(e.EntityType))
                 .Join(baseIdModality,
                     e => e.EntityId,
                     i => i.Id,
-                    (e, i) => i.ModalityCode)
-                .GroupBy(code => code)
+                    (e, i) => new { e.EntityType, e.Result, e.Observations, i.ModalityCode, i.StateCode })
+                .Where(x =>
+                    (x.Result != null && x.Result != "" &&
+                        (x.Result.ToUpper().Contains("OBSERV")
+                         || x.Result.ToUpper().Contains("NO_PERTINENTE")
+                         || x.Result.ToUpper().Contains("REINTENTO")))
+                    || ((x.Result == null || x.Result == "")
+                        && x.Observations != null
+                        && x.Observations != ""
+                        && !(x.EntityType == nameof(InscriptionModality)
+                             && (x.StateCode == StateInscriptionCodes.Rechazado || x.StateCode == StateInscriptionCodes.Aprobado))))
+                .GroupBy(x => x.ModalityCode)
                 .Select(g => new { Code = g.Key, Count = g.Count() })
                 .ToListAsync(cancellationToken);
             var obsMap = obsEvalRaw.ToDictionary(x => x.Code, x => x.Count);
@@ -1822,6 +1904,7 @@ namespace Infrastructure.Repositories
             return new DashboardOperationalAlerts
             {
                 StaleThresholdDays = threshold,
+                EvaluatorOverdueBusinessDays = evaluatorOverdueBusinessDays,
                 TotalStaleCount = totalStaleCount,
                 TotalEvaluationSlaBreachCount = totalSlaBreachCount,
                 TotalTermRiskCount = totalTermRiskCount,
@@ -1964,7 +2047,7 @@ namespace Infrastructure.Repositories
 
                 var teacherRows = await _context.Set<TeachingAssignment>()
                     .AsNoTracking()
-                    .Where(ta => ta.StatusRegister && ta.RevocationDate == null && ta.Teacher != null && chunkIds.Contains(ta.IdInscriptionModality))
+                    .Where(ta => ta.StatusRegister && ta.RevocationDate == null && ta.IsConfirmed && ta.Teacher != null && chunkIds.Contains(ta.IdInscriptionModality))
                     .Select(ta => new
                     {
                         ta.IdInscriptionModality,
@@ -2055,8 +2138,8 @@ namespace Infrastructure.Repositories
                     Program: program,
                     Faculty: faculty,
                     Students: studentNames,
-                    CreatedAt: DashboardTimeHelper.FormatDateTime(p.CreatedAt),
-                    ApprovalDate: DashboardTimeHelper.FormatDate(p.ApprovalDate),
+                    CreatedAt: DashboardTimeHelper.FormatIsoUtc(p.CreatedAt),
+                    ApprovalDate: DashboardTimeHelper.FormatIsoUtc(p.ApprovalDate),
                     CurrentPhase: p.StageName,
                     PhaseState: p.EffectiveStateStageName,
                     ModalityDetail: modalityDetail,
@@ -2069,7 +2152,7 @@ namespace Infrastructure.Repositories
                     Title: title,
                     ResearchLine: ext?.ResearchLine ?? "",
                     ResearchSubLine: ext?.ResearchSubLine ?? "",
-                    LastActivityAt: DashboardTimeHelper.FormatDateTime(p.LastActivityAt),
+                    LastActivityAt: DashboardTimeHelper.FormatIsoUtc(p.LastActivityAt),
                     DaysElapsed: daysElapsed));
             }
 

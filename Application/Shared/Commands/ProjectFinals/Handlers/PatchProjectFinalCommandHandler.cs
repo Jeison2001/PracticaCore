@@ -120,7 +120,8 @@ namespace Application.Shared.Commands.ProjectFinals.Handlers
                 evaluationTypeCode: EvaluationTypeCodes.ProjectFinal,
                 newObservations: request.Dto.Observations,
                 previousObservations: originalObservations,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                effectiveStateStageId: entity.IdStateStage);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

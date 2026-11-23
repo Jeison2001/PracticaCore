@@ -30,7 +30,7 @@ namespace Application.Common.Services.Notifications.Builders
                     "Saber Pro",
                     entity.UpdatedAt ?? entity.CreatedAt,
                     entity.Observations);
-                data["ExamDate"] = NotificationFormattingHelper.ToColombiaDate(entity.ExamDate, "-");
+                data["ExamDate"] = NotificationFormattingHelper.ToColombiaCalendarDate(entity.ExamDate, "-");
                 data["ResultQuintile"] = entity.ResultQuintile?.ToString() ?? "-";
                 data["ResultScore"] = entity.ResultScore?.ToString() ?? "-";
                 return data;

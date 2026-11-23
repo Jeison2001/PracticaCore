@@ -255,9 +255,9 @@ namespace Infrastructure.Services.Reports
                 SetSafeText(ws.Cell(r, 16), item.CurrentPhase);
                 SetSafeText(ws.Cell(r, 17), item.PhaseState);
                 SetSafeText(ws.Cell(r, 18), item.ModalityDetail);
-                SetSafeText(ws.Cell(r, 19), item.CreatedAt);
-                SetSafeText(ws.Cell(r, 20), item.ApprovalDate);
-                SetSafeText(ws.Cell(r, 21), item.LastActivityAt);
+                SetSafeText(ws.Cell(r, 19), DashboardTimeHelper.FormatColombiaFromIsoOrRaw(item.CreatedAt, includeTime: true));
+                SetSafeText(ws.Cell(r, 20), DashboardTimeHelper.FormatColombiaFromIsoOrRaw(item.ApprovalDate, includeTime: false));
+                SetSafeText(ws.Cell(r, 21), DashboardTimeHelper.FormatColombiaFromIsoOrRaw(item.LastActivityAt, includeTime: true));
                 ws.Cell(r, 22).SetValue(item.DaysElapsed);
                 ws.Cell(r, 22).Style.NumberFormat.Format = "#,##0";
 
@@ -384,6 +384,7 @@ namespace Infrastructure.Services.Reports
             }
             else
             {
+                var slaDays = alerts.EvaluatorOverdueBusinessDays > 0 ? alerts.EvaluatorOverdueBusinessDays : 25;
                 for (var i = 0; i < alerts.StaleItems.Count; i++)
                 {
                     var item = alerts.StaleItems[i];
@@ -395,9 +396,9 @@ namespace Infrastructure.Services.Reports
                     SetSafeText(ws.Cell(row, 6), item.LifecycleStatus);
                     ws.Cell(row, 7).SetValue(item.DaysSinceActivity);
                     ws.Cell(row, 7).Style.NumberFormat.Format = "#,##0";
-                    SetSafeText(ws.Cell(row, 8), item.LastActivityAt);
+                    SetSafeText(ws.Cell(row, 8), DashboardTimeHelper.FormatColombiaFromIsoOrRaw(item.LastActivityAt, includeTime: true));
                     SetSafeText(ws.Cell(row, 9), item.ResponsibleParty);
-                    SetSafeText(ws.Cell(row, 10), item.SlaBreachAcuerdo015 ? "INCUMPLE (>25 días háb.)" : "En plazo");
+                    SetSafeText(ws.Cell(row, 10), item.SlaBreachAcuerdo015 ? $"INCUMPLE (>{slaDays} días háb.)" : "En plazo");
 
                     StyleDataRow(ws, row, 1, 10, i % 2 == 1);
                     if (item.SlaBreachAcuerdo015)
@@ -468,7 +469,7 @@ namespace Infrastructure.Services.Reports
                     ws.Cell(row, 1).SetValue(item.InscriptionId);
                     SetSafeText(ws.Cell(row, 2), item.Title);
                     SetSafeText(ws.Cell(row, 3), item.Students);
-                    SetSafeText(ws.Cell(row, 4), item.ScheduledDateTime);
+                    SetSafeText(ws.Cell(row, 4), DashboardTimeHelper.FormatColombiaFromIsoOrRaw(item.ScheduledDateTime, includeTime: true));
                     SetSafeText(ws.Cell(row, 5), item.PresentationModality);
                     SetSafeText(ws.Cell(row, 6), item.LocationOrLink);
                     ws.Cell(row, 7).SetValue(item.AttemptNumber);

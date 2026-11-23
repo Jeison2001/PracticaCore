@@ -97,6 +97,8 @@ namespace Application.Common.Services.Notifications.Builders
                     ["SubmissionDate"] = submissionDate,
                     ["EventType"] = eventType,
                     ["ApprovalDate"] = approvalDate,
+                    ["PracticeStartDate"] = NotificationFormattingHelper.ToColombiaCalendarDate(academicPractice.PracticeStartDate, "-"),
+                    ["PracticeEndDate"] = NotificationFormattingHelper.ToColombiaCalendarDate(academicPractice.PracticeEndDate, "-"),
                     ["Observations"] = academicPractice.Observations?.Trim() ?? string.Empty,
                     ["TopAccentColor"] = NotificationFormattingHelper.GetTopAccentColor(tone),
                     ["EvaluationBadgeHtml"] = NotificationFormattingHelper.BuildEvaluationBadgeHtml(stateInfo.StateName, tone),
@@ -362,7 +364,9 @@ namespace Application.Common.Services.Notifications.Builders
                 
                 _ => null
             };
-            return NotificationFormattingHelper.ToColombiaDate(date);
+            return code == StateStageCodeEnum.PA_INFORME_FINAL_EN_REVISION
+                ? NotificationFormattingHelper.ToColombiaCalendarDate(date, string.Empty)
+                : NotificationFormattingHelper.ToColombiaDate(date);
         }
     }
 }

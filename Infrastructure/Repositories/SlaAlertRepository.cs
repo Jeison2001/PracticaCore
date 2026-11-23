@@ -1,17 +1,35 @@
+using Domain.Common;
 using Domain.Common.Dashboard;
 using Domain.Common.Notifications;
 using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Infrastructure.Data;
+using Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace Infrastructure.Repositories
 {
     public class SlaAlertRepository : ISlaAlertRepository
     {
         private const int HydrationChunkSize = 2_000;
+
+        private static readonly string[] InscriptionEvaluationEntityTypes =
+        [
+            nameof(InscriptionModality),
+            nameof(Proposal),
+            nameof(PreliminaryProject),
+            nameof(ProjectFinal),
+            nameof(ProjectPresentation),
+            nameof(AcademicPractice),
+            nameof(CoTerminal),
+            nameof(Seminar),
+            nameof(ScientificArticle),
+            nameof(AcademicAverage),
+            nameof(SaberPro)
+        ];
 
         private readonly AppDbContext _context;
         private readonly ILogger<SlaAlertRepository> _logger;
@@ -305,6 +323,7 @@ namespace Infrastructure.Repositories
                 var evalRows = await _context.Set<Evaluation>()
                     .AsNoTracking()
                     .Where(e => e.StatusRegister
+                        && InscriptionEvaluationEntityTypes.Contains(e.EntityType)
                         && chunkIds.Contains(e.EntityId)
                         && e.Observations != null
                         && e.Observations != "")
@@ -415,7 +434,7 @@ namespace Infrastructure.Repositories
                 var chunkList = chunk.ToList();
                 var found = await _context.Set<EmailAlertDispatchLog>()
                     .AsNoTracking()
-                    .Where(x => x.StatusRegister && chunkList.Contains(x.DeduplicationKey))
+                    .Where(x => chunkList.Contains(x.DeduplicationKey))
                     .Select(x => x.DeduplicationKey)
                     .ToListAsync(cancellationToken);
 
@@ -428,26 +447,28 @@ namespace Infrastructure.Repositories
             return result;
         }
 
-        public async Task<bool> TryRecordDispatchAsync(
-            EmailAlertDispatchLog logEntry,
+        public async Task<bool> TryClaimDispatchAsync(
+            EmailAlertDispatchLog entry,
             CancellationToken cancellationToken = default)
         {
-            var exists = await _context.Set<EmailAlertDispatchLog>()
-                .AsNoTracking()
-                .AnyAsync(x => x.DeduplicationKey == logEntry.DeduplicationKey && x.StatusRegister, cancellationToken);
+            var isInMemory = IsInMemoryProvider();
+            if (isInMemory)
+            {
+                var exists = await _context.Set<EmailAlertDispatchLog>()
+                    .AsNoTracking()
+                    .AnyAsync(x => x.DeduplicationKey == entry.DeduplicationKey, cancellationToken);
 
-            if (exists)
-                return false;
+                if (exists)
+                    return false;
+            }
 
-            if (logEntry.CreatedAt == default)
-                logEntry.CreatedAt = DateTimeOffset.UtcNow;
+            if (entry.CreatedAt == default)
+                entry.CreatedAt = DateTimeOffset.UtcNow;
 
-            if (string.IsNullOrWhiteSpace(logEntry.OperationRegister))
-                logEntry.OperationRegister = "SLA_ALERT_DISPATCH";
+            entry.OperationRegister = "SLA_CLAIM_PENDING";
+            entry.StatusRegister = true;
 
-            logEntry.StatusRegister = true;
-
-            _context.Set<EmailAlertDispatchLog>().Add(logEntry);
+            _context.Set<EmailAlertDispatchLog>().Add(entry);
 
             try
             {
@@ -456,13 +477,54 @@ namespace Infrastructure.Repositories
             }
             catch (DbUpdateException ex)
             {
-                _context.Entry(logEntry).State = EntityState.Detached;
-                _logger.LogWarning(
-                    ex,
-                    "Condición de carrera detectada al registrar EmailAlertDispatchLog para DeduplicationKey={DeduplicationKey}; se omite duplicado.",
-                    logEntry.DeduplicationKey);
-                return false;
+                _context.Entry(entry).State = EntityState.Detached;
+
+                if (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Condición de carrera detectada al reclamar EmailAlertDispatchLog para DeduplicationKey={DeduplicationKey}; se omite duplicado.",
+                        entry.DeduplicationKey);
+                    return false;
+                }
+
+                throw;
             }
+        }
+
+        public async Task ConfirmDispatchClaimAsync(
+            int logId,
+            string recipientsSummary,
+            CancellationToken cancellationToken = default)
+        {
+            var entity = await _context.Set<EmailAlertDispatchLog>()
+                .FirstOrDefaultAsync(x => x.Id == logId, cancellationToken);
+
+            if (entity == null)
+                return;
+
+            var trimmed = string.IsNullOrWhiteSpace(recipientsSummary) ? null : recipientsSummary.Trim();
+            entity.RecipientsSummary = trimmed == null
+                ? null
+                : (trimmed.Length <= 1000 ? trimmed : trimmed[..1000]);
+            entity.OperationRegister = "SLA_ALERT_DISPATCH";
+            entity.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task ReleaseDispatchClaimAsync(
+            int logId,
+            CancellationToken cancellationToken = default)
+        {
+            var entity = await _context.Set<EmailAlertDispatchLog>()
+                .FirstOrDefaultAsync(x => x.Id == logId, cancellationToken);
+
+            if (entity == null)
+                return;
+
+            _context.Set<EmailAlertDispatchLog>().Remove(entity);
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         public async Task<SlaAlertSettingsSnapshot> GetSettingsSnapshotAsync(
@@ -713,7 +775,7 @@ namespace Infrastructure.Repositories
 
             var query = _context.EmailAlertDispatchLogs
                 .AsNoTracking()
-                .Where(x => x.StatusRegister);
+                .Where(x => x.StatusRegister && x.OperationRegister != "SLA_CLAIM_PENDING");
 
             if (!string.IsNullOrWhiteSpace(alertCode))
             {
@@ -723,27 +785,53 @@ namespace Infrastructure.Repositories
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                var term = search.Trim().ToLower();
-                var hasId = int.TryParse(term, out var idSearch);
+                var trimmedSearch = search.Trim();
+                var hasId = int.TryParse(trimmedSearch, out var idSearch);
 
-                query = query.Where(x =>
-                    (hasId && x.IdInscriptionModality == idSearch)
-                    || (x.RecipientsSummary != null && x.RecipientsSummary.ToLower().Contains(term))
-                    || x.AlertCode.ToLower().Contains(term)
-                    || x.EventName.ToLower().Contains(term)
-                    || x.StageStateSnapshot.ToLower().Contains(term)
-                    || (x.InscriptionModality != null
-                        && x.InscriptionModality.Modality != null
-                        && (x.InscriptionModality.Modality.Name.ToLower().Contains(term)
-                            || x.InscriptionModality.Modality.Code.ToLower().Contains(term)))
-                    || (x.InscriptionModality != null
-                        && x.InscriptionModality.UserInscriptionModalities.Any(uim =>
-                            uim.StatusRegister
-                            && uim.IsConfirmed
-                            && uim.User != null
-                            && ((uim.User.FirstName + " " + uim.User.LastName).ToLower().Contains(term)
-                                || uim.User.Email.ToLower().Contains(term)
-                                || uim.User.Identification.ToLower().Contains(term)))));
+                if (IsInMemoryProvider())
+                {
+                    var normalizedTerm = FilterBuilder.RemoveDiacritics(trimmedSearch).ToLowerInvariant();
+                    query = query.Where(x =>
+                        (hasId && x.IdInscriptionModality == idSearch)
+                        || (x.RecipientsSummary != null && FilterBuilder.RemoveDiacritics(x.RecipientsSummary).ToLowerInvariant().Contains(normalizedTerm))
+                        || FilterBuilder.RemoveDiacritics(x.AlertCode).ToLowerInvariant().Contains(normalizedTerm)
+                        || FilterBuilder.RemoveDiacritics(x.EventName).ToLowerInvariant().Contains(normalizedTerm)
+                        || FilterBuilder.RemoveDiacritics(x.StageStateSnapshot).ToLowerInvariant().Contains(normalizedTerm)
+                        || (x.InscriptionModality != null
+                            && x.InscriptionModality.Modality != null
+                            && (FilterBuilder.RemoveDiacritics(x.InscriptionModality.Modality.Name).ToLowerInvariant().Contains(normalizedTerm)
+                                || FilterBuilder.RemoveDiacritics(x.InscriptionModality.Modality.Code).ToLowerInvariant().Contains(normalizedTerm)))
+                        || (x.InscriptionModality != null
+                            && x.InscriptionModality.UserInscriptionModalities.Any(uim =>
+                                uim.StatusRegister
+                                && uim.IsConfirmed
+                                && uim.User != null
+                                && (FilterBuilder.RemoveDiacritics((uim.User.FirstName ?? "") + " " + (uim.User.LastName ?? "")).ToLowerInvariant().Contains(normalizedTerm)
+                                    || FilterBuilder.RemoveDiacritics(uim.User.Email).ToLowerInvariant().Contains(normalizedTerm)
+                                    || FilterBuilder.RemoveDiacritics(uim.User.Identification).ToLowerInvariant().Contains(normalizedTerm)))));
+                }
+                else
+                {
+                    var pattern = TeacherAssignmentLoader.LikePattern(trimmedSearch);
+                    query = query.Where(x =>
+                        (hasId && x.IdInscriptionModality == idSearch)
+                        || (x.RecipientsSummary != null && EF.Functions.ILike(EF.Functions.Unaccent(x.RecipientsSummary), pattern))
+                        || EF.Functions.ILike(EF.Functions.Unaccent(x.AlertCode), pattern)
+                        || EF.Functions.ILike(EF.Functions.Unaccent(x.EventName), pattern)
+                        || EF.Functions.ILike(EF.Functions.Unaccent(x.StageStateSnapshot), pattern)
+                        || (x.InscriptionModality != null
+                            && x.InscriptionModality.Modality != null
+                            && (EF.Functions.ILike(EF.Functions.Unaccent(x.InscriptionModality.Modality.Name), pattern)
+                                || EF.Functions.ILike(EF.Functions.Unaccent(x.InscriptionModality.Modality.Code), pattern)))
+                        || (x.InscriptionModality != null
+                            && x.InscriptionModality.UserInscriptionModalities.Any(uim =>
+                                uim.StatusRegister
+                                && uim.IsConfirmed
+                                && uim.User != null
+                                && (EF.Functions.ILike(EF.Functions.Unaccent(uim.User.FirstName + " " + uim.User.LastName), pattern)
+                                    || EF.Functions.ILike(EF.Functions.Unaccent(uim.User.Email), pattern)
+                                    || EF.Functions.ILike(EF.Functions.Unaccent(uim.User.Identification), pattern)))));
+                }
             }
 
             var totalCount = await query.CountAsync(cancellationToken);
@@ -813,6 +901,7 @@ namespace Infrastructure.Repositories
             var items = rawItems.Select(x => new SlaAlertDispatchLogItemDto
             {
                 Id = x.Id,
+                CreatedAtUtc = x.CreatedAt.ToUniversalTime(),
                 CreatedAtColombia = DashboardTimeHelper.FormatDateTime(x.CreatedAt),
                 IdInscriptionModality = x.IdInscriptionModality,
                 ModalityName = !string.IsNullOrWhiteSpace(x.ModalityName)
@@ -836,6 +925,11 @@ namespace Infrastructure.Repositories
                 Items = items
             };
         }
+
+        private bool IsInMemoryProvider() =>
+            _context.Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) == true
+            || (_context.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) != true
+                && Environment.GetEnvironmentVariable("UseInMemoryDatabase") == "true");
 
         private static string ResolveWorkTitle(RawCandidateProjection r)
         {

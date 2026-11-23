@@ -7,13 +7,13 @@ using Domain.Common.Notifications;
 using Domain.Entities;
 using Domain.Interfaces.Services.Notifications;
 using Infrastructure.Data;
+using Infrastructure.Services.Jobs;
 using Microsoft.EntityFrameworkCore;
 
 namespace Api.Extensions
 {
     public static class HangfireExtensions
     {
-        public const string SlaDeadlineAlertsJobId = "sigepro-sla-deadline-alerts";
         /// <summary>
         /// Registra Hangfire con PostgreSQL.
         /// </summary>
@@ -75,66 +75,93 @@ namespace Api.Extensions
             this IApplicationBuilder app,
             IConfiguration configuration)
         {
-            SlaAlertConfiguration? dbConfig = null;
+            ILogger? logger = null;
             try
             {
+                logger = app.ApplicationServices.GetService<ILoggerFactory>()?.CreateLogger(nameof(HangfireExtensions));
+
                 using var scope = app.ApplicationServices.CreateScope();
                 var dbContext = scope.ServiceProvider.GetService<AppDbContext>();
+                SlaAlertConfiguration? dbConfig = null;
+
                 if (dbContext != null)
                 {
-                    dbConfig = dbContext.SlaAlertConfigurations
-                        .AsNoTracking()
-                        .FirstOrDefault(x => x.Id == 1 && x.StatusRegister);
+                    try
+                    {
+                        dbConfig = dbContext.SlaAlertConfigurations
+                            .AsNoTracking()
+                            .FirstOrDefault(x => x.Id == 1 && x.StatusRegister);
+                    }
+                    catch (Exception dbEx)
+                    {
+                        logger?.LogWarning(
+                            dbEx,
+                            "No fue posible consultar SlaAlertConfiguration al iniciar; se conservan los jobs recurrentes persistidos.");
+                        return;
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                var logger = app.ApplicationServices.GetService<ILoggerFactory>()?.CreateLogger(nameof(HangfireExtensions));
-                logger?.LogWarning(ex, "No fue posible consultar SlaAlertConfiguration al iniciar; se usarán valores de configuración por defecto.");
-            }
 
-            if (dbConfig != null)
-            {
-                if (!dbConfig.IsEnabled)
+                if (dbConfig != null)
                 {
-                    RecurringJob.RemoveIfExists(SlaDeadlineAlertsJobId);
+                    var scheduler = scope.ServiceProvider.GetService<ISlaRecurringJobScheduler>();
+                    if (scheduler != null)
+                    {
+                        scheduler.SyncRecurringJob(
+                            dbConfig.IsEnabled,
+                            dbConfig.ScheduleHourColombia,
+                            dbConfig.ScheduleMinuteColombia,
+                            dbConfig.WeekdaysOnly);
+                        return;
+                    }
+
+                    if (!dbConfig.IsEnabled)
+                    {
+                        RecurringJob.RemoveIfExists(SlaRecurringJobScheduler.SlaDeadlineAlertsJobId);
+                        return;
+                    }
+
+                    var dbCron = SlaCronHelper.BuildCron(
+                        dbConfig.ScheduleHourColombia,
+                        dbConfig.ScheduleMinuteColombia,
+                        dbConfig.WeekdaysOnly);
+
+                    RecurringJob.AddOrUpdate<ISlaDeadlineAlertService>(
+                        SlaRecurringJobScheduler.SlaDeadlineAlertsJobId,
+                        service => service.ProcessDueAlertsAsync(CancellationToken.None),
+                        dbCron,
+                        new RecurringJobOptions
+                        {
+                            TimeZone = DashboardTimeHelper.ColombiaTimeZone
+                        });
                     return;
                 }
 
-                var dbCron = SlaCronHelper.BuildCron(
-                    dbConfig.ScheduleHourColombia,
-                    dbConfig.ScheduleMinuteColombia,
-                    dbConfig.WeekdaysOnly);
+                var enabled = configuration.GetValue("SlaAlerts:Enabled", true);
+                if (!enabled)
+                {
+                    RecurringJob.RemoveIfExists(SlaRecurringJobScheduler.SlaDeadlineAlertsJobId);
+                    return;
+                }
+
+                var rawCron = configuration["SlaAlerts:Cron"];
+                var cron = string.IsNullOrWhiteSpace(rawCron) ? "30 7 * * *" : rawCron.Trim();
 
                 RecurringJob.AddOrUpdate<ISlaDeadlineAlertService>(
-                    SlaDeadlineAlertsJobId,
+                    SlaRecurringJobScheduler.SlaDeadlineAlertsJobId,
                     service => service.ProcessDueAlertsAsync(CancellationToken.None),
-                    dbCron,
+                    cron,
                     new RecurringJobOptions
                     {
                         TimeZone = DashboardTimeHelper.ColombiaTimeZone
                     });
-                return;
             }
-
-            var enabled = configuration.GetValue("SlaAlerts:Enabled", true);
-            if (!enabled)
+            catch (Exception ex)
             {
-                RecurringJob.RemoveIfExists(SlaDeadlineAlertsJobId);
-                return;
+                logger ??= app.ApplicationServices.GetService<ILoggerFactory>()?.CreateLogger(nameof(HangfireExtensions));
+                logger?.LogWarning(
+                    ex,
+                    "Error al registrar/sincronizar trabajos recurrentes de Hangfire; la aplicación continuará iniciando.");
             }
-
-            var rawCron = configuration["SlaAlerts:Cron"];
-            var cron = string.IsNullOrWhiteSpace(rawCron) ? "30 7 * * *" : rawCron.Trim();
-
-            RecurringJob.AddOrUpdate<ISlaDeadlineAlertService>(
-                SlaDeadlineAlertsJobId,
-                service => service.ProcessDueAlertsAsync(CancellationToken.None),
-                cron,
-                new RecurringJobOptions
-                {
-                    TimeZone = DashboardTimeHelper.ColombiaTimeZone
-                });
         }
     }
 }

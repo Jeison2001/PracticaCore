@@ -1,4 +1,5 @@
 using Application.Shared.DTOs.AcademicPractices;
+using Domain.Common.Dashboard;
 using Domain.Constants;
 using Domain.Exceptions;
 using Domain.Interfaces.Services.Jobs;
@@ -101,7 +102,8 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                     evaluationTypeCode: EvaluationTypeCodes.AcademicPractice,
                     newObservations: dto.Observations,
                     previousObservations: originalObservations,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken,
+                    effectiveStateStageId: hasStateChange ? dto.NewStateStageId!.Value : academicPractice.IdStateStage);
             }
 
             // Cambiar de estado si se especifica (ej: pasar a PA_PEND_APROBACION_DOCUMENTOS después de radicar docs)
@@ -138,10 +140,10 @@ namespace Application.Shared.Commands.AcademicPractices.Handlers
                 academicPractice.InstitutionContact = dto.InstitutionContact;
                 
             if (dto.PracticeStartDate.HasValue)
-                academicPractice.PracticeStartDate = dto.PracticeStartDate.Value;
+                academicPractice.PracticeStartDate = DashboardTimeHelper.NormalizeCalendarDateUtc(dto.PracticeStartDate);
 
             if (dto.PracticeEndDate.HasValue)
-                academicPractice.PracticeEndDate = dto.PracticeEndDate.Value;
+                academicPractice.PracticeEndDate = DashboardTimeHelper.NormalizeCalendarDateUtc(dto.PracticeEndDate);
 
             if (dto.PracticeHours.HasValue)
                 academicPractice.PracticeHours = dto.PracticeHours;

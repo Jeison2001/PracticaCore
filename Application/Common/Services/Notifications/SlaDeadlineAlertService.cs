@@ -6,6 +6,7 @@ using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Notifications;
+using Hangfire;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -17,6 +18,8 @@ namespace Application.Common.Services.Notifications
     /// </summary>
     public class SlaDeadlineAlertService : ISlaDeadlineAlertService
     {
+        private static readonly SemaphoreSlim ExecutionGate = new(1, 1);
+
         public const string AlertEvaluatorApproaching = "SLA_EVALUATOR_APPROACHING";
         public const string AlertEvaluatorOverdue = "SLA_EVALUATOR_OVERDUE";
         public const string AlertCommitteeOverdue = "SLA_COMMITTEE_REVIEW_OVERDUE";
@@ -66,102 +69,102 @@ namespace Application.Common.Services.Notifications
             _timeProvider = timeProvider ?? TimeProvider.System;
         }
 
+        [DisableConcurrentExecution(timeoutInSeconds: 300)]
         public async Task<SlaAlertExecutionSummary> ProcessDueAlertsAsync(CancellationToken cancellationToken = default)
         {
-            var dbConfig = await _slaAlertRepository.GetConfigurationAsync(cancellationToken);
-
-            var isEnabled = dbConfig?.IsEnabled ?? GetBoolConfig("SlaAlerts:Enabled", defaultValue: true);
-            if (!isEnabled)
+            await ExecutionGate.WaitAsync(cancellationToken);
+            try
             {
-                _logger.LogInformation("Motor de alertas SLA deshabilitado por configuración.");
-                return new SlaAlertExecutionSummary(0, 0, 0, 0, []);
-            }
+                var dbConfig = await _slaAlertRepository.GetConfigurationAsync(cancellationToken);
 
-            var evaluatorWarningDays = dbConfig?.EvaluatorWarningBusinessDays ?? GetIntConfig("SlaAlerts:EvaluatorWarningBusinessDays", 20);
-            var evaluatorOverdueDays = dbConfig?.EvaluatorOverdueBusinessDays ?? GetIntConfig("SlaAlerts:EvaluatorOverdueBusinessDays", 25);
-            var committeeOverdueDays = dbConfig?.CommitteeOverdueBusinessDays ?? GetIntConfig("SlaAlerts:CommitteeOverdueBusinessDays", 10);
-            var studentObservationsDays = dbConfig?.StudentObservationsBusinessDays ?? GetIntConfig("SlaAlerts:StudentObservationsBusinessDays", 15);
-            var defenseReminderHours = dbConfig?.DefenseReminderHours ?? GetIntConfig("SlaAlerts:DefenseReminderHours", 48);
-            var warnOnLastAllowedPeriod = dbConfig?.WarnOnLastAllowedPeriod ?? GetBoolConfig("SlaAlerts:WarnOnLastAllowedPeriod", defaultValue: true);
-
-            var nowUtc = _timeProvider.GetUtcNow();
-            var candidates = await _slaAlertRepository.GetActiveCandidatesAsync(nowUtc, cancellationToken);
-
-            if (candidates.Count == 0)
-            {
-                var emptySummary = new SlaAlertExecutionSummary(0, 0, 0, 0, []);
-                if (dbConfig != null)
+                var isEnabled = dbConfig?.IsEnabled ?? GetBoolConfig("SlaAlerts:Enabled", defaultValue: true);
+                if (!isEnabled)
                 {
-                    await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, emptySummary, cancellationToken);
-                }
-                return emptySummary;
-            }
-
-            var pendingAlerts = new List<PendingAlertCandidate>();
-
-            foreach (var candidate in candidates)
-            {
-                EvaluateStageAndScheduleAlerts(
-                    candidate,
-                    nowUtc,
-                    evaluatorWarningDays,
-                    evaluatorOverdueDays,
-                    committeeOverdueDays,
-                    studentObservationsDays,
-                    defenseReminderHours,
-                    pendingAlerts);
-
-                EvaluateTermLimitAlert(candidate, warnOnLastAllowedPeriod, pendingAlerts);
-            }
-
-            if (pendingAlerts.Count == 0)
-            {
-                var noPendingSummary = new SlaAlertExecutionSummary(candidates.Count, 0, 0, 0, []);
-                if (dbConfig != null)
-                {
-                    await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, noPendingSummary, cancellationToken);
-                }
-                return noPendingSummary;
-            }
-
-            var existingKeys = await _slaAlertRepository.GetExistingDeduplicationKeysAsync(
-                pendingAlerts.Select(a => a.DeduplicationKey),
-                cancellationToken);
-
-            var activeConfigCache = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-            var dispatchedKeys = new List<string>();
-            var triggered = 0;
-            var skipped = 0;
-            var failed = 0;
-
-            foreach (var alert in pendingAlerts)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (existingKeys.Contains(alert.DeduplicationKey))
-                {
-                    skipped++;
-                    continue;
+                    _logger.LogInformation("Motor de alertas SLA deshabilitado por configuración.");
+                    return new SlaAlertExecutionSummary(0, 0, 0, 0, []);
                 }
 
-                if (!activeConfigCache.TryGetValue(alert.EventName, out var hasActiveConfig))
+                var evaluatorWarningDays = dbConfig?.EvaluatorWarningBusinessDays ?? GetIntConfig("SlaAlerts:EvaluatorWarningBusinessDays", 20);
+                var evaluatorOverdueDays = dbConfig?.EvaluatorOverdueBusinessDays ?? GetIntConfig("SlaAlerts:EvaluatorOverdueBusinessDays", 25);
+                var committeeOverdueDays = dbConfig?.CommitteeOverdueBusinessDays ?? GetIntConfig("SlaAlerts:CommitteeOverdueBusinessDays", 10);
+                var studentObservationsDays = dbConfig?.StudentObservationsBusinessDays ?? GetIntConfig("SlaAlerts:StudentObservationsBusinessDays", 15);
+                var defenseReminderHours = dbConfig?.DefenseReminderHours ?? GetIntConfig("SlaAlerts:DefenseReminderHours", 48);
+                var warnOnLastAllowedPeriod = dbConfig?.WarnOnLastAllowedPeriod ?? GetBoolConfig("SlaAlerts:WarnOnLastAllowedPeriod", defaultValue: true);
+
+                var nowUtc = _timeProvider.GetUtcNow();
+                var candidates = await _slaAlertRepository.GetActiveCandidatesAsync(nowUtc, cancellationToken);
+
+                if (candidates.Count == 0)
                 {
-                    hasActiveConfig = await _emailEventService.HasActiveConfigurationAsync(alert.EventName);
-                    activeConfigCache[alert.EventName] = hasActiveConfig;
+                    var emptySummary = new SlaAlertExecutionSummary(0, 0, 0, 0, []);
+                    if (dbConfig != null)
+                    {
+                        await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, emptySummary, cancellationToken);
+                    }
+                    return emptySummary;
                 }
 
-                if (!hasActiveConfig)
+                var pendingAlerts = new List<PendingAlertCandidate>();
+
+                foreach (var candidate in candidates)
                 {
-                    _logger.LogDebug(
-                        "Sin configuración activa para el evento SLA {EventName}; se omite inscripción {InscriptionId}.",
-                        alert.EventName,
-                        alert.InscriptionId);
-                    continue;
+                    EvaluateStageAndScheduleAlerts(
+                        candidate,
+                        nowUtc,
+                        evaluatorWarningDays,
+                        evaluatorOverdueDays,
+                        committeeOverdueDays,
+                        studentObservationsDays,
+                        defenseReminderHours,
+                        pendingAlerts);
+
+                    EvaluateTermLimitAlert(candidate, warnOnLastAllowedPeriod, pendingAlerts);
                 }
 
-                try
+                if (pendingAlerts.Count == 0)
                 {
-                    await _emailEventService.ProcessEventAsync(alert.EventName, alert.EventData);
+                    var noPendingSummary = new SlaAlertExecutionSummary(candidates.Count, 0, 0, 0, []);
+                    if (dbConfig != null)
+                    {
+                        await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, noPendingSummary, cancellationToken);
+                    }
+                    return noPendingSummary;
+                }
+
+                var existingKeys = await _slaAlertRepository.GetExistingDeduplicationKeysAsync(
+                    pendingAlerts.Select(a => a.DeduplicationKey),
+                    cancellationToken);
+
+                var activeConfigCache = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                var dispatchedKeys = new List<string>();
+                var triggered = 0;
+                var skipped = 0;
+                var failed = 0;
+
+                foreach (var alert in pendingAlerts)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (existingKeys.Contains(alert.DeduplicationKey))
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    if (!activeConfigCache.TryGetValue(alert.EventName, out var hasActiveConfig))
+                    {
+                        hasActiveConfig = await _emailEventService.HasActiveConfigurationAsync(alert.EventName);
+                        activeConfigCache[alert.EventName] = hasActiveConfig;
+                    }
+
+                    if (!hasActiveConfig)
+                    {
+                        _logger.LogDebug(
+                            "Sin configuración activa para el evento SLA {EventName}; se omite inscripción {InscriptionId}.",
+                            alert.EventName,
+                            alert.InscriptionId);
+                        continue;
+                    }
 
                     var logEntry = new EmailAlertDispatchLog
                     {
@@ -170,57 +173,82 @@ namespace Application.Common.Services.Notifications
                         EventName = alert.EventName,
                         StageStateSnapshot = alert.StageStateSnapshot,
                         DeduplicationKey = alert.DeduplicationKey,
-                        RecipientsSummary = Truncate(alert.RecipientsSummary, 1000),
+                        RecipientsSummary = null,
                         BusinessDaysElapsed = alert.BusinessDaysElapsed,
                         CreatedAt = nowUtc,
-                        OperationRegister = "SLA_ALERT_DISPATCH",
+                        OperationRegister = "SLA_CLAIM_PENDING",
                         StatusRegister = true
                     };
 
-                    var recorded = await _slaAlertRepository.TryRecordDispatchAsync(logEntry, cancellationToken);
-                    if (recorded)
+                    var claimed = await _slaAlertRepository.TryClaimDispatchAsync(logEntry, cancellationToken);
+                    if (!claimed)
                     {
+                        skipped++;
+                        continue;
+                    }
+
+                    try
+                    {
+                        var dispatch = await _emailEventService.ProcessEventWithSummaryAsync(alert.EventName, alert.EventData);
+
+                        if (dispatch.EmailsSent == 0)
+                        {
+                            await _slaAlertRepository.ReleaseDispatchClaimAsync(logEntry.Id, CancellationToken.None);
+                            continue;
+                        }
+
+                        await _slaAlertRepository.ConfirmDispatchClaimAsync(
+                            logEntry.Id,
+                            string.Join(", ", dispatch.Recipients),
+                            cancellationToken);
+
                         existingKeys.Add(alert.DeduplicationKey);
                         triggered++;
                         dispatchedKeys.Add(alert.DeduplicationKey);
                     }
-                    else
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
-                        skipped++;
+                        await _slaAlertRepository.ReleaseDispatchClaimAsync(logEntry.Id, CancellationToken.None);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        await _slaAlertRepository.ReleaseDispatchClaimAsync(logEntry.Id, CancellationToken.None);
+                        failed++;
+                        _logger.LogError(
+                            ex,
+                            "Error al procesar alerta SLA {AlertCode} para inscripción {InscriptionId} (DedupKey={DeduplicationKey}).",
+                            alert.AlertCode,
+                            alert.InscriptionId,
+                            alert.DeduplicationKey);
                     }
                 }
-                catch (Exception ex)
+
+                _logger.LogInformation(
+                    "Ejecución SLA completada: Evaluadas={Evaluated}, Enviadas={Triggered}, OmitidasYaEnviadas={Skipped}, Fallidas={Failed}.",
+                    candidates.Count,
+                    triggered,
+                    skipped,
+                    failed);
+
+                var summary = new SlaAlertExecutionSummary(
+                    EvaluatedInscriptions: candidates.Count,
+                    AlertsTriggered: triggered,
+                    AlertsSkippedAlreadySent: skipped,
+                    AlertsFailed: failed,
+                    DispatchedKeys: dispatchedKeys);
+
+                if (dbConfig != null)
                 {
-                    failed++;
-                    _logger.LogError(
-                        ex,
-                        "Error al procesar alerta SLA {AlertCode} para inscripción {InscriptionId} (DedupKey={DeduplicationKey}).",
-                        alert.AlertCode,
-                        alert.InscriptionId,
-                        alert.DeduplicationKey);
+                    await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, summary, cancellationToken);
                 }
+
+                return summary;
             }
-
-            _logger.LogInformation(
-                "Ejecución SLA completada: Evaluadas={Evaluated}, Enviadas={Triggered}, OmitidasYaEnviadas={Skipped}, Fallidas={Failed}.",
-                candidates.Count,
-                triggered,
-                skipped,
-                failed);
-
-            var summary = new SlaAlertExecutionSummary(
-                EvaluatedInscriptions: candidates.Count,
-                AlertsTriggered: triggered,
-                AlertsSkippedAlreadySent: skipped,
-                AlertsFailed: failed,
-                DispatchedKeys: dispatchedKeys);
-
-            if (dbConfig != null)
+            finally
             {
-                await _slaAlertRepository.SaveConfigurationRunMetricsAsync(nowUtc, summary, cancellationToken);
+                ExecutionGate.Release();
             }
-
-            return summary;
         }
 
         private static void EvaluateStageAndScheduleAlerts(
@@ -262,7 +290,6 @@ namespace Application.Common.Services.Notifications
                     eventData["MaxBusinessDays"] = evaluatorOverdueDays;
                     eventData["RemainingBusinessDays"] = remaining;
                     eventData["NormativeReference"] = normativeReference;
-                    eventData["FallbackPermissionCode"] = ResolveEvaluatorFallbackPermission(effectiveStateCode);
 
                     output.Add(PendingAlertCandidate.Create(
                         c.InscriptionId,
@@ -446,15 +473,6 @@ namespace Application.Common.Services.Notifications
             return data;
         }
 
-        private static string ResolveEvaluatorFallbackPermission(string effectiveStateCode) =>
-            effectiveStateCode switch
-            {
-                StateStageCodes.ApEnEvaluacion => PermissionCodes.ProyectoGrado.N4PGPAA,
-                StateStageCodes.PfinfRadicadoEnEvaluacion => PermissionCodes.ProyectoGrado.N4PGPPRR,
-                StateStageCodes.PaInformeFinalEnRevision => PermissionCodes.PracticaAcademica.N4PAF2PG,
-                _ => PermissionCodes.ProyectoGrado.N4PGPAA
-            };
-
         private static string BuildPendingCommitteeActionDescription(
             bool isPendingInitialApproval,
             string effectiveStateCode)
@@ -516,15 +534,6 @@ namespace Application.Common.Services.Notifications
                     return v.Trim();
             }
             return string.Empty;
-        }
-
-        private static string? Truncate(string? value, int maxLength)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return null;
-
-            var trimmed = value.Trim();
-            return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
         }
 
         private sealed record PendingAlertCandidate(

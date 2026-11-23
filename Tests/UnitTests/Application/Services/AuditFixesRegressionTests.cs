@@ -652,9 +652,9 @@ namespace Tests.UnitTests.Application.Services
             var f1 = await resolver.ResolveRecipientsAsync([rule], new Dictionary<string, object> { ["InscriptionModalityId"] = 501 });
             f1.To.Should().BeEquivalentTo(["docente.pa@unicesar.edu.co", "fallback.role@unicesar.edu.co"]);
 
-            // Fase 2 (Evaluación): docente confirmado + N4PAF2PG (fallback.role)
+            // Fase 2 (Evaluación): únicamente docente confirmado (sin fallback N4PAF2PG en TO)
             var f2 = await resolver.ResolveRecipientsAsync([rule], new Dictionary<string, object> { ["InscriptionModalityId"] = 502 });
-            f2.To.Should().BeEquivalentTo(["docente.pa@unicesar.edu.co", "fallback.role@unicesar.edu.co"]);
+            f2.To.Should().BeEquivalentTo(["docente.pa@unicesar.edu.co"]);
         }
 
         [Fact]

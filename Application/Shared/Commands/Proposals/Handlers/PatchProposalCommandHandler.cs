@@ -101,7 +101,8 @@ namespace Application.Shared.Commands.Proposals.Handlers
                 evaluationTypeCode: EvaluationTypeCodes.Proposal,
                 newObservations: request.Dto.Observation,
                 previousObservations: originalObservation,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                effectiveStateStageId: entity.IdStateStage);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

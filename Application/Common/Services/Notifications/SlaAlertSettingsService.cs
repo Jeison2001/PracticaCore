@@ -334,6 +334,7 @@ namespace Application.Common.Services.Notifications
                 StudentObservationsBusinessDays = studentObs,
                 DefenseReminderHours = defenseHours,
                 WarnOnLastAllowedPeriod = warnLastPeriod,
+                LastRunAtUtc = cfg?.LastRunAt?.ToUniversalTime(),
                 LastRunAtColombia = cfg?.LastRunAt.HasValue == true
                     ? DashboardTimeHelper.FormatDateTime(cfg.LastRunAt.Value)
                     : null,
@@ -341,6 +342,9 @@ namespace Application.Common.Services.Notifications
                 LastRunTriggeredCount = cfg?.LastRunTriggeredCount,
                 LastRunSkippedCount = cfg?.LastRunSkippedCount,
                 LastRunFailedCount = cfg?.LastRunFailedCount,
+                UpdatedAtUtc = cfg != null
+                    ? (cfg.UpdatedAt ?? cfg.CreatedAt).ToUniversalTime()
+                    : null,
                 UpdatedAtColombia = cfg != null
                     ? DashboardTimeHelper.FormatDateTime(cfg.UpdatedAt ?? cfg.CreatedAt)
                     : null
@@ -575,23 +579,23 @@ namespace Application.Common.Services.Notifications
                     "Recordatorio automático previo al vencimiento del término reglamentario para registrar dictamen sobre anteproyecto, informe final o práctica académica.",
                     "Acuerdo 015 de 2021, Arts. 15 y 24",
                     $"Desde {evalWarning} hasta {Math.Max(evalWarning, evalOverdue - 1)} días hábiles en evaluación",
-                    "Jurados evaluadores / docente evaluador confirmado (con respaldo por permiso de etapa)",
-                    "BY_ENTITY_RELATION + BY_PERMISSION"),
+                    "Docente evaluador o jurados confirmados de la etapa (sin respaldo artificial)",
+                    "BY_ENTITY_RELATION"),
 
                 SlaDeadlineAlertService.AlertEvaluatorOverdue => new RuleMetadata(
                     "Vencimiento de plazo reglamentario de evaluación",
                     "Alerta prioritaria emitida cuando la evaluación docente o de jurados alcanza o supera el límite máximo de días hábiles.",
                     "Acuerdo 015 de 2021, Arts. 15 y 24",
                     $"A partir de {evalOverdue} días hábiles en evaluación",
-                    "Jurados evaluadores / docente evaluador confirmado (con respaldo por permiso de etapa)",
-                    "BY_ENTITY_RELATION + BY_PERMISSION"),
+                    "Docente evaluador o jurados confirmados de la etapa (sin respaldo artificial)",
+                    "BY_ENTITY_RELATION"),
 
                 SlaDeadlineAlertService.AlertCommitteeOverdue => new RuleMetadata(
                     "Gestión o revisión pendiente en Comité",
                     "Notifica expedientes radicados pendientes de aval inicial, pertinencia, asignación de jurados, programación de sustentación o dictamen curricular.",
                     "Acuerdo 015 de 2021 — Gestión curricular",
                     $"A partir de {committeeOverdue} días hábiles sin actuación",
-                    "Responsables con permiso de revisión o gestión de la etapa y modalidad",
+                    "Responsable(s) del Comité con permiso de revisión/gestión de la etapa",
                     "BY_PERMISSION (etapa/modalidad)"),
 
                 SlaDeadlineAlertService.AlertDefenseReminder => new RuleMetadata(

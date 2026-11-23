@@ -1,6 +1,7 @@
 using Application.Shared.DTOs;
 using Application.Common.Services.Jobs;
 using AutoMapper;
+using Domain.Common.Dashboard;
 using Domain.Entities;
 using Domain.Interfaces.Services.Jobs;
 using MediatR;
@@ -49,6 +50,20 @@ namespace Application.Shared.Commands.Handlers
 
             // Mapear DTO a entidad
             _mapper.Map(request.Dto, existingEntity);
+
+            switch (existingEntity)
+            {
+                case SaberPro saberPro:
+                    saberPro.ExamDate = DashboardTimeHelper.NormalizeCalendarDateUtc(saberPro.ExamDate);
+                    break;
+                case ScientificArticle scientificArticle:
+                    scientificArticle.AcceptanceDate = DashboardTimeHelper.NormalizeCalendarDateUtc(scientificArticle.AcceptanceDate);
+                    break;
+                case AcademicPractice academicPractice:
+                    academicPractice.PracticeStartDate = DashboardTimeHelper.NormalizeCalendarDateUtc(academicPractice.PracticeStartDate);
+                    academicPractice.PracticeEndDate = DashboardTimeHelper.NormalizeCalendarDateUtc(academicPractice.PracticeEndDate);
+                    break;
+            }
 
             // Restaurar campos inmutables - el frontend envía fechas en hora Colombia (Kind=Unspecified)
             existingEntity.Id = originalId;

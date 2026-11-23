@@ -8,18 +8,22 @@ namespace Infrastructure.Services
     public class AcademicPeriodService : IAcademicPeriodService
     {
         private readonly AppDbContext _context;
+        private readonly TimeProvider _timeProvider;
 
-        public AcademicPeriodService(AppDbContext context)
+        public AcademicPeriodService(AppDbContext context, TimeProvider? timeProvider = null)
         {
             _context = context;
-        }        public async Task<AcademicPeriod?> GetActiveAcademicPeriodAsync()
+            _timeProvider = timeProvider ?? TimeProvider.System;
+        }
+
+        public async Task<AcademicPeriod?> GetActiveAcademicPeriodAsync()
         {
-            var currentDate = DateTimeOffset.UtcNow.Date;
-            
+            var nowUtc = _timeProvider.GetUtcNow();
+
             return await _context.Set<AcademicPeriod>()
-                .Where(ap => ap.StatusRegister && 
-                           currentDate >= ap.StartDate.Date && 
-                           currentDate <= ap.EndDate.Date)
+                .Where(ap => ap.StatusRegister &&
+                           ap.StartDate <= nowUtc &&
+                           ap.EndDate >= nowUtc)
                 .OrderBy(ap => ap.StartDate)
                 .FirstOrDefaultAsync();
         }

@@ -1,5 +1,6 @@
 using Application.Shared.DTOs;
 using AutoMapper;
+using Domain.Common.Dashboard;
 using Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,9 @@ namespace Application.Shared.Commands.Handlers
             {
                 entity = _mapper.Map<T>(request.Dto);
                 entity.IdUserCreatedAt = request.CurrentUser.UserId;
+                entity.CreatedAt = DateTimeOffset.UtcNow;
+                entity.UpdatedAt = null;
+                NormalizeCalendarDates(entity);
             }
             catch (Exception ex)
             {
@@ -143,6 +147,23 @@ private string ExtractConstraintName(string errorMessage)
                 }
             }
             return string.Empty;
+        }
+
+        private static void NormalizeCalendarDates(T entity)
+        {
+            switch (entity)
+            {
+                case SaberPro saberPro:
+                    saberPro.ExamDate = DashboardTimeHelper.NormalizeCalendarDateUtc(saberPro.ExamDate);
+                    break;
+                case ScientificArticle scientificArticle:
+                    scientificArticle.AcceptanceDate = DashboardTimeHelper.NormalizeCalendarDateUtc(scientificArticle.AcceptanceDate);
+                    break;
+                case AcademicPractice academicPractice:
+                    academicPractice.PracticeStartDate = DashboardTimeHelper.NormalizeCalendarDateUtc(academicPractice.PracticeStartDate);
+                    academicPractice.PracticeEndDate = DashboardTimeHelper.NormalizeCalendarDateUtc(academicPractice.PracticeEndDate);
+                    break;
+            }
         }
     }
 }

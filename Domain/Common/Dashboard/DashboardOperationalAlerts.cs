@@ -47,6 +47,7 @@ namespace Domain.Common.Dashboard
     public class DashboardOperationalAlerts
     {
         public int StaleThresholdDays { get; set; } = 30;
+        public int EvaluatorOverdueBusinessDays { get; set; } = 25;
         public int TotalStaleCount { get; set; }
         public int TotalEvaluationSlaBreachCount { get; set; }
         public int TotalTermRiskCount { get; set; }

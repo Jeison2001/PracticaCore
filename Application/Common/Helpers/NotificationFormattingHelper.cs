@@ -40,6 +40,22 @@ namespace Application.Common.Helpers
         public static string ToColombiaDate(DateTime? value, string emptyFallback = "") =>
             value.HasValue ? ToColombiaDate(value.Value) : emptyFallback;
 
+        /// <summary>
+        /// Formatea una fecha calendario en Colombia protegiendo registros históricos almacenados a medianoche UTC (00:00:00Z)
+        /// para evitar retroceder un día calendario.
+        /// </summary>
+        public static string ToColombiaCalendarDate(DateTimeOffset? value, string fallback = "No registrada")
+        {
+            if (!value.HasValue)
+                return fallback;
+
+            var utc = value.Value.UtcDateTime;
+            if (utc.TimeOfDay == TimeSpan.Zero)
+                return utc.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+
+            return ToColombiaDate(value.Value);
+        }
+
         public static string NowColombiaDateTime() => ToColombiaDateTime(DateTimeOffset.UtcNow);
 
         public static string NowColombiaDate() => ToColombiaDate(DateTimeOffset.UtcNow);

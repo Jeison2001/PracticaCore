@@ -21,11 +21,13 @@ namespace Domain.Common.Notifications
         public int StudentObservationsBusinessDays { get; set; } = 15;
         public int DefenseReminderHours { get; set; } = 48;
         public bool WarnOnLastAllowedPeriod { get; set; } = true;
+        public DateTimeOffset? LastRunAtUtc { get; set; }
         public string? LastRunAtColombia { get; set; }
         public int? LastRunEvaluatedCount { get; set; }
         public int? LastRunTriggeredCount { get; set; }
         public int? LastRunSkippedCount { get; set; }
         public int? LastRunFailedCount { get; set; }
+        public DateTimeOffset? UpdatedAtUtc { get; set; }
         public string? UpdatedAtColombia { get; set; }
     }
 
@@ -110,6 +112,7 @@ namespace Domain.Common.Notifications
     public class SlaAlertDispatchLogItemDto
     {
         public int Id { get; set; }
+        public DateTimeOffset CreatedAtUtc { get; set; }
         public string CreatedAtColombia { get; set; } = string.Empty;
         public int IdInscriptionModality { get; set; }
         public string ModalityName { get; set; } = string.Empty;

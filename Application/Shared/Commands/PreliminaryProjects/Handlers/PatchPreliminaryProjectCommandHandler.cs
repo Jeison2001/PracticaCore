@@ -144,7 +144,8 @@ namespace Application.Shared.Commands.PreliminaryProjects.Handlers
                 evaluationTypeCode: EvaluationTypeCodes.PreliminaryProject,
                 newObservations: request.Dto.Observations,
                 previousObservations: originalObservations,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                effectiveStateStageId: entity.IdStateStage);
 
             await _repository.UpdatePartialAsync(entity, updatedProperties.ToArray());
             await _unitOfWork.CommitAsync(cancellationToken);

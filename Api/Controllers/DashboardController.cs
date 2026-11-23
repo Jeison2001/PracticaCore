@@ -85,8 +85,8 @@ namespace Api.Controllers
                     Csv(r.Program),
                     Csv(r.Faculty),
                     Csv(r.Students),
-                    Csv(r.CreatedAt),
-                    Csv(r.ApprovalDate),
+                    Csv(DashboardTimeHelper.FormatColombiaFromIsoOrRaw(r.CreatedAt, includeTime: true)),
+                    Csv(DashboardTimeHelper.FormatColombiaFromIsoOrRaw(r.ApprovalDate, includeTime: false)),
                     Csv(r.CurrentPhase),
                     Csv(r.PhaseState),
                     Csv(r.ModalityDetail),
@@ -97,7 +97,7 @@ namespace Api.Controllers
                     Csv(r.Title),
                     Csv(r.ResearchLine),
                     Csv(r.ResearchSubLine),
-                    Csv(r.LastActivityAt),
+                    Csv(DashboardTimeHelper.FormatColombiaFromIsoOrRaw(r.LastActivityAt, includeTime: true)),
                     Csv(r.DaysElapsed.ToString())));
             }
 
@@ -119,6 +119,7 @@ namespace Api.Controllers
         }
 
         /// <summary>Ejecuta bajo demanda el motor institucional de alertas SLA y recordatorios de vencimiento (idempotente).</summary>
+        [RequirePermission(PermissionCodes.Configuraciones.N3CFNOA)]
         [HttpPost("run-sla-alerts")]
         public async Task<IActionResult> RunSlaAlerts([FromServices] ISlaDeadlineAlertService slaAlertService)
         {

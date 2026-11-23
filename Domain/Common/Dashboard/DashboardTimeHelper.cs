@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Domain.Common.Dashboard
 {
@@ -9,6 +10,48 @@ namespace Domain.Common.Dashboard
     public static class DashboardTimeHelper
     {
         public static readonly TimeZoneInfo ColombiaTimeZone = ResolveColombiaTimeZone();
+        private static readonly Regex ExplicitOffsetRegex = new(@"(?:[Zz]|[+-]\d{2}:?\d{2})$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Normaliza una fecha calendario opcional: si llega a medianoche UTC exacta (00:00:00Z),
+        /// la ajusta a mediodía UTC (12:00:00Z) del mismo día para evitar desfases de ±1 día al convertir a hora Colombia.
+        /// </summary>
+        public static DateTimeOffset? NormalizeCalendarDateUtc(DateTimeOffset? value)
+        {
+            if (!value.HasValue)
+                return null;
+
+            var utc = value.Value.ToUniversalTime();
+            if (utc.TimeOfDay == TimeSpan.Zero)
+                return new DateTimeOffset(utc.Year, utc.Month, utc.Day, 12, 0, 0, TimeSpan.Zero);
+
+            return utc;
+        }
+
+        public static string FormatIsoUtc(DateTimeOffset value) =>
+            value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'", CultureInfo.InvariantCulture);
+
+        public static string FormatIsoUtc(DateTimeOffset? value) =>
+            value.HasValue ? FormatIsoUtc(value.Value) : "";
+
+        /// <summary>
+        /// Convierte una cadena ISO-8601 con offset explícito (Z o ±HH:mm) a texto en hora Colombia
+        /// ("yyyy-MM-dd HH:mm" o "yyyy-MM-dd"), respetando intactas las cadenas que ya vienen en formato plano.
+        /// </summary>
+        public static string FormatColombiaFromIsoOrRaw(string? value, bool includeTime)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            var trimmed = value.Trim();
+            if (ExplicitOffsetRegex.IsMatch(trimmed)
+                && DateTimeOffset.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto))
+            {
+                return includeTime ? FormatDateTime(dto) : FormatDate(dto);
+            }
+
+            return trimmed;
+        }
 
         /// <summary>
         /// Convierte la fecha calendario recibida al inicio del día (00:00:00) en hora Colombia, expresado en UTC.

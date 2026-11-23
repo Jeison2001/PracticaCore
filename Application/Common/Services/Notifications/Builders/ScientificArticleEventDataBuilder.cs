@@ -62,7 +62,7 @@ namespace Application.Common.Services.Notifications.Builders
                 data["JournalName"] = entity.JournalName ?? "-";
                 data["ISSN"] = entity.ISSN ?? "-";
                 data["JournalCategory"] = entity.JournalCategory ?? "-";
-                data["AcceptanceDate"] = NotificationFormattingHelper.ToColombiaDate(entity.AcceptanceDate, "-");
+                data["AcceptanceDate"] = NotificationFormattingHelper.ToColombiaCalendarDate(entity.AcceptanceDate, "-");
                 return data;
             }
             catch (Exception ex) { _logger.LogError(ex, "Error building ScientificArticle event data"); return []; }

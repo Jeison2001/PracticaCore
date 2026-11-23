@@ -364,7 +364,8 @@ namespace Tests.UnitTests.Infrastructure.Repositories
 
             rows.Should().HaveCount(1);
             rows[0].InscriptionId.Should().Be(20);
-            rows[0].CreatedAt.Should().Be("2026-03-15 23:30");
+            rows[0].CreatedAt.Should().Be("2026-03-16T04:30:00Z");
+            DashboardTimeHelper.FormatColombiaFromIsoOrRaw(rows[0].CreatedAt, includeTime: true).Should().Be("2026-03-15 23:30");
         }
 
         [Fact]
@@ -861,6 +862,295 @@ namespace Tests.UnitTests.Infrastructure.Repositories
             alerts.TotalEvaluationSlaBreachCount.Should().Be(1);
             var stale = alerts.StaleItems.Should().ContainSingle(s => s.InscriptionId == 95).Subject;
             stale.SlaBreachAcuerdo015.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ReworkAndObservationEvaluations_ExcludeInscriptionDecisions_AndIncludeStageAndLegacyObservations()
+        {
+            using var ctx = CreateInMemoryContext();
+            SeedCatalog(ctx);
+            var now = DateTimeOffset.UtcNow;
+
+            ctx.Set<InscriptionModality>().AddRange(
+                new InscriptionModality
+                {
+                    Id = 201,
+                    IdModality = 1,
+                    IdStateInscription = 2, // APROBADO
+                    IdAcademicPeriod = 5,
+                    IdStageModality = 2,
+                    CreatedAt = now.AddDays(-10),
+                    StatusRegister = true
+                },
+                new InscriptionModality
+                {
+                    Id = 202,
+                    IdModality = 1,
+                    IdStateInscription = 1, // PENDIENTE
+                    IdAcademicPeriod = 5,
+                    IdStageModality = 1,
+                    CreatedAt = now.AddDays(-11),
+                    StatusRegister = true
+                });
+            ctx.Set<Proposal>().AddRange(
+                new Proposal
+                {
+                    Id = 201,
+                    Title = "Reprocesos C-02",
+                    IdResearchLine = 1,
+                    IdResearchSubLine = 1,
+                    IdStateStage = 1,
+                    CreatedAt = now.AddDays(-10),
+                    StatusRegister = true
+                },
+                new Proposal
+                {
+                    Id = 202,
+                    Title = "Legacy Pendiente C-02",
+                    IdResearchLine = 1,
+                    IdResearchSubLine = 1,
+                    IdStateStage = 2,
+                    CreatedAt = now.AddDays(-11),
+                    StatusRegister = true
+                });
+            ctx.Set<PreliminaryProject>().Add(new PreliminaryProject
+            {
+                Id = 201,
+                IdStateStage = 4, // AP_CON_OBSERVACIONES
+                CreatedAt = now.AddDays(-5),
+                StatusRegister = true
+            });
+
+            ctx.Set<Evaluation>().AddRange(
+                new Evaluation
+                {
+                    Id = 1,
+                    EntityType = nameof(PreliminaryProject),
+                    EntityId = 201,
+                    IdEvaluationType = 1,
+                    IdEvaluator = 10,
+                    Result = global::Domain.Constants.StateStageCodes.ApConObservaciones,
+                    Observations = "Corregir metodología",
+                    CreatedAt = now.AddDays(-4),
+                    StatusRegister = true
+                },
+                new Evaluation
+                {
+                    Id = 2,
+                    EntityType = nameof(Proposal),
+                    EntityId = 201,
+                    IdEvaluationType = 1,
+                    IdEvaluator = 10,
+                    Result = global::Domain.Constants.StateStageCodes.PropNoPertinente,
+                    Observations = "Propuesta no pertinente",
+                    CreatedAt = now.AddDays(-8),
+                    StatusRegister = true
+                },
+                new Evaluation
+                {
+                    Id = 3,
+                    EntityType = nameof(InscriptionModality),
+                    EntityId = 201,
+                    IdEvaluationType = 1,
+                    IdEvaluator = 10,
+                    Result = global::Domain.Constants.StateInscriptionCodes.Aprobado,
+                    Observations = "Inscripción aprobada con comentarios",
+                    CreatedAt = now.AddDays(-9),
+                    StatusRegister = true
+                },
+                new Evaluation
+                {
+                    Id = 4,
+                    EntityType = nameof(InscriptionModality),
+                    EntityId = 201,
+                    IdEvaluationType = 1,
+                    IdEvaluator = 10,
+                    Result = global::Domain.Constants.StateInscriptionCodes.Rechazado,
+                    Observations = "Decisión previa",
+                    CreatedAt = now.AddDays(-9),
+                    StatusRegister = true
+                },
+                new Evaluation
+                {
+                    Id = 5,
+                    EntityType = nameof(InscriptionModality),
+                    EntityId = 202,
+                    IdEvaluationType = 1,
+                    IdEvaluator = 10,
+                    Result = null,
+                    Observations = "Observación legacy sin Result en PENDIENTE",
+                    CreatedAt = now.AddDays(-10),
+                    StatusRegister = true
+                },
+                new Evaluation
+                {
+                    Id = 6,
+                    EntityType = nameof(InscriptionModality),
+                    EntityId = 201,
+                    IdEvaluationType = 1,
+                    IdEvaluator = 10,
+                    Result = null,
+                    Observations = "Observación legacy en APROBADO excluida",
+                    CreatedAt = now.AddDays(-10),
+                    StatusRegister = true
+                });
+
+            await ctx.SaveChangesAsync();
+
+            var repo = new DashboardRepository(ctx);
+            var alerts = await repo.GetOperationalAlertsAsync(new DashboardFilter());
+
+            var pgRework = alerts.ReworkByModality.Should().ContainSingle(r => r.ModalityCode == "PROYECTO_GRADO").Subject;
+            pgRework.ObservationEvaluations.Should().Be(3);
+        }
+
+        [Fact]
+        public async Task GroupInscriptions_UnconfirmedTeachers_And_AccentInsensitiveSearch_BehaveAccurately()
+        {
+            using var ctx = CreateInMemoryContext();
+            SeedCatalog(ctx);
+            var now = DateTimeOffset.UtcNow;
+
+            ctx.Set<InscriptionModality>().Add(new InscriptionModality
+            {
+                Id = 210,
+                IdModality = 1,
+                IdStateInscription = 2,
+                IdAcademicPeriod = 5,
+                IdStageModality = 2,
+                CreatedAt = now.AddDays(-40),
+                UpdatedAt = now.AddDays(-40),
+                StatusRegister = true
+            });
+            ctx.Set<Proposal>().Add(new Proposal
+            {
+                Id = 210,
+                Title = "Diseño de Análisis Móvil en Ingeniería",
+                IdResearchLine = 1,
+                IdResearchSubLine = 1,
+                IdStateStage = 1,
+                CreatedAt = now.AddDays(-40),
+                StatusRegister = true
+            });
+            ctx.Set<PreliminaryProject>().Add(new PreliminaryProject
+            {
+                Id = 210,
+                IdStateStage = 3,
+                CreatedAt = now.AddDays(-35),
+                UpdatedAt = now.AddDays(-35),
+                StatusRegister = true
+            });
+
+            // Dos estudiantes confirmados del mismo programa y facultad en una inscripción grupal
+            ctx.Set<UserInscriptionModality>().AddRange(
+                new UserInscriptionModality { Id = 2101, IdInscriptionModality = 210, IdUser = 1, IsConfirmed = true, StatusRegister = true },
+                new UserInscriptionModality { Id = 2102, IdInscriptionModality = 210, IdUser = 2, IsConfirmed = true, StatusRegister = true });
+
+            // Docente 10 confirmado, Docente 11 SIN confirmar (IsConfirmed = false)
+            ctx.Set<TeachingAssignment>().AddRange(
+                new TeachingAssignment { Id = 2101, IdInscriptionModality = 210, IdTeacher = 10, IdTypeTeachingAssignment = 1, IsConfirmed = true, StatusRegister = true },
+                new TeachingAssignment { Id = 2102, IdInscriptionModality = 210, IdTeacher = 11, IdTypeTeachingAssignment = 2, IsConfirmed = false, StatusRegister = true });
+
+            await ctx.SaveChangesAsync();
+
+            var repo = new DashboardRepository(ctx);
+            var filter = new DashboardFilter { StaleDaysThreshold = 20 };
+
+            var summary = await repo.GetSummaryAsync(filter);
+            summary.TotalInscriptions.Should().Be(1);
+            summary.ByProgram.Should().ContainSingle(p => p.Label == "Ingeniería de Sistemas" && p.Count == 1);
+            summary.ByFaculty.Should().ContainSingle(f => f.Label == "Ingenierías y Tecnológicas" && f.Count == 1);
+            summary.ByTeacherLoad.Should().ContainSingle(t => t.Label == "Carlos Ríos" && t.Count == 1);
+            summary.ByTeacherLoad.Should().NotContain(t => t.Label == "María Díaz");
+            summary.TeacherLoadDetailed.Should().ContainSingle(t => t.TeacherId == 10);
+
+            var rows = await repo.GetExportRowsAsync(filter);
+            rows.Should().ContainSingle();
+            rows[0].Teachers.Should().Contain("Carlos Ríos").And.NotContain("María Díaz");
+
+            var alerts = await repo.GetOperationalAlertsAsync(filter);
+            var stale = alerts.StaleItems.Should().ContainSingle(s => s.InscriptionId == 210).Subject;
+            stale.ResponsibleParty.Should().NotBeNullOrWhiteSpace();
+
+            // Búsqueda sin tildes encuentra estudiante ("Luis Martínez") y título ("Diseño de Análisis Móvil")
+            var byStudent = await repo.GetPagedRecordsAsync(new DashboardFilter { Search = "Luis Martinez" });
+            byStudent.TotalCount.Should().Be(1);
+
+            var byTitle = await repo.GetPagedRecordsAsync(new DashboardFilter { Search = "Diseno de Analisis Movil" });
+            byTitle.TotalCount.Should().Be(1);
+
+            // Docente no confirmado no debe aparecer ni por búsqueda
+            var byUnconfirmedTeacher = await repo.GetPagedRecordsAsync(new DashboardFilter { Search = "Maria Diaz" });
+            byUnconfirmedTeacher.TotalCount.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task SlaAlertRepository_GetDispatchLogsAsync_SupportsAccentInsensitiveSearch()
+        {
+            using var ctx = CreateInMemoryContext();
+            SeedCatalog(ctx);
+            var now = DateTimeOffset.UtcNow;
+
+            ctx.Set<InscriptionModality>().Add(new InscriptionModality
+            {
+                Id = 220, IdModality = 1, IdStateInscription = 2, IdAcademicPeriod = 5, IdStageModality = 2,
+                CreatedAt = now.AddDays(-5), StatusRegister = true
+            });
+            ctx.Set<EmailAlertDispatchLog>().AddRange(
+                new EmailAlertDispatchLog
+                {
+                    Id = 1,
+                    IdInscriptionModality = 220,
+                    AlertCode = "SLA_EVALUATOR_OVERDUE",
+                    EventName = "SLA_EVALUATOR_OVERDUE",
+                    StageStateSnapshot = "AP_EN_EVALUACION",
+                    DeduplicationKey = "220|SLA_EVALUATOR_OVERDUE|AP_EN_EVALUACION",
+                    RecipientsSummary = "María López <maría.lópez@unicesar.edu.co>",
+                    BusinessDaysElapsed = 26,
+                    CreatedAt = now.AddHours(-2),
+                    StatusRegister = true
+                },
+                new EmailAlertDispatchLog
+                {
+                    Id = 2,
+                    IdInscriptionModality = 220,
+                    AlertCode = "SLA_COMMITTEE_OVERDUE",
+                    EventName = "SLA_COMMITTEE_OVERDUE",
+                    StageStateSnapshot = "PROP_RADICADA",
+                    DeduplicationKey = "220|SLA_COMMITTEE_OVERDUE|PROP_RADICADA",
+                    RecipientsSummary = "comite@unicesar.edu.co",
+                    BusinessDaysElapsed = 6,
+                    CreatedAt = now.AddHours(-1),
+                    StatusRegister = true
+                });
+            await ctx.SaveChangesAsync();
+
+            var slaRepo = new SlaAlertRepository(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<SlaAlertRepository>.Instance);
+            var page = await slaRepo.GetDispatchLogsAsync(1, 20, null, "Maria Lopez");
+
+            page.TotalCount.Should().Be(1);
+            page.Items.Should().ContainSingle(l => l.RecipientsSummary == "María López <maría.lópez@unicesar.edu.co>");
+            page.Items[0].CreatedAtUtc.Should().BeCloseTo(now.AddHours(-2), TimeSpan.FromSeconds(1));
+
+            var byEmail = await slaRepo.GetDispatchLogsAsync(1, 20, null, "maria.lopez");
+            byEmail.TotalCount.Should().Be(1);
+        }
+
+        [Fact]
+        public void Npgsql_SqlTranslation_UnaccentAndLike_CompileToPostgresSql()
+        {
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseNpgsql("Host=127.0.0.1;Database=pegi_translation_check;Username=test;Password=test")
+                .Options;
+
+            using var ctx = new AppDbContext(options);
+            var unaccentSql = ctx.Set<User>()
+                .AsNoTracking()
+                .Where(u => EF.Functions.ILike(EF.Functions.Unaccent(u.FirstName), "%jose%"))
+                .Select(u => u.Id)
+                .ToQueryString();
+
+            unaccentSql.Should().ContainEquivalentOf("unaccent").And.ContainEquivalentOf("ILIKE");
         }
     }
 }
