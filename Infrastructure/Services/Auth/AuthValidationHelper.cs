@@ -2,21 +2,24 @@ using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Services.Auth
 {
-    internal static class AuthValidationHelper
+    public static class AuthValidationHelper
     {
         private static readonly string[] DefaultAllowedDomains = ["unicesar.edu.co"];
 
-        public static string[] GetAllowedDomains(IConfiguration? configuration)
+        public static string[] GetAllowedDomains(IConfiguration? configuration) =>
+            ResolveAllowedDomains(configuration, "Authentication:AllowedDomains", "Authentication:Register:AllowedDomains");
+
+        public static string[] GetAllowedRegisterDomains(IConfiguration? configuration) =>
+            ResolveAllowedDomains(configuration, "Authentication:Register:AllowedDomains", "Authentication:AllowedDomains");
+
+        private static string[] ResolveAllowedDomains(IConfiguration? configuration, string primaryKey, string fallbackKey)
         {
-            var globalDomains = ReadDomainsFromSection(configuration, "Authentication:AllowedDomains");
-            if (globalDomains.Length > 0)
-                return globalDomains;
+            var primary = ReadDomainsFromSection(configuration, primaryKey);
+            if (primary.Length > 0)
+                return primary;
 
-            var registerDomains = ReadDomainsFromSection(configuration, "Authentication:Register:AllowedDomains");
-            if (registerDomains.Length > 0)
-                return registerDomains;
-
-            return DefaultAllowedDomains;
+            var fallback = ReadDomainsFromSection(configuration, fallbackKey);
+            return fallback.Length > 0 ? fallback : DefaultAllowedDomains;
         }
 
         private static string[] ReadDomainsFromSection(IConfiguration? configuration, string sectionPath)
@@ -25,28 +28,23 @@ namespace Infrastructure.Services.Auth
                 return Array.Empty<string>();
 
             var section = configuration.GetSection(sectionPath);
-            var childrenValues = section.GetChildren()
-                .SelectMany(c => (c.Value ?? string.Empty).Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                .Select(v => v.TrimStart('@'))
+            if (!string.IsNullOrWhiteSpace(section.Value))
+            {
+                var flatValues = NormalizeDomainEntries([section.Value]);
+                if (flatValues.Length > 0)
+                    return flatValues;
+            }
+
+            return NormalizeDomainEntries(section.GetChildren().Select(c => c.Value));
+        }
+
+        private static string[] NormalizeDomainEntries(IEnumerable<string?> entries) =>
+            entries
+                .SelectMany(entry => (entry ?? string.Empty).Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Select(v => v.Trim().TrimStart('@').ToLowerInvariant())
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-
-            if (childrenValues.Length > 0)
-                return childrenValues;
-
-            if (!string.IsNullOrWhiteSpace(section.Value))
-            {
-                return section.Value
-                    .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(v => v.TrimStart('@'))
-                    .Where(v => !string.IsNullOrWhiteSpace(v))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-            }
-
-            return Array.Empty<string>();
-        }
 
         public static void EnsureEmailDomainAllowed(string? email, IEnumerable<string>? allowedDomains)
         {

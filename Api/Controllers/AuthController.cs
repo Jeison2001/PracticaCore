@@ -3,6 +3,7 @@ using Application.Shared.DTOs.Auth;
 using AutoMapper;
 using Domain.Interfaces.Repositories;
 using Domain.Interfaces.Services.Auth;
+using Infrastructure.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -167,8 +168,8 @@ namespace Api.Controllers
                 return BadRequest(new ApiResponse<object> { Success = false, Errors = new List<string> { "El formato del email no es válido." } });
             }
 
-            var allowedDomains = GetAllowedRegisterDomains();
-            if (allowedDomains.Count > 0
+            var allowedDomains = AuthValidationHelper.GetAllowedRegisterDomains(_configuration);
+            if (allowedDomains.Length > 0
                 && !allowedDomains.Any(d => string.Equals(emailDomain, d, StringComparison.OrdinalIgnoreCase)))
             {
                 return BadRequest(new ApiResponse<object>
@@ -406,42 +407,6 @@ namespace Api.Controllers
             ClearAuthCookies();
 
             return Ok(new ApiResponse<object> { Success = true, Data = "Todas las sesiones han sido cerradas correctamente." });
-        }
-
-        private List<string> GetAllowedRegisterDomains()
-        {
-            var registerDomains = ReadConfiguredDomains("Authentication:Register:AllowedDomains");
-            if (registerDomains.Count > 0)
-                return registerDomains;
-
-            var globalDomains = ReadConfiguredDomains("Authentication:AllowedDomains");
-            if (globalDomains.Count > 0)
-                return globalDomains;
-
-            return new List<string> { "unicesar.edu.co" };
-        }
-
-        private List<string> ReadConfiguredDomains(string configKey)
-        {
-            var rawValue = _configuration[configKey];
-
-            IEnumerable<string> rawEntries;
-            if (rawValue != null)
-            {
-                rawEntries = rawValue.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-            }
-            else
-            {
-                var configuredArray = _configuration.GetSection(configKey).Get<string[]>() ?? Array.Empty<string>();
-                rawEntries = configuredArray
-                    .SelectMany(entry => (entry ?? string.Empty).Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries));
-            }
-
-            return rawEntries
-                .Select(d => d.Trim().TrimStart('@').ToLowerInvariant())
-                .Where(d => !string.IsNullOrWhiteSpace(d))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
         }
 
         private static CookieOptions BuildBaseAuthCookieOptions() => new()

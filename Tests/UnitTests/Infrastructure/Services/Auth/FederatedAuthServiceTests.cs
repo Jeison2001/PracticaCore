@@ -341,5 +341,72 @@ namespace Tests.UnitTests.Infrastructure.Services.Auth
             Assert.Equal("El dominio de correo no está autorizado para acceder al sistema.", gEx.Message);
             Assert.Equal("El dominio de correo no está autorizado para acceder al sistema.", aEx.Message);
         }
+
+        [Fact]
+        public async Task AuthenticateWithTokenAsync_WhenCsvEnvVarOverridesJsonArray_UsesCsvDomains()
+        {
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Authentication:AllowedDomains:0"] = "unicesar.edu.co"
+                })
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Authentication:AllowedDomains"] = "unicesar.edu.co,gmail.com"
+                })
+                .Build();
+
+            Assert.Equal(new[] { "unicesar.edu.co", "gmail.com" }, AuthValidationHelper.GetAllowedDomains(config));
+            Assert.Equal(new[] { "unicesar.edu.co", "gmail.com" }, AuthValidationHelper.GetAllowedRegisterDomains(config));
+
+            _tokenValidatorMock.Setup(x => x.ValidateAsync("csv_gmail"))
+                .ReturnsAsync(new TokenPayload { Email = "doc@gmail.com", GivenName = "Doc", FamilyName = "Gmail" });
+            _userInfoRepositoryMock.Setup(x => x.FindUserByEmailAsync("doc@gmail.com"))
+                .ReturnsAsync(new User { Id = 15, Email = "doc@gmail.com", FirstName = "Doc", LastName = "Gmail", StatusRegister = true });
+            _userInfoRepositoryMock.Setup(x => x.GetUserLoginDataAsync(15)).ReturnsAsync(new UserLoginData());
+            _jwtServiceMock.Setup(x => x.GenerateTokenWithClaims(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<List<string>>(),
+                It.IsAny<List<string>>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>())).Returns("csv_jwt");
+
+            var service = new FederatedAuthService(
+                _jwtServiceMock.Object,
+                _userInfoRepositoryMock.Object,
+                new[] { _tokenValidatorMock.Object },
+                config);
+
+            var result = await service.AuthenticateWithTokenAsync("csv_gmail", "google");
+            Assert.Equal("csv_jwt", result.Token);
+        }
+
+        [Fact]
+        public void GetAllowedDomainsAndRegisterDomains_WhenBlankFlatKeyCoexistsWithIndexedArray_UsesIndexedArrayAndRegisterOverride()
+        {
+            var configWithBlankFlat = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Authentication:AllowedDomains"] = "   ",
+                    ["Authentication:AllowedDomains:0"] = "UniCesar.EDU.CO"
+                })
+                .Build();
+
+            Assert.Equal(new[] { "unicesar.edu.co" }, AuthValidationHelper.GetAllowedDomains(configWithBlankFlat));
+            Assert.Equal(new[] { "unicesar.edu.co" }, AuthValidationHelper.GetAllowedRegisterDomains(configWithBlankFlat));
+
+            var configWithRegisterOverride = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Authentication:AllowedDomains:0"] = "unicesar.edu.co",
+                    ["Authentication:Register:AllowedDomains"] = "estudiantes.unicesar.edu.co"
+                })
+                .Build();
+
+            Assert.Equal(new[] { "unicesar.edu.co" }, AuthValidationHelper.GetAllowedDomains(configWithRegisterOverride));
+            Assert.Equal(new[] { "estudiantes.unicesar.edu.co" }, AuthValidationHelper.GetAllowedRegisterDomains(configWithRegisterOverride));
+        }
     }
 }
